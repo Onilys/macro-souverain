@@ -24,6 +24,7 @@
 //! append - see [`AgentSessionRealtime`].
 
 mod first_output;
+mod presentation;
 #[cfg(test)]
 mod test;
 
@@ -33,7 +34,7 @@ use std::sync::Arc;
 
 use agent_client_protocol::RawJsonRpcMessage;
 use agent_client_protocol::schema::v1::{
-    RequestId, Response, SessionId, SetSessionConfigOptionResponse,
+    McpServer, RequestId, Response, SessionId, SetSessionConfigOptionResponse,
 };
 use agent_fold::domain::lifecycle::LifecycleFold;
 use agent_fold::domain::model::{Author, FoldedMessage, MessagePart, TurnState};
@@ -73,7 +74,7 @@ use super::ports::{
     Appended, NoInheritedSessionAccess, NoOpAgentSessionNameGenerator, NoOpToolCatalog,
     SessionOwnership, SessionToolCatalog, SessionTurnObserver, SessionViewAccess,
 };
-use super::session::actors::{SessionActor, SessionCommand, Stepped};
+use super::session::actors::{ActorInput, SessionActor, SessionCommand, SessionMessage, Stepped};
 use super::session::{CloseReason, Input};
 use crate::domain::events::{AgentSessionLifecycleEvent, SessionRenamedMetadata};
 
@@ -96,7 +97,11 @@ const HANDSHAKE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30
 const HANDSHAKE_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(50);
 
 struct ActiveSession {
-    commands: Option<mpsc::Sender<SessionCommand>>,
+    commands: Option<mpsc::Sender<SessionMessage>>,
+    /// The MCP servers last requested for the live connection: the
+    /// attachment's, until [`AgentSessionService::replace_mcp_servers`]. An
+    /// agent that cannot resume, or refused, still has its previous list.
+    mcp_servers: Vec<McpServer>,
     stopped: watch::Receiver<bool>,
     marker: Arc<()>,
     deleting: bool,
@@ -146,6 +151,32 @@ impl Drop for AttachReservation {
 /// Durable and live use cases for agent sessions.
 #[cfg_attr(feature = "test-utils", mockall::automock)]
 pub trait AgentSessionService: Send + Sync + 'static {
+    /// Present a durable tool card as the owner without occupying a model turn.
+    fn present_tool(
+        &self,
+        id: AgentSessionId,
+        actor: MacroUserIdStr<'static>,
+        presentation: super::model::SessionToolPresentation,
+    ) -> impl Future<Output = Result<()>> + Send {
+        async move {
+            let _ = (actor, presentation);
+            Err(AgentSessionError::Disconnected(id))
+        }
+    }
+
+    /// Whether matching presentation frames are durably stored, not merely forwarded.
+    fn tool_presentation_persisted(
+        &self,
+        id: AgentSessionId,
+        actor: MacroUserIdStr<'static>,
+        presentation: super::model::SessionToolPresentation,
+    ) -> impl Future<Output = Result<bool>> + Send {
+        async move {
+            let _ = (actor, presentation);
+            Err(AgentSessionError::Disconnected(id))
+        }
+    }
+
     /// Persist a session before any transport is provisioned or attached.
     fn create_session(
         &self,
@@ -270,6 +301,22 @@ pub trait AgentSessionService: Send + Sync + 'static {
         user_id: Option<MacroUserIdStr<'static>>,
         action: AgentAction,
         action_id: AgentActionId,
+    ) -> impl Future<Output = Result<()>> + Send;
+
+    /// The MCP servers last requested for the session's live connection on
+    /// this instance; `None` when no connection is attached here. An agent
+    /// that could not take a requested list keeps its previous one until its
+    /// next attach.
+    fn attached_mcp_servers(&self, id: AgentSessionId) -> Option<Vec<McpServer>>;
+
+    /// Hand the session's agent `servers` from now on. The live connection
+    /// re-resumes its ACP session with them before the next prompt reaches
+    /// the agent, if the agent can resume; an agent that cannot keeps the
+    /// servers it has until its next attach.
+    fn replace_mcp_servers(
+        &self,
+        id: AgentSessionId,
+        servers: Vec<McpServer>,
     ) -> impl Future<Output = Result<()>> + Send;
 
     /// The session an incoming channel context routes to, if any.
@@ -495,6 +542,7 @@ impl<R, Folds, Rt, Namer> AgentSessionServiceImpl<R, Folds, Rt, Namer> {
             Entry::Vacant(entry) => {
                 entry.insert(ActiveSession {
                     commands: None,
+                    mcp_servers: Vec::new(),
                     stopped,
                     marker: marker.clone(),
                     deleting: false,
@@ -540,6 +588,7 @@ impl<R, Folds, Rt, Namer> AgentSessionServiceImpl<R, Folds, Rt, Namer> {
             activate(claim)?;
         }
         active.commands = Some(commands.clone());
+        active.mcp_servers = attachment.mcp_servers.clone();
         active.transport_closed = attachment.closed.clone();
         drop(active);
         let (marker, stopped_tx) = reservation.commit();
@@ -611,14 +660,14 @@ impl<R, Folds, Rt, Namer> AgentSessionServiceImpl<R, Folds, Rt, Namer> {
             otel.status_description = tracing::field::Empty,
         );
         if commands
-            .send(SessionCommand {
+            .send(SessionMessage::Action(SessionCommand {
                 user_id,
                 action,
                 action_id,
                 completed,
                 span,
                 enqueued_at: tokio::time::Instant::now(),
-            })
+            }))
             .await
             .is_err()
         {
@@ -699,6 +748,7 @@ impl<R, Folds, Rt, Namer> AgentSessionServiceImpl<R, Folds, Rt, Namer> {
                 let marker = Arc::new(());
                 entry.insert(ActiveSession {
                     commands: None,
+                    mcp_servers: Vec::new(),
                     stopped: stopped.clone(),
                     marker: marker.clone(),
                     deleting,
@@ -724,7 +774,38 @@ where
     Rt: AgentSessionRealtime + Clone + Send + Sync + 'static,
     Namer: AgentSessionNameGenerator + Clone,
 {
+    async fn present_tool(
+        &self,
+        id: AgentSessionId,
+        actor: MacroUserIdStr<'static>,
+        presentation: super::model::SessionToolPresentation,
+    ) -> Result<()> {
+        self.present_to_actor(id, actor, presentation).await
+    }
+
+    async fn tool_presentation_persisted(
+        &self,
+        id: AgentSessionId,
+        actor: MacroUserIdStr<'static>,
+        presentation: super::model::SessionToolPresentation,
+    ) -> Result<bool> {
+        let session = self.repo.get(id).await?;
+        if !session.owner_id.is_user(&actor) {
+            return Err(AgentSessionError::Forbidden);
+        }
+        if session.is_archived {
+            return Err(AgentSessionError::Archived(id));
+        }
+        let entries = AgentSessionLogRepo::list_by_session(&self.repo, id).await?;
+        let (started, completed) = presentation::presentation_progress(entries, &presentation)?;
+        Ok(started && completed)
+    }
+
     async fn create_session(&self, params: CreateAgentSessionParams) -> Result<AgentSession> {
+        params.purpose.for_creation(
+            false,
+            params.thread_id.is_some() || params.originating_message_id.is_some(),
+        )?;
         AgentSessionRepo::create(&self.repo, params).await
     }
 
@@ -759,6 +840,12 @@ where
         is_archived: bool,
     ) -> Result<()> {
         let id = owner_access_session_id(access, "archive")?;
+        // Every message in a conversation's channel goes to its current
+        // session, and an archived session takes none. Starting fresh is how
+        // a conversation retires one; the sessions it left behind archive.
+        if is_archived && self.repo.is_current_conversation_session(id).await? {
+            return Err(AgentSessionError::AnswersConversation(id));
+        }
         self.repo.set_archived(id, is_archived).await?;
         self.realtime
             .publish_updated(id)
@@ -923,6 +1010,7 @@ where
                 content: Message::ToServer(ToServerMessage::Event {
                     event: SystemEvent::Disconnected,
                 }),
+                logged_at: None,
             }),
         )
         .await
@@ -945,6 +1033,7 @@ where
                 agent_session_id: id,
                 user_id: None,
                 content: Message::ToServer(message),
+                logged_at: None,
             })
             .await?;
             logs.flush().await
@@ -1023,6 +1112,32 @@ where
             );
         }
         Ok(())
+    }
+
+    fn attached_mcp_servers(&self, id: AgentSessionId) -> Option<Vec<McpServer>> {
+        self.active
+            .get(&id)
+            .filter(|active| active.commands.is_some())
+            .map(|active| active.mcp_servers.clone())
+    }
+
+    async fn replace_mcp_servers(&self, id: AgentSessionId, servers: Vec<McpServer>) -> Result<()> {
+        let commands = {
+            let mut active = self
+                .active
+                .get_mut(&id)
+                .ok_or(AgentSessionError::Disconnected(id))?;
+            let commands = active
+                .commands
+                .clone()
+                .ok_or(AgentSessionError::Disconnected(id))?;
+            active.mcp_servers = servers.clone();
+            commands
+        };
+        commands
+            .send(SessionMessage::ReplaceMcpServers(servers))
+            .await
+            .map_err(|_| AgentSessionError::Disconnected(id))
     }
 
     async fn session_bot(&self, id: BotId) -> Result<SessionBot> {
@@ -1454,6 +1569,15 @@ where
     R: AgentSessionRepo + AgentSessionLogRepo + Clone,
     Rt: AgentSessionRealtime + Send + Sync + 'static,
 {
+    async fn present_tool(
+        &mut self,
+        id: AgentSessionId,
+        acp_id: SessionId,
+        presentation: super::model::SessionToolPresentation,
+    ) -> Result<()> {
+        self.persist_presentation(id, acp_id, presentation).await
+    }
+
     async fn append_with_boundary(
         &mut self,
         log: AgentSessionLog,
@@ -1787,6 +1911,10 @@ where
         self.repo.set_archived(id, is_archived).await
     }
 
+    async fn is_current_conversation_session(&self, id: AgentSessionId) -> Result<bool> {
+        self.repo.is_current_conversation_session(id).await
+    }
+
     async fn set_name_if_default(&self, id: AgentSessionId, name: &str) -> Result<bool> {
         self.repo.set_name_if_default(id, name).await
     }
@@ -1941,10 +2069,10 @@ async fn run_session<Connector, Logs, Ownership>(
     let stop_reason = loop {
         let input = tokio::select! {
             biased;
-            () = cancellation.cancelled() => Input::Closed(CloseReason::Abandoned),
+            () = cancellation.cancelled() => ActorInput::Protocol(Input::Closed(CloseReason::Abandoned)),
             input = actor.next_input() => input,
         };
-        let stepped = actor.dispatch(input).await;
+        let stepped = actor.dispatch_input(input).await;
         if let Stepped::Stopped(reason) = stepped {
             break reason;
         }

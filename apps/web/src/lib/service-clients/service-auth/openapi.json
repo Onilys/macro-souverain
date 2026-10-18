@@ -2588,7 +2588,7 @@
     "/mobile-welcome-email": {
       "post": {
         "tags": ["mobile_welcome_email"],
-        "summary": "Enrolls a mobile lead in the Loops nurture sequence, which sends the welcome\nemail inviting them to register on desktop. No-ops if the address was already\nenrolled, and rejects blocked addresses.",
+        "summary": "Emails a mobile lead a link to continue onboarding on desktop and enrolls\nthem in the Loops welcome sequence. No-ops if the address was already\ncaptured, and rejects blocked addresses.",
         "operationId": "send_mobile_welcome_email",
         "requestBody": {
           "content": {
@@ -4982,6 +4982,55 @@
         }
       }
     },
+    "/user/stripe/trial_eligibility": {
+      "get": {
+        "tags": ["user::stripe::trial_eligibility"],
+        "summary": "Read the caller's eligibility; checkout revalidates before granting a trial.",
+        "operationId": "get_trial_eligibility",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrialEligibility"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/user/tutorial": {
       "patch": {
         "tags": ["user::patch_tutorial"],
@@ -6838,7 +6887,7 @@
         "properties": {
           "apiKey": {
             "type": "string",
-            "description": "A `crsr_…` Cursor API key."
+            "description": "A Cursor API key: `grok_…`, or `crsr_…` for older keys."
           }
         }
       },
@@ -7192,7 +7241,7 @@
           },
           "scheduled_seat_plans": {
             "type": ["object", "null"],
-            "description": "Provider-confirmed pending seat changes, keyed by member user ID.\nOnly available to paid-team admins and owners; empty means no pending changes.",
+            "description": "Provider-confirmed pending seat changes, keyed by member user ID.\nEmpty when no changes apply to this viewer; absent when the lookup fails.",
             "additionalProperties": {
               "$ref": "#/components/schemas/ScheduledSeatPlan"
             },
@@ -7224,6 +7273,21 @@
           "allow_non_admin_invites": {
             "type": "boolean",
             "description": "Whether non-admin members may invite users to the team after the\ntoggle."
+          }
+        }
+      },
+      "TrialEligibility": {
+        "type": "object",
+        "description": "Whether the authenticated customer can receive the introductory Pro trial.",
+        "required": ["eligible", "existingSubscription"],
+        "properties": {
+          "eligible": {
+            "type": "boolean",
+            "description": "Confirmed against the same subscription history used during checkout."
+          },
+          "existingSubscription": {
+            "type": "boolean",
+            "description": "An existing subscription requires management instead of a new checkout."
           }
         }
       },

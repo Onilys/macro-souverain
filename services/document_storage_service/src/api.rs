@@ -27,6 +27,7 @@ mod middleware;
 // Routes
 mod annotations;
 mod documents;
+mod folders_query;
 mod graphql_soup;
 mod health;
 mod history;
@@ -271,16 +272,24 @@ fn api_router(state: ApiContext) -> Router {
             reminders::inbound::axum_router::reminders_router(state.reminders_state.clone()),
         )
         .nest(
+            "/entities",
+            access_requests::inbound::axum_router::router(state.access_requests_state.clone()),
+        )
+        .nest(
             "/initiatives",
             initiative::inbound::axum_router::initiative_router(state.initiative_state.clone()),
         )
         .nest(
             "/databases",
-            databases::inbound::axum_router::databases_router(state.databases_state.clone()).merge(
-                databases::inbound::starter_router::starter_router(
+            databases::inbound::axum_router::databases_router(state.databases_state.clone())
+                .merge(databases::inbound::starter_router::starter_router(
                     state.database_starter_state.clone(),
+                ))
+                .merge(
+                    database_webhooks::inbound::axum_router::database_webhooks_router(
+                        state.database_webhooks_state.clone(),
+                    ),
                 ),
-            ),
         )
         .nest(
             "/forms",

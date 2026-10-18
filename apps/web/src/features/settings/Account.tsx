@@ -1,6 +1,7 @@
 import { useAnalytics } from '@app/lib/analytics/analytics-context';
 import type { AccountDeletionReason } from '@app/lib/analytics/app-events';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
+import { useHasPaidAccess } from '@core/auth';
 import { useLogout } from '@core/auth/logout';
 import { toast } from '@core/component/Toast/Toast';
 import { UserIcon } from '@core/component/UserIcon';
@@ -12,12 +13,12 @@ import {
   disableAutoUpdateUi,
   ENABLE_PROFILE_PICTURES,
   enableAutoUpdateUiOverride,
-  enableNotificationSettings,
 } from '@core/constant/featureFlags';
+import { useSettingsState } from '@core/constant/SettingsState';
 import { staticFileIdEndpoint } from '@core/constant/servers';
+import { useSettingsTabAvailable } from '@core/constant/settingsTabsConfig';
 import { useEmail, useUserId } from '@core/context/user';
 import { isNativeMobilePlatform } from '@core/mobile/isNativeMobilePlatform';
-import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import {
   type ProfilePictureItem,
   useProfilePictureUrl,
@@ -29,24 +30,22 @@ import {
   nativeUpdateDescription,
   useTauri,
 } from '@macro/tauri';
-import {
-  type SupportedNotificationSettings,
-  useNotificationSettings,
-} from '@notifications';
 import CheckIcon from '@phosphor/check.svg';
 import PencilIcon from '@phosphor/pencil-simple.svg';
 import SpinnerIcon from '@phosphor/spinner-gap.svg';
 import TrashIcon from '@phosphor/trash.svg';
+import WarningIcon from '@phosphor/warning.svg';
 import WarningCircleIcon from '@phosphor/warning-circle.svg';
 import SignOutIcon from '@phosphor-icons/core/regular/sign-out.svg?component-solid';
 import IconUpload from '@phosphor-icons/core/regular/upload-simple.svg?component-solid';
+import { useAiBillingSummaryQuery } from '@queries/auth';
 import {
   invalidateOwnUserName,
   useOwnUserName,
 } from '@queries/auth/user-name-self';
 import { authServiceClient } from '@service-auth/client';
 import { invoke } from '@tauri-apps/api/core';
-import { Button, Dialog, Dropdown, Panel, ToggleSwitch, Tooltip } from '@ui';
+import { Button, Dialog, Dropdown, HoldButton, Panel, Tooltip } from '@ui';
 import {
   createEffect,
   createMemo,
@@ -66,12 +65,16 @@ import {
   buildAccountDeletionFeedbackPayload,
   performAccountDeletion,
 } from './account-deletion-feedback';
+import { CurrentPlanCard } from './components/current-plan-card';
+import { resolvePlanTier } from './core/billing-state';
 import {
   SettingsCard,
   SettingsPage,
   SettingsRow,
   SettingsSection,
 } from './primitives';
+
+const DELETE_HOLD_MS = 5000;
 
 // 16 megabytes
 const MAX_PROFILE_PICTURE_SIZE = 16 * 1000 * 1000;
@@ -313,17 +316,36 @@ function ProfilePictureRow(props: { userId: string }) {
   );
 }
 
+function AccountPlanCard() {
+  const { openSettings } = useSettingsState();
+  const hasPaid = useHasPaidAccess();
+  const summary = useAiBillingSummaryQuery();
+  // Wait for the summary before falling back to the license, so a Max plan
+  // doesn't flash as Pro while it loads.
+  const tier = () =>
+    summary.isFetching && !summary.isSuccess
+      ? undefined
+      : resolvePlanTier(
+          summary.isSuccess ? summary.data.tier : undefined,
+          hasPaid()
+        );
+
+  return (
+    <CurrentPlanCard tier={tier()} onOpen={() => openSettings('Billing')} />
+  );
+}
+
 // Not accessible if user is not authenticated
 export function Account() {
   const analytics = useAnalytics();
   const email = useEmail();
   const userId = useUserId();
   const logout = useLogout();
+  const isSettingsTabAvailable = useSettingsTabAvailable();
   const disableAutoUpdateUIFlag = useFeatureFlag(disableAutoUpdateUi);
   const autoUpdateUIEnabled = createMemo(
     () => enableAutoUpdateUiOverride ?? !disableAutoUpdateUIFlag().enabled
   );
-  const notificationSettingsFlag = useFeatureFlag(enableNotificationSettings);
   const [showDeleteModal, setShowDeleteModal] = createSignal<boolean>(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] =
     createSignal<boolean>(false);
@@ -419,9 +441,17 @@ export function Account() {
           </Show>
 
           <Row label="Email">
-            <span class="ph-no-capture text-sm text-ink-muted">
-              {email() ?? ''}
-            </span>
+            <Tooltip
+              as="span"
+              label={email() ?? ''}
+              placement="top"
+              tabIndex={0}
+              class="min-w-0 max-w-full rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              <span class="ph-no-capture min-w-0 truncate text-sm text-ink-muted">
+                {email() ?? ''}
+              </span>
+            </Tooltip>
           </Row>
 
           <Row label="First Name">
@@ -459,50 +489,45 @@ export function Account() {
             <BundleVersionRow />
             <BundleUpdateRow />
           </Show>
-
-          <Show when={!notificationSettingsFlag().enabled}>
-            <NotificationToggle />
-          </Show>
         </SettingsCard>
       </SettingsSection>
 
-      <Show when={isTouchDevice()}>
-        <SettingsSection>
-          <SettingsCard>
-            <div class="px-6 py-3.5">
-              <Button
-                fullWidth
-                variant="accent"
-                depth={4}
-                onClick={() => logout()}
-              >
-                <SignOutIcon class="size-4" />
-                Log out
-              </Button>
-            </div>
-          </SettingsCard>
-        </SettingsSection>
+      <Show when={isSettingsTabAvailable('Billing')}>
+        <AccountPlanCard />
       </Show>
 
-      <SettingsSection title="Danger zone">
-        <SettingsCard>
-          <SettingsRow
-            label="Delete account"
-            description="Permanently delete your account and all associated data."
-          >
-            <Button
-              variant="danger"
-              depth={3}
-              onClick={() => {
-                resetDeleteFlow();
-                setShowDeleteModal(true);
-              }}
-            >
-              Delete Account
-            </Button>
-          </SettingsRow>
-        </SettingsCard>
-      </SettingsSection>
+      {/* A bare card like the plan card above, so the two match in height. */}
+      <SettingsCard>
+        <SettingsRow
+          label="Log out"
+          description="Sign out of Macro on this device."
+        >
+          <Button variant="outline" depth={3} onClick={() => logout()}>
+            <SignOutIcon class="size-4" />
+            Log out
+          </Button>
+        </SettingsRow>
+      </SettingsCard>
+
+      {/* Deliberately quiet and outside a card, so it isn't mistaken for
+          Log out. */}
+      <SettingsRow
+        class="px-5"
+        label="Delete account"
+        description="Permanently delete your account and all associated data."
+      >
+        <Button
+          variant="danger"
+          size="sm"
+          depth={3}
+          onClick={() => {
+            resetDeleteFlow();
+            setShowDeleteModal(true);
+          }}
+        >
+          Delete account
+        </Button>
+      </SettingsRow>
       <Dialog
         open={showDeleteModal()}
         onOpenChange={(open) => {
@@ -519,10 +544,19 @@ export function Account() {
             </Dialog.Title>
           </Panel.Header>
           <Panel.Body class="p-6 font-sans flex flex-col gap-3">
-            <Dialog.Description class="text-ink-muted text-sm/tight font-normal">
-              Are you sure you want to delete your account? This action is
-              permanent and cannot be undone.
+            <Dialog.Description as="div">
+              <IrreversibleWarning />
             </Dialog.Description>
+            <p class="text-ink-muted text-sm/tight">
+              Only want to sign out?{' '}
+              <button
+                type="button"
+                class="text-ink underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-edge-focus"
+                onClick={() => logout()}
+              >
+                Log out instead
+              </button>
+            </p>
             <div class="flex flex-col gap-3 pt-2">
               <label class="flex flex-col gap-1.5 text-sm" for="delete-reason">
                 <span>
@@ -614,9 +648,11 @@ export function Account() {
             </Dialog.Title>
           </Panel.Header>
           <Panel.Body class="p-6 font-sans flex flex-col gap-3">
-            <Dialog.Description class="text-ink-muted text-sm/tight font-normal">
-              This will permanently delete your account and all associated data.
-              This cannot be undone.
+            <Dialog.Description as="div" class="flex flex-col gap-3">
+              <IrreversibleWarning />
+              <p class="text-ink-muted text-sm/tight">
+                To confirm, press and hold the button below for 5 seconds.
+              </p>
             </Dialog.Description>
             <div class="pt-3 justify-end items-center gap-3 inline-flex">
               <Button
@@ -630,17 +666,18 @@ export function Account() {
               >
                 Cancel
               </Button>
-              <Button
-                variant="strong"
+              <HoldButton
+                variant="danger"
                 depth={3}
+                duration={DELETE_HOLD_MS}
                 disabled={isDeleting()}
-                onClick={deleteAccountHandler}
+                onConfirm={deleteAccountHandler}
               >
-                <Show when={isDeleting()} fallback="Delete My Account">
+                <Show when={isDeleting()} fallback="Hold to delete my account">
                   <SpinnerIcon class="size-4 animate-spin" />
                   Deleting…
                 </Show>
-              </Button>
+              </HoldButton>
             </div>
           </Panel.Body>
         </Panel>
@@ -649,49 +686,33 @@ export function Account() {
   );
 }
 
+/** The deletion dialogs' warning; people kept deleting accounts by mistake. */
+function IrreversibleWarning() {
+  return (
+    <div class="flex gap-3 rounded-lg border border-failure/30 bg-failure/10 p-3 text-sm/tight">
+      <WarningIcon class="size-5 shrink-0 text-failure" />
+      <div class="flex flex-col gap-1">
+        <span class="font-semibold text-failure">
+          This is permanent and irreversible.
+        </span>
+        <span class="text-ink">
+          Your account and everything in it, including your documents, messages,
+          files, and settings, will be deleted and cannot be recovered.
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// Every row's control starts at the same left edge, so values line up down the
+// card instead of each hugging the right side at its own width.
 function Row(props: { label: string; children?: JSX.Element }) {
-  return <SettingsRow label={props.label}>{props.children}</SettingsRow>;
-}
-
-function NotificationToggle() {
-  const settings = useNotificationSettings();
-
   return (
-    <Show
-      when={settings.isSupported && settings}
-      fallback={<NotificationNotSupported />}
-    >
-      {(s) => <NotificationSettings settings={s()} />}
-    </Show>
-  );
-}
-
-function NotificationSettings(props: {
-  settings: SupportedNotificationSettings;
-}) {
-  const analytics = useAnalytics();
-
-  const handleToggle = (checked: boolean) => {
-    analytics.track('notifications_toggled');
-    props.settings.toggle(checked);
-  };
-
-  return (
-    <Row label="Notifications">
-      <ToggleSwitch
-        size="md"
-        checked={props.settings.isEnabled()}
-        onChange={handleToggle}
-      />
-    </Row>
-  );
-}
-
-function NotificationNotSupported() {
-  return (
-    <Row label="Notifications">
-      <span class="text-sm text-ink-muted">Not supported on this device</span>
-    </Row>
+    <SettingsRow label={props.label}>
+      <div class="flex w-80 max-w-[55cqw] min-w-0 items-center justify-start text-left">
+        {props.children}
+      </div>
+    </SettingsRow>
   );
 }
 
@@ -746,8 +767,10 @@ function NameInput(props: {
     }
   };
 
+  // Pull the box out by its padding and border (12px + 1px) so the text, not the
+  // border, lines up with the other values in the column.
   return (
-    <div class="ph-no-capture group relative flex items-center gap-1.5 rounded-lg h-9 px-3 border text-sm bg-transparent text-ink-muted border-edge-muted hover:text-ink focus-within:text-ink focus-within:border-accent">
+    <div class="ph-no-capture group relative -ml-[13px] flex w-[calc(100%+13px)] items-center gap-1.5 rounded-lg h-9 px-3 border text-sm bg-transparent text-ink-muted border-edge-muted hover:text-ink focus-within:text-ink focus-within:border-accent">
       <input
         type="text"
         class="flex-1 min-w-0 bg-transparent outline-none border-0 p-0 text-sm placeholder:text-ink-placeholder"
@@ -859,7 +882,7 @@ function BundleUpdateRow() {
   const action = () => bundleUpdateAction(status());
   return (
     <Row label="App Update">
-      <div class="flex items-center gap-3">
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span class="text-sm text-ink-muted">
           {formatBundleUpdateStatus(status())}
         </span>
@@ -880,7 +903,7 @@ function NativeUpdateRow() {
   return (
     <Show when={tauri && tauri.nativeUpdateStatus().status !== 'Disabled'}>
       <Row label="Desktop app update">
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
           <span class="text-sm text-ink-muted">
             {tauri && nativeUpdateDescription(tauri.nativeUpdateStatus())}
           </span>

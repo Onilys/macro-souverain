@@ -16,6 +16,9 @@ in
 {
   imports = [
     ./dashboards.nix
+    ./ci-dashboard.nix
+    ./database-dashboard.nix
+    ./database-queries-dashboard.nix
     ./alerting.nix
   ];
   services.grafana = {
@@ -56,6 +59,9 @@ in
     ];
   };
   systemd.services = {
+    nginx = needsSecrets // {
+      serviceConfig.LoadCredential = [ (credential "metrics.htpasswd") ];
+    };
     grafana = needsSecrets // {
       serviceConfig = {
         EnvironmentFile = "/opt/observability/runtime.env";

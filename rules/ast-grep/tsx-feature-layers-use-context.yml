@@ -5,7 +5,7 @@ language: tsx
 severity: warning
 message: Supply app capabilities through feature-owned contracts; construct production adapters at the feature root.
 note: |-
-  Rule FE-33 in docs/STYLE_GUIDE.md. Inside a layered feature, `queries/`,
+  Rule FE-33 in docs/development/style-guide.md. Inside a layered feature, `queries/`,
   `primitives/`, `components/`, and `views/` never import the app's singletons
   or context hooks (GraphQL soup client, user context, display names,
   entity display, openDocument, PostHog). Those arrive through the
@@ -15,6 +15,24 @@ note: |-
   `files` in each ts-/tsx-feature-* rule. Block-agent uses `ui/` for
   presentation and `component/` for composition.
 files:
+  - apps/web/src/features/access-requests/primitives/**
+  - apps/web/src/features/access-requests/views/**
+  - apps/web/src/features/agent-activity/queries/**
+  - apps/web/src/features/agent-dms/queries/**
+  - apps/web/src/features/agent-conversations/queries/**
+  - apps/web/src/features/agent-activity/primitives/**
+  - apps/web/src/features/agent-dms/primitives/**
+  - apps/web/src/features/agent-conversations/primitives/**
+  - apps/web/src/features/agent-activity/components/**
+  - apps/web/src/features/agent-dms/components/**
+  - apps/web/src/features/agent-conversations/components/**
+  - apps/web/src/features/agent-activity/views/**
+  - apps/web/src/features/agent-dms/views/**
+  - apps/web/src/features/agent-conversations/views/**
+  - apps/web/src/features/agent-interactions/queries/**
+  - apps/web/src/features/agent-interactions/primitives/**
+  - apps/web/src/features/agent-interactions/components/**
+  - apps/web/src/features/agent-interactions/views/**
   - apps/web/src/features/billing-lab/context/**
   - apps/web/src/features/billing-lab/queries/**
   - apps/web/src/features/billing-lab/primitives/**

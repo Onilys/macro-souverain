@@ -42,6 +42,10 @@ export const agentHarnessExcluded = [
 export const agentHarnessBacklog = [
   'answerAgentSessionToolApproval',
   'getAgentSessionPermissions',
+  // Agent conversation controls (DMs are flag-gated in the web app); not wrapped yet.
+  'listAgentConversations',
+  'retryAgentConversationTurn',
+  'startFreshAgentConversation',
   'updateAgentSessionPermissions',
 ] as const satisfies readonly (keyof AgentHarnessSdk)[];
 
@@ -79,6 +83,8 @@ export const authExcluded = [
   // Renewal and scheduled-plan details are part of the app's billing settings.
   'getSubscriptionStatus',
   'getTeamInvites',
+  // Introductory offers belong to the app's subscription checkout flow.
+  'getTrialEligibility',
   'getUserInvites',
   'getUserLinkExists',
   'getUserName',
@@ -195,7 +201,6 @@ export const cognitionBacklog = [
   'getUsageHandler',
   'sendChatMessage',
   'stopChatStream',
-  'structuredCompletion',
 ] as const satisfies readonly (keyof CognitionSdk)[];
 
 export const connectionExcluded = [
@@ -332,6 +337,9 @@ export const storageExcluded = [
   'deleteHistoryHandler',
   'deleteUserDocumentViewLocation',
   'deleteViewHandler',
+  // Called by third parties holding a webhook's URL; its token, not the
+  // SDK's credentials, authenticates it.
+  'deliverDatabaseWebhook',
   // Old numeric comment links resolve inside the web app only.
   'entityMessageLegacy',
   'excludeDefaultViewHandler',
@@ -381,7 +389,6 @@ export const storageExcluded = [
   'mentionPreviews',
   'patchViewHandler',
   'postItemsSoup',
-  'postItemsSoupAst',
   'postItemsSoupAstGrouped',
   'removeBotFromChannelByBot',
   // Storage for the web app's saved questions, not a user-facing surface.
@@ -400,6 +407,14 @@ export const storageExcluded = [
 ] as const satisfies readonly (keyof StorageSdk)[];
 
 export const storageBacklog = [
+  // Sharing requests and direct grants are available through the generated client.
+  'accessRequestsCancel',
+  'accessRequestsDirect',
+  'accessRequestsRemoveDirect',
+  'accessRequestsResolve',
+  'accessRequestsSetDirect',
+  'accessRequestsState',
+  'accessRequestsSubmit',
   // Email follow-ups are available through the generated client.
   'getEmailFollowup',
   'setEmailFollowup',
@@ -408,6 +423,7 @@ export const storageBacklog = [
   'createCrmPipeline',
   'applyCrmPipelineOps',
   'getCrmPipeline',
+  'getCrmPipelinePermissions',
   'getCrmPipelineRows',
   'queryCrmPipelineRows',
   'getCrmPipelineTable',
@@ -415,6 +431,7 @@ export const storageBacklog = [
   'renameCrmPipeline',
   'shareCrmPipeline',
   'trashCrmPipeline',
+  'updateCrmPipelinePermissions',
   'approveHarnessPairing',
   'claimHarnessPairing',
   'createAgent',

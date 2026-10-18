@@ -1,3 +1,4 @@
+import { ViewSidebar } from '@app/components/view-shell';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { MobileDrawer } from '@components/app/mobile/MobileDrawer';
 import { enableMultiInbox } from '@core/constant/featureFlags';
@@ -172,15 +173,20 @@ function DesktopCalendarSettings(props: {
     <Dropdown placement={props.sidebar ? 'top-end' : 'bottom-end'}>
       <Dropdown.Trigger
         variant="ghost"
-        size={props.sidebar ? 'md' : 'icon-md'}
+        size={props.sidebar ? 'md' : 'icon-lg'}
         class={
           props.sidebar
-            ? 'w-full border-transparent bg-transparent'
+            ? 'h-(--sidebar-row-height) w-full justify-start gap-(--sidebar-label-gap) rounded-lg border-transparent bg-transparent px-(--sidebar-item-inset) text-left font-normal touch:h-11'
             : 'shrink-0 border-transparent bg-transparent'
         }
         aria-label="Calendar settings"
       >
-        <GearIcon class="size-5" />
+        <Show when={props.sidebar} fallback={<GearIcon class="size-5" />}>
+          <ViewSidebar.Icon>
+            <GearIcon />
+          </ViewSidebar.Icon>
+          <span class="min-w-0 truncate">Settings</span>
+        </Show>
       </Dropdown.Trigger>
       <Dropdown.Content class="w-60 max-w-[calc(100vw-1rem)]">
         <Show when={controls.showCalendarVisibility()}>
@@ -354,10 +360,19 @@ function MobileCalendarSettings(props: {
         as={Button}
         variant="ghost"
         size={props.sidebar ? 'md' : 'icon-lg'}
-        class={props.sidebar ? 'w-full rounded-full' : 'shrink-0 rounded-full'}
+        class={
+          props.sidebar
+            ? 'h-(--sidebar-row-height) w-full justify-start gap-(--sidebar-label-gap) rounded-lg px-(--sidebar-item-inset) text-left font-normal touch:h-11'
+            : 'shrink-0 rounded-full'
+        }
         aria-label="Calendar settings"
       >
-        <GearIcon class="size-6" />
+        <Show when={props.sidebar} fallback={<GearIcon class="size-6" />}>
+          <ViewSidebar.Icon>
+            <GearIcon />
+          </ViewSidebar.Icon>
+          <span class="min-w-0 truncate">Settings</span>
+        </Show>
       </MobileDrawer.Trigger>
 
       <MobileDrawer.Portal>

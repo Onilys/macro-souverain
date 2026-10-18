@@ -156,3 +156,22 @@ query EmailThreadPreparedBodies(
 		}
 	}
 }
+
+# Compact cached Quick Access rows: no snippets or message bodies.
+fragment EmailQuickAccessFields on GraphqlSoupEmailThread {
+    __typename
+    id
+    name
+    ownerId
+    createdAt
+    updatedAt
+    viewedAt
+    senderName
+    senderEmail
+    senders { name email }
+    isRead
+    isDraft
+    isImportant
+    inboxVisible
+    linkId
+}

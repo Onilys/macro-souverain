@@ -13,7 +13,7 @@ import { CustomizeSidebarModal } from './customize-sidebar-modal';
 import {
   moreMenuItems,
   type NavItemGates,
-  type SidebarNextNavItem,
+  type SidebarNextMenuItem,
 } from './nav-items';
 
 export type MoreMenuProps = {
@@ -21,15 +21,16 @@ export type MoreMenuProps = {
 };
 
 function navigateToItem(
-  item: SidebarNextNavItem,
+  item: SidebarNextMenuItem,
   openWithSplit: ReturnType<typeof useSplitLayout>['openWithSplit'],
-  analytics: ReturnType<typeof useAnalytics>
+  analytics: ReturnType<typeof useAnalytics>,
+  shiftKey: boolean
 ) {
   analytics.track('sidebar_click', { view: item.id });
   navigateToSidebarView({
     viewId: item.id,
     params: item.params,
-    shiftKey: false,
+    shiftKey,
     openWithSplit,
     referredFrom: 'sidebar',
   });
@@ -38,15 +39,21 @@ function navigateToItem(
 
 /**
  * The "More" menu button in the sidebar rail, shown below the main nav.
- * Lists hidden items for quick open, and opens the Customize sidebar modal.
+ * Lists hidden items and Scheduling, and opens the Customize sidebar modal.
  */
 export function MoreMenu(props: MoreMenuProps) {
   const [customizeSidebarOpen, setCustomizeSidebarOpen] = createSignal(false);
   const analytics = useAnalytics();
   const layout = useSplitLayout();
-  const preloadItem = (item: SidebarNextNavItem) =>
+  const preloadItem = (item: SidebarNextMenuItem) =>
     layout.preloadContent(sidebarContent(item.id, item.params));
   const hiddenItems = () => moreMenuItems(props.gates);
+
+  // Capture shift key before onSelect fires (which omits the event)
+  let shiftHeld = false;
+  const captureSplitIntent = (event: PointerEvent | KeyboardEvent) => {
+    shiftHeld = event.shiftKey;
+  };
 
   return (
     <>
@@ -72,8 +79,15 @@ export function MoreMenu(props: MoreMenuProps) {
                     class="gap-2"
                     onMouseEnter={() => preloadItem(item)}
                     onFocus={() => preloadItem(item)}
+                    onPointerDown={captureSplitIntent}
+                    onKeyDown={captureSplitIntent}
                     onSelect={() =>
-                      navigateToItem(item, layout.openWithSplit, analytics)
+                      navigateToItem(
+                        item,
+                        layout.openWithSplit,
+                        analytics,
+                        shiftHeld
+                      )
                     }
                   >
                     <Dynamic

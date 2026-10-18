@@ -20,13 +20,19 @@ import type { WithNotification } from '../../types/notification';
 import type { ContentHitData, SearchLocation } from '../../types/search';
 import { isSearchEntity } from '../../types/search';
 
-export interface BaseListEntityProps<E extends EntityData = EntityData> {
+export interface BaseListEntityProps<E extends EntityData = EntityData>
+  extends Pick<
+    JSX.HTMLAttributes<HTMLDivElement>,
+    'role' | 'tabIndex' | 'onKeyDown'
+  > {
   entity: WithNotification<E>;
   onClick?: (event: MouseEvent) => void;
   timestamp?: DateValue | null;
   ref?: Ref<HTMLDivElement>;
   checked?: boolean;
   highlighted?: boolean;
+  /** The row open beside the list, marked while the cursor moves elsewhere. */
+  current?: boolean;
   hovered?: boolean;
   /** Caller-owned quick actions, revealed on pointer hover or keyboard focus. */
   actions?: JSX.Element;
@@ -34,6 +40,10 @@ export interface BaseListEntityProps<E extends EntityData = EntityData> {
   leadingAction?: JSX.Element;
   /** Caller-owned marker between the icon and the title, e.g. a priority. */
   titleLeading?: JSX.Element;
+  /** Caller-owned leading visual inside the standard Soup icon slot. */
+  icon?: JSX.Element;
+  /** Supporting text after the title in the standard content slot. */
+  titleTrailing?: JSX.Element;
   /** Caller-owned metadata ahead of the entity's own, in wide rows only. */
   meta?: JSX.Element;
   hideContentHits?: boolean;
@@ -71,6 +81,10 @@ export interface LayoutProps {
   actions?: JSX.Element;
   leadingAction?: JSX.Element;
   titleLeading?: JSX.Element;
+  /** Caller-owned leading visual inside the standard Soup icon slot. */
+  icon?: JSX.Element;
+  /** Supporting text after the title in the standard content slot. */
+  titleTrailing?: JSX.Element;
   meta?: JSX.Element;
   checked?: boolean;
   authorDisplayName?: string;
@@ -93,7 +107,16 @@ export interface LayoutProps {
   showProject?: boolean;
 }
 
-export type NarrowLayoutVariant = 'standard' | 'condensed' | 'single-line';
+/**
+ * How rows render once the list is too narrow for columns. `inbox` stacks
+ * email rows (sender, subject, snippet) as touch devices do, for lists that
+ * sit beside a reading pane.
+ */
+export type NarrowLayoutVariant =
+  | 'standard'
+  | 'condensed'
+  | 'single-line'
+  | 'inbox';
 
 interface ListLayoutContextValue {
   isWide: Accessor<boolean>;

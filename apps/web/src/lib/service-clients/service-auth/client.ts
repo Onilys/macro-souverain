@@ -40,6 +40,7 @@ import type {
   SendMobileWelcomeEmailResponse,
   SetGithubPullRequestDraftRequest,
   SetGithubPullRequestDraftResponse,
+  TrialEligibility,
   UserQuota,
 } from './generated/schemas';
 import type { AppleLoginRequest } from './generated/schemas/appleLoginRequest';
@@ -372,12 +373,17 @@ export const authServiceClient = {
     });
   },
   async passwordlessCallback({ code, email }: { code: string; email: string }) {
-    const result = await safeFetch<UserTokensResponse>(
+    const result = await safeFetch<UserTokensResponse, 'RATE_LIMITED'>(
       `${authHost}/oauth/passwordless/${code}?email=${encodeURIComponent(email)}&disable_redirect=true`,
       { cache: 'no-store', credentials: 'include' },
       async (response) => {
-        const message = await response.text();
-        return { code: 'UNAUTHORIZED' as const, message };
+        if (response.status === 401) {
+          return { code: 'UNAUTHORIZED', message: await response.text() };
+        }
+        if (response.status === 429) {
+          return { code: 'RATE_LIMITED', message: 'Rate limit exceeded' };
+        }
+        return statusError(response.status);
       }
     );
     if (result.isOk()) {
@@ -707,6 +713,13 @@ export const authServiceClient = {
   },
 
   // Stripe HTTP methods (replacing RPC calls)
+  async getTrialEligibility() {
+    return await fetchWithAuth<TrialEligibility>(
+      `${authHost}/user/stripe/trial_eligibility`,
+      { method: 'GET' }
+    );
+  },
+
   async createCheckoutSessionV2(args: {
     successUrl: string;
     cancelUrl: string;
@@ -733,6 +746,22 @@ export const authServiceClient = {
           plan: args.plan,
           onboardingTrial: args.onboardingTrial,
         }),
+        errorResponseHandler: async (response) => {
+          if (response.status === 409) {
+            const body: unknown = await response.json().catch(() => null);
+            return {
+              code: 'CONFLICT',
+              message:
+                body &&
+                typeof body === 'object' &&
+                'message' in body &&
+                typeof body.message === 'string'
+                  ? body.message
+                  : 'Your subscription status changed. Please refresh your plans.',
+            };
+          }
+          return statusError(response.status);
+        },
       }
     );
   },
@@ -867,7 +896,8 @@ export const authServiceClient = {
    * Stores a Cursor API key for the signed-in user, replacing any existing one.
    *
    * The key is validated on shape alone, so a typo that still starts with
-   * `crsr_` is accepted here and only fails when a session tries to use it.
+   * `grok_` or `crsr_` is accepted here and only fails when a session tries to
+   * use it.
    */
   async putCursorApiKey(apiKey: string) {
     return (

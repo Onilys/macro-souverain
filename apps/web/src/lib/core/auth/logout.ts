@@ -1,8 +1,8 @@
 import { clearMcpAuthAttempts } from '@app/features/settings/mcp-auth-attempt';
 import { useAnalytics } from '@app/lib/analytics/analytics-context';
 import { SERVER_HOSTS } from '@core/constant/servers';
-import { isNativeMobilePlatform } from '@core/mobile/isNativeMobilePlatform';
 import { syncLoginStorage } from '@core/util/cookies';
+import { isTauri } from '@core/util/platform';
 import { clearPostLoginRedirect } from '@core/util/postLoginRedirect';
 import { clearRegisteredCaches } from '@graphql-cache/lifecycle';
 import { rotateCacheScope } from '@graphql-cache/scope';
@@ -18,6 +18,7 @@ import { resetGraphqlSoupDoneSession } from '@queries/soup/graphql/done-session'
 import { clearDocumentQueryCache } from '@queries/storage/document-cache';
 import { clearOfflineDocumentContexts } from '@queries/storage/documentLoad/offline-context-runtime';
 import { authServiceClient } from '@service-auth/client';
+import { setGraphqlSoupSessionActive } from '@service-storage/graphql-soup';
 import { raceTimeout } from '@solid-primitives/promise';
 import { createCallback } from '@solid-primitives/rootless';
 import { useNavigate } from '@solidjs/router';
@@ -61,6 +62,8 @@ export async function clearLocalAuthSession() {
   if (results.some((result) => result.status === 'rejected')) {
     await rotateCacheScope();
   }
+  // Only after the wipes: clearing the cache needs its registered host.
+  setGraphqlSoupSessionActive(false);
   resetGraphqlSoupDoneSession();
   queryClient.setQueryData(authKeys.userInfo.queryKey, unauthenticatedUserInfo);
   clearMcpAuthAttempts();
@@ -118,7 +121,12 @@ export function useLogout() {
     analytics.track('sign_out');
     analytics.reset();
 
-    if (isNativeMobilePlatform()) {
+    // The Tauri shell (desktop and mobile alike) can never navigate to the
+    // identity provider: its navigation plugin treats any off-origin URL as
+    // external and hands it to the system browser, which leaves the webview
+    // sitting on the signed-in screen. End the provider session with a
+    // background request instead and route the webview to /login in place.
+    if (isTauri()) {
       await fetch(SERVER_HOSTS['auth-logout'], {
         credentials: 'include',
         mode: 'no-cors',

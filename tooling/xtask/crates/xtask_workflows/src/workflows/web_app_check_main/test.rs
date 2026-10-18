@@ -1,5 +1,33 @@
 use super::*;
 
+#[test]
+fn android_native_check_is_an_unconditional_required_merge_check() {
+    let yaml = web_app_check_main().to_string().expect("workflow yaml");
+    let android = job(&yaml, "android-native-check", "typescript");
+    assert!(
+        !android.contains("\n    if:"),
+        "native enforcement must always run (steps may be gated, the job may not): {android}"
+    );
+    assert!(
+        !android.contains("fetch-depth"),
+        "shallow checkout; the base commit is fetched by the step: {android}"
+    );
+    assert!(
+        android.contains("git cat-file -p HEAD | sed -n 's/^parent //p' | head -1")
+            && !android.contains("github.event.pull_request.base.sha"),
+        "the base is the merge commit's first parent, not the event payload: {android}"
+    );
+    assert!(android.contains("bun scripts/android-version-check.mjs"));
+    assert!(android.contains("bun scripts/android-play-status.mjs --version-code"));
+    assert!(android.contains("id-token: write"));
+    let status = yaml
+        .split("\n  status-check:\n")
+        .nth(1)
+        .expect("status job");
+    assert!(status.contains("- android-native-check"));
+    assert!(status.contains("needs.android-native-check.result }}\" != \"success\""));
+}
+
 fn filters(yaml: &str) -> (&str, &str) {
     let filters = yaml
         .split("filters: |")
@@ -34,6 +62,44 @@ fn nix_dev_shell_does_not_start_typecheck() {
     );
 }
 
+/// The iOS merge gate is required through the aggregator, not the ruleset:
+/// the status check must depend on it and fail when it fails.
+#[test]
+fn status_check_requires_the_ios_native_check() {
+    let yaml = web_app_check_main().to_string().expect("workflow yaml");
+    let gate = job(&yaml, "ios-native-check", "status-check");
+    assert!(
+        gate.contains("name: iOS Native Check"),
+        "gate job name is a check name: {gate}"
+    );
+    assert!(
+        gate.contains("predicate-quantifier: every"),
+        "negated path filters need the `every` quantifier: {gate}"
+    );
+    // `!` binds tighter than `==` in GitHub expressions: `!x == 'true'` is
+    // always false, which silently skipped every gated step.
+    assert!(
+        !gate.contains("!steps.labels"),
+        "never negate a comparison with a leading `!`: {gate}"
+    );
+    assert!(
+        gate.contains("steps.labels.outputs.skip != 'true'"),
+        "gated steps run when the skip label is absent: {gate}"
+    );
+    let status = yaml
+        .split("\n  status-check:\n")
+        .nth(1)
+        .expect("status-check job");
+    assert!(
+        status.contains("- ios-native-check"),
+        "status-check must need the gate: {status}"
+    );
+    assert!(
+        status.contains("needs.ios-native-check.result }}\" == \"failure\""),
+        "status-check must fail when the gate fails: {status}"
+    );
+}
+
 #[test]
 fn typecheck_runs_lexical_service_check_and_tests() {
     let yaml = web_app_check_main().to_string().expect("workflow yaml");
@@ -50,6 +116,18 @@ fn typecheck_runs_lexical_service_check_and_tests() {
         typescript.contains("services/lexical-service"),
         "lexical-service steps must run in the service directory: {typescript}"
     );
+}
+
+#[test]
+fn sdk_and_documentation_changes_run_their_checks() {
+    let yaml = web_app_check_main().to_string().expect("workflow yaml");
+    let (should_run, _) = filters(&yaml);
+    assert!(should_run.contains("packages/sdk/**"));
+    assert!(should_run.contains("packages/sdk-docs/**"));
+    let typescript = job(&yaml, "typescript", "generated-code");
+    assert!(typescript.contains("name: Install SDK Documentation Dependencies"));
+    assert!(typescript.contains("name: Check SDK Documentation"));
+    assert!(typescript.contains("working-directory: packages/sdk-docs"));
 }
 
 #[test]

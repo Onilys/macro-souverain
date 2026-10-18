@@ -87,12 +87,19 @@ type MentionsMenuProps = {
   /** whether the menu checks against block boundary in floating middleware. uses floating-ui default if false. */
   useBlockBoundary?: boolean;
   portalScope?: PortalScope;
+  /** Mounts the menu here instead of by `portalScope`. */
+  portalMount?: HTMLElement;
   block?: BlockName;
   anchor?: HTMLElement | null;
   onUserMention?: (mention: UserMentionRecord) => void;
   onDocumentMention?: (item: Item | ChannelWithParticipants) => void;
   onEmailMention?: (item: EmailEntity) => void;
   disableMentionTracking?: boolean;
+  /**
+   * The document hosting the editor, which records inserted mentions.
+   * Defaults to the enclosing legacy block, which routed documents lack.
+   */
+  sourceDocumentId?: string;
   /** whether to show open tabs as a bucket in the menu */
   showOpenTabs?: boolean;
   /** restrict which mention source buckets to show (e.g. ['users'] for user-only mentions) */
@@ -145,7 +152,8 @@ function MentionsMenuInner(props: MentionsMenuProps) {
 
   const { isKeypressActive } = useIsKeyPressActive();
 
-  const blockId = useMaybeBlockId();
+  const legacyBlockId = useMaybeBlockId();
+  const blockId = props.sourceDocumentId ?? legacyBlockId;
 
   const { usersAndGroups, groups, availableUsers } = useUsersMention({
     users: props.users,
@@ -253,8 +261,6 @@ function MentionsMenuInner(props: MentionsMenuProps) {
     );
   });
 
-  const currentBlockId = useMaybeBlockId();
-
   const openTabs = createLazyMemo(() => {
     const splitManager = globalSplitManager();
     if (!splitManager) return [];
@@ -274,7 +280,7 @@ function MentionsMenuInner(props: MentionsMenuProps) {
         continue;
       }
 
-      if (split.content.id === currentBlockId) continue;
+      if (split.content.id === blockId) continue;
 
       const key = `${split.content.type}:${split.content.id}`;
       if (seenKeys.has(key)) continue;
@@ -323,6 +329,10 @@ function MentionsMenuInner(props: MentionsMenuProps) {
   });
 
   const bucketConfigs = createLazyMemo((): BucketConfig[] => {
+    // Binning and pagination read these eagerly, outside the menu's Show.
+    // Keep closed composers from gathering and ranking mention candidates.
+    if (!menuOpen()) return [];
+
     if (isMobile()) {
       return [
         {
@@ -476,7 +486,7 @@ function MentionsMenuInner(props: MentionsMenuProps) {
     ? createItemHandler({
         editor: props.editor,
         blockName: useMaybeBlockName(),
-        blockId: useMaybeBlockId(),
+        blockId,
         onUserMention: props.onUserMention,
         onDocumentMention: props.onDocumentMention,
         onEmailMention: props.onEmailMention,
@@ -683,7 +693,7 @@ function MentionsMenuInner(props: MentionsMenuProps) {
 
   return (
     <Show when={menuOpen()}>
-      <ScopedPortal scope={props.portalScope}>
+      <ScopedPortal scope={props.portalScope} mount={props.portalMount}>
         <div
           class="w-96 max-w-[calc(100cqw-1rem-2px)] cursor-default select-none z-modal-content"
           classList={{ 'menu-open-animation': props.animate !== false }}

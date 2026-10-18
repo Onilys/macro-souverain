@@ -472,6 +472,11 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
         &databases_tool_context,
         &crm_tool_context,
     );
+    let crm_transfer_tool_context = ai_tools::build_crm_transfer_tool_context(
+        &pipeline_tool_context,
+        &crm_tool_context,
+        &document_tool_context,
+    );
 
     let calendar_tool_context = ai_tools::build_calendar_tool_context(
         pool.clone(),
@@ -494,6 +499,7 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
     );
 
     let tool_service_context = ai_tools::ToolServiceContext {
+        cognition_tool_context: Default::default(),
         connector_tool_context: ai_tools::build_connector_tool_context(pool.clone(), None),
         search_service_client: search_service_client.clone(),
         email_service_client: email_service_client_external.clone(),
@@ -540,6 +546,7 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
             pool.clone(),
             std::sync::Arc::new(test_lexical_client),
         ),
+        channel_media_upload_tool_context: ai_tools::build_channel_media_upload_tool_context_test(),
         bot_tool_context: ai_tools::build_bot_tool_context(
             pool.clone(),
             ai_tools::MaybeToolEventBroker::Real(macro_event_broker.clone()),
@@ -561,6 +568,7 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
         team_tool_context: ai_tools::build_team_tool_context(pool.clone()),
         crm_tool_context,
         pipeline_tool_context,
+        crm_transfer_tool_context,
         skill_tool_context: ai_tools::build_skill_tool_context(
             search_service_client.clone(),
             soup_service.clone(),
@@ -694,6 +702,12 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
         search_service_client,
         email_service_client_external,
         authorization_state: authorization_state.clone(),
+        decisions: Arc::new(jev::domain::decisions::DecisionServiceImpl::<
+            jev::domain::JevClassifier<jev::outbound::TypesafeJev>,
+        >::new(None, admission.clone())),
+        tool_free_completions: Arc::new(
+            crate::service::structured_completion::ToolFreeCompletionService::new(recorder.clone()),
+        ),
         ai_admission: admission,
         ai_billing: Arc::new(
             ai_billing::domain::BillingServiceImpl::new(

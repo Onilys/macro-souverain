@@ -5,7 +5,7 @@ import {
   screen,
   within,
 } from '@solidjs/testing-library';
-import { createSignal, type JSX, type ParentProps } from 'solid-js';
+import { createSignal, For, type JSX, type ParentProps, Show } from 'solid-js';
 import { afterEach, expect, it, vi } from 'vitest';
 import { CrmWorkspaceView } from './crm-workspace';
 
@@ -14,25 +14,36 @@ const fixture = vi.hoisted(() => ({
   pipelinesEnabled: true,
   listsEnabled: true,
   touch: true,
+  narrow: false,
   openWithSplit: vi.fn(),
+  setCollapsed: vi.fn(),
 }));
 
 vi.mock('@app/components/view-shell', () => ({
   ViewShell: {
     Root: (props: ParentProps) => props.children,
-    Aside: () => null,
+    Aside: (props: ParentProps) => props.children,
     Main: (props: ParentProps) => props.children,
     Header: (props: ParentProps) => <header>{props.children}</header>,
   },
   useViewShell: () => ({
     aside: { isCollapsed: () => true },
-    breakpoints: { narrow: () => false },
+    breakpoints: { narrow: () => fixture.narrow },
   }),
   useViewControlHotkeys: () => {},
   SearchBar: () => null,
 }));
 vi.mock('@app/preferences/use-preference', () => ({
-  usePreference: () => createSignal(false),
+  usePreference: () => {
+    const [collapsed, setCollapsed] = createSignal(false);
+    return [
+      collapsed,
+      (value: boolean) => {
+        fixture.setCollapsed(value);
+        setCollapsed(value);
+      },
+    ];
+  },
 }));
 vi.mock('@core/mobile/isTouchDevice', () => ({
   isTouchDevice: () => fixture.touch,
@@ -55,6 +66,28 @@ vi.mock('@ui', async () => ({
   Button: (
     props: JSX.ButtonHTMLAttributes<HTMLButtonElement> & { label?: string }
   ) => <button aria-label={props.label} {...props} />,
+  Dropdown: Object.assign(
+    (
+      props: ParentProps<{
+        open: boolean;
+        onOpenChange: (open: boolean) => void;
+      }>
+    ) => (
+      <div>
+        <button type="button" onClick={() => props.onOpenChange(true)}>
+          Show CRM navigation
+        </button>
+        <Show when={props.open}>{props.children}</Show>
+      </div>
+    ),
+    { Trigger: () => null, Content: (props: ParentProps) => props.children }
+  ),
+}));
+vi.mock('@components/app/split-panel', () => ({
+  SplitPanel: {
+    ControlGroup: (props: ParentProps) => <div>{props.children}</div>,
+    CloseButton: () => <button type="button" aria-label="Close split" />,
+  },
 }));
 vi.mock('@ui/components/Tour', () => ({ tourTarget: () => () => {} }));
 vi.mock('@app/components/view-shell/tour', () => ({
@@ -108,9 +141,39 @@ vi.mock(
 vi.mock('../components/company-list-dialog', () => ({
   CrmListDialog: () => null,
 }));
-vi.mock('../components/crm-sidebar', () => ({ CrmSidebar: () => null }));
+vi.mock('../components/crm-sidebar', () => ({
+  CrmSidebar: (props: {
+    pipelines?: JSX.Element;
+    onNavigate: (id: string) => void;
+    onCollapse: () => void;
+  }) => (
+    <nav aria-label="CRM sidebar">
+      <button type="button" onClick={props.onCollapse}>
+        Collapse CRM sidebar
+      </button>
+      <button type="button" onClick={() => props.onNavigate('active')}>
+        Companies
+      </button>
+      <button type="button" onClick={() => props.onNavigate('people')}>
+        People
+      </button>
+      {props.pipelines}
+    </nav>
+  ),
+}));
 vi.mock('../components/pipeline-sidebar', () => ({
-  PipelineSidebar: () => null,
+  PipelineSidebar: (props: {
+    pipelines: { id: string; name: string }[];
+    onSelect: (id: string) => void;
+  }) => (
+    <For each={props.pipelines}>
+      {(pipeline) => (
+        <button type="button" onClick={() => props.onSelect(pipeline.id)}>
+          {pipeline.name}
+        </button>
+      )}
+    </For>
+  ),
 }));
 vi.mock('../components/pipeline-dialog', () => ({
   PipelineDialog: () => null,
@@ -130,9 +193,11 @@ vi.mock('./import-companies', () => ({ CrmImport: () => null }));
 vi.mock('./pipeline', () => ({
   PipelineView: (props: {
     pipeline: { name: string };
+    navigation?: JSX.Element;
     onOpenRecord(record: { type: 'company'; id: string }): void;
   }) => (
     <div>
+      <header>{props.navigation}</header>
       {props.pipeline.name} table
       <button
         type="button"
@@ -192,13 +257,18 @@ afterEach(() => {
   fixture.pipelinesEnabled = true;
   fixture.listsEnabled = true;
   fixture.touch = true;
+  fixture.narrow = false;
   fixture.openWithSplit.mockReset();
+  fixture.setCollapsed.mockReset();
 });
 
 function setup(initialTab = 'active') {
   const [activeTab, setActiveTab] = createSignal<string | undefined>(
     initialTab
   );
+  const [pipelineRequest, setPipelineRequest] = createSignal<
+    { pipelineId: string; seek: string } | undefined
+  >();
   fixture.workspace = {
     activeTab,
     setActiveTab,
@@ -206,14 +276,15 @@ function setup(initialTab = 'active') {
       scopeId: 'crm',
       isActive: () => true,
       captureEntryState: vi.fn(),
+      pipelineRequest,
     },
     source: {},
-    queryFilters: { state: { include: {} } },
+    queryFilters: { state: { include: {} }, replace: vi.fn() },
   };
   render(() => (
     <CrmWorkspaceView>{() => <div>Record list</div>}</CrmWorkspaceView>
   ));
-  return { activeTab };
+  return { activeTab, setActiveTab, setPipelineRequest };
 }
 
 it('keeps sidebar destinations in the mobile header when switching records, pipelines and lists', () => {
@@ -263,6 +334,39 @@ it('shows the company of a pipeline row in place of the pipeline on desktop', ()
   expect(fixture.openWithSplit).not.toHaveBeenCalled();
 });
 
+it('shows a pipeline another view asks for, in place of an open record', () => {
+  fixture.touch = false;
+  const { activeTab, setPipelineRequest } = setup('pipeline:sales');
+  fireEvent.click(screen.getByRole('button', { name: 'Open Acme' }));
+  expect(screen.queryByText('Sales table')).toBeNull();
+  setPipelineRequest({ pipelineId: 'sales', seek: 'first' });
+  expect(activeTab()).toBe('pipeline:sales');
+  expect(screen.getByText('Sales table')).toBeTruthy();
+  expect(screen.queryByText('Sales record company:acme')).toBeNull();
+});
+
+it('closes the narrow navigation menu on collapse without saving the preference', () => {
+  fixture.touch = false;
+  fixture.narrow = true;
+  setup('pipeline:sales');
+  const collapses = () =>
+    screen.getAllByRole('button', { name: 'Collapse CRM sidebar' });
+  fireEvent.click(screen.getByRole('button', { name: 'Show CRM navigation' }));
+  expect(collapses()).toHaveLength(2);
+  fireEvent.click(collapses()[1]!);
+  expect(collapses()).toHaveLength(1);
+  expect(fixture.setCollapsed).not.toHaveBeenCalled();
+});
+
+it('keeps the split close beside the collapsed sidebar toggle on a pipeline', () => {
+  fixture.touch = false;
+  setup('pipeline:sales');
+  const close = screen.getByRole('button', { name: 'Close split' });
+  expect(close.nextElementSibling?.getAttribute('aria-label')).toBe(
+    'Expand CRM sidebar'
+  );
+});
+
 it('opens the company of a pipeline row in its own split on touch', () => {
   setup('pipeline:sales');
   fireEvent.click(screen.getByRole('button', { name: 'Open Acme' }));
@@ -271,4 +375,14 @@ it('opens the company of a pipeline row in its own split on touch', () => {
     { activate: true }
   );
   expect(screen.getByText('Sales table')).toBeTruthy();
+});
+
+it('closes an open record when activeTab changes via history navigation', () => {
+  fixture.touch = false;
+  const { setActiveTab } = setup('pipeline:sales');
+  fireEvent.click(screen.getByRole('button', { name: 'Open Acme' }));
+  expect(screen.getByText('Sales record company:acme')).toBeTruthy();
+  setActiveTab('people');
+  expect(screen.queryByText(/record company:acme/)).toBeNull();
+  expect(screen.getByText('Record list')).toBeTruthy();
 });

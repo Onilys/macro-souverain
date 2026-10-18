@@ -13,12 +13,16 @@ pub async fn cg_refresh_calendar(
     owner_macro_id: &str,
     link_id: uuid::Uuid,
     team_sharing_enabled: bool,
+    team_ooo_changed: bool,
 ) {
     if !cfg!(feature = "connection_gateway") {
         return;
     }
     let payload = serde_json::to_value(
-        calendar_events::domain::models::RefreshCalendarEvent::Synced { link_id },
+        calendar_events::domain::models::RefreshCalendarEvent::Synced {
+            link_id,
+            team_ooo_changed,
+        },
     )
     .unwrap_or_default();
     let mut recipients = vec![owner_macro_id.to_string()];
@@ -37,7 +41,7 @@ pub async fn cg_refresh_calendar(
     recipients.sort();
     recipients.dedup();
     if team_sharing_enabled {
-        cg_refresh_team_calendar(client, db, &recipients).await;
+        cg_refresh_team_calendar(client, db, &recipients, team_ooo_changed).await;
     }
     for macro_id in recipients {
         let _ = client
@@ -55,6 +59,7 @@ pub async fn cg_refresh_team_calendar(
     client: &ConnectionGatewayClient,
     db: &sqlx::PgPool,
     shared_by: &[String],
+    team_ooo_changed: bool,
 ) {
     if !cfg!(feature = "connection_gateway") || shared_by.is_empty() {
         return;
@@ -79,7 +84,12 @@ pub async fn cg_refresh_team_calendar(
             return;
         }
     };
-    let payload = serde_json::json!({"event": "team_sharing_changed"});
+    let payload = serde_json::to_value(
+        calendar_events::domain::models::RefreshCalendarEvent::TeamSharingChanged {
+            team_ooo_changed,
+        },
+    )
+    .unwrap_or_default();
     stream::iter(recipients.into_iter().flatten())
         .for_each_concurrent(16, |user_id| {
             let payload = payload.clone();

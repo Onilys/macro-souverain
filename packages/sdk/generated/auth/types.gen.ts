@@ -1391,7 +1391,7 @@ export type PublicGtmInviteLink = {
  */
 export type PutCursorApiKeyRequest = {
     /**
-     * A `crsr_…` Cursor API key.
+     * A Cursor API key: `grok_…`, or `crsr_…` for older keys.
      */
     apiKey: string;
 };
@@ -1661,7 +1661,7 @@ export type TeamWithMembers = {
     members: Array<TeamMember>;
     /**
      * Provider-confirmed pending seat changes, keyed by member user ID.
-     * Only available to paid-team admins and owners; empty means no pending changes.
+     * Empty when no changes apply to this viewer; absent when the lookup fails.
      */
     scheduled_seat_plans?: {
         [key: string]: ScheduledSeatPlan;
@@ -1692,6 +1692,20 @@ export type ToggleNonAdminInvitesResponse = {
      * toggle.
      */
     allow_non_admin_invites: boolean;
+};
+
+/**
+ * Whether the authenticated customer can receive the introductory Pro trial.
+ */
+export type TrialEligibility = {
+    /**
+     * Confirmed against the same subscription history used during checkout.
+     */
+    eligible: boolean;
+    /**
+     * An existing subscription requires management instead of a new checkout.
+     */
+    existingSubscription: boolean;
 };
 
 /**
@@ -4010,6 +4024,27 @@ export type CreatePortalSessionResponses = {
 };
 
 export type CreatePortalSessionResponse = CreatePortalSessionResponses[keyof CreatePortalSessionResponses];
+
+export type GetTrialEligibilityData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/user/stripe/trial_eligibility';
+};
+
+export type GetTrialEligibilityErrors = {
+    400: ErrorResponse;
+    401: ErrorResponse;
+    500: ErrorResponse;
+};
+
+export type GetTrialEligibilityError = GetTrialEligibilityErrors[keyof GetTrialEligibilityErrors];
+
+export type GetTrialEligibilityResponses = {
+    200: TrialEligibility;
+};
+
+export type GetTrialEligibilityResponse = GetTrialEligibilityResponses[keyof GetTrialEligibilityResponses];
 
 export type PatchUserTutorialData = {
     body: PatchUserTutorialRequest;

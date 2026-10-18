@@ -13,6 +13,6 @@ html2text = "0.16.5"
 html5ever = "0.26"
 lazy_static = { workspace = true }
 regex = { workspace = true }
-scraper = { workspace = true }
+scraper = { workspace = true, features = ["deterministic"] }
 tracing = { workspace = true }
 workspace-hack = { version = "0.1", path = "../workspace-hack" }

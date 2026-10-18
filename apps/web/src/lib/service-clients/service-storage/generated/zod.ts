@@ -1707,7 +1707,7 @@ export const listTeamOutOfOfficeResponse = zod
             .string()
             .nullish()
             .describe(
-              "Event title, absent when the event's visibility withholds details."
+              'Event title, absent unless the teammate shares event details.'
             ),
         })
         .describe("One teammate's out-of-office occurrence.")
@@ -3330,7 +3330,11 @@ export const getAttachmentReferencesResponse = zod
  */
 export const getOrCreateDmBody = zod
   .object({
-    recipient_id: zod.string().describe('Recipient user id.'),
+    recipient_id: zod
+      .string()
+      .describe(
+        'Recipient user id (`macro|...`) or agent persona id (`bot|...`).'
+      ),
   })
   .describe('Request to get or create a direct message channel.');
 
@@ -3699,7 +3703,7 @@ export const removeParticipantsBody = zod
   .describe('Request to remove participants.');
 
 /**
- * @summary Set a channel or group chat profile picture. Requires channel admin or owner access.
+ * @summary Set a channel or group chat profile picture. Requires channel participation.
  */
 export const setChannelPictureParams = zod.object({
   channel_id: zod.uuid().describe('Channel ID'),
@@ -3938,6 +3942,25 @@ export const getChannelsResponse = zod
       .array(
         zod
           .object({
+            agent_dm: zod
+              .union([
+                zod.null(),
+                zod
+                  .object({
+                    avatar_url: zod
+                      .string()
+                      .nullish()
+                      .describe('Persona avatar, when supplied.'),
+                    bot_id: zod
+                      .string()
+                      .describe('Persona id without the bot principal prefix.'),
+                    name: zod.string().describe('Persona display name.'),
+                  })
+                  .describe(
+                    'Historical persona identity displayed beside a private conversation.'
+                  ),
+              ])
+              .optional(),
             auto_join_team: zod
               .boolean()
               .describe('Whether team members automatically join the channel.'),
@@ -7927,6 +7950,149 @@ export const applyCrmPipelineOpsResponse = zod
   );
 
 /**
+ * @summary Read the owner, team grant and channel recipients of a pipeline the caller can edit.
+ */
+export const getCrmPipelinePermissionsParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const getCrmPipelinePermissionsResponse = zod.object({
+  channelSharePermissions: zod
+    .array(
+      zod
+        .object({
+          access_level: zod
+            .enum(['view', 'comment', 'edit', 'owner'])
+            .describe('Ordered from least to most access top -> bottom'),
+          channel_id: zod.string().describe('The channel id'),
+        })
+        .describe('The channel share permission')
+    )
+    .nullish()
+    .describe('The channel share permissions for the item'),
+  id: zod.string().describe('The share permission id'),
+  linkShare: zod
+    .union([
+      zod.null(),
+      zod
+        .enum(['PUBLIC', 'TEAM'])
+        .describe('Defines who can access an item through its share link.'),
+    ])
+    .optional(),
+  linkShareAccessLevel: zod
+    .union([
+      zod.null(),
+      zod
+        .enum(['view', 'comment', 'edit', 'owner'])
+        .describe('Ordered from least to most access top -> bottom'),
+    ])
+    .optional(),
+  owner: zod.string().describe('The owner of the item'),
+  teamShareAccessLevel: zod
+    .union([
+      zod.null(),
+      zod
+        .enum(['view', 'comment', 'edit', 'owner'])
+        .describe('Ordered from least to most access top -> bottom'),
+    ])
+    .optional(),
+});
+
+/**
+ * @summary Share a pipeline the caller can edit with channels, or change or remove
+their access. Team access changes through `/sharing`; there is no share link.
+ */
+export const updateCrmPipelinePermissionsParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const updateCrmPipelinePermissionsBody = zod.object({
+  channelSharePermissions: zod
+    .array(
+      zod.object({
+        accessLevel: zod
+          .union([
+            zod.null(),
+            zod
+              .enum(['view', 'comment', 'edit', 'owner'])
+              .describe('Ordered from least to most access top -> bottom'),
+          ])
+          .optional(),
+        channelId: zod.string().describe('The channel id'),
+        operation: zod.enum(['add', 'remove', 'replace']),
+      })
+    )
+    .nullish()
+    .describe('Any channel share permissions to be created\/updated\/removed'),
+  linkShare: zod
+    .union([
+      zod.null(),
+      zod
+        .enum(['PUBLIC', 'TEAM'])
+        .describe('Defines who can access an item through its share link.'),
+    ])
+    .optional(),
+  linkShareAccessLevel: zod
+    .union([
+      zod.null(),
+      zod
+        .enum(['view', 'comment', 'edit', 'owner'])
+        .describe('Ordered from least to most access top -> bottom'),
+    ])
+    .optional(),
+  teamShareAccessLevel: zod
+    .union([
+      zod.null(),
+      zod
+        .enum(['view', 'comment', 'edit', 'owner'])
+        .describe('Ordered from least to most access top -> bottom'),
+    ])
+    .optional(),
+});
+
+export const updateCrmPipelinePermissionsResponse = zod.object({
+  channelSharePermissions: zod
+    .array(
+      zod
+        .object({
+          access_level: zod
+            .enum(['view', 'comment', 'edit', 'owner'])
+            .describe('Ordered from least to most access top -> bottom'),
+          channel_id: zod.string().describe('The channel id'),
+        })
+        .describe('The channel share permission')
+    )
+    .nullish()
+    .describe('The channel share permissions for the item'),
+  id: zod.string().describe('The share permission id'),
+  linkShare: zod
+    .union([
+      zod.null(),
+      zod
+        .enum(['PUBLIC', 'TEAM'])
+        .describe('Defines who can access an item through its share link.'),
+    ])
+    .optional(),
+  linkShareAccessLevel: zod
+    .union([
+      zod.null(),
+      zod
+        .enum(['view', 'comment', 'edit', 'owner'])
+        .describe('Ordered from least to most access top -> bottom'),
+    ])
+    .optional(),
+  owner: zod.string().describe('The owner of the item'),
+  teamShareAccessLevel: zod
+    .union([
+      zod.null(),
+      zod
+        .enum(['view', 'comment', 'edit', 'owner'])
+        .describe('Ordered from least to most access top -> bottom'),
+    ])
+    .optional(),
+});
+
+/**
  * @summary Read pipeline records through pipeline access.
  */
 export const getCrmPipelineRowsParams = zod.object({
@@ -9465,6 +9631,19 @@ export const ensureStarterHandlerResponse = zod
   .describe(
     'Starter result. A missing database means the user already started or removed it.'
   );
+
+/**
+ * @summary Insert rows through a webhook. The body is a JSON object, one row, or
+an array of up to 100 objects, one row each. Keys name columns by name
+(ignoring case) or id; `null` leaves a cell empty. Values may be loose:
+`"45"` for a number, `"true"` for a checkbox, a label or labels for a
+select, `2026-10-09` for a date. Nothing is written unless every row fits.
+ */
+export const deliverDatabaseWebhookParams = zod.object({
+  token: zod.string().describe("The webhook's secret token"),
+});
+
+export const deliverDatabaseWebhookBody = zod.unknown();
 
 /**
  * @summary Schema detail of one database.
@@ -14762,6 +14941,64 @@ export const getDatabaseViewPositionsResponse = zod
   .describe("Where a board's cards sit.");
 
 /**
+ * @summary The database's webhooks.
+ */
+export const listDatabaseWebhooksParams = zod.object({
+  id: zod.uuid().describe('Database id'),
+});
+
+export const listDatabaseWebhooksResponse = zod
+  .object({
+    webhooks: zod
+      .array(
+        zod
+          .object({
+            createdAt: zod.iso.datetime({}).describe('Creation time.'),
+            createdBy: zod
+              .string()
+              .describe('Who created it; its calls write with their access.'),
+            databaseId: zod.uuid().describe('The database.'),
+            id: zod.uuid().describe('Identifier.'),
+            tableId: zod
+              .uuid()
+              .describe('The table its calls insert rows into.'),
+            tokenPrefix: zod
+              .string()
+              .describe(
+                "The token's first characters, to tell webhooks apart."
+              ),
+          })
+          .describe(
+            'A webhook of a database. Its token is never shown again after creation.'
+          )
+      )
+      .describe('Oldest first.'),
+  })
+  .describe("A database's webhooks.");
+
+/**
+ * @summary Create a webhook: a secret URL whose calls insert rows into one of the
+database's tables, writing with the creator's access.
+ */
+export const createDatabaseWebhookParams = zod.object({
+  id: zod.uuid().describe('Database id'),
+});
+
+export const createDatabaseWebhookBody = zod
+  .object({
+    tableId: zod.uuid().describe('A table of the database.'),
+  })
+  .describe('Which table a new webhook inserts rows into.');
+
+/**
+ * @summary Delete a webhook; its URL stops working.
+ */
+export const deleteDatabaseWebhookParams = zod.object({
+  id: zod.uuid().describe('Database id'),
+  webhook_id: zod.uuid().describe('Webhook id'),
+});
+
+/**
  * Available to every signed-in user on every plan; does not consume chat
 credits. Audio and transcripts are never persisted.
  * @summary Transcribe a transient recording with OpenAI Whisper.
@@ -17801,6 +18038,26 @@ export const setDocumentTeamShareResponse = zod
   );
 
 /**
+ * @summary Read current Markdown or extracted file text with the document's view receipt.
+ */
+export const getDocumentTextContentParams = zod.object({
+  document_id: zod.string().describe('Document identity'),
+});
+
+export const getDocumentTextContentResponse = zod
+  .object({
+    text: zod
+      .string()
+      .nullable()
+      .describe(
+        'Current Markdown, or extracted PDF\/Word text. Null means use file export.'
+      ),
+  })
+  .describe(
+    'Text representation when the document supports one. Other file formats\nretain their existing download\/export behavior.'
+  );
+
+/**
  * @summary Gets the list of users who have viewed a given document
  */
 export const getDocumentViewsHandlerParams = zod.object({
@@ -17922,6 +18179,409 @@ export const getDocumentVersionResponse = zod.object({
   }),
   error: zod.boolean().describe('Indicates if an error occurred'),
 });
+
+/**
+ * @summary State access request state through the domain service.
+ */
+export const accessRequestsStateParams = zod.object({
+  entity_type: zod.enum([
+    'document',
+    'chat',
+    'project',
+    'initiative',
+    'database',
+    'call',
+    'email_thread',
+    'agent_session',
+  ]),
+  entity_id: zod.uuid(),
+});
+
+export const accessRequestsStateQueryOffsetMin = 0;
+
+export const accessRequestsStateQueryParams = zod.object({
+  offset: zod
+    .number()
+    .min(accessRequestsStateQueryOffsetMin)
+    .optional()
+    .describe(
+      'Offset into pending requests; page size is bounded by the service.'
+    ),
+});
+
+export const accessRequestsStateResponseNextOffsetMin = 0;
+
+export const accessRequestsStateResponse = zod
+  .object({
+    accessLevel: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['view', 'comment', 'edit', 'owner'])
+          .describe('Ordered from least to most access top -> bottom'),
+      ])
+      .optional(),
+    canReview: zod
+      .boolean()
+      .describe(
+        'Whether this viewer can resolve requests and manage direct grants.'
+      ),
+    mine: zod
+      .union([
+        zod.null(),
+        zod
+          .object({
+            createdAt: zod.iso
+              .datetime({})
+              .describe('Start of this request attempt.'),
+            grantedLevel: zod
+              .union([
+                zod.null(),
+                zod
+                  .enum(['view', 'comment', 'edit', 'owner'])
+                  .describe('Ordered from least to most access top -> bottom'),
+              ])
+              .optional(),
+            id: zod
+              .uuid()
+              .describe('Stable request identity across revisions.'),
+            requestedLevel: zod
+              .enum(['view', 'comment', 'edit', 'owner'])
+              .describe('Ordered from least to most access top -> bottom'),
+            requesterId: zod.string().describe('Person requesting access.'),
+            resolvedAt: zod.iso
+              .datetime({})
+              .nullish()
+              .describe('When the request stopped being pending.'),
+            retryAfter: zod.iso
+              .datetime({})
+              .nullish()
+              .describe(
+                'Earliest next submission or level change; cancellation preserves this deadline.\nSubmissions wait one minute, denials wait 24 hours, and approval clears it.'
+              ),
+            revision: zod.number().describe('Optimistic concurrency token.'),
+            status: zod
+              .enum(['pending', 'granted', 'denied', 'cancelled'])
+              .describe(
+                'Durable outcome; reading a notification never changes it.'
+              ),
+            updatedAt: zod.iso.datetime({}).describe('Most recent change.'),
+          })
+          .describe('Latest request for one person and one entity.'),
+      ])
+      .optional(),
+    nextOffset: zod
+      .number()
+      .min(accessRequestsStateResponseNextOffsetMin)
+      .nullish()
+      .describe('Next page offset, absent at the end.'),
+    owner: zod
+      .string()
+      .nullish()
+      .describe(
+        'Recorded owner principal, visible to reviewers and callers with access.'
+      ),
+    pendingCount: zod
+      .number()
+      .describe('Total outstanding requests, for the Share badge.'),
+    requests: zod
+      .array(
+        zod
+          .object({
+            createdAt: zod.iso
+              .datetime({})
+              .describe('Start of this request attempt.'),
+            grantedLevel: zod
+              .union([
+                zod.null(),
+                zod
+                  .enum(['view', 'comment', 'edit', 'owner'])
+                  .describe('Ordered from least to most access top -> bottom'),
+              ])
+              .optional(),
+            id: zod
+              .uuid()
+              .describe('Stable request identity across revisions.'),
+            requestedLevel: zod
+              .enum(['view', 'comment', 'edit', 'owner'])
+              .describe('Ordered from least to most access top -> bottom'),
+            requesterId: zod.string().describe('Person requesting access.'),
+            resolvedAt: zod.iso
+              .datetime({})
+              .nullish()
+              .describe('When the request stopped being pending.'),
+            retryAfter: zod.iso
+              .datetime({})
+              .nullish()
+              .describe(
+                'Earliest next submission or level change; cancellation preserves this deadline.\nSubmissions wait one minute, denials wait 24 hours, and approval clears it.'
+              ),
+            revision: zod.number().describe('Optimistic concurrency token.'),
+            status: zod
+              .enum(['pending', 'granted', 'denied', 'cancelled'])
+              .describe(
+                'Durable outcome; reading a notification never changes it.'
+              ),
+            updatedAt: zod.iso.datetime({}).describe('Most recent change.'),
+          })
+          .describe('Latest request for one person and one entity.')
+      )
+      .describe('Reviewer-only pending page, oldest first.'),
+    supportedLevels: zod
+      .array(
+        zod
+          .enum(['view', 'comment', 'edit', 'owner'])
+          .describe('Ordered from least to most access top -> bottom')
+      )
+      .describe('Permitted access choices for this surface.'),
+  })
+  .describe('Share state visible to one authenticated viewer.');
+
+/**
+ * @summary Submit access request state through the domain service.
+ */
+export const accessRequestsSubmitParams = zod.object({
+  entity_type: zod.enum([
+    'document',
+    'chat',
+    'project',
+    'initiative',
+    'database',
+    'call',
+    'email_thread',
+    'agent_session',
+  ]),
+  entity_id: zod.uuid(),
+});
+
+export const accessRequestsSubmitBody = zod
+  .object({
+    requestedLevel: zod
+      .enum(['view', 'comment', 'edit', 'owner'])
+      .describe('Ordered from least to most access top -> bottom'),
+    revision: zod
+      .number()
+      .nullish()
+      .describe('Last observed revision; omitted only for the first request.'),
+  })
+  .describe(
+    'Requester submission; an existing pending request requires its revision.'
+  );
+
+export const accessRequestsSubmitResponse = zod
+  .object({
+    createdAt: zod.iso.datetime({}).describe('Start of this request attempt.'),
+    grantedLevel: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['view', 'comment', 'edit', 'owner'])
+          .describe('Ordered from least to most access top -> bottom'),
+      ])
+      .optional(),
+    id: zod.uuid().describe('Stable request identity across revisions.'),
+    requestedLevel: zod
+      .enum(['view', 'comment', 'edit', 'owner'])
+      .describe('Ordered from least to most access top -> bottom'),
+    requesterId: zod.string().describe('Person requesting access.'),
+    resolvedAt: zod.iso
+      .datetime({})
+      .nullish()
+      .describe('When the request stopped being pending.'),
+    retryAfter: zod.iso
+      .datetime({})
+      .nullish()
+      .describe(
+        'Earliest next submission or level change; cancellation preserves this deadline.\nSubmissions wait one minute, denials wait 24 hours, and approval clears it.'
+      ),
+    revision: zod.number().describe('Optimistic concurrency token.'),
+    status: zod
+      .enum(['pending', 'granted', 'denied', 'cancelled'])
+      .describe('Durable outcome; reading a notification never changes it.'),
+    updatedAt: zod.iso.datetime({}).describe('Most recent change.'),
+  })
+  .describe('Latest request for one person and one entity.');
+
+/**
+ * @summary Cancel access request state through the domain service.
+ */
+export const accessRequestsCancelParams = zod.object({
+  entity_type: zod.enum([
+    'document',
+    'chat',
+    'project',
+    'initiative',
+    'database',
+    'call',
+    'email_thread',
+    'agent_session',
+  ]),
+  entity_id: zod.uuid(),
+});
+
+export const accessRequestsCancelQueryParams = zod.object({
+  revision: zod.number().describe('Last observed request revision.'),
+});
+
+export const accessRequestsCancelResponseDefault = null;
+
+export const accessRequestsCancelResponse = zod.unknown();
+
+/**
+ * @summary Resolve access request state through the domain service.
+ */
+export const accessRequestsResolveParams = zod.object({
+  entity_type: zod.enum([
+    'document',
+    'chat',
+    'project',
+    'initiative',
+    'database',
+    'call',
+    'email_thread',
+    'agent_session',
+  ]),
+  entity_id: zod.uuid(),
+  request_id: zod.uuid(),
+});
+
+export const accessRequestsResolveBody = zod
+  .object({
+    grantedLevel: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['view', 'comment', 'edit', 'owner'])
+          .describe('Ordered from least to most access top -> bottom'),
+      ])
+      .optional(),
+    revision: zod.number().describe('Request revision being reviewed.'),
+  })
+  .describe("Owner's decision; omission of a granted level means deny.");
+
+export const accessRequestsResolveResponse = zod
+  .object({
+    createdAt: zod.iso.datetime({}).describe('Start of this request attempt.'),
+    grantedLevel: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['view', 'comment', 'edit', 'owner'])
+          .describe('Ordered from least to most access top -> bottom'),
+      ])
+      .optional(),
+    id: zod.uuid().describe('Stable request identity across revisions.'),
+    requestedLevel: zod
+      .enum(['view', 'comment', 'edit', 'owner'])
+      .describe('Ordered from least to most access top -> bottom'),
+    requesterId: zod.string().describe('Person requesting access.'),
+    resolvedAt: zod.iso
+      .datetime({})
+      .nullish()
+      .describe('When the request stopped being pending.'),
+    retryAfter: zod.iso
+      .datetime({})
+      .nullish()
+      .describe(
+        'Earliest next submission or level change; cancellation preserves this deadline.\nSubmissions wait one minute, denials wait 24 hours, and approval clears it.'
+      ),
+    revision: zod.number().describe('Optimistic concurrency token.'),
+    status: zod
+      .enum(['pending', 'granted', 'denied', 'cancelled'])
+      .describe('Durable outcome; reading a notification never changes it.'),
+    updatedAt: zod.iso.datetime({}).describe('Most recent change.'),
+  })
+  .describe('Latest request for one person and one entity.');
+
+/**
+ * @summary Direct access request state through the domain service.
+ */
+export const accessRequestsDirectParams = zod.object({
+  entity_type: zod.enum([
+    'document',
+    'chat',
+    'project',
+    'initiative',
+    'database',
+    'call',
+    'email_thread',
+    'agent_session',
+  ]),
+  entity_id: zod.uuid(),
+});
+
+export const accessRequestsDirectResponseItem = zod
+  .object({
+    accessLevel: zod
+      .enum(['view', 'comment', 'edit', 'owner'])
+      .describe('Ordered from least to most access top -> bottom'),
+    userId: zod.string().describe('Recipient.'),
+  })
+  .describe(
+    'A direct user grant; inherited grants are deliberately not editable here.'
+  );
+export const accessRequestsDirectResponse = zod.array(
+  accessRequestsDirectResponseItem
+);
+
+/**
+ * @summary Set direct access request state through the domain service.
+ */
+export const accessRequestsSetDirectParams = zod.object({
+  entity_type: zod.enum([
+    'document',
+    'chat',
+    'project',
+    'initiative',
+    'database',
+    'call',
+    'email_thread',
+    'agent_session',
+  ]),
+  entity_id: zod.uuid(),
+  user_id: zod.string(),
+});
+
+export const accessRequestsSetDirectBody = zod
+  .object({
+    accessLevel: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['view', 'comment', 'edit', 'owner'])
+          .describe('Ordered from least to most access top -> bottom'),
+      ])
+      .optional(),
+  })
+  .describe(
+    'Direct-grant change. A null level removes only that direct grant.'
+  );
+
+export const accessRequestsSetDirectResponseDefault = null;
+
+export const accessRequestsSetDirectResponse = zod.unknown();
+
+/**
+ * @summary Remove direct access request state through the domain service.
+ */
+export const accessRequestsRemoveDirectParams = zod.object({
+  entity_type: zod.enum([
+    'document',
+    'chat',
+    'project',
+    'initiative',
+    'database',
+    'call',
+    'email_thread',
+    'agent_session',
+  ]),
+  entity_id: zod.uuid(),
+  user_id: zod.string(),
+});
+
+export const accessRequestsRemoveDirectResponseDefault = null;
+
+export const accessRequestsRemoveDirectResponse = zod.unknown();
 
 /**
  * @summary Get the current user's permission for a given entity.
@@ -31677,6 +32337,33 @@ export const postItemsSoupAstBody = zod
       .unknown()
       .optional()
       .describe('the filters that should be applied to the channel entity'),
+    crma: zod
+      .union([
+        zod.null(),
+        zod
+          .union([
+            zod
+              .object({
+                company: zod
+                  .uuid()
+                  .describe(
+                    'Items associated with the company or with any of its contacts.'
+                  ),
+              })
+              .describe(
+                'Items associated with the company or with any of its contacts.'
+              ),
+            zod
+              .object({
+                contact: zod
+                  .uuid()
+                  .describe('Items associated with the contact.'),
+              })
+              .describe('Items associated with the contact.'),
+          ])
+          .describe('The CRM record an association filter names.'),
+      ])
+      .optional(),
     crmf: zod
       .unknown()
       .optional()
@@ -35773,6 +36460,33 @@ export const postItemsSoupAstGroupedBody = zod
           .unknown()
           .optional()
           .describe('the filters that should be applied to the channel entity'),
+        crma: zod
+          .union([
+            zod.null(),
+            zod
+              .union([
+                zod
+                  .object({
+                    company: zod
+                      .uuid()
+                      .describe(
+                        'Items associated with the company or with any of its contacts.'
+                      ),
+                  })
+                  .describe(
+                    'Items associated with the company or with any of its contacts.'
+                  ),
+                zod
+                  .object({
+                    contact: zod
+                      .uuid()
+                      .describe('Items associated with the contact.'),
+                  })
+                  .describe('Items associated with the contact.'),
+              ])
+              .describe('The CRM record an association filter names.'),
+          ])
+          .optional(),
         crmf: zod
           .unknown()
           .optional()
@@ -35953,6 +36667,33 @@ export const postItemsSoupAstGroupedBody = zod
           .unknown()
           .optional()
           .describe('the filters that should be applied to the channel entity'),
+        crma: zod
+          .union([
+            zod.null(),
+            zod
+              .union([
+                zod
+                  .object({
+                    company: zod
+                      .uuid()
+                      .describe(
+                        'Items associated with the company or with any of its contacts.'
+                      ),
+                  })
+                  .describe(
+                    'Items associated with the company or with any of its contacts.'
+                  ),
+                zod
+                  .object({
+                    contact: zod
+                      .uuid()
+                      .describe('Items associated with the contact.'),
+                  })
+                  .describe('Items associated with the contact.'),
+              ])
+              .describe('The CRM record an association filter names.'),
+          ])
+          .optional(),
         crmf: zod
           .unknown()
           .optional()

@@ -9,8 +9,10 @@ import {
 } from '@app/features/calendar-view/calendar-url';
 import { CALENDAR_VIEW_ID } from '@app/features/calendar-view/types';
 import { changesSearch } from '@app/features/changes/changes-search';
+import { crmViewReference } from '@app/features/crm/crm-route';
 import { driveDetailTrailSchema } from '@app/features/drive-view/primitives/drive-detail-trail';
 import {
+  DRIVE_DETAIL_TYPES,
   DRIVE_DOCUMENT_TYPES,
   driveDocumentBlockType,
 } from '@app/features/drive-view/primitives/drive-route-schema';
@@ -26,6 +28,7 @@ import {
   ROUTINE_DETAIL_ROUTE_ID,
   ROUTINES_ROUTE_ID,
 } from '@app/features/routines/routine-navigation';
+import { bookingLinksSearch } from '@app/features/scheduling/booking-links-search';
 import { defineRoute, type Entry, routeParams } from '@app/lib/split-router';
 import { callDetailSearch } from '@block-call/call-route';
 import { URL_PARAMS as CALL_URL_PARAMS } from '@block-call/constants';
@@ -188,7 +191,7 @@ export const driveCallRoute = defineRoute({
 });
 
 const driveDocumentParams = z.object({
-  documentType: z.enum(DRIVE_DOCUMENT_TYPES),
+  documentType: z.enum(DRIVE_DETAIL_TYPES),
   documentId: z.string().min(1),
 });
 
@@ -369,6 +372,11 @@ export const homeChannelRoute = defineRoute({
 export const homeDocumentRoute = defineRoute({
   ...driveRootDocumentRoute,
   id: 'home-document',
+  // Home previews databases and forms as blocks under `home-preview`.
+  params: z.object({
+    documentType: z.enum(DRIVE_DOCUMENT_TYPES),
+    documentId: z.string().min(1),
+  }),
   externalSearch: (entry: Readonly<Entry>) => {
     const type = routeParams(entry.location.route).documentType;
     if (
@@ -561,6 +569,11 @@ export const reviewsSplitRoute = defineRoute({
   search: [reviewsTabSearch.namespace],
 });
 
+export const bookingLinksRoute = defineRoute({
+  id: 'view-booking-links',
+  path: 'scheduling',
+  search: [bookingLinksSearch.namespace],
+});
 export const calendarSplitRoute = defineRoute({
   id: CALENDAR_ROUTE_ID,
   path: 'calendar/:period',
@@ -580,6 +593,17 @@ export const callsRoute = defineRoute({
   claim: () => ({ namespace: 'component', id: 'calls' }),
 });
 
+export const callsCallRoute = defineRoute({
+  id: 'calls-call',
+  path: 'call/:callId',
+  params: z.object({ callId: z.string().min(1) }),
+  search: [callDetailSearch.namespace],
+  externalSearch: [CALL_URL_PARAMS.transcriptId, CALL_URL_PARAMS.messageId],
+  remountKey: ({ callId }) => callId,
+  claim: ({ callId }) => ({ namespace: 'block', id: `call:${callId}` }),
+  toReference: ({ callId }) => uuidRouteReference(callId, 'call'),
+});
+
 export const callDetailRoute = defineRoute({
   id: 'call-detail',
   path: 'call/:callId',
@@ -596,6 +620,7 @@ export const companiesRoute = defineRoute({
   search: '*' as const,
   externalSearch: ['crmView'],
   claim: () => ({ namespace: 'component', id: 'companies' }),
+  toReference: (_, query) => crmViewReference(query),
 });
 
 export const foldersRoute = defineRoute({

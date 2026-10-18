@@ -1145,7 +1145,7 @@
           {
             "type": "object",
             "description": "A sync run committed changes for `link_id`; viewers should refetch.",
-            "required": ["link_id", "event"],
+            "required": ["link_id", "team_ooo_changed", "event"],
             "properties": {
               "event": {
                 "type": "string",
@@ -1155,17 +1155,25 @@
                 "type": "string",
                 "format": "uuid",
                 "description": "Connected inbox whose calendars changed."
+              },
+              "team_ooo_changed": {
+                "type": "boolean",
+                "description": "False only when the run excludes changes to teammate OOO projections."
               }
             }
           },
           {
             "type": "object",
-            "description": "A team entitlement changed; discard cached team projections before refetching.",
-            "required": ["event"],
+            "description": "Team projections need refreshing after a sync or entitlement change.",
+            "required": ["team_ooo_changed", "event"],
             "properties": {
               "event": {
                 "type": "string",
                 "enum": ["team_sharing_changed"]
+              },
+              "team_ooo_changed": {
+                "type": "boolean",
+                "description": "True for sharing changes and any possibly affected OOO projection."
               }
             }
           }

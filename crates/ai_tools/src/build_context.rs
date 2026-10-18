@@ -50,6 +50,7 @@ use notification::domain::service::{NotificationReaderService, PlatformArnConfig
 use notification::outbound::queue::SqsQueue;
 use notification::outbound::repository::DbNotificationRepository;
 use readonly_pool::ReadOnlyPool;
+use rootcause::compat::anyhow1::IntoAnyhow;
 use search_service_client::SearchServiceClient;
 use secretsmanager_client::{SecretManager, SecretsManager};
 use soup::domain::service::SoupImpl;
@@ -102,6 +103,20 @@ pub fn build_image_generator_from_env() -> Arc<dyn ImageGenerator> {
             Arc::new(UnconfiguredImageGenerator)
         }
     }
+}
+
+/// Compose shared AI generation and decisions using existing service credentials.
+/// The cognition service owns admission, model access, and usage recording.
+pub fn build_cognition_tool_context() -> anyhow::Result<crate::ToolCognitionToolContext> {
+    let client = cognition::outbound::CognitionClient::new(
+        macro_service_urls::DocumentCognitionServiceUrl::new()?.as_ref(),
+        &macro_auth::InternalApiKey::new()?,
+        chat::domain::models::FREE_MODEL,
+    )
+    .map_err(rootcause::Report::into_anyhow)?;
+    Ok(crate::ToolCognitionToolContext {
+        service: Some(Arc::new(client)),
+    })
 }
 
 /// Builds a [`ToolServiceContext`] by reading the required environment
@@ -516,6 +531,11 @@ pub async fn build_tool_service_context_from_env(
         &databases_tool_context,
         &crm_tool_context,
     );
+    let crm_transfer_tool_context = crate::tool_context::build_crm_transfer_tool_context(
+        &pipeline_tool_context,
+        &crm_tool_context,
+        &document_tool_context,
+    );
 
     let forms_tool_context = crate::tool_context::build_forms_tool_context(
         pool.clone(),
@@ -607,6 +627,7 @@ pub async fn build_tool_service_context_from_env(
             build_image_generator_from_env(),
             recorder.clone(),
         )?,
+        cognition_tool_context: build_cognition_tool_context()?,
         document_tool_context,
         properties_tool_context,
         email_tool_context,
@@ -636,6 +657,7 @@ pub async fn build_tool_service_context_from_env(
         import_tool_context,
         chat_tool_context,
         channel_tool_context,
+        channel_media_upload_tool_context: crate::build_channel_media_upload_tool_context()?,
         bot_tool_context: crate::tool_context::build_bot_tool_context(
             pool.clone(),
             crate::tool_context::MaybeToolEventBroker::Real(macro_event_broker.clone()),
@@ -656,6 +678,7 @@ pub async fn build_tool_service_context_from_env(
         team_tool_context: crate::tool_context::build_team_tool_context(pool.clone()),
         crm_tool_context,
         pipeline_tool_context,
+        crm_transfer_tool_context,
         skill_tool_context,
         schedule_tool_context: crate::build_routine_tool_context()?,
         anthropic_tool_context,

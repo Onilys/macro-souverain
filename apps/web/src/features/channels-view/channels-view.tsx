@@ -1,6 +1,6 @@
 import { ViewShell } from '@app/components/view-shell';
+import { useAgentDmSearchPool } from '@app/features/agent-dms/queries/search-pool';
 import { SearchState } from '@app/features/command/mobile/mobileSearchState';
-import { useMobileSearchText } from '@app/features/command/mobile/use-mobile-search-text';
 import { markChannelNotificationsSeenOnOpen } from '@app/features/next-soup/utils';
 import { MaybeSoupEntityActionDrawerManager } from '@app/features/soup';
 import { withEntityNotifications } from '@app/features/soup/entity-notifications';
@@ -50,21 +50,19 @@ export type ChannelsViewProps = {
 
 // Mounted inside the mobile list's Suspense boundary.
 function MobileChannelsList(props: { sources: ChannelsSources }) {
-  const panel = useSplitPanelOrThrow();
-  const { state, setMobileTab } = useChannelsView();
-  const mobileSearchText = useMobileSearchText(() => '', panel.handle.isActive);
+  const agentDms = useAgentDmSearchPool();
+  const mobileSearchText = () => '';
   const mobileSearchSource = createChannelSearchSource({
+    additionalLocalChannels: agentDms,
     text: mobileSearchText,
-    scope: () => state.mobileTab,
-    source: () => props.sources[state.mobileTab],
+    scope: () => 'recents',
+    source: () => props.sources.recents,
   });
   return (
     <ChannelsMobileView
       source={mobileSearchSource}
       searchQuery={mobileSearchText()}
       onClearSearch={() => SearchState.setQuery('')}
-      tab={state.mobileTab}
-      onTabChange={setMobileTab}
     />
   );
 }
@@ -74,8 +72,10 @@ function DesktopChannelsRail(props: {
   searchOpen: boolean;
   onSearchOpenChange: (open: boolean) => void;
 }) {
+  const agentDms = useAgentDmSearchPool();
   const [searchQuery, setSearchQuery] = createSignal('');
   const searchSource = createChannelSearchSource({
+    additionalLocalChannels: agentDms,
     text: searchQuery,
     enabled: () => props.searchOpen,
     scope: () => 'search',
@@ -127,8 +127,7 @@ function ChannelsViewRoot() {
 
   const sources = useChannelsSources(
     (scope) => {
-      if (mobileLayout())
-        return scope !== 'search' && state.mobileTab === scope;
+      if (mobileLayout()) return scope === 'recents';
       if (railSearchOpen()) return scope === 'search';
       if (scope === 'search') return false;
       if (scope === 'recents') return tab() === 'recents';

@@ -6,7 +6,9 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use connection::domain::models::{ConnectionError, InvalidationEvent};
 use connection::domain::ports::ConnectionService;
-use entity_access::domain::models::{EditAccessLevel, EntityAccessReceipt, EntityType};
+use entity_access::domain::models::{
+    EditAccessLevel, EntityAccessReceipt, EntityType, ViewAccessLevel,
+};
 use entity_access::domain::ports::NoOpEntityAccessService;
 use entity_mutation::{DeleteEntityPermanently, UpdateEntitySharePolicy};
 use macro_event_broker::{EventBrokerError, MacroEvent, MacroEventBroker};
@@ -932,6 +934,7 @@ const ARCHIVED_EVENT_CALL_ID: Uuid = Uuid::from_u128(0x0198a1b2_c3d4_7e5f_8061_7
 const ARCHIVED_EVENT_CHANNEL_ID: Uuid = Uuid::from_u128(0x4f6f8b0a_6f9f_4a3f_9c3a_2b1e5d4c7a91);
 const ARCHIVED_EVENT_ROOM_NAME: &str = "archived-event-room";
 const ARCHIVED_EVENT_CREATOR: &str = "macro|archiver@example.com";
+const ARCHIVED_EVENT_JOINER: &str = "macro|joiner@example.com";
 const ARCHIVED_EVENT_PARTICIPANT: &str = "participant@example.com";
 const RECORDING_READY_EGRESS_ID: &str = "recording-ready-egress";
 const RECORDING_READY_FILE_URL: &str =
@@ -963,7 +966,7 @@ fn active_call_for_archived_event(created_by: &str, egress_id: Option<&str>) -> 
 
 fn archived_call_for_event(
     created_by: &str,
-    participant_count: usize,
+    participants: &[&str],
     has_recording: bool,
 ) -> ArchivedCall {
     ArchivedCall {
@@ -974,7 +977,7 @@ fn archived_call_for_event(
         ended_at: archived_event_ended_at(),
         duration_ms: 183_000,
         has_recording,
-        participant_count,
+        participants: participants.iter().map(ToString::to_string).collect(),
     }
 }
 
@@ -1067,6 +1070,7 @@ fn assert_archived_event(
     event_broker: &RecordingEventBroker,
     archive_reason: &str,
     participant_count: usize,
+    participants: &[&str],
     has_recording: bool,
 ) {
     let events = event_broker.events();
@@ -1099,6 +1103,7 @@ fn assert_archived_event(
                 "ended_at": "2026-07-27T18:04:05Z",
                 "duration_ms": 183_000,
                 "participant_count": participant_count,
+                "participants": participants,
                 "has_recording": has_recording,
                 "archive_reason": archive_reason,
             },
@@ -1109,7 +1114,11 @@ fn assert_archived_event(
 #[tokio::test]
 async fn participant_left_publishes_last_participant_archived_event() {
     let active_call = active_call_for_archived_event(ARCHIVED_EVENT_CREATOR, None);
-    let archived_call = archived_call_for_event(ARCHIVED_EVENT_CREATOR, 4, false);
+    let archived_call = archived_call_for_event(
+        ARCHIVED_EVENT_CREATOR,
+        &[ARCHIVED_EVENT_CREATOR, ARCHIVED_EVENT_JOINER],
+        false,
+    );
     let mut repo = MockCallRepository::new();
     repo.expect_get_call_by_room_name()
         .times(1)
@@ -1156,7 +1165,13 @@ async fn participant_left_publishes_last_participant_archived_event() {
         .await
         .expect("participant-left webhook succeeds");
 
-    assert_archived_event(&event_broker, "last_participant_left", 4, false);
+    assert_archived_event(
+        &event_broker,
+        "last_participant_left",
+        2,
+        &[ARCHIVED_EVENT_CREATOR, ARCHIVED_EVENT_JOINER],
+        false,
+    );
 }
 
 #[tokio::test]
@@ -1165,7 +1180,15 @@ async fn room_finished_publishes_room_finished_archived_event() {
         "macro|stale-active-creator@example.com",
         Some("archived-event-egress"),
     );
-    let archived_call = archived_call_for_event(ARCHIVED_EVENT_CREATOR, 3, true);
+    let archived_call = archived_call_for_event(
+        ARCHIVED_EVENT_CREATOR,
+        &[
+            ARCHIVED_EVENT_CREATOR,
+            ARCHIVED_EVENT_JOINER,
+            "malformed-participant",
+        ],
+        true,
+    );
     let mut repo = MockCallRepository::new();
     repo.expect_get_call_by_room_name()
         .times(1)
@@ -1189,7 +1212,14 @@ async fn room_finished_publishes_room_finished_archived_event() {
         .await
         .expect("room-finished webhook succeeds");
 
-    assert_archived_event(&event_broker, "room_finished", 3, true);
+    // A malformed stored participant still counts, but is left off the list.
+    assert_archived_event(
+        &event_broker,
+        "room_finished",
+        3,
+        &[ARCHIVED_EVENT_CREATOR, ARCHIVED_EVENT_JOINER],
+        true,
+    );
 }
 
 #[tokio::test]
@@ -1219,7 +1249,8 @@ async fn failed_archive_does_not_publish_archived_event() {
 #[tokio::test]
 async fn malformed_archived_creator_skips_event_without_undoing_archival() {
     let active_call = active_call_for_archived_event(ARCHIVED_EVENT_CREATOR, None);
-    let archived_call = archived_call_for_event("malformed-user-id", 1, false);
+    let archived_call =
+        archived_call_for_event("malformed-user-id", &[ARCHIVED_EVENT_CREATOR], false);
     let mut repo = MockCallRepository::new();
     repo.expect_get_call_by_room_name()
         .times(1)
@@ -4046,7 +4077,8 @@ async fn mixed_call_archives_only_after_both_users_and_guests_leave() {
     let mut active = active_call_for_archived_event(ARCHIVED_EVENT_CREATOR, None);
     active.channel_id = None;
     let second_leg = active.clone();
-    let mut archived = archived_call_for_event(ARCHIVED_EVENT_CREATOR, 1, true);
+    let mut archived =
+        archived_call_for_event(ARCHIVED_EVENT_CREATOR, &[ARCHIVED_EVENT_CREATOR], true);
     archived.channel_id = None;
     let guest_id = GuestId::generate();
 
@@ -4147,7 +4179,8 @@ async fn last_guest_leaving_archives_call_and_stops_recording() {
     let token = meeting.share_token.clone();
     let mut active = active_call_for_archived_event(ARCHIVED_EVENT_CREATOR, Some("recording"));
     active.channel_id = None;
-    let mut archived = archived_call_for_event(ARCHIVED_EVENT_CREATOR, 1, true);
+    let mut archived =
+        archived_call_for_event(ARCHIVED_EVENT_CREATOR, &[ARCHIVED_EVENT_CREATOR], true);
     archived.channel_id = None;
     let guest_id = GuestId::generate();
     let identity = guest_id.to_string();
@@ -4314,4 +4347,81 @@ async fn call_record_query_service_reads_the_people_on_a_call() {
             .unwrap(),
         people
     );
+}
+
+fn reader_receipt() -> EntityAccessReceipt<ViewAccessLevel> {
+    EntityAccessReceipt::dangerously_assert_authenticated_user(
+        user("reader@example.com"),
+        &MUTATED_EVENT_CALL_ID.to_string(),
+        EntityType::Call,
+    )
+}
+
+#[tokio::test]
+async fn call_record_reader_names_the_channel_as_the_reader_sees_it() {
+    use crate::domain::ports::CallRecordReader;
+
+    let record = call_record_for_mutation();
+    let mut repo = MockCallRepository::new();
+    repo.expect_get_call_record_by_call_id()
+        .times(1)
+        .return_once(move |call_id| {
+            assert_eq!(*call_id, MUTATED_EVENT_CALL_ID);
+            Box::pin(async move { Ok(Some(record)) })
+        });
+    repo.expect_resolve_channel_name()
+        .times(1)
+        .returning(|channel_id, user_id| {
+            assert_eq!(*channel_id, MUTATED_EVENT_CHANNEL_ID);
+            assert_eq!(user_id.as_ref(), "macro|reader@example.com");
+            Box::pin(async { Ok(Some("eng".to_string())) })
+        });
+
+    let record = super::CallRecordQueryServiceImpl::new(repo)
+        .get_call_record(reader_receipt())
+        .await
+        .unwrap();
+    assert_eq!(record.call_id, MUTATED_EVENT_CALL_ID);
+    assert_eq!(record.channel_name.as_deref(), Some("eng"));
+}
+
+#[tokio::test]
+async fn call_record_reader_reports_a_deleted_record_as_not_found() {
+    use crate::domain::ports::CallRecordReader;
+
+    let mut repo = MockCallRepository::new();
+    repo.expect_get_call_record_by_call_id()
+        .times(1)
+        .return_once(|_| Box::pin(async { Ok(None) }));
+
+    assert!(matches!(
+        super::CallRecordQueryServiceImpl::new(repo)
+            .get_call_record(reader_receipt())
+            .await,
+        Err(CallError::NotFound(_))
+    ));
+}
+
+#[test]
+fn native_call_fallback_persists_only_users_with_unhandled_platforms() {
+    use notification::domain::models::{MobilePushRecipients, NativeCallPushResult};
+    let fully_handled = user("fully@example.com");
+    let ios_fallback = user("ios-fallback@example.com");
+    let android_fallback = user("android-fallback@example.com");
+    let result = NativeCallPushResult {
+        delivered: MobilePushRecipients {
+            ios: HashSet::from([fully_handled.clone(), android_fallback.clone()]),
+            android: HashSet::from([fully_handled.clone(), ios_fallback.clone()]),
+        },
+        fully_delivered: HashSet::from([fully_handled.clone()]),
+    };
+    let fallback = exclude_voip_recipients(
+        HashSet::from([
+            fully_handled,
+            ios_fallback.clone(),
+            android_fallback.clone(),
+        ]),
+        &result.fully_delivered,
+    );
+    assert_eq!(fallback, HashSet::from([ios_fallback, android_fallback]));
 }

@@ -96,6 +96,7 @@ import {
   SettingsSection,
 } from './primitives';
 import {
+  canInviteToTeam,
   canRemoveTeamMember,
   isTeamAdminOrOwner,
 } from './teamMemberPermissions';
@@ -623,7 +624,10 @@ const teamNameSchema = z
       .max(TEAM_NAME_MAX_LENGTH, 'Team name is too long')
   );
 
-function CreateTeamDialog(props: { open: boolean; onClose: () => void }) {
+export function CreateTeamDialog(props: {
+  open: boolean;
+  onClose: () => void;
+}) {
   let teamNameInputRef: HTMLInputElement | undefined;
   const [teamName, setTeamName] = createSignal('');
   const [teamNameError, setTeamNameError] = createSignal<string | undefined>(
@@ -766,6 +770,101 @@ function CreateTeamDialog(props: { open: boolean; onClose: () => void }) {
   );
 }
 
+/** Invite people to an existing team by email. */
+export function InviteToTeamDialog(props: {
+  teamId: string;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const inviteToTeamMutation = useInviteToTeamMutation();
+  const [invites, setInvites] = createSignal<InviteEntry[]>([EMPTY_INVITE]);
+  const [inviteErrors, setInviteErrors] = createSignal<(string | undefined)[]>(
+    []
+  );
+
+  const hasValidInvites = () => {
+    const inv = invites();
+    const hasNonEmptyEmail = inv.some((i) => i.email.trim() !== '');
+    const hasNoErrors = !inviteErrors().some((e) => e !== undefined);
+    return hasNonEmptyEmail && hasNoErrors;
+  };
+
+  const validateInvites = () => {
+    const { errors, hasError } = validateInviteEmails(invites());
+    setInviteErrors(errors);
+    return !hasError;
+  };
+
+  const close = () => {
+    setInvites([EMPTY_INVITE]);
+    setInviteErrors([]);
+    props.onClose();
+  };
+
+  const handleInvite = () => {
+    if (!validateInvites()) return;
+
+    const inviteEntries = invites()
+      .filter((i) => i.email.trim() !== '')
+      .map((i) => ({ email: i.email.trim() }));
+    if (inviteEntries.length === 0) return;
+
+    inviteToTeamMutation.mutate(
+      { teamId: props.teamId, request: { invites: inviteEntries } },
+      { onSuccess: close }
+    );
+  };
+
+  return (
+    <Dialog open={props.open} onOpenChange={(open) => !open && close()}>
+      <Panel depth={2} class="max-h-[75vh] text-ink rounded-xl">
+        <Panel.Header class="px-2 gap-1">
+          <Dialog.CloseButton as={Button} variant="ghost" size="icon-sm">
+            <XIcon />
+          </Dialog.CloseButton>
+          <Dialog.Title as="span" class="text-sm font-medium p-0 m-0">
+            Invite to Team
+          </Dialog.Title>
+        </Panel.Header>
+
+        <Panel.Body class="p-3 flex flex-col gap-3">
+          <InviteEmailsInput
+            invites={invites()}
+            onChange={setInvites}
+            errors={inviteErrors()}
+            onErrorsChange={setInviteErrors}
+          />
+          <div class="flex justify-end gap-1 pt-2">
+            <Button
+              variant="ghost"
+              disabled={inviteToTeamMutation.isPending}
+              onClick={close}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="strong"
+              disabled={!hasValidInvites() || inviteToTeamMutation.isPending}
+              onClick={handleInvite}
+            >
+              <Show
+                when={inviteToTeamMutation.isPending}
+                fallback={
+                  invites().length > 1
+                    ? `Send ${invites().length} Invites`
+                    : 'Send Invite'
+                }
+              >
+                <SpinnerIcon class="size-4 animate-spin" />
+              </Show>
+            </Button>
+          </div>
+        </Panel.Body>
+      </Panel>
+    </Dialog>
+  );
+}
+
 function EmptyTeamState() {
   const [showCreateModal, setShowCreateModal] = createSignal(false);
 
@@ -872,7 +971,6 @@ function TeamManagement(props: {
   const deleteInviteMutation = useDeleteTeamInviteMutation();
   const removeUserMutation = useRemoveUserFromTeamMutation();
   const patchTeamMutation = usePatchTeamMutation();
-  const inviteToTeamMutation = useInviteToTeamMutation();
   const deleteTeamMutation = useDeleteTeamMutation();
   const toggleAutoJoinMutation = useToggleAutoJoinDomainMutation();
   const toggleNonAdminInvitesMutation = useToggleNonAdminInvitesMutation();
@@ -885,10 +983,6 @@ function TeamManagement(props: {
   const [showCancelInviteModal, setShowCancelInviteModal] =
     createSignal<TeamInviteDetails | null>(null);
   const [showInviteModal, setShowInviteModal] = createSignal(false);
-  const [invites, setInvites] = createSignal<InviteEntry[]>([EMPTY_INVITE]);
-  const [inviteErrors, setInviteErrors] = createSignal<(string | undefined)[]>(
-    []
-  );
   const [editingTeamName, setEditingTeamName] = createSignal<
     string | undefined
   >(undefined);
@@ -898,19 +992,6 @@ function TeamManagement(props: {
   const [teamSlugError, setTeamSlugError] = createSignal<string | undefined>(
     undefined
   );
-
-  const hasValidInvites = () => {
-    const inv = invites();
-    const hasNonEmptyEmail = inv.some((i) => i.email.trim() !== '');
-    const hasNoErrors = !inviteErrors().some((e) => e !== undefined);
-    return hasNonEmptyEmail && hasNoErrors;
-  };
-
-  const validateInvites = () => {
-    const { errors, hasError } = validateInviteEmails(invites());
-    setInviteErrors(errors);
-    return !hasError;
-  };
 
   const deleteConfirmationPhrase = () => `Delete ${props.teamName}`;
   const canDeleteTeam = () =>
@@ -1183,38 +1264,6 @@ function TeamManagement(props: {
     );
   };
 
-  const handleInvite = () => {
-    const currentInvites = invites();
-    if (currentInvites.length === 0 || !props.teamId) return;
-
-    if (!validateInvites()) {
-      return;
-    }
-
-    const inviteEntries = currentInvites
-      .filter((i) => i.email.trim() !== '')
-      .map((i) => ({ email: i.email.trim() }));
-
-    inviteToTeamMutation.mutate(
-      { teamId: props.teamId, request: { invites: inviteEntries } },
-      {
-        onSuccess: () => {
-          setInvites([]);
-          setInviteErrors([]);
-          setShowInviteModal(false);
-        },
-      }
-    );
-  };
-
-  const handleInviteModalClose = (open: boolean) => {
-    if (!open) {
-      setInvites([EMPTY_INVITE]);
-      setInviteErrors([]);
-      setShowInviteModal(false);
-    }
-  };
-
   return (
     <>
       <SettingsPage
@@ -1457,7 +1506,9 @@ function TeamManagement(props: {
           actions={
             // Members can invite unless the team has restricted inviting
             // to admins; removals stay admin-only.
-            <Show when={isAdminOrOwner() || allowNonAdminInvites()}>
+            <Show
+              when={canInviteToTeam(currentUserRole(), allowNonAdminInvites())}
+            >
               <Button
                 variant="outline"
                 size="sm"
@@ -1494,9 +1545,11 @@ function TeamManagement(props: {
 
           <Show
             when={
+              teamQuery.isSuccess &&
               showSeatPlans() &&
               isAdminOrOwner() &&
               !teamQuery.data?.team.enterprise &&
+              // A successful team response omits this field only on lookup failure.
               teamQuery.data?.scheduled_seat_plans == null
             }
           >
@@ -1699,52 +1752,11 @@ function TeamManagement(props: {
         }
       />
 
-      <Dialog open={showInviteModal()} onOpenChange={handleInviteModalClose}>
-        <Panel depth={2} class="max-h-[75vh] text-ink rounded-xl">
-          <Panel.Header class="px-2 gap-1">
-            <Dialog.CloseButton as={Button} variant="ghost" size="icon-sm">
-              <XIcon />
-            </Dialog.CloseButton>
-            <Dialog.Title as="span" class="text-sm font-medium p-0 m-0">
-              Invite to Team
-            </Dialog.Title>
-          </Panel.Header>
-
-          <Panel.Body class="p-3 flex flex-col gap-3">
-            <InviteEmailsInput
-              invites={invites()}
-              onChange={setInvites}
-              errors={inviteErrors()}
-              onErrorsChange={setInviteErrors}
-            />
-            <div class="flex justify-end gap-1 pt-2">
-              <Button
-                variant="ghost"
-                disabled={inviteToTeamMutation.isPending}
-                onClick={() => handleInviteModalClose(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="strong"
-                disabled={!hasValidInvites() || inviteToTeamMutation.isPending}
-                onClick={handleInvite}
-              >
-                <Show
-                  when={inviteToTeamMutation.isPending}
-                  fallback={
-                    invites().length > 1
-                      ? `Send ${invites().length} Invites`
-                      : 'Send Invite'
-                  }
-                >
-                  <SpinnerIcon class="size-4 animate-spin" />
-                </Show>
-              </Button>
-            </div>
-          </Panel.Body>
-        </Panel>
-      </Dialog>
+      <InviteToTeamDialog
+        teamId={props.teamId}
+        open={showInviteModal()}
+        onClose={() => setShowInviteModal(false)}
+      />
     </>
   );
 }

@@ -9,7 +9,8 @@ The public site, product pages, blog, sample workspace, and signup introduction
 follow the visitor's system color scheme. `?theme=cream` and `?theme=dark` pin a
 palette. `features/setup/cream-preview.css` owns the light palette; the shared
 router applies it across navigation, and each HTML entry applies it before
-first paint. Check both palettes when changing a shared demo or surface.
+first paint. Sample workspace styles read that HTML palette before route code
+runs. Check both palettes when changing a shared demo or surface.
 
 ## Ownership and dependency boundary
 
@@ -128,9 +129,13 @@ Before the first prerender build, install Chromium with
 Run `git lfs pull` when migrated video files have not been fetched. The build
 writes the public artifact to `apps/marketing/dist/`, verifies the standalone
 boundary, prerenders public pages, and finishes with the SEO migration gate.
-The homepage uses Solid SSR and hydration. Build verification checks that its
-first-painted heading retains its DOM node and geometry on desktop and mobile,
-and exercises navigation and the deferred email demo.
+The homepage uses Solid SSR and hydration. Both Vite builds compile Tailwind so
+prerendered demos include their UI utilities before the client bundle loads.
+Build verification checks sample workspace controls, icons, avatars, and layout
+with the client bundle blocked in dark and cream palettes on desktop and mobile.
+It also checks that the homepage's first-painted heading retains its DOM node and
+geometry, then exercises navigation, the embedded workspace, and the deferred
+email demo.
 
 Architecture regression tests create real temporary source graphs, CSS files,
 assets, and package symlinks. They verify that valid website references pass
@@ -139,6 +144,14 @@ missing assets, and compiled app artifacts fail. After changes, also run the
 repository's `just check` and verify user-visible behavior in a browser.
 
 ## SEO and deployment
+
+`/delete-account` is a public, prerendered account-deletion help page linked from
+the footer. It offers an email request path without requiring sign-in or an app
+installation, plus instructions for the in-app deletion flow. Keep its data and
+retention descriptions aligned with the deletion services and the Privacy Policy.
+The seven-day cleanup window is a target after verification, not a guarantee;
+shared-content and legal/backup retention exceptions are described separately.
+Verify the email link, direct navigation, and readability on desktop and mobile.
 
 See [the migration audit and cutover checklist](seo/MIGRATION.md). The committed
 `seo/migration-baseline.json` records the indexable URLs and schema types on
@@ -204,14 +217,14 @@ Retain FAQ class markers so prerendering emits matching FAQPage structured data.
 page. It is prerendered, `noindex`, out of the sitemap, and not linked from the
 navigation. It has four parts, top to bottom: the homepage hero markup
 (`WelcomeStep` with `ContextScene`), the expanded `FeatureConstellation`, a
-savings calculator, and an inline cal.com booker for the Macro demo call.
+savings calculator, and a closing "Pick a time" button.
 
 `core/sales-savings.ts` reduces the pricing calculator to one plan tier for all
 tools and reads prices from `core/savings-calculator.ts`; update prices there,
-not on the page. "Book a demo" buttons scroll to the booker, which loads
-`embed.js` only as the visitor approaches it and appends Meta attribution to
-the booking. Verify at phone width: no horizontal scroll, calculator steppers
-and toggles, and that the booker loads.
+not on the page. "Book a demo" and "Pick a time" are demo links: they open the
+Macro team booking link in `DemoBookingDialog`, which reports a booking made
+there to Meta. Verify at phone width: no horizontal scroll, calculator steppers
+and toggles, and that the dialog opens.
 
 ## Blog presentation
 
@@ -245,7 +258,11 @@ Interacting with the frame settles the entrance permanently for that mount.
 Embedded mode hides the demo banner; the normal `/demo` route keeps it. Verify
 navigation and the mobile sidebar inside the frame, forward/backward scrolling,
 and interaction during the reveal. The desktop iframe renders at 85% scale inside
-the same frame. The iframe uses native lazy loading.
+the same frame. An IntersectionObserver sets the iframe's source as it nears the
+viewport. Do not use native `loading="lazy"` for the sample workspace: Safari
+can ignore the router's history updates in lazy frames and fail to boot. Verify
+the embedded workspace in native Safari as well as Chromium after a production
+build; a correctly styled standalone `/demo` does not prove the iframe boots.
 
 A benefit carousel fades the live preview into slab-serif headlines. The first
 highlight opens an email inside Home’s mixed activity feed; subsequent highlights

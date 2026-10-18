@@ -508,6 +508,17 @@ pub trait EmailThreadMailProjectionService: Send + Sync + 'static {
     ) -> impl Future<Output = Result<HashMap<Uuid, EmailThreadMailProjection>, EmailErr>> + Send;
 }
 
+/// Read-only domain service used to hydrate Soup previews of authorized threads.
+pub trait EmailThreadPreviewService: Send + Sync + 'static {
+    /// Fetch the Soup preview of each authorized thread in one batch, as the
+    /// thread's own inbox renders it. A thread without a row is absent.
+    fn get_email_thread_previews_by_receipts(
+        &self,
+        viewer: MacroUserIdStr<'static>,
+        receipts: Vec<EntityAccessReceipt<ViewAccessLevel>>,
+    ) -> impl Future<Output = Result<Vec<EnrichedEmailThreadPreview>, EmailErr>> + Send;
+}
+
 /// Read-only domain service used to hydrate lightweight email content edges.
 pub trait EmailContentService: Send + Sync + 'static {
     /// Fetch the newest non-draft parsed content message for each authorized thread.
@@ -543,6 +554,7 @@ pub trait EmailContentService: Send + Sync + 'static {
 /// This narrows capabilities, not consistency: the wrapped service may use a
 /// primary or replica pool. A bare `EmailServiceImpl` will not silently satisfy
 /// `EmailPreviewServiceReadOnly`.
+#[derive(Clone)]
 pub struct ReadonlyEmailPreviewAdapter<T>(pub T);
 
 impl<T: EmailService> EmailPreviewServiceReadOnly for ReadonlyEmailPreviewAdapter<T> {
@@ -559,8 +571,27 @@ impl<T: EmailService> EmailPreviewServiceReadOnly for ReadonlyEmailPreviewAdapte
     }
 }
 
+impl<T: EmailThreadPreviewService> EmailThreadPreviewService for ReadonlyEmailPreviewAdapter<T> {
+    fn get_email_thread_previews_by_receipts(
+        &self,
+        viewer: MacroUserIdStr<'static>,
+        receipts: Vec<EntityAccessReceipt<ViewAccessLevel>>,
+    ) -> impl Future<Output = Result<Vec<EnrichedEmailThreadPreview>, EmailErr>> + Send {
+        self.0
+            .get_email_thread_previews_by_receipts(viewer, receipts)
+    }
+}
+
 /// User-scoped read operations consumed by email inbound adapters.
 pub trait EmailUserService: Send + Sync + 'static {
+    /// Verified senders for an owned/delegated inbox. Authorization precedes
+    /// provider access; an inaccessible inbox is indistinguishable from absent.
+    fn get_user_email_senders(
+        &self,
+        macro_id: MacroUserIdStr<'static>,
+        link_id: Uuid,
+    ) -> impl Future<Output = Result<Vec<crate::domain::senders::SendAsAddress>, EmailErr>> + Send;
+
     /// List labels across every owned or delegated inbox accessible to the user.
     fn get_user_email_labels(
         &self,
@@ -575,6 +606,15 @@ pub trait EmailUserService: Send + Sync + 'static {
 }
 
 pub trait EmailService: Send + Sync + 'static {
+    /// Authorize the caller's sending inbox, resolve client handles, and enqueue
+    /// delivery with attribution to the authenticated actor.
+    fn send_message_for_user(
+        &self,
+        macro_id: MacroUserIdStr<'static>,
+        link_id: Option<Uuid>,
+        input: CreateDraftInput,
+    ) -> impl Future<Output = Result<CreatedDraft, EmailErr>> + Send;
+
     fn get_email_thread_previews(
         &self,
         req: GetEmailsRequest,
@@ -1031,6 +1071,14 @@ fn no_op_email_err() -> EmailErr {
 }
 
 impl EmailUserService for NoOpEmailService {
+    async fn get_user_email_senders(
+        &self,
+        _macro_id: MacroUserIdStr<'static>,
+        _link_id: Uuid,
+    ) -> Result<Vec<crate::domain::senders::SendAsAddress>, EmailErr> {
+        Err(no_op_email_err())
+    }
+
     async fn get_user_email_labels(
         &self,
         _macro_id: MacroUserIdStr<'static>,
@@ -1047,6 +1095,15 @@ impl EmailUserService for NoOpEmailService {
 }
 
 impl EmailService for NoOpEmailService {
+    async fn send_message_for_user(
+        &self,
+        _macro_id: MacroUserIdStr<'static>,
+        _link_id: Option<Uuid>,
+        _input: CreateDraftInput,
+    ) -> Result<CreatedDraft, EmailErr> {
+        Err(no_op_email_err())
+    }
+
     async fn set_thread_archived(
         &self,
         _macro_id: MacroUserIdStr<'static>,
@@ -1218,6 +1275,16 @@ impl EmailThreadMailProjectionService for NoOpEmailService {
         _viewer: MacroUserIdStr<'static>,
         _receipts: Vec<EntityAccessReceipt<ViewAccessLevel>>,
     ) -> Result<HashMap<Uuid, EmailThreadMailProjection>, EmailErr> {
+        Err(no_op_email_err())
+    }
+}
+
+impl EmailThreadPreviewService for NoOpEmailService {
+    async fn get_email_thread_previews_by_receipts(
+        &self,
+        _viewer: MacroUserIdStr<'static>,
+        _receipts: Vec<EntityAccessReceipt<ViewAccessLevel>>,
+    ) -> Result<Vec<EnrichedEmailThreadPreview>, EmailErr> {
         Err(no_op_email_err())
     }
 }

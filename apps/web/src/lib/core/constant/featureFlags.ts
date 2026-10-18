@@ -69,9 +69,10 @@ function envOverride(env: string | undefined): boolean | undefined {
  * Define a feature flag. Pass `key` for PostHog, or `env` (and no `key`)
  * for env-only. `env` is the name after `VITE_`, e.g. `'ENABLE_REMINDERS'`.
  *
- * `default` is used when env is unset. Omit it on env-only flags for `false`.
- * For remote flags, omit it (or pass `undefined`) to defer to PostHog.
- * The caller decides when a default applies, e.g. `DEV_MODE_ENV || undefined`.
+ * `default` is used when env is unset. A new flag is usually on in dev:
+ * `DEV_MODE_ENV` for env-only, `onInDev` (`DEV_MODE_ENV || undefined`) for
+ * remote. One that stays off in dev says why in a comment. Omitted, an
+ * env-only flag is `false` and a remote flag defers to PostHog.
  *
  * Remote: `useFeatureFlag(flag)` or `isFeatureEnabled(flag)`.
  * Env-only: `isFeatureEnabled(flag)` only.
@@ -90,13 +91,6 @@ export function defineFlag(config: RemoteFlagConfig | EnvFlagConfig): Flag {
     enabled: envOverride(config.env) ?? config.default ?? false,
   };
 }
-
-/** Opt-in versioned canvas documents. Unset overrides defer to PostHog. */
-export const enableCanvasNext = defineFlag({
-  key: 'enable-canvas-next',
-  env: 'ENABLE_CANVAS_NEXT',
-  default: LOCAL_ONLY ? false : undefined,
-});
 
 /** Opt into the carousel create menu; otherwise use the detailed launcher. */
 export const enableCarouselCreateMenu = defineFlag({
@@ -170,8 +164,15 @@ export const enableTasksReviews = defineFlag({
   default: onInDev,
 });
 
-// Claude Cloud demo onboarding and harness/model discovery. Off until PostHog
-// enables it, including in dev; override locally with VITE_CLAUDE_CLOUD.
+/** Gantt layouts stay hidden until enabled remotely or with a local override. */
+export const enableGantt = defineFlag({
+  key: 'enable-gantt',
+  env: 'ENABLE_GANTT',
+});
+
+// Claude Cloud: the built-in @claude mention and agent assignee, its Runtimes
+// connection card, and harness/model discovery. Off until PostHog enables it,
+// including in dev; override locally with VITE_CLAUDE_CLOUD.
 export const claudeCloud = defineFlag({
   key: 'claude-cloud',
   env: 'CLAUDE_CLOUD',
@@ -293,22 +294,6 @@ export const ENABLE_BEARER_TOKEN_AUTH = defineFlag({
 export const ENABLE_MARKDOWN_SEARCH_TEXT = defineFlag({
   env: 'ENABLE_MARKDOWN_SEARCH_TEXT',
   default: DEV_MODE_ENV,
-}).enabled;
-
-export const CANVAS_SVG_IMPORT = defineFlag({
-  env: 'CANVAS_SVG_IMPORT',
-  default: true,
-}).enabled;
-
-export const ENABLE_CANVAS_VIDEO = defineFlag({
-  env: 'ENABLE_CANVAS_VIDEO',
-  default: true,
-}).enabled;
-
-// TODO: figure out why the image does not load into canvas after upload
-export const ENABLE_CANVAS_HEIC = defineFlag({
-  env: 'ENABLE_CANVAS_HEIC',
-  default: false,
 }).enabled;
 
 // TODO - comments are not stable in markdown multiplayer, they will need more work.
@@ -745,6 +730,13 @@ export const enableChatV3Agents = defineFlag({
   default: onInDev,
 });
 
+// Private conversations with agent personas. On in dev; there is no PostHog
+// flag. Override with VITE_ENABLE_AGENT_DMS.
+export const ENABLE_AGENT_DMS = defineFlag({
+  env: 'ENABLE_AGENT_DMS',
+  default: DEV_MODE_ENV,
+}).enabled;
+
 // The built-in @cursor mention, using the mentioning user's own Cursor account.
 // Account setup is checked after the mention; this flag controls discovery.
 // Override with VITE_ENABLE_CURSOR_AGENTS.
@@ -777,16 +769,6 @@ export const enableRoutineConditions = defineFlag({
 export const enableRecentView = defineFlag({
   key: 'enable-recent-view',
   env: 'ENABLE_RECENT_VIEW',
-  default: onInDev,
-});
-
-// Settings › Notifications: the dedicated preferences tab (delivery, per-type
-// opt-outs, muted items). When off, the tab is hidden and Account keeps the
-// existing desktop/mobile toggle. PostHog-gated with a dev-mode default;
-// override with VITE_ENABLE_NOTIFICATION_SETTINGS.
-export const enableNotificationSettings = defineFlag({
-  key: 'enable-notification-settings',
-  env: 'ENABLE_NOTIFICATION_SETTINGS',
   default: onInDev,
 });
 

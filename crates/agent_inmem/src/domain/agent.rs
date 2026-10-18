@@ -23,7 +23,7 @@ use agent_client_protocol::schema::v1::{
     CreateElicitationRequest, ElicitationAction, ElicitationFormMode, ElicitationPropertySchema,
     ElicitationSchema, ElicitationSessionScope, EnumOption, Implementation, InitializeRequest,
     InitializeResponse, IntegerPropertySchema, Meta, NewSessionRequest, NewSessionResponse,
-    NumberPropertySchema, OtherElicitationPropertySchema, PromptRequest, PromptResponse,
+    NumberPropertySchema, OtherElicitationPropertySchema, PromptRequest, PromptResponse, RequestId,
     ResumeSessionRequest, ResumeSessionResponse, SessionCapabilities, SessionConfigOption,
     SessionId, SessionNotification, SessionResumeCapabilities, SessionUpdate,
     SetSessionConfigOptionRequest, SetSessionConfigOptionResponse, StopReason, StringFormat,
@@ -46,7 +46,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::Instrument as _;
 
 use crate::domain::admission::admit_turn;
-use crate::domain::engine::{AgentIdentity, AwaitingUser, TurnEngine, TurnRequest};
+use crate::domain::engine::{AgentIdentity, AwaitingUser, TurnEngine, TurnPurpose, TurnRequest};
 use crate::domain::mcp::{DynMcpToolConnector, dialable_servers};
 use crate::domain::model_options::REASONING_EFFORT_CONFIG_ID;
 use crate::domain::session::{HistoryEntry, SessionStore, UserPrompt, messages_for_turn};
@@ -59,6 +59,8 @@ use mcp_toolset::RemoteMcpToolSet;
 
 #[cfg(test)]
 mod test;
+
+pub(crate) mod compaction;
 
 /// A turn that produces nothing for this long is treated as hung and
 /// cancelled, so it cannot wedge the session's turn lock forever.
@@ -138,8 +140,6 @@ pub struct AgentState {
     /// The tools of those servers, once dialed; `None` until then or when
     /// there were none.
     pub mcp_tools: Mutex<Option<RemoteMcpToolSet>>,
-    /// Attached entries retain the credential used to resolve live connections.
-    pub mcp_servers: Mutex<Vec<AcpMcpServer>>,
     /// In-flight `connect_mcp` from `session/new` / `session/resume`. The
     /// handshake does not join it; the first turn does, so SearchTools still
     /// sees the catalog.
@@ -154,9 +154,10 @@ pub struct AgentState {
 
 impl AgentState {
     /// Dial the servers a session request carried and keep their tools for
-    /// the next turn. Started at `session/new`/`session/resume` so
-    /// the handshake is not held by `tools/list`; the first turn joins the
-    /// same work so SearchTools still has the catalog.
+    /// every turn until another `session/resume` hands over a new list.
+    /// Started at `session/new`/`session/resume` so the handshake is not held
+    /// by `tools/list`; the first turn joins the same work so SearchTools
+    /// still has the catalog.
     async fn connect_mcp(&self, servers: Vec<AcpMcpServer>) {
         let servers = dialable_servers(servers);
         let requested = servers.len();
@@ -177,23 +178,25 @@ impl AgentState {
     /// Start [`Self::connect_mcp`] without joining it. `session/new` and
     /// `session/resume` call this so create can return while listing runs.
     fn start_connect_mcp(self: &Arc<Self>, servers: Vec<AcpMcpServer>) {
-        *self
-            .mcp_servers
-            .lock()
-            .expect("mcp servers lock should not be poisoned") = servers.clone();
         let state = Arc::clone(self);
         let handle = tokio::spawn(async move {
             state.connect_mcp(servers).await;
         });
-        *self
+        // A resume that hands over new servers supersedes a connect still in
+        // flight; left running, the older list could land last.
+        if let Some(superseded) = self
             .mcp_connect
             .lock()
-            .expect("mcp connect lock should not be poisoned") = Some(handle);
+            .expect("mcp connect lock should not be poisoned")
+            .replace(handle)
+        {
+            superseded.abort();
+        }
     }
 
-    /// Wait for the initial listing, then refresh permitted connections so
-    /// authorization or disconnection takes effect without a new session.
-    async fn mcp_tools_for_turn(&self) -> anyhow::Result<Option<RemoteMcpToolSet>> {
+    /// The tools the next turn should compose, waiting out an in-flight
+    /// connect so the searchable catalog is not empty on turn one.
+    async fn mcp_tools_for_turn(&self) -> Option<RemoteMcpToolSet> {
         let handle = self
             .mcp_connect
             .lock()
@@ -202,19 +205,10 @@ impl AgentState {
         if let Some(handle) = handle {
             let _ = handle.await;
         }
-        let advertised = self
-            .mcp_servers
-            .lock()
-            .expect("mcp servers lock should not be poisoned")
-            .clone();
-        if let Some(servers) = self.mcp.refresh_dyn(self.session_id, advertised).await? {
-            self.connect_mcp(servers).await;
-        }
-        Ok(self
-            .mcp_tools
+        self.mcp_tools
             .lock()
             .expect("mcp tools lock should not be poisoned")
-            .clone())
+            .clone()
     }
 
     fn expect_session(&self, requested: &SessionId) -> Result<(), AcpError> {
@@ -234,15 +228,9 @@ impl AgentState {
     fn bind_acp_session(&self, acp_id: SessionId, keep_history: bool) {
         if let Some(mut state) = self.store.get_mut(&self.session_id) {
             if !keep_history || state.acp_session_id.as_ref() != Some(&acp_id) {
-                state.history.clear();
+                state.clear_history();
             }
             state.acp_session_id = Some(acp_id);
-        }
-    }
-
-    fn clear_history(&self) {
-        if let Some(mut state) = self.store.get_mut(&self.session_id) {
-            state.history.clear();
         }
     }
 
@@ -301,9 +289,18 @@ impl AgentState {
         )
     }
 
-    fn push_turn(&self, prompt: UserPrompt, parts: Vec<AssistantMessagePart>) {
+    /// Record a turn that ran: the prompt, under the id of the request that
+    /// carried it, and what the agent made of it.
+    fn push_turn(
+        &self,
+        request_id: RequestId,
+        prompt: UserPrompt,
+        parts: Vec<AssistantMessagePart>,
+    ) {
         if let Some(mut state) = self.store.get_mut(&self.session_id) {
-            state.history.push(HistoryEntry::User(prompt));
+            state
+                .history
+                .push(HistoryEntry::User { prompt, request_id });
             if !parts.is_empty() {
                 state.history.push(HistoryEntry::Assistant(parts));
             }
@@ -659,18 +656,9 @@ pub async fn serve(state: Arc<AgentState>, acp: AcpChannel) -> Result<(), AcpErr
                     );
                     genai_telemetry::propagation::set_parent(&span, request.meta.as_ref());
                     let prompt = UserPrompt::from_request(&request);
-                    if prompt.is_compact_command() {
-                        state.clear_history();
-                        let _ = connection.send_notification(SessionNotification::new(
-                            request.session_id,
-                            SessionUpdate::AgentMessageChunk(ContentChunk::new(
-                                "Compacted: the earlier conversation is no longer in the \
-                                 model's context."
-                                    .into(),
-                            )),
-                        ));
-                        return responder.respond(PromptResponse::new(StopReason::EndTurn));
-                    }
+                    // The id the log keeps the request under, which the turn
+                    // is known by from here on.
+                    let request_id = responder.id().clone();
                     if state.enable_dev_commands
                         && let Some(question) = prompt.text.trim().strip_prefix(ASK_COMMAND)
                     {
@@ -683,6 +671,7 @@ pub async fn serve(state: Arc<AgentState>, acp: AcpChannel) -> Result<(), AcpErr
                                     &state,
                                     &connection,
                                     request.session_id,
+                                    request_id,
                                     prompt,
                                     question,
                                     cancel,
@@ -700,9 +689,15 @@ pub async fn serve(state: Arc<AgentState>, acp: AcpChannel) -> Result<(), AcpErr
                     connection.spawn({
                         let connection = connection.clone();
                         async move {
-                            let result =
-                                run_turn(&state, &connection, request.session_id, prompt, cancel)
-                                    .await;
+                            let result = run_turn(
+                                &state,
+                                &connection,
+                                request.session_id,
+                                request_id,
+                                prompt,
+                                cancel,
+                            )
+                            .await;
                             // A closed connection is the only way responding fails.
                             // Admission failure must not tear down resumable state.
                             let _ = match result {
@@ -835,9 +830,10 @@ fn model_access_error(error: ModelAccessError) -> AcpError {
 
 /// Run one turn to completion, streaming updates as they arrive.
 async fn run_turn(
-    state: &AgentState,
+    state: &Arc<AgentState>,
     connection: &ConnectionTo<Client>,
     acp_session_id: SessionId,
+    request_id: RequestId,
     prompt: UserPrompt,
     cancel: CancellationToken,
 ) -> Result<StopReason, AcpError> {
@@ -869,10 +865,26 @@ async fn run_turn(
         "agent.turn.admission_wait_ms",
         elapsed_ms(admission_started),
     );
+    let session_model = state
+        .store
+        .get(&state.session_id)
+        .map(|session| session.model.clone())
+        .unwrap_or_default();
+    if compaction::too_long(&prompt, &session_model) {
+        return Err(AcpError::invalid_params().data(
+            "This message is too long. Split it into smaller messages or attach it as a file.",
+        ));
+    }
+    if compaction::before_turn(state, connection, &acp_session_id, &prompt, &cancel)
+        .await
+        .is_err()
+    {
+        return Ok(StopReason::Cancelled);
+    }
     let mcp_tools = tokio::select! {
         biased;
         _ = cancel.cancelled() => return Ok(StopReason::Cancelled),
-        tools = state.mcp_tools_for_turn() => tools.map_err(|error| AcpError::new(-32603, format!("Could not refresh connector tools: {error}")))?,
+        tools = state.mcp_tools_for_turn() => tools,
     };
     let TurnInput {
         messages,
@@ -912,6 +924,7 @@ async fn run_turn(
     let awaiting = Arc::new(AwaitingUser::default());
     let requester = user_input_requester(state, connection, acp_session_id.clone(), &awaiting);
     let mut parts = state.engine.run_turn(TurnRequest {
+        purpose: TurnPurpose::Conversation,
         session_id: state.session_id,
         awaiting: Arc::clone(&awaiting),
         owner: state.owner.clone(),
@@ -1001,7 +1014,7 @@ async fn run_turn(
             )),
         ));
     }
-    if let Some(failure) = failure {
+    if let Some(failure) = &failure {
         let _ = connection.send_notification(SessionNotification::new(
             acp_session_id.clone(),
             SessionUpdate::AgentMessageChunk(ContentChunk::new(
@@ -1009,9 +1022,13 @@ async fn run_turn(
             )),
         ));
     }
-    state.push_turn(prompt, turn_parts);
+    state.push_turn(request_id, prompt, turn_parts);
 
-    if was_cancelled || cancel.is_cancelled() {
+    // A failure first: the idle timeout cancels the stream itself, and a turn
+    // it stopped failed rather than being stopped by the user.
+    if let Some(failure) = failure {
+        Err(AcpError::internal_error().data(failure))
+    } else if was_cancelled || cancel.is_cancelled() {
         Ok(StopReason::Cancelled)
     } else {
         Ok(StopReason::EndTurn)
@@ -1029,6 +1046,7 @@ async fn run_ask(
     state: &AgentState,
     connection: &ConnectionTo<Client>,
     acp_session_id: SessionId,
+    request_id: RequestId,
     prompt: UserPrompt,
     question: String,
     cancel: CancellationToken,
@@ -1047,7 +1065,11 @@ async fn run_ask(
         let text = say(
             "This client did not advertise form elicitation, so there is no way to ask.".to_owned(),
         );
-        state.push_turn(prompt, vec![AssistantMessagePart::Text { text }]);
+        state.push_turn(
+            request_id,
+            prompt,
+            vec![AssistantMessagePart::Text { text }],
+        );
         return StopReason::EndTurn;
     }
 
@@ -1066,7 +1088,11 @@ async fn run_ask(
         Err(error) => error.to_string(),
     };
     let text = say(text);
-    state.push_turn(prompt, vec![AssistantMessagePart::Text { text }]);
+    state.push_turn(
+        request_id,
+        prompt,
+        vec![AssistantMessagePart::Text { text }],
+    );
 
     if cancel.is_cancelled() {
         StopReason::Cancelled
@@ -1076,10 +1102,8 @@ async fn run_ask(
 }
 
 /// The slash commands this agent advertises over ACP: bare names, no
-/// leading slash. `/compact` is still handled if a client sends it, but it
-/// is not listed — dropping history is not a product command for this
-/// harness. `/ask` only while the host enables development commands, since
-/// the prompt handler ignores it otherwise.
+/// leading slash. `/ask` only while the host enables development commands,
+/// since the prompt handler ignores it otherwise.
 fn available_commands(state: &AgentState) -> Vec<AvailableCommand> {
     let name = |command: &str| command.trim_start_matches('/').to_owned();
     let mut commands = Vec::new();

@@ -13,17 +13,19 @@ const NIX_CACHE_SIZE_GB: u16 = 100;
 /// Build the reusable workflow.
 pub fn build_dmg() -> Workflow {
     Workflow::new("Build macOS DMG")
-        .on(
-            Event::default().workflow_call(WorkflowCall::default().add_input(
-                "ref",
-                WorkflowCallInput {
-                    description: "Git ref to check out and build".into(),
-                    required: true,
-                    input_type: "string".into(),
-                    default: None,
-                },
-            )),
-        )
+        .on(Event::default().workflow_call(
+            WorkflowCall::default()
+                .add_input(
+                    "ref",
+                    WorkflowCallInput {
+                        description: "Git ref to check out and build".into(),
+                        required: true,
+                        input_type: "string".into(),
+                        default: None,
+                    },
+                )
+                .secrets(build_appimage_on_tag::desktop_build_secrets()),
+        ))
         .add_job("build-dmg", build_dmg_job("${{ inputs.ref }}"))
 }
 
@@ -32,7 +34,7 @@ pub fn build_dmg_job(ref_expr: &str) -> Job {
     Job::default()
         .name("Build macOS DMG")
         .runs_on(vec![
-            format!("{}-with-cache", runners::Runner::MacOsArm),
+            format!("{}-with-cache", runners::Runner::MacOsArmLarge),
             "nscloud-cache-tag-macro-desktop-macos".to_owned(),
             format!("nscloud-cache-size-{NIX_CACHE_SIZE_GB}gb"),
         ])
@@ -49,6 +51,7 @@ pub fn build_dmg_job(ref_expr: &str) -> Job {
         .add_step(save_nix_cache())
         .add_step(collect_dmg())
         .add_step(validate_signed_dmg())
+        .add_step(prepare_cloudkit_tcp())
         .add_step(notarize_dmg())
         .add_step(steps::upload_artifact(
             "macro-dmg-${{ steps.metadata.outputs.safe_tag }}",
@@ -86,6 +89,7 @@ fn nix_build_dmg() -> Step<Run> {
     Step::new("Build DMG with Nix")
         .run(include_str!("scripts/build_dmg.sh"))
         .shell("bash")
+        .add_env(("VITE_POSTHOG_API_KEY", vars::POSTHOG_API_KEY))
 }
 
 fn configure_nix_cache() -> Step<Run> {
@@ -123,4 +127,13 @@ fn notarize_dmg() -> Step<Run> {
         .run(include_str!("scripts/notarize_dmg.sh"))
         .shell("bash")
         .add_env(("DOPPLER_TOKEN", vars::MACOS_RELEASE_DOPPLER_TOKEN))
+}
+
+fn prepare_cloudkit_tcp() -> Step<Run> {
+    Step::new("Prepare CloudKit TCP fallback")
+        .run(format!(
+            "set -euo pipefail\ncat > \"$RUNNER_TEMP/macro-cloudkit-tcp.sh\" <<'MACRO_CLOUDKIT_TCP'\n{}\nMACRO_CLOUDKIT_TCP\n",
+            include_str!("scripts/cloudkit_tcp.sh")
+        ))
+        .shell("bash")
 }

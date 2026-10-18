@@ -22,6 +22,8 @@ use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Default)]
 struct FakeRepo {
+    team_ooo_changed: bool,
+    calendar_ooo_changed: bool,
     upserts: Arc<Mutex<Vec<CalendarEventUpsert>>>,
     stored_synced_at: Option<chrono::DateTime<Utc>>,
     sync_snapshots: Arc<Mutex<Vec<GoogleCalendarSyncSnapshot>>>,
@@ -64,11 +66,14 @@ impl CalendarRepository for FakeRepo {
         };
         let id = upsert.event.id;
         let owner_id = upsert.event.owner_id.clone();
+        let team_ooo_changed =
+            self.team_ooo_changed || upsert.event.event_type == EventType::OutOfOffice;
         self.upserts.lock().unwrap().push(upsert);
         Ok(CalendarEventWriteOutcome {
             event_id: id,
             owner_id,
             change: CalendarEventChange::Created,
+            team_ooo_changed,
         })
     }
 
@@ -170,6 +175,7 @@ impl CalendarRepository for FakeRepo {
     ) -> Result<StoredGoogleCalendar, Report> {
         Ok(StoredGoogleCalendar {
             id: Uuid::nil(),
+            team_ooo_changed: self.calendar_ooo_changed,
             sync_token: None,
             materialized_range: None,
             synced_at: self.stored_synced_at,
@@ -623,6 +629,86 @@ impl GoogleCalendarProvider for PartialFailureGoogleProvider {
     }
 }
 
+/// A single healthy calendar with an optional changed event.
+#[derive(Clone)]
+struct ChangedCalendarProvider {
+    with_event: bool,
+}
+
+impl GoogleCalendarProvider for ChangedCalendarProvider {
+    async fn list_calendars(
+        &self,
+        _access_token: &str,
+        _email_link_id: Uuid,
+    ) -> Result<Vec<ProviderCalendar>, GoogleProviderError> {
+        Ok(vec![provider_calendar("primary", true)])
+    }
+
+    async fn sync_events(
+        &self,
+        access_token: &str,
+        context: GoogleEventSyncContext,
+    ) -> Result<GoogleEventSyncBatch, GoogleProviderError> {
+        let mut batch = PartialFailureGoogleProvider
+            .sync_events(access_token, context)
+            .await?;
+        if !self.with_event {
+            batch.upserts.clear();
+        }
+        Ok(batch)
+    }
+
+    async fn watch_calendar(
+        &self,
+        _access_token: &str,
+        _email_link_id: Uuid,
+        _provider_calendar_id: &str,
+        _channel_id: Uuid,
+        _config: &GoogleWatchConfig,
+    ) -> Result<GoogleWatchChannel, GoogleProviderError> {
+        unreachable!("watch is disabled in these tests")
+    }
+}
+
+#[tokio::test]
+async fn backfill_refresh_reports_source_and_calendar_ooo_changes() {
+    for (with_event, source_changed, calendar_changed) in [
+        (true, false, false),
+        (true, true, false),
+        (true, false, true),
+        (false, false, true),
+        (false, false, false),
+    ] {
+        let coordinator = GoogleCalendarBackfillCoordinator::new(
+            FakeRepo {
+                team_ooo_changed: source_changed,
+                calendar_ooo_changed: calendar_changed,
+                ..FakeRepo::default()
+            },
+            ChangedCalendarProvider { with_event },
+            FakeLifecycle::claimed(),
+            NoopMacroEventBroker,
+            None,
+        );
+        let mut report = GoogleBackfillRunReport::default();
+        coordinator
+            .run(
+                CalendarBackfillJobKey {
+                    job_id: Uuid::now_v7(),
+                    email_link_id: Uuid::now_v7(),
+                },
+                "macro|calendar@example.com",
+                "secret",
+                OccurrenceRange::maintenance_horizon(Utc::now()),
+                &mut report,
+            )
+            .await
+            .unwrap();
+        assert_eq!(report.changed(), with_event || calendar_changed);
+        assert_eq!(report.team_ooo_changed, source_changed || calendar_changed);
+    }
+}
+
 /// Fails the poll of every calendar it lists.
 #[derive(Clone)]
 struct TotalFailureGoogleProvider;
@@ -873,6 +959,10 @@ async fn one_failed_calendar_is_isolated_and_the_account_completes() {
         "the healthy calendar's commit must still land"
     );
     assert!(report.changed());
+    assert!(
+        report.team_ooo_changed,
+        "isolated failures cannot certify unchanged OOO access"
+    );
     let recorded = recorded_sync_errors.lock().unwrap();
     assert_eq!(
         recorded.len(),
@@ -1171,6 +1261,10 @@ async fn a_cancelled_provider_event_publishes_a_deletion() {
         .await
         .unwrap();
 
+    assert!(
+        report.team_ooo_changed,
+        "retired sources must withdraw cached OOO rows"
+    );
     let published = broker.published.lock().unwrap().clone();
     let deleted: Vec<&String> = published
         .iter()
@@ -1347,7 +1441,11 @@ async fn a_fresh_system_calendar_keeps_a_failing_calendar_isolated() {
         .await
         .expect("a fresh system calendar keeps the account healthy");
 
-    assert_eq!(report, GoogleBackfillRunReport::default());
+    assert!(report.changed());
+    assert!(
+        report.team_ooo_changed,
+        "failed coverage cannot certify unchanged OOO access"
+    );
     assert_eq!(
         recorded_sync_errors.lock().unwrap().as_slice(),
         ["the primary calendar's poll failed"]

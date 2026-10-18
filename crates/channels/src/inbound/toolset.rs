@@ -1,6 +1,7 @@
 //! AI tools for reading channel messages and mutating channel membership.
 
 mod create_channel;
+mod create_channel_media_upload;
 mod delete_channel_message;
 mod edit_channel_message;
 mod manage_channel_participants;
@@ -46,11 +47,15 @@ use messages::domain::{
 use std::sync::Arc;
 use uuid::Uuid;
 
+pub use create_channel_media_upload::{
+    ChannelMediaUploadToolContext, CreateChannelMediaUpload, CreateChannelMediaUploadResponse,
+};
 pub use read_channel_message_context::{
     ReadChannelMessageContext, ReadChannelMessageContextResponse,
 };
 pub use read_channel_messages::{ReadChannelMessages, ReadChannelMessagesResponse};
 pub use read_channel_thread::{ReadChannelThread, ReadChannelThreadResponse};
+pub use types::{ChannelAttachmentKind, ChannelMessageAttachmentInput};
 
 /// Service context for channel AI tools.
 pub struct ChannelToolContext<Svc, AccessSvc>

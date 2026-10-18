@@ -11,6 +11,8 @@ use crate::workflows::{
     vars,
 };
 
+mod android_native_check;
+mod ios_native_check;
 #[cfg(test)]
 mod test;
 
@@ -47,13 +49,21 @@ pub fn web_app_check_main() -> Workflow {
             .cancel_in_progress(true),
         )
         .add_job("path-check", path_check())
+        .add_job(android_native_check::JOB_ID, android_native_check())
         .add_job("typescript", typescript())
         .add_job("generated-code", generated_code())
         .add_job("biome-check", biome_check())
         .add_job("test", test())
         .add_job("cycles", cycles())
         .add_job("build", build())
+        .add_job(ios_native_check::JOB_ID, ios_native_check::job())
         .add_job("status-check", status_check())
+}
+
+/// Always run so the required collector can distinguish a successful native
+/// check from a cancelled or skipped one, including frontend/backend-only PRs.
+fn android_native_check() -> Job {
+    android_native_check::job()
 }
 
 fn path_check() -> Job {
@@ -89,6 +99,26 @@ fn typescript() -> Job {
         .add_step(check_collaboration_types())
         .add_step(check_lexical_service_types())
         .add_step(test_lexical_service())
+        .add_step(
+            Step::new("Install SDK Documentation Dependencies")
+                .run("bun install --frozen-lockfile")
+                .working_directory(xtask_paths::repo_dir!("packages/sdk")),
+        )
+        .add_step(
+            Step::new("Check SDK Documentation")
+                .run("bun run type-check && bun run test")
+                .working_directory(xtask_paths::repo_dir!("packages/sdk-docs")),
+        )
+        .add_step(
+            Step::new("Check Editing Worker")
+                .run("bun run type-check")
+                .working_directory(xtask_paths::repo_dir!("services/ai-editing-worker")),
+        )
+        .add_step(
+            Step::new("Check Code Mode SDK")
+                .run("bun run type-check && bun run test")
+                .working_directory(xtask_paths::repo_dir!("packages/code-mode-sdk")),
+        )
         .add_step(steps::teardown_nix())
 }
 
@@ -195,19 +225,23 @@ fn build() -> Job {
 }
 
 /// Always-run collector used as the required status check. Its name must stay
-/// stable because branch protection can reference it.
+/// stable because branch protection can reference it. New gates join the
+/// `needs` list (and [`check_job_results`]) rather than the ruleset: the
+/// [`ios_native_check`] job is required this way.
 fn status_check() -> Job {
     Job::default()
         .name("Web App Status Check")
         .cond(Expression::new("always()"))
         .needs(vec![
             "path-check".to_string(),
+            android_native_check::JOB_ID.to_string(),
             "typescript".to_string(),
             "generated-code".to_string(),
             "biome-check".to_string(),
             "test".to_string(),
             "cycles".to_string(),
             "build".to_string(),
+            ios_native_check::JOB_ID.to_string(),
         ])
         .runs_on(runners::Runner::TinyNoCache.to_string())
         .add_step(check_job_results())
@@ -254,7 +288,7 @@ fn paths_filter() -> Step<Use> {
         .add_with((
             "filters",
             format!(
-                "should_run:\n{artifact_paths}  - 'services/lexical-service/**'\n  - 'crates/ai_tools/src/display_results/schema.generated.json'\n  - '.github/actions/setup-reqs-web/**'\ncodegen_changed:\n  - 'crates/**/*.rs'\n  - 'services/**/*.rs'\n  - 'Cargo.toml'\n  - 'Cargo.lock'\n  - 'apps/web/scripts/generate-api-schema.ts'\n  - 'apps/web/scripts/services.ts'\n  - 'packages/sdk/**'\n  - 'apps/docs/**'\n  - '.github/actions/setup-reqs-web/**'\n"
+                "should_run:\n{artifact_paths}  - 'services/lexical-service/**'\n  - 'packages/sdk/**'\n  - 'packages/sdk-docs/**'\n  - 'services/ai-editing-worker/**'\n  - 'packages/code-mode-sdk/**'\n  - 'crates/code_execution/src/outbound/deno/*.mjs'\n  - 'crates/agent_code_mode/src/domain/documentation.json'\n  - 'crates/agent_code_mode/SKILL.md'\n  - 'crates/ai_tools/src/display_results/schema.generated.json'\n  - '.github/actions/setup-reqs-web/**'\ncodegen_changed:\n  - 'crates/**/*.rs'\n  - 'services/**/*.rs'\n  - 'Cargo.toml'\n  - 'Cargo.lock'\n  - 'apps/web/scripts/generate-api-schema.ts'\n  - 'apps/web/scripts/services.ts'\n  - 'packages/sdk/**'\n  - 'apps/docs/**'\n  - '.github/actions/setup-reqs-web/**'\n"
             ),
         ))
 }
@@ -433,21 +467,27 @@ fn run_build() -> Step<Run> {
 fn check_job_results() -> Step<Run> {
     Step::new("Check job results").run(indoc::indoc! {r#"
         echo "path-check: ${{ needs.path-check.result }}"
+        echo "android-native-check: ${{ needs.android-native-check.result }}"
         echo "typescript: ${{ needs.typescript.result }}"
         echo "generated-code: ${{ needs.generated-code.result }}"
         echo "biome-check: ${{ needs.biome-check.result }}"
         echo "test: ${{ needs.test.result }}"
         echo "cycles: ${{ needs.cycles.result }}"
         echo "build: ${{ needs.build.result }}"
+        echo "ios-native-check: ${{ needs.ios-native-check.result }}"
 
-        # Fail if any job failed (skipped and success are both OK)
-        if [[ "${{ needs.path-check.result }}" == "failure" ]] || \
+        # Fail if any job failed (skipped and success are both OK). The iOS
+        # gate is the merge gate, so a cancelled gate is not OK either.
+        if [[ "${{ needs.android-native-check.result }}" != "success" ]] || \
+           [[ "${{ needs.path-check.result }}" == "failure" ]] || \
            [[ "${{ needs.typescript.result }}" == "failure" ]] || \
            [[ "${{ needs.generated-code.result }}" == "failure" ]] || \
            [[ "${{ needs.biome-check.result }}" == "failure" ]] || \
            [[ "${{ needs.test.result }}" == "failure" ]] || \
            [[ "${{ needs.cycles.result }}" == "failure" ]] || \
-           [[ "${{ needs.build.result }}" == "failure" ]]; then
+           [[ "${{ needs.build.result }}" == "failure" ]] || \
+           [[ "${{ needs.ios-native-check.result }}" == "failure" ]] || \
+           [[ "${{ needs.ios-native-check.result }}" == "cancelled" ]]; then
           echo "One or more jobs failed"
           exit 1
         fi

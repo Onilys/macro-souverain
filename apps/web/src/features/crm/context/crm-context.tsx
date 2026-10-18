@@ -9,8 +9,10 @@ import type {
   CrmDisplayOptions,
   CrmListColumnId,
 } from '../core/display-options';
+import type { Pipeline } from '../core/pipeline';
 import type { CrmRecordScope } from '../core/record';
 import type {
+  CompanyImporter,
   CompanySource,
   ContactSource,
   CrmCapabilities,
@@ -34,6 +36,7 @@ import type {
   PipelineEntriesView,
   PipelineSharing,
   PipelinesSource,
+  PipelineTransfer,
 } from './pipelines';
 
 export type CrmContext = {
@@ -41,7 +44,10 @@ export type CrmContext = {
   PipelineEditor: PipelineEditor;
   PipelineEntries: PipelineEntriesView;
   PipelineSharing: PipelineSharing;
+  createPipelineTransfer(pipeline: Pipeline): PipelineTransfer;
   downloadCsv(content: string, filename: string): Promise<{ saved: boolean }>;
+  /** Profile picture lookup for a contact; presentation owns the fallback. */
+  createContactPhoto?(email: string): Accessor<string | undefined>;
   contactInitials(name: string | null | undefined, email: string): string;
   userEmail(id: string): string;
   copyViewLink(config: import('../core/saved-view').CrmViewConfig): void;
@@ -81,6 +87,10 @@ export type CrmContext = {
   createRecordCalls(
     scope: Accessor<CrmRecordScope | undefined>
   ): ItemListSource;
+  /** Items associated with the record through properties or references. */
+  createRecordReferences(
+    scope: Accessor<CrmRecordScope | undefined>
+  ): ItemListSource;
   /** The record's Tasks tab, scoped to tasks associated with it. */
   RecordTasks: Component<{ scope: CrmRecordScope }>;
   createPropertyCommands(): PropertyCommands;
@@ -96,6 +106,10 @@ export type CrmContext = {
     companies: Accessor<
       { id: string; name: string; domains: { domain: string }[] }[]
     >;
+    query: { readonly isLoading: boolean };
+  };
+  createContactSuggestions(): {
+    contacts: Accessor<{ id: string; name: string; email: string }[]>;
     query: { readonly isLoading: boolean };
   };
   exportCompanies(
@@ -128,6 +142,7 @@ export type CrmContext = {
     { name: string; domain: string },
     { id: string }
   >;
+  createCompanyImporter(): CompanyImporter;
   createContact(): CrmMutation<
     { companyId: string; name: string; email: string },
     { id: string }

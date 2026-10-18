@@ -6,6 +6,10 @@
 //! is logged: the content is the user's, and only the classifier and the
 //! routine's agent see it.
 
+use call::domain::{
+    models::{CallError, CallRecord},
+    ports::CallRecordReader,
+};
 use channels::domain::{
     models::{ChannelMetadata, ChannelType},
     ports::ChannelService,
@@ -49,26 +53,31 @@ mod test;
 /// Longest text passed on per field, in characters. Jev reads up to 32k
 /// tokens of state; a few fields at this size stay well inside it.
 const MAX_TEXT_CHARS: usize = 8_000;
+/// Longest call transcript passed on, in characters: about half an hour of
+/// conversation, and still well inside what Jev reads.
+const MAX_TRANSCRIPT_CHARS: usize = 24_000;
 /// Messages per thread page searched for the triggering email, newest first.
 const EMAIL_PAGE: i64 = 20;
 const MARKDOWN_FILE_TYPE: &str = "md";
 
-pub struct EventContentAdapter<E, M, C, D, P> {
+pub struct EventContentAdapter<E, M, C, D, P, K> {
     email: E,
     messages: M,
     channels: C,
     documents: D,
     properties: P,
+    calls: K,
     markdown: LexicalClient,
 }
 
-impl<E, M, C, D, P> EventContentAdapter<E, M, C, D, P> {
+impl<E, M, C, D, P, K> EventContentAdapter<E, M, C, D, P, K> {
     pub fn new(
         email: E,
         messages: M,
         channels: C,
         documents: D,
         properties: P,
+        calls: K,
         markdown: LexicalClient,
     ) -> Self {
         Self {
@@ -77,18 +86,20 @@ impl<E, M, C, D, P> EventContentAdapter<E, M, C, D, P> {
             channels,
             documents,
             properties,
+            calls,
             markdown,
         }
     }
 }
 
-impl<E, M, C, D, P> EventContentReader for EventContentAdapter<E, M, C, D, P>
+impl<E, M, C, D, P, K> EventContentReader for EventContentAdapter<E, M, C, D, P, K>
 where
     E: EmailContentService,
     M: MessageReader,
     C: ChannelService,
     D: DocumentRepo,
     P: PropertiesService,
+    K: CallRecordReader,
 {
     async fn read(
         &self,
@@ -101,13 +112,14 @@ where
     }
 }
 
-impl<E, M, C, D, P> RoutineEventReader for EventContentAdapter<E, M, C, D, P>
+impl<E, M, C, D, P, K> RoutineEventReader for EventContentAdapter<E, M, C, D, P, K>
 where
     E: EmailContentService,
     M: MessageReader,
     C: ChannelService,
     D: DocumentRepo,
     P: PropertiesService,
+    K: CallRecordReader,
 {
     async fn read_event(
         &self,
@@ -138,6 +150,8 @@ enum EventContent {
         /// Body of Macro's own documents, when lexical could render it.
         markdown: Option<String>,
     },
+    /// The ended call; None once its record has been deleted.
+    Call(Option<CallRecord>),
 }
 
 struct ChannelMessage {
@@ -146,13 +160,14 @@ struct ChannelMessage {
     thread: Option<MessageThread>,
 }
 
-impl<E, M, C, D, P> EventContentAdapter<E, M, C, D, P>
+impl<E, M, C, D, P, K> EventContentAdapter<E, M, C, D, P, K>
 where
     E: EmailContentService,
     M: MessageReader,
     C: ChannelService,
     D: DocumentRepo,
     P: PropertiesService,
+    K: CallRecordReader,
 {
     async fn content(
         &self,
@@ -168,6 +183,20 @@ where
                 self.channel(owner, receipt.clone(), event).await
             }
             EventAccessCapability::Document(receipt) => self.document(receipt, event).await,
+            EventAccessCapability::Call(receipt) => {
+                Ok(EventContent::Call(self.call(receipt.clone()).await?))
+            }
+        }
+    }
+
+    async fn call(
+        &self,
+        receipt: EntityAccessReceipt<ViewAccessLevel>,
+    ) -> Result<Option<CallRecord>, Report> {
+        match self.calls.get_call_record(receipt).await {
+            Ok(record) => Ok(Some(record)),
+            Err(CallError::NotFound(_)) => Ok(None),
+            Err(error) => Err(Report::new(error).into_dynamic()),
         }
     }
 
@@ -329,6 +358,12 @@ fn content_json(event: &EventReference, content: &EventContent) -> Value {
             properties,
             markdown,
         } => json!({ "item": document_json(document, properties, markdown.as_deref()) }),
+        EventContent::Call(record) => json!({
+            "call": record.as_ref().map_or_else(
+                || unavailable("the call record is no longer available"),
+                call_json,
+            ),
+        }),
     }
 }
 
@@ -350,7 +385,11 @@ fn unavailable(note: &str) -> Value {
 }
 
 fn truncate(text: &str) -> String {
-    match text.char_indices().nth(MAX_TEXT_CHARS) {
+    truncate_to(text, MAX_TEXT_CHARS)
+}
+
+fn truncate_to(text: &str, max_chars: usize) -> String {
+    match text.char_indices().nth(max_chars) {
         Some((end, _)) => format!("{}…", &text[..end]),
         None => text.to_owned(),
     }
@@ -440,6 +479,26 @@ fn document_json(
         "deleted": document.deleted_at.is_some(),
         "properties": properties,
         "content": markdown.map(truncate),
+    })
+}
+
+fn call_json(record: &CallRecord) -> Value {
+    let (transcript, transcript_omitted) = routine_event::call_transcript(record);
+    json!({
+        "title": record.custom_name,
+        "channel": record.channel_name,
+        "started_at": record.started_at,
+        "ended_at": record.ended_at,
+        "participants": routine_event::call_participants(record)
+            .into_iter()
+            .map(|person| person.name)
+            .collect::<Vec<_>>(),
+        "summary": record.summary.as_deref().map(truncate),
+        "transcript": transcript
+            .into_iter()
+            .map(|line| format!("{}: {}", line.speaker, line.text))
+            .collect::<Vec<_>>(),
+        "transcript_omitted": transcript_omitted,
     })
 }
 
