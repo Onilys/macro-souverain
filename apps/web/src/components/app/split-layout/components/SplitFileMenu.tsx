@@ -7,7 +7,10 @@ import {
   makeFavoriteAction,
   makeMuteAction,
 } from '@app/features/next-soup/actions';
-import { ProjectAssignmentDialog } from '@app/features/projects/projects';
+import {
+  ConvertToProjectDialog,
+  ProjectAssignmentDialog,
+} from '@app/features/projects/projects';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { useGlobalNotificationSource } from '@components/app/GlobalAppState';
 import { MobileDrawer } from '@components/app/mobile/MobileDrawer';
@@ -41,6 +44,7 @@ import DotsThree from '@phosphor/dots-three.svg';
 import Link from '@phosphor/link.svg';
 import Rename from '@phosphor/pencil-line.svg';
 import Stack from '@phosphor/stack.svg';
+import StackPlus from '@phosphor/stack-plus.svg';
 import Star from '@phosphor/star.svg';
 import Tag from '@phosphor/tag.svg';
 import Trash from '@phosphor/trash-simple.svg';
@@ -353,6 +357,7 @@ export function SplitFileMenu(props: SplitFileMenuProps) {
 
   const [open, setOpen] = createSignal(false);
   const [assigningProject, setAssigningProject] = createSignal(false);
+  const [convertingToProject, setConvertingToProject] = createSignal(false);
   const projectsFlag = useFeatureFlag(enableProjects);
   const itemOperations = useItemOperations();
   const quickAccess = useQuickAccess();
@@ -651,6 +656,15 @@ export function SplitFileMenu(props: SplitFileMenuProps) {
                 setAssigningProject(true);
               },
             },
+            {
+              label: 'Convert to project',
+              icon: StackPlus,
+              group: 'file' as const,
+              action: () => {
+                setOpen(false);
+                setConvertingToProject(true);
+              },
+            },
           ]
         : []),
       copyLinkOp(),
@@ -732,6 +746,13 @@ export function SplitFileMenu(props: SplitFileMenuProps) {
         <ProjectAssignmentDialog
           taskIds={[props.id]}
           onClose={() => setAssigningProject(false)}
+        />
+      </Show>
+      <Show when={projectsFlag().enabled && convertingToProject()}>
+        <ConvertToProjectDialog
+          taskId={props.id}
+          taskName={props.name}
+          onClose={() => setConvertingToProject(false)}
         />
       </Show>
     </>

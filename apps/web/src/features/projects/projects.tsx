@@ -45,6 +45,7 @@ import { createProjectCollectionPersistence } from './project-collection-persist
 import { projectCollectionSearch } from './project-collection-search';
 import { ProjectShareLauncher } from './project-share';
 import { createProjectSources } from './queries/project-sources';
+import { ConvertToProject } from './views/convert-to-project';
 import { ProjectAssignment } from './views/project-assignment';
 import { ProjectsCollection } from './views/projects-collection';
 import {
@@ -219,6 +220,22 @@ export function ProjectAssignmentDialog(props: {
   return (
     <Projects>
       <ProjectAssignment taskIds={props.taskIds} onClose={props.onClose} />
+    </Projects>
+  );
+}
+
+export function ConvertToProjectDialog(props: {
+  taskId: string;
+  taskName: string;
+  onClose(): void;
+}) {
+  return (
+    <Projects>
+      <ConvertToProject
+        taskId={props.taskId}
+        taskName={props.taskName}
+        onClose={props.onClose}
+      />
     </Projects>
   );
 }
