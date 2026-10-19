@@ -47,6 +47,8 @@ export function ChatComposer(props: {
   blockedReason?: string;
   supportsImages?: boolean | null;
   selector: JSX.Element;
+  /** Chips in a row above the box, such as the Changes chip. */
+  accessories?: JSX.Element;
   onSend: (prompt: string, attachments: InputAttachmentData[]) => void;
   session?: AgentInputProps;
   attachments?: InputAttachmentData[];
@@ -260,6 +262,9 @@ export function ChatComposer(props: {
             setFocused(false);
         }}
       >
+        <div class="flex min-w-0 items-center gap-1.5 px-1 pb-1.5 empty:hidden">
+          {props.accessories}
+        </div>
         <ComposerSurface
           as="div"
           data-agent-composer="chat"
@@ -445,6 +450,7 @@ export function ChatSessionInput(props: AgentInputProps) {
       draft={draft()}
       onDraftChange={setDraft}
       selector={props.modelControl}
+      accessories={props.accessories}
       onSend={props.onSend}
       session={props}
       supportsImages={props.supportsImages}

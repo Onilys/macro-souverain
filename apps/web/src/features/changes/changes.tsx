@@ -1,5 +1,5 @@
 /** Shared composition for PR, agent-session, and preview Changes hosts. */
-import { createSignal, type ParentProps } from 'solid-js';
+import type { ParentProps } from 'solid-js';
 import type { ChangesContext, PaneViewState } from './context/changes-context';
 import { ChangesControllerProvider } from './context/changes-controller';
 import { createPaneViewState } from './pane-view-state';
@@ -22,12 +22,10 @@ export function ChangesProvider(
     storage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
   }>
 ) {
-  const [dismissed, setDismissed] = createSignal<string>();
   const controller = createChanges({
     context: props.context,
     view: props.view ?? createPaneViewState(),
     storage: props.storage,
-    dismissed: [dismissed, (id) => setDismissed(id)],
   });
   return (
     <ChangesControllerProvider value={controller}>

@@ -1332,14 +1332,18 @@ turn ends, regardless of the coding runtime. Unpushed workspace changes and
 branches without a PR are not included. The capture is the same stored diff the
 PR's Changes pane in Reviews shows for that base and head. On the PR detail,
 the `+N −M` diff count pill also opens Changes when available; otherwise it stays
-a passive count. The session header gains a **Changes** toggle with green
-additions and red deletions (`+N −M`); it opens a resizable **Changes** pane
-beside the transcript (drag the 1px divider between them). Clicking it again closes the pane.
+a passive count. Session headers have no **Changes** toggle. Once the capture
+has files, a **Review changes** chip (`aria-pressed`; branch icon, `N files`,
+green/red `+N −M`) sits in the composer's chip row, beside the model pill on
+desktop and in its own row above the box on touch and in the Agents workspace.
+It opens a resizable **Changes** pane beside the transcript (drag the 1px divider
+between them) and spotlights the first file; clicking it again closes the pane.
 In the Agents workspace, changes reach the top of the main area. The session
-title, share, and sidebar controls stay above the conversation on the left;
-the **Changes** toggle stays visible, ghost while closed and active while open.
+title, share, and sidebar controls stay above the conversation on the left.
+The header shows the linked PR as `#N` and its status (unboxed, with open in a
+darker green) followed by a **GitHub** button that opens the PR on GitHub.
 Chat sessions on Macro's in-memory harness have no repository, so they show
-none of this: no **Changes** toggle, pane, hand-off card, or review-notes chip,
+none of this: no Changes chip, pane, or review-notes chip,
 and the title menu offers **Open repository** only when the session has one.
 The session's split stores the pane in its own search params:
 `s<N>.changes.pane` (`split`, or `full` when spotlit) and `s<N>.changes.style=split`
@@ -1365,10 +1369,7 @@ interaction releases the anchor for manual scrolling; refreshing files does not
 jump back to an unchanged selection. Its header row
 (`[role="group"][aria-label="Changes controls"]`) has no visible Changes title.
 It shows `head → base · #N` as one plain-text GitHub link (**View pull request #N**),
-with an underline on hover and no icon or pill background. The header Changes toggle
-has no diff totals and becomes icon-only below 28rem of header width, retaining
-its accessible name, tooltip, and pressed state. When open, accent text and a tinted
-background match the side-panel emphasis. Beside the branch link and PR number,
+with an underline on hover and no icon or pill background. Beside the branch link and PR number,
 exact `+N −M` totals and five green/red squares summarize the addition/deletion mix
 in both split and full-width layouts. At full width, a smaller PR title appears
 before the branch link. If the header lacks room, the smaller
@@ -1433,14 +1434,12 @@ files.
 
 The Changes pane header and sidebar totals display the linked PR's `additions`
 and `deletions` returned by the GitHub API, without summing transcript edits.
-The header toggle itself has no totals. The sidebar lists files from the captured PR diff.
+The sidebar lists files from the captured PR diff.
 Counts refresh when a capture changes and every 30 seconds while the session is open.
 Zero-valued counts and unavailable GitHub statistics are hidden; a missing PR
 or failed GitHub request never falls back to estimated transcript totals.
 
-While the pane is closed and a capture has files, a **Changes ready to
-review** card sits above the composer with **Review changes**, **Pull request
-#N** (opens GitHub), and **Dismiss**. With no linked PR, the pane explains
+The composer chip carries the same totals and cannot be dismissed. With no linked PR, the pane explains
 that a GitHub PR is required. Ask the agent to open one and register its URL
 with `set_pull_request`, then use **Refresh changes**. An unavailable or
 oversized PR is explained in the pane; there is no branch or container fallback.

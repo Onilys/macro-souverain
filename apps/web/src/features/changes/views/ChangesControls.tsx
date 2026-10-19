@@ -1,11 +1,11 @@
 /**
- * Host-composed opener, changes-ready card, and optional agent notes dock.
+ * Host-composed opener, changes-ready chip, and optional agent notes dock.
  * Each renders nothing without a controller or when the host cannot have changes.
  * Agent-only actions require the explicit note-sending capability.
  */
 
 import { createSignal, Show } from 'solid-js';
-import { ChangesReadyCard } from '../components/ChangesReadyCard';
+import { ChangesReadyChip } from '../components/ChangesReadyChip';
 import { ChangesToggleButton } from '../components/ChangesToggleButton';
 import { ReviewNotesChip } from '../components/ReviewNotesChip';
 import { useOptionalChanges } from '../context/changes-controller';
@@ -24,33 +24,27 @@ export function ChangesToggle() {
   );
 }
 
-/** Shown while the pane is closed and a changeset with files is waiting. */
+/** Shown while the changeset has files; toggles the pane. */
 export function ChangesHandoff() {
   const controller = useOptionalChanges();
   if (!controller) return null;
-  const { available, layout, model, review, context } = controller;
-  const visible = () =>
-    available() &&
-    !layout.changesVisible() &&
-    model.files().length > 0 &&
-    !controller.handoffDismissed();
+  const { available, layout, model, review } = controller;
   return (
-    <Show when={visible()}>
-      <ChangesReadyCard
+    <Show when={available() && model.files().length > 0}>
+      <ChangesReadyChip
         fileCount={model.files().length}
         additions={controller.changeCounts()?.additions ?? 0}
         deletions={controller.changeCounts()?.deletions ?? 0}
-        linkedUrl={context.host.pullRequestUrl()}
-        onReview={() => {
+        open={layout.changesVisible()}
+        onToggle={() => {
+          if (layout.changesVisible()) {
+            layout.close();
+            return;
+          }
           const first = model.files()[0];
           layout.open();
           if (first) review.activate(first.path);
         }}
-        onViewPullRequest={() => {
-          const url = context.host.pullRequestUrl();
-          if (url) context.host.openExternal(url);
-        }}
-        onDismiss={controller.dismissHandoff}
       />
     </Show>
   );

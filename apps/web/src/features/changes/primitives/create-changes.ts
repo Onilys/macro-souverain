@@ -38,9 +38,6 @@ export type ChangesController = {
    * second send in the same tick cannot post the same notes again.
    */
   consumeSendableNotes: () => string;
-  /** The handoff card was dismissed for the changeset on screen. */
-  handoffDismissed: Accessor<boolean>;
-  dismissHandoff: () => void;
   copyPath: (path: string) => Promise<boolean>;
 };
 
@@ -49,11 +46,6 @@ export function createChanges(options: {
   storage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
   /** The pane's layout and diff style, from `createPaneViewState`. */
   view: PaneViewState;
-  /** Per-host "dismissed for changeset id" memory. */
-  dismissed: [
-    get: Accessor<string | undefined>,
-    set: (changesetId: string | undefined) => void,
-  ];
 }): ChangesController {
   const { source, host } = options.context;
   const layout = createPaneLayout({
@@ -71,7 +63,6 @@ export function createChanges(options: {
     storage: options.storage,
   });
   const { diffStyle, setDiffStyle } = options.view;
-  const [dismissed, setDismissed] = options.dismissed;
 
   const copyPath = async (path: string) => {
     let copied = false;
@@ -119,11 +110,6 @@ export function createChanges(options: {
       if (markdown) agent.send(markdown);
     },
     consumeSendableNotes,
-    handoffDismissed: () => {
-      const id = model.changeset()?.id;
-      return id !== undefined && dismissed() === id;
-    },
-    dismissHandoff: () => setDismissed(model.changeset()?.id),
     copyPath,
   };
 }

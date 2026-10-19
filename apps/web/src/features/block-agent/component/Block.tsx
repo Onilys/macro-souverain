@@ -1,9 +1,5 @@
 import { AgentChangesProvider } from '@app/features/changes/agent-session-changes';
-import {
-  ChangesHandoff,
-  ChangesSplit,
-  ReviewNotesDock,
-} from '@app/features/changes/changes';
+import { ChangesSplit, ReviewNotesDock } from '@app/features/changes/changes';
 import { useGlobalNotificationSource } from '@components/app/GlobalAppState';
 import { FloatRegionOrInline } from '@components/app/mobile/float-regions/FloatRegion';
 import { SidePanel } from '@components/app/side-panel';
@@ -179,7 +175,6 @@ function AgentBlockContent(props: {
                         </Show>
                       }
                     >
-                      <ChangesHandoff />
                       <ReviewNotesDock />
                       <AgentComposer
                         autofocus={

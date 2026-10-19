@@ -1,5 +1,5 @@
 /**
- * Compact header chip for the session's linked pull request: `#N` plus
+ * Compact header label for the session's linked pull request: `#N` plus
  * status, opening the PR entity once GitHub has synced it. Cloud runtimes
  * can report the URL before the webhook entity exists; until then this is
  * a GitHub link with the same face.
@@ -18,9 +18,14 @@ import { useSplitNavigationHandler } from '@core/util/useSplitNavigationHandler'
 import { usePullRequestByGithubKeyQuery } from '@queries/storage/pr-mention';
 import type { ForeignEntity } from '@service-storage/generated/schemas';
 import { cn, Layer } from '@ui';
-import { type Accessor, createMemo, type JSX, Show } from 'solid-js';
+import {
+  type Accessor,
+  createMemo,
+  type JSX,
+  type ParentProps,
+  Show,
+} from 'solid-js';
 import { match } from 'ts-pattern';
-import { ChipShell } from './AgentSessionChipShell';
 
 function metadataRecord(metadata: unknown): Record<string, unknown> {
   if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
@@ -53,11 +58,23 @@ function statusTextClass(status: string): string {
   return match(status)
     .with('merged', () => 'text-note')
     .with('closed', () => 'text-failure')
-    .otherwise(() => 'text-success');
+    .otherwise(
+      () =>
+        'text-[color-mix(in_oklch,var(--color-success)_70%,var(--color-ink))]'
+    );
 }
 
 function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+/** Unboxed, unlike the task chip beside it. */
+function ChipFrame(props: ParentProps): JSX.Element {
+  return (
+    <span class="inline-flex h-7 max-w-44 min-w-0 items-center gap-1 px-1 text-xs leading-none text-ink-muted hover:text-ink">
+      {props.children}
+    </span>
+  );
 }
 
 function ChipFace(props: {
@@ -101,9 +118,9 @@ function GithubFallback(props: { url: string; number?: number }): JSX.Element {
       }
       onClick={(event) => event.stopPropagation()}
     >
-      <ChipShell>
+      <ChipFrame>
         <ChipFace status="open" number={props.number} />
-      </ChipShell>
+      </ChipFrame>
     </a>
   );
 }
@@ -135,9 +152,9 @@ function EntityChip(props: {
           }
           {...navHandlers}
         >
-          <ChipShell>
+          <ChipFrame>
             <ChipFace status={status()} number={props.number} title={title()} />
-          </ChipShell>
+          </ChipFrame>
         </button>
       }
       content={<PullRequestPreviewCard id={props.entity.id} />}

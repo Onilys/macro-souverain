@@ -909,8 +909,7 @@ rejected. Tool permission requests use Macro's standard session policy. MCP setu
 failures surface as turn errors and request interruption; the first prompt also
 wakes the cloud worker, so setup failure may occur after submission. Reconnecting
 refreshes the session credential and restores the saved selection.
-Claude sessions expose **Open in Claude** in the header
-toolbar (or its overflow menu). With a live runtime, messages sent in Claude are
+Claude sessions expose **Open in Claude** in the session title menu. With a live runtime, messages sent in Claude are
 polled into Macro about every two seconds; disconnected runtimes must resume first.
 
 Home does not bind Delete or Backspace to deleting list items. These keys remain

@@ -464,7 +464,7 @@ The PR header has a **Changes** toggle (`aria-pressed`) with the diff's `+N −M
 at the PR's current base and head. It opens the same resizable Changes pane as
 an agent session (see "Reviewing a linked GitHub pull request" in
 [AI chat](ai-chat.md)) beside the PR, read-only: there is no review-note gutter,
-notes chip, or hand-off card. The PR's split stores the pane in
+notes chip, or composer Changes chip. The PR's split stores the pane in
 `s<N>.changes.pane` and `s<N>.changes.style`, the same as a session, until you
 leave the PR or close its split. The first view of a base and head reads GitHub; later
 views, and agent sessions linked to the same PR, reuse the stored diff. An

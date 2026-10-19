@@ -115,6 +115,8 @@ export interface AgentInputProps {
   onRemoveAttachment?: (attachment: InputAttachmentData) => void;
   /** Model control: a pill above the box on desktop, footer-left on touch. */
   modelControl?: JSX.Element;
+  /** Chips beside the desktop model pill; their own row above the box on touch. */
+  accessories?: JSX.Element;
   /**
    * Ref-style: receives the quote-insert function once the editor mounts
    * (and `undefined` again on unmount), so the transcript's "Reply to this"
@@ -356,9 +358,10 @@ export function AgentInput(props: AgentInputProps) {
             {IMAGE_INPUT_WARNING}
           </p>
         </Show>
-        <Show when={!isTouchDevice() && props.modelControl}>
-          <div class="flex items-center px-0.5">{props.modelControl}</div>
-        </Show>
+        <div class="flex min-w-0 items-center gap-1.5 px-0.5 empty:hidden">
+          <Show when={!isTouchDevice()}>{props.modelControl}</Show>
+          {props.accessories}
+        </div>
         {/* h-auto beats Surface's size-full so the in-flow controls are not
             clipped over the editor (that was Auto sitting on the placeholder). */}
         <ComposerSurface

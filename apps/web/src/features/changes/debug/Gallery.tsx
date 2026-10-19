@@ -44,11 +44,9 @@ export default function ChangesGallery() {
     sessionId: 'gallery-session',
   });
   const view = createPaneViewState();
-  const [dismissed, setDismissed] = createSignal<string>();
   const controller = createChanges({
     context,
     view,
-    dismissed: [dismissed, setDismissed],
   });
   if (controller.review.queued().length === 0) {
     controller.review.addNote(

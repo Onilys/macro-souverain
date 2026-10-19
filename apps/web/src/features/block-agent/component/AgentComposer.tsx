@@ -13,6 +13,7 @@ import { Button } from '@ui';
  * combined model-and-effort change waits for runtime confirmation.
  */
 
+import { ChangesHandoff } from '@app/features/changes/changes';
 import { useOptionalChanges } from '@app/features/changes/context/changes-controller';
 import {
   type InputAttachmentData,
@@ -375,6 +376,7 @@ export function AgentComposer(props: {
           focusInput = focus;
         }}
         registerQuoteInsert={registerQuoteInsert}
+        accessories={<ChangesHandoff />}
         modelControl={
           <div class="flex min-w-0 items-center gap-1">
             <ModelSelector

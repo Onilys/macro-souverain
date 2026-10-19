@@ -53,7 +53,10 @@ Another host composes the same components its own way.
 
 Native PR and Agents workspace hosts put their title row and content together
 inside `ChangesSplit`, so changes occupy the full height beside that row.
-Host title, sharing, and sidebar actions remain available on the left. The Changes
+Host title, sharing, and sidebar actions remain available on the left. Agent
+session hosts have no header toggle: `ChangesHandoff` renders a composer chip
+(`N files +A −D`, `aria-pressed`) that opens the pane on the first file and closes
+it again, shown whenever the changeset has files. The PR host's Changes
 button stays visible in split view: ghost while closed, accent text on a tinted
 background while open, without the shared foreground pressed overlay; clicking
 it again closes the pane. Below 28rem of the

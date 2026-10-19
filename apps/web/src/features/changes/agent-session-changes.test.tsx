@@ -104,8 +104,8 @@ describe('AgentChangesProvider', () => {
         <ChangesHandoff />
       </AgentChangesProvider>
     ));
-    expect(screen.queryByRole('button', { name: /Changes/ })).toBeNull();
-    expect(screen.queryByText('Changes ready to review')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Changes' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Review changes' })).toBeNull();
     // Nothing is fetched while there is no pull request to capture from.
     expect(sourceSessionIds.every((id) => id === undefined)).toBe(true);
 
@@ -115,8 +115,8 @@ describe('AgentChangesProvider', () => {
         pullRequestUrl: 'https://github.com/macro-inc/macro/pull/42',
       })
     );
-    expect(screen.getByRole('button', { name: /Changes/ })).toBeTruthy();
-    expect(screen.getByText('Changes ready to review')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Changes' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Review changes' })).toBeTruthy();
     expect(sourceSessionIds.at(-1)).toBe('session-1');
   });
 

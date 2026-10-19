@@ -1,9 +1,7 @@
-import { ChangesToggle } from '@app/features/changes/changes';
 import { useBlockEntityCommands } from '@app/features/next-soup/actions/use-block-entity-commands';
 import {
   type BlockTool,
   ResponsiveBlockToolbar,
-  ToolButton,
 } from '@components/app/ResponsiveBlockToolbar';
 import type { FileOperation } from '@components/app/split-layout/components/SplitFileMenu';
 import {
@@ -23,9 +21,10 @@ import ArrowSquareOut from '@phosphor/arrow-square-out.svg';
 import GitBranch from '@phosphor/git-branch.svg';
 import TrayIcon from '@phosphor/tray.svg';
 import type { AgentSessionResponse } from '@service-agent-harness/generated/schemas';
-import { For, Show } from 'solid-js';
+import { Show } from 'solid-js';
 import { useAgentSession } from '../context/AgentSessionContext';
 import { changeSessionArchiveState } from '../queries/change-session-archive-state';
+import { AgentGithubButton } from './AgentGithubButton';
 import { AgentPullRequestChip } from './AgentPullRequestChip';
 import { AgentTaskChip } from './AgentTaskChip';
 import {
@@ -79,7 +78,8 @@ export function agentSessionTitle(
 /**
  * Agent-session identity in the split header chrome plus the standard split
  * toolbar: static label, shared entity actions, the session's pull request
- * once one exists, and external-provider links.
+ * and its GitHub link once one exists. External-provider links live in the
+ * title menu.
  *
  * Rename lives on the title menu (channel / routine), not on a tap of
  * the name — `StaticSplitLabel` without `onRename` so a touch tap opens
@@ -184,10 +184,9 @@ export function AgentSplitHeader(props: {
         />
       </SplitHeaderLeft>
 
-      {/* Tools live on the header row itself — `ResponsiveBlockToolbar`
-          would push non-Share tools onto a second toolbar row. Markup
-          mirrors its own header-tools branch; on mobile the tools collapse
-          into the title menu via `menuTools` below instead. */}
+      {/* Chips live on the header row itself — `ResponsiveBlockToolbar`
+          would push non-Share tools onto a second toolbar row. The tools
+          below reach the title menu through `menuTools`. */}
       <SplitHeaderRight>
         <div class="order-[1000] flex items-center gap-1.5">
           <Show when={props.session?.taskId}>
@@ -196,15 +195,8 @@ export function AgentSplitHeader(props: {
           <Show when={props.session?.pullRequestUrl}>
             {(url) => <AgentPullRequestChip url={url()} />}
           </Show>
-          <Show when={!isTouchDevice()}>
-            <ChangesToggle />
-            <For each={tools}>
-              {(tool) => (
-                <Show when={!tool.condition || tool.condition()}>
-                  <ToolButton tool={tool} />
-                </Show>
-              )}
-            </For>
+          <Show when={!isTouchDevice() && props.session?.pullRequestUrl}>
+            {(url) => <AgentGithubButton url={url()} />}
           </Show>
         </div>
       </SplitHeaderRight>
