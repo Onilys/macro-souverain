@@ -14,10 +14,12 @@ files:
 ignores:
   - '**/test.rs'
   - '**/test/**'
-  # These call Google and Microsoft directly, not FusionAuth; their failures
-  # name the provider (`FusionAuthClientError::provider_transport`).
+  # These call Google and Microsoft directly, not FusionAuth. Their failures
+  # name the provider (`FusionAuthClientError::provider_transport`) or use the
+  # provider's own classified error (`MicrosoftRuntimeError`).
   - 'crates/fusionauth/src/google/oauth.rs'
   - 'crates/fusionauth/src/microsoft/oauth.rs'
+  - 'crates/fusionauth/src/microsoft/runtime.rs'
 rule:
   any:
     - pattern: $REQUEST.send().await.map_err($MAP)
