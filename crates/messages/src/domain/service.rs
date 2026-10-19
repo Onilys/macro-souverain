@@ -369,6 +369,8 @@ impl<R: MessageRepository, E: MessageEventPublisher> MessageService<R, E> {
         };
         let notification_policy = input.notification_policy;
         let nonce = input.nonce.clone();
+        let broadcast_to_channel = input.broadcast_to_channel;
+        let thread_id_for_broadcast = input.thread_id;
         let mentions = self.resolve_mentions(&parent, &input.mentions).await?;
         let message = self
             .repo
@@ -387,16 +389,70 @@ impl<R: MessageRepository, E: MessageEventPublisher> MessageService<R, E> {
             })
             .await?;
         self.publish(MessageEvent {
-            parent,
+            parent: parent.clone(),
             actor: actor.as_ref().to_owned(),
-            nonce,
+            nonce: nonce.clone(),
             change: MessageChange::Posted {
                 notification_policy,
                 message: message.clone(),
-                mentions,
+                mentions: mentions.clone(),
             },
         })
         .await;
+
+        // If broadcast_to_channel is set, also create a channel-level message
+        // that links back to the thread. This message appears in the main timeline
+        // and points users to the thread conversation.
+        if broadcast_to_channel {
+            if let Some(thread_root_id) = thread_id_for_broadcast {
+                let broadcast_input = PostMessage {
+                    attribution: MessageAttribution::ActingUser,
+                    notification_policy: PostMessageNotificationPolicy::Default,
+                    id: None,
+                    content: message.content.clone(),
+                    thread_id: None, // This is a top-level message
+                    anchor: None,
+                    mentions: message.mentions.clone(),
+                    attachments: message
+                        .attachments
+                        .iter()
+                        .map(|a| NewAttachment {
+                            entity_type: a.entity_type.clone(),
+                            entity_id: a.entity_id.clone(),
+                            width: a.width,
+                            height: a.height,
+                        })
+                        .collect(),
+                    nonce: nonce.map(|n| format!("{n}:broadcast")),
+                    broadcast_to_channel: false,
+                };
+                let broadcast_message = self
+                    .repo
+                    .create_broadcast(
+                        CreateMessage {
+                            canonical_root_id: None,
+                            parent: parent.clone(),
+                            actor: actor.clone(),
+                            triggered_by: None,
+                            input: broadcast_input,
+                        },
+                        thread_root_id,
+                    )
+                    .await?;
+                self.publish(MessageEvent {
+                    parent,
+                    actor: actor.as_ref().to_owned(),
+                    nonce: None,
+                    change: MessageChange::Posted {
+                        notification_policy: PostMessageNotificationPolicy::Default,
+                        message: broadcast_message,
+                        mentions,
+                    },
+                })
+                .await;
+            }
+        }
+
         Ok(message)
     }
 
@@ -944,6 +1000,18 @@ fn validate_post(parent: &MessageParent, input: &PostMessage) -> Result<(), Mess
         return Err(MessageError::Invalid(
             "only root document messages may have anchors",
         ));
+    }
+    if input.broadcast_to_channel {
+        if !matches!(parent, MessageParent::Channel(_)) {
+            return Err(MessageError::Invalid(
+                "broadcast to channel is only valid for channel messages",
+            ));
+        }
+        if input.thread_id.is_none() {
+            return Err(MessageError::Invalid(
+                "broadcast to channel requires a thread reply",
+            ));
+        }
     }
     if let Some(NewThreadAnchor::Spreadsheet {
         sheet_id, range, ..

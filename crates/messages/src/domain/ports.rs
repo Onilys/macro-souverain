@@ -390,6 +390,15 @@ pub trait MessageRepository: Send + Sync + 'static {
         &self,
         command: CreateMessage,
     ) -> impl Future<Output = Result<Message, MessageError>> + Send;
+
+    /// Create a broadcast message that links back to a thread. This is a
+    /// channel-level message that appears in the main timeline and references
+    /// the thread it was broadcast from.
+    fn create_broadcast(
+        &self,
+        command: CreateMessage,
+        broadcast_from_thread: Uuid,
+    ) -> impl Future<Output = Result<Message, MessageError>> + Send;
     /// Replace content and references atomically.
     fn edit(
         &self,

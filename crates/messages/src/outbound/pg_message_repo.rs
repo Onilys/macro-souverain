@@ -34,6 +34,7 @@ struct StoredMessage {
     updated_at: DateTime<Utc>,
     edited_at: Option<chrono::NaiveDateTime>,
     deleted_at: Option<chrono::NaiveDateTime>,
+    broadcast_from_thread: Option<Uuid>,
 }
 
 fn database_error(error: sqlx::Error) -> MessageError {
@@ -273,6 +274,7 @@ impl PgMessageRepository {
                     } else {
                         reaction_map.remove(&r.id).unwrap_or_default()
                     },
+                    broadcast_from_thread: r.broadcast_from_thread,
                 })
             })
             .collect()
@@ -765,6 +767,67 @@ impl MessageRepository for PgMessageRepository {
             Some(&command.input.attachments),
         )
         .await?;
+        let message = Self::require_message_in(&mut tx, &command.parent, id).await?;
+        tx.commit().await.map_err(database_error)?;
+        Ok(message)
+    }
+
+    async fn create_broadcast(
+        &self,
+        command: CreateMessage,
+        broadcast_from_thread: Uuid,
+    ) -> Result<Message, MessageError> {
+        let id = command
+            .input
+            .id
+            .unwrap_or_else(macro_uuid::generate_uuid_v7);
+        let mut tx = self.pool.begin().await.map_err(database_error)?;
+
+        // Verify the thread exists
+        let thread_exists = sqlx::query_scalar!(
+            r#"SELECT EXISTS(SELECT 1 FROM comms_message_threads
+                WHERE root_id = $1 AND parent_entity_type = $2 AND parent_entity_id = $3
+                    AND deleted_at IS NULL) AS "exists!""#,
+            broadcast_from_thread,
+            command.parent.entity_type(),
+            command.parent.entity_id(),
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(database_error)?;
+        if !thread_exists {
+            return Err(MessageError::NotFound);
+        }
+
+        // Insert the broadcast message (top-level, no thread_id, with broadcast_from_thread set)
+        sqlx::query!(
+            r#"INSERT INTO comms_messages(id, parent_entity_type, parent_entity_id, thread_id,
+                    sender_id, triggered_by_user_id, content, broadcast_from_thread)
+               VALUES ($1, $2, $3, NULL, $4, $5, $6, $7)"#,
+            id,
+            command.parent.entity_type(),
+            command.parent.entity_id(),
+            command.actor.as_ref(),
+            command.triggered_by,
+            command.input.content,
+            broadcast_from_thread,
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(database_error)?;
+
+        // A broadcast message is a new top-level message, so ensure its thread row
+        Self::ensure_thread_in(&mut tx, id, None).await?;
+
+        Self::replace_references(
+            &mut tx,
+            id,
+            command.actor.as_ref(),
+            &command.input.mentions,
+            Some(&command.input.attachments),
+        )
+        .await?;
+
         let message = Self::require_message_in(&mut tx, &command.parent, id).await?;
         tx.commit().await.map_err(database_error)?;
         Ok(message)

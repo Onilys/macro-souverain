@@ -469,6 +469,11 @@ pub struct Message {
     pub attachments: Vec<MessageAttachment>,
     /// Aggregated reactions.
     pub reactions: Vec<CountedReaction>,
+    /// When set, this channel message is a broadcast copy of a thread reply.
+    /// Contains the id of the thread's root message that the original reply
+    /// belongs to, so the UI can link back to the thread.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub broadcast_from_thread: Option<Uuid>,
 }
 
 impl Message {
@@ -558,6 +563,11 @@ pub struct PostMessage {
     pub attachments: Vec<NewAttachment>,
     /// Client nonce for optimistic reconciliation.
     pub nonce: Option<String>,
+    /// When true and `thread_id` is set, also post a copy of this reply at
+    /// the channel level so it appears in the main timeline (like Slack's
+    /// "Also send to channel"). Only valid for channel parents.
+    #[serde(default)]
+    pub broadcast_to_channel: bool,
 }
 
 /// Root message with its small thread preview, independent of its parent type.
