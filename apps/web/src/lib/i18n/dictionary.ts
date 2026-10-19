@@ -5,8 +5,8 @@ export type Dictionary = typeof en;
 
 /**
  * A translated catalog. Keys a translation leaves out fall back to English,
- * so a new English message never blocks the build; the completeness test
- * catches them before release.
+ * so a new English message never blocks a change; the translation update
+ * (`bun run i18n:status`) fills them in.
  */
 export type PartialDictionary = {
   [K in keyof Dictionary]?: { [M in keyof Dictionary[K]]?: string };

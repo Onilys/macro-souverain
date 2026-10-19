@@ -15,10 +15,6 @@ function translationFor(code: Language): PartialDictionary {
   return module.default;
 }
 
-const englishKeys = Object.entries(en).flatMap(([namespace, messages]) =>
-  Object.keys(messages).map((message) => `${namespace}.${message}`)
-);
-
 const PLACEHOLDER = /\{\{\s*(\w+)\s*\}\}/g;
 
 function placeholders(template: string): string[] {
@@ -59,35 +55,33 @@ describe('translations', () => {
     expect(files).toEqual(LANGUAGES.map(({ code }) => code).sort());
   });
 
+  // Missing and out-of-date translations fall back to English and are filled
+  // in by the translation update (`bun run i18n:status`); these are the
+  // mistakes that would show wrong text.
   it.each(
     LANGUAGES.filter(({ code }) => code !== 'en').map(({ code }) => code)
-  )(
-    '%s translates every English message with the same placeholders',
-    (code) => {
-      const translation = translationFor(code);
-      const missing: string[] = [];
-      const mismatched: string[] = [];
-      for (const key of englishKeys) {
-        const [namespace, message] = key.split('.') as [
-          keyof typeof en,
-          string,
-        ];
-        const english = (en[namespace] as Record<string, string>)[message];
-        const translated = translation[namespace]?.[message as never] as
-          | string
-          | undefined;
-        if (!translated?.trim()) {
-          missing.push(key);
+  )('%s only translates English messages, with their placeholders', (code) => {
+    const translation = translationFor(code);
+    const stray: string[] = [];
+    const mismatched: string[] = [];
+    for (const [namespace, messages] of Object.entries(translation)) {
+      for (const [message, translated] of Object.entries(messages ?? {})) {
+        const key = `${namespace}.${message}`;
+        const english = (
+          en[namespace as keyof typeof en] as Record<string, string> | undefined
+        )?.[message];
+        if (english === undefined) {
+          stray.push(key);
           continue;
         }
         if (
-          placeholders(translated).join() !== placeholders(english ?? '').join()
+          placeholders(translated ?? '').join() !== placeholders(english).join()
         ) {
           mismatched.push(key);
         }
       }
-      expect(missing).toEqual([]);
-      expect(mismatched).toEqual([]);
     }
-  );
+    expect(stray).toEqual([]);
+    expect(mismatched).toEqual([]);
+  });
 });
