@@ -1,4 +1,6 @@
 import { makePersistedState } from '@app/lib/persistence';
+import { fireAndForget } from '@core/util/fireAndForget';
+import { Telemetry } from '@macro-inc/observability';
 import { ResultAsync } from 'neverthrow';
 import { createSignal, untrack } from 'solid-js';
 import { z } from 'zod';
@@ -87,7 +89,7 @@ export function setInterfaceLanguage(next: Language): void {
     setTranslation({});
     return;
   }
-  void loadTranslation(next);
+  fireAndForget(loadTranslation(next), 'i18n');
 }
 
 async function loadTranslation(next: Exclude<Language, 'en'>) {
@@ -96,7 +98,9 @@ async function loadTranslation(next: Exclude<Language, 'en'>) {
     (error) => error
   );
   if (loaded.isErr()) {
-    console.error('Failed to load interface language', next, loaded.error);
+    Telemetry.error(loaded.error, { surface: 'i18n', language: next });
+    // Fall back to English rather than keep showing the previous language.
+    if (language() === next) setTranslation({});
     return;
   }
   // A later switch may have finished first; only the current one applies.

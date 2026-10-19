@@ -158,7 +158,7 @@ export function useFilterRefinements() {
         { label: string; icon?: () => JSX.Element }
       >();
       map.set(NO_ASSIGNEE, {
-        label: 'Unassigned',
+        label: t('viewMenus.unassigned'),
         icon: () => <CircleDashedIcon class="size-3 text-ink-muted" />,
       });
       for (const contact of contacts()) {
@@ -185,7 +185,7 @@ export function useFilterRefinements() {
     const uid = currentUserId();
     const noAssigneeOption: SearchableOption = {
       id: NO_ASSIGNEE,
-      label: 'Unassigned',
+      label: t('viewMenus.unassigned'),
       icon: () => <CircleDashedIcon class="size-3.5 text-ink-muted" />,
     };
     let meOption: SearchableOption | undefined;

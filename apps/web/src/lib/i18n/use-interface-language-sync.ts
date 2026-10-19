@@ -15,11 +15,18 @@ export function useInterfaceLanguageSync() {
   const team = useCurrentTeamQuery();
 
   createEffect(() => {
-    if (!queryReadyGate(userLanguage) || !queryReadyGate(team)) return;
+    if (!queryReadyGate(userLanguage)) return;
+    // A personal language doesn't need the team's, so a failed team request
+    // only holds back people who follow the team language.
+    if (
+      !queryReadyGate(team) &&
+      (!team.isError || userLanguage.data.language === null)
+    )
+      return;
     setInterfaceLanguage(
       resolveInterfaceLanguage(
         userLanguage.data.language,
-        team.data?.team.language
+        queryReadyGate(team) ? team.data?.team.language : undefined
       )
     );
   });

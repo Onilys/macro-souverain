@@ -245,7 +245,7 @@ const SearchableValueSegment = (props: {
     props.filter.onSearchableChange?.(ids);
   };
 
-  const placeholder =
+  const placeholder = () =>
     props.filter.searchPlaceholder ??
     t('viewMenus.searchCategory', {
       category: props.filter.categoryLabel.toLowerCase(),
@@ -258,7 +258,7 @@ const SearchableValueSegment = (props: {
       options={options}
       activeIds={activeIds}
       onChange={handleChange}
-      placeholder={placeholder}
+      placeholder={placeholder()}
       placement="bottom-start"
       open={props.filter.isPopupOpen}
       onOpenChange={(v) => props.filter.setPopupOpen?.(v)}

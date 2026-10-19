@@ -25,7 +25,7 @@ impl PgUserLanguageRepo {
 impl UserLanguageRepo for PgUserLanguageRepo {
     type Err = sqlx::Error;
 
-    #[tracing::instrument(err, skip(self))]
+    #[tracing::instrument(err, skip_all)]
     async fn get_language(
         &self,
         user_id: &MacroUserIdStr<'_>,
@@ -43,7 +43,7 @@ impl UserLanguageRepo for PgUserLanguageRepo {
         .await
     }
 
-    #[tracing::instrument(err, skip(self))]
+    #[tracing::instrument(err, skip_all)]
     async fn set_language(
         &self,
         user_id: &MacroUserIdStr<'_>,
