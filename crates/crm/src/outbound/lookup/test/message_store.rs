@@ -44,6 +44,7 @@ fn input(content: &str, root: Option<Uuid>) -> PostMessage {
         mentions: vec![],
         attachments: vec![],
         nonce: None,
+        broadcast_to_channel: false,
     }
 }
 
