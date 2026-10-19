@@ -25,6 +25,7 @@ fn persisted_row_metadata_survives_property_enrichment() {
         pull_request_url: Some("https://github.com/macro/macro/pull/6712".to_owned()),
         turn_state: Some("running".to_owned()),
         thread_id: None,
+        routine_id: None,
         is_archived: false,
         status: "event".to_owned(),
         status_event_name: Some("acp_ready".to_owned()),
@@ -516,5 +517,45 @@ async fn hidden_dm_contexts_are_omitted_from_home_and_agents_but_open_by_id(
         .fetch_one(&pool)
         .await?;
     assert_eq!(channel, dm);
+    Ok(())
+}
+
+/// A routine's runs stay listed for whoever asks for them, carry the routine
+/// that made them, and leave a list that excludes routine runs.
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn routine_runs_leave_lists_that_exclude_them(pool: PgPool) -> anyhow::Result<()> {
+    let fixture = seed(&pool).await?;
+    let routine_id = Uuid::now_v7();
+    sqlx::query!(
+        "UPDATE agent_session SET routine_id = $2 WHERE id = $1",
+        fixture.private,
+        routine_id,
+    )
+    .execute(&pool)
+    .await?;
+
+    let all = cursor_soup(
+        &pool,
+        request(OWNER, Some(Expr::val(AgentSessionLiteral::Include))),
+    )
+    .await?;
+    assert_eq!(ids(&all), vec![fixture.private, fixture.shared]);
+    let SoupItem::AgentSession(run) = &all[0] else {
+        panic!("expected an agent session");
+    };
+    assert_eq!(run.routine_id, Some(routine_id));
+
+    let without_runs = cursor_soup(
+        &pool,
+        request(
+            OWNER,
+            Some(Expr::and(
+                Expr::val(AgentSessionLiteral::Include),
+                Expr::is_not(Expr::val(AgentSessionLiteral::RoutineRun)),
+            )),
+        ),
+    )
+    .await?;
+    assert_eq!(ids(&without_runs), vec![fixture.shared]);
     Ok(())
 }

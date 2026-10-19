@@ -123,3 +123,54 @@ async fn hidden_contexts_with_notifications_and_activity_stay_out_of_broad_feeds
     );
     Ok(())
 }
+
+/// Home's work feed leaves routine runs out even while they hold attention,
+/// and a feed that does not exclude them still shows them.
+#[sqlx::test(
+    fixtures(path = "../../../../../fixtures", scripts("notified_at")),
+    migrator = "MACRO_DB_MIGRATIONS"
+)]
+async fn routine_runs_with_notifications_stay_out_of_feeds_that_exclude_them(
+    pool: Pool<Postgres>,
+) -> anyhow::Result<()> {
+    let (mine, _) = seed_agent_sessions(&pool).await?;
+    let sources = sources();
+    sqlx::query!(
+        "UPDATE agent_session SET routine_id = $2 WHERE id = $1",
+        mine,
+        Uuid::now_v7(),
+    )
+    .execute(&pool)
+    .await?;
+    let include = EntityFilterAst {
+        agent_session_filter: Some(Arc::new(Expr::val(AgentSessionLiteral::Include))),
+        ..Default::default()
+    };
+    let without_runs = EntityFilterAst {
+        agent_session_filter: Some(Arc::new(Expr::and(
+            Expr::val(AgentSessionLiteral::Include),
+            Expr::is_not(Expr::val(AgentSessionLiteral::RoutineRun)),
+        ))),
+        ..Default::default()
+    };
+    assert_eq!(
+        work_feed_soup_page(
+            &pool,
+            work_request(&include, &sources, WorkFeedSoupMode::Attention, None)
+        )
+        .await?
+        .len(),
+        1
+    );
+    for mode in [WorkFeedSoupMode::Work, WorkFeedSoupMode::Attention] {
+        assert!(
+            work_feed_soup_page(&pool, work_request(&without_runs, &sources, mode, None))
+                .await?
+                .is_empty()
+        );
+    }
+    let notified =
+        notified_soup_page(&pool, req(Some(&without_runs), &[], &sources, EVERYTHING)).await?;
+    assert!(!keys(&notified).contains(&(EntityType::AgentSession, mine.to_string())));
+    Ok(())
+}

@@ -157,6 +157,8 @@ describe('mixed Agents sidebar', () => {
         loadingNextPage={false}
         onNewConversation={create}
         onSearchChange={vi.fn()}
+        showRoutineRuns={false}
+        onShowRoutineRunsChange={vi.fn()}
         onOpenConversation={open}
         onRetry={vi.fn()}
         onLoadMore={vi.fn()}
@@ -216,6 +218,8 @@ describe('mixed Agents sidebar', () => {
         loadingNextPage={false}
         onNewConversation={vi.fn()}
         onSearchChange={vi.fn()}
+        showRoutineRuns={false}
+        onShowRoutineRunsChange={vi.fn()}
         onOpenConversation={vi.fn()}
         onRetry={vi.fn()}
         onLoadMore={loadMore}
@@ -223,6 +227,73 @@ describe('mixed Agents sidebar', () => {
     ));
     expect(loadMore).toHaveBeenCalledOnce();
     expect(screen.getByText('No coding conversations yet.')).toBeTruthy();
+  });
+
+  it('toggles routine runs and marks the runs it lists', () => {
+    const [show, setShow] = createSignal(false);
+    const change = vi.fn(setShow);
+    render(() => (
+      <AgentsSidebar
+        mode="chat"
+        onModeChange={vi.fn()}
+        activePage="new"
+        onOpenPage={vi.fn()}
+        conversations={[
+          {
+            type: 'agent_session',
+            id: 'run',
+            name: 'Morning digest',
+            ownerId: 'me',
+            isArchived: false,
+            botId: 'macro',
+            status: 'acp_ready',
+            routineId: 'routine',
+          },
+          {
+            type: 'agent_session',
+            id: 'mine',
+            name: 'Plan launch',
+            ownerId: 'me',
+            isArchived: false,
+            botId: 'macro',
+            status: 'acp_ready',
+          },
+        ]}
+        archived={[]}
+        modeForConversation={() => 'chat'}
+        activeConversationId={undefined}
+        search=""
+        loading={false}
+        error={false}
+        hasNextPage={false}
+        loadingNextPage={false}
+        onNewConversation={vi.fn()}
+        onSearchChange={vi.fn()}
+        showRoutineRuns={show()}
+        onShowRoutineRunsChange={change}
+        onOpenConversation={vi.fn()}
+        onRetry={vi.fn()}
+        onLoadMore={vi.fn()}
+      />
+    ));
+
+    const toggle = screen.getByRole('button', { name: 'Show routine runs' });
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(toggle);
+    expect(change).toHaveBeenLastCalledWith(true);
+    const hide = screen.getByRole('button', { name: 'Hide routine runs' });
+    expect(hide.getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(hide);
+    expect(change).toHaveBeenLastCalledWith(false);
+
+    const run = screen
+      .getByRole('button', { name: 'Morning digest' })
+      .closest('[data-agent-session-row]');
+    expect(run?.querySelector('[aria-label="Routine run"]')).toBeTruthy();
+    const mine = screen
+      .getByRole('button', { name: 'Plan launch' })
+      .closest('[data-agent-session-row]');
+    expect(mine?.querySelector('[aria-label="Routine run"]')).toBeNull();
   });
 
   it('opens rename and delete on a session or chat right-click', async () => {
@@ -262,6 +333,8 @@ describe('mixed Agents sidebar', () => {
         loadingNextPage={false}
         onNewConversation={vi.fn()}
         onSearchChange={vi.fn()}
+        showRoutineRuns={false}
+        onShowRoutineRunsChange={vi.fn()}
         onOpenConversation={vi.fn()}
         onRetry={vi.fn()}
         onLoadMore={vi.fn()}
@@ -345,6 +418,8 @@ describe.each(['home', 'sidebar'] as const)('%s agent rows', (surface) => {
           loadingNextPage={false}
           onNewConversation={vi.fn()}
           onSearchChange={vi.fn()}
+          showRoutineRuns={false}
+          onShowRoutineRunsChange={vi.fn()}
           onOpenConversation={open}
           onRetry={vi.fn()}
           onLoadMore={vi.fn()}

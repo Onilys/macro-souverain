@@ -321,6 +321,10 @@ the shimmer.
   Right-click (or long-press on mobile) opens the same entity menu as Home:
   Rename, Favorite, Copy link, Share, Archive, Delete, and the other session
   actions. Archived sessions are grouped at the bottom under **Archived**.
+  Sessions a routine's runs created are left out until the clock button beside
+  the search control (**Show routine runs**) is pressed; listed runs carry the
+  same clock icon after their age. The list starts without them each time the
+  Agents view opens.
 - The starting page has a compact composer that starts at one line and grows
   with longer prompts or Shift+Enter. Lists, quotes, headings, and other
   non-paragraph blocks expand immediately, even with short text. This also applies

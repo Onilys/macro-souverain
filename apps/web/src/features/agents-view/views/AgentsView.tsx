@@ -107,6 +107,8 @@ function AgentsWorkspace(props: { initialRoute?: AgentsRoute }) {
   const [mobileList, setMobileList] = createSignal(!isRoutinesPage());
   const [draft, setDraft] = createSignal('');
   const [search, setSearch] = createSignal('');
+  // Routine runs pile up fast; they stay a click away instead of in the list.
+  const [showRoutineRuns, setShowRoutineRuns] = createSignal(false);
   const rosterSource = createAgentRosterSource();
   const query = useSoupItemsQuery(
     () => {
@@ -119,6 +121,7 @@ function AgentsWorkspace(props: { initialRoute?: AgentsRoute }) {
           agent_session_filters: {
             include: true,
             owners: ownerId ? [ownerId] : [],
+            exclude_routine_runs: !showRoutineRuns(),
           },
         },
       };
@@ -322,6 +325,8 @@ function AgentsWorkspace(props: { initialRoute?: AgentsRoute }) {
       loadingNextPage={query.isFetchingNextPage}
       onNewConversation={showComposer}
       onSearchChange={setSearch}
+      showRoutineRuns={showRoutineRuns()}
+      onShowRoutineRunsChange={setShowRoutineRuns}
       onOpenConversation={(conversation, event) =>
         openConversation(conversation, event, modeForConversation(conversation))
       }

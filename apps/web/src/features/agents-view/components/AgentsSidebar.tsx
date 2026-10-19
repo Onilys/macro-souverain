@@ -67,6 +67,9 @@ export type AgentsSidebarProps = {
   loadingNextPage: boolean;
   onNewConversation: () => void;
   onSearchChange: (search: string) => void;
+  /** Whether sessions a routine's runs created are listed. */
+  showRoutineRuns: boolean;
+  onShowRoutineRunsChange: (show: boolean) => void;
   onOpenConversation: (
     conversation: AgentConversationEntity,
     event?: MouseEvent
@@ -333,6 +336,20 @@ export function AgentsSidebar(props: AgentsSidebarProps) {
                 onClick={() => (searchOpen() ? closeSearch() : openSearch())}
               >
                 <MagnifyingGlassIcon class="size-3.5" />
+              </CollapsibleSection.Action>
+              <CollapsibleSection.Action
+                label={
+                  props.showRoutineRuns
+                    ? 'Hide routine runs'
+                    : 'Show routine runs'
+                }
+                aria-pressed={props.showRoutineRuns}
+                class={cn(props.showRoutineRuns && 'bg-active text-ink')}
+                onClick={() =>
+                  props.onShowRoutineRunsChange(!props.showRoutineRuns)
+                }
+              >
+                <RoutineIcon class="size-3.5" />
               </CollapsibleSection.Action>
             </CollapsibleSection.Header>
             <CollapsibleSection.Content class="flex min-h-0 flex-1 flex-col gap-1">

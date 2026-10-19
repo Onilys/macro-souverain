@@ -321,6 +321,11 @@ export type AgentPullRequestState = 'open' | 'draft' | 'closed' | 'merged';
  */
 export type AgentSessionFilters = {
     /**
+     * Leave out sessions a routine's unattended run created. Constrains the
+     * sessions a query already asks for; it does not opt the query in.
+     */
+    exclude_routine_runs?: boolean;
+    /**
      * Agent session ids to filter by. Empty to include all accessible sessions.
      */
     ids?: Array<string>;
@@ -11219,6 +11224,10 @@ export type SessionIdentity = {
      */
     owner_id: MacroUserIdStr;
     /**
+     * The routine whose unattended run the session is, when it is one.
+     */
+    routine_id?: string | null;
+    /**
      * The session.
      */
     session_id: string;
@@ -11687,6 +11696,10 @@ export type SoupAgentSessionSoupPropertiesField = {
      * The repository the session works with, when one was selected.
      */
     repoUrl?: string | null;
+    /**
+     * The routine whose unattended run created the session, when one did
+     */
+    routineId?: string | null;
     /**
      * The session's last known status.
      *

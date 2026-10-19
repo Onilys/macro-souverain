@@ -1797,3 +1797,32 @@ fn crm_associations_deduplicate_repeated_records() {
     assert_eq!(ast.crm_associations(), vec![company]);
     assert!(EntityFilterAst::default().crm_associations().is_empty());
 }
+
+#[test]
+fn it_expands_routine_run_exclusion_as_a_constraint() {
+    let expand = |agent_session_filters| {
+        EntityFilterAst::new_from_filters(EntityFilters {
+            agent_session_filters,
+            ..Default::default()
+        })
+        .unwrap()
+        .and_then(|ast| ast.agent_session_filter)
+        .map(|tree| serde_json::to_value(&*tree).unwrap())
+    };
+
+    assert_eq!(
+        expand(crate::AgentSessionFilters {
+            include: true,
+            exclude_routine_runs: true,
+            ..Default::default()
+        }),
+        Some(json!({ "&": [{ "l": "inc" }, { "!": { "l": "rr" } }] }))
+    );
+    assert_eq!(
+        expand(crate::AgentSessionFilters {
+            include: true,
+            ..Default::default()
+        }),
+        Some(json!({ "l": "inc" }))
+    );
+}

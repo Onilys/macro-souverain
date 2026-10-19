@@ -22,6 +22,9 @@ pub enum AgentSessionLiteral {
     /// Filter by the session's owner.
     #[serde(rename = "o")]
     Owner(Owner),
+    /// Sessions a routine's unattended run created.
+    #[serde(rename = "rr")]
+    RoutineRun,
 }
 
 impl ExpandFrame<AgentSessionLiteral> for AgentSessionFilters {
@@ -34,6 +37,7 @@ impl ExpandFrame<AgentSessionLiteral> for AgentSessionFilters {
             include,
             ids,
             owners,
+            exclude_routine_runs,
         } = filter_request;
 
         let include = include.then_some(Expr::val(AgentSessionLiteral::Include));
@@ -48,6 +52,11 @@ impl ExpandFrame<AgentSessionLiteral> for AgentSessionFilters {
             .map(|owner| Owner::from_principal_str(owner))
             .try_expand(|r| r.map(AgentSessionLiteral::Owner), Expr::or)?;
 
-        Ok([include, ids, owners].into_iter().fold_with(Expr::and))
+        let routine_runs =
+            exclude_routine_runs.then(|| Expr::is_not(Expr::val(AgentSessionLiteral::RoutineRun)));
+
+        Ok([include, ids, owners, routine_runs]
+            .into_iter()
+            .fold_with(Expr::and))
     }
 }

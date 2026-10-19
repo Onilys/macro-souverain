@@ -70,6 +70,10 @@ pub struct SoupAgentSession<T = ()> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thread_id: Option<Uuid>,
 
+    /// The routine whose unattended run created the session, when one did
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub routine_id: Option<Uuid>,
+
     /// The session's last known status.
     ///
     /// `no_messages` until the first system event arrives, `disconnected` if

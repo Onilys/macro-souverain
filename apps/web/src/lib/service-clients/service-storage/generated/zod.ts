@@ -27304,6 +27304,12 @@ export const getItemsSoupResponse = zod
                       .describe(
                         'The repository the session works with, when one was selected.'
                       ),
+                    routineId: zod
+                      .uuid()
+                      .nullish()
+                      .describe(
+                        'The routine whose unattended run created the session, when one did'
+                      ),
                     status: zod
                       .string()
                       .describe(
@@ -27668,6 +27674,12 @@ export const postItemsSoupBody = zod
   .object({
     agent_session_filters: zod
       .object({
+        exclude_routine_runs: zod
+          .boolean()
+          .optional()
+          .describe(
+            "Leave out sessions a routine's unattended run created. Constrains the\nsessions a query already asks for; it does not opt the query in."
+          ),
         ids: zod
           .array(zod.string())
           .optional()
@@ -31947,6 +31959,12 @@ export const postItemsSoupResponse = zod
                       .describe(
                         'The repository the session works with, when one was selected.'
                       ),
+                    routineId: zod
+                      .uuid()
+                      .nullish()
+                      .describe(
+                        'The routine whose unattended run created the session, when one did'
+                      ),
                     status: zod
                       .string()
                       .describe(
@@ -36065,6 +36083,12 @@ export const postItemsSoupAstResponse = zod
                       .nullish()
                       .describe(
                         'The repository the session works with, when one was selected.'
+                      ),
+                    routineId: zod
+                      .uuid()
+                      .nullish()
+                      .describe(
+                        'The routine whose unattended run created the session, when one did'
                       ),
                     status: zod
                       .string()
@@ -40602,6 +40626,12 @@ export const postItemsSoupAstGroupedResponse = zod
                             .describe(
                               'The repository the session works with, when one was selected.'
                             ),
+                          routineId: zod
+                            .uuid()
+                            .nullish()
+                            .describe(
+                              'The routine whose unattended run created the session, when one did'
+                            ),
                           status: zod
                             .string()
                             .describe(
@@ -44699,6 +44729,12 @@ export const postItemsSoupAstGroupedResponse = zod
                             .nullish()
                             .describe(
                               'The repository the session works with, when one was selected.'
+                            ),
+                          routineId: zod
+                            .uuid()
+                            .nullish()
+                            .describe(
+                              'The routine whose unattended run created the session, when one did'
                             ),
                           status: zod
                             .string()

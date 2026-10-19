@@ -9,6 +9,9 @@
  * Filters for agent sessions.
  */
 export interface AgentSessionFilters {
+  /** Leave out sessions a routine's unattended run created. Constrains the
+sessions a query already asks for; it does not opt the query in. */
+  exclude_routine_runs?: boolean;
   /** Agent session ids to filter by. Empty to include all accessible sessions. */
   ids?: string[];
   /** Opt this query into agent sessions at all. Agent sessions are off by

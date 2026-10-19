@@ -9,6 +9,7 @@ import type { SoupAgentSessionSoupPropertiesFieldAllOfTwoPullRequestState } from
 import type { SoupAgentSessionSoupPropertiesFieldAllOfTwoPullRequestUrl } from './soupAgentSessionSoupPropertiesFieldAllOfTwoPullRequestUrl';
 import type { SoupAgentSessionSoupPropertiesFieldAllOfTwoRepoBranch } from './soupAgentSessionSoupPropertiesFieldAllOfTwoRepoBranch';
 import type { SoupAgentSessionSoupPropertiesFieldAllOfTwoRepoUrl } from './soupAgentSessionSoupPropertiesFieldAllOfTwoRepoUrl';
+import type { SoupAgentSessionSoupPropertiesFieldAllOfTwoRoutineId } from './soupAgentSessionSoupPropertiesFieldAllOfTwoRoutineId';
 import type { SoupAgentSessionSoupPropertiesFieldAllOfTwoThreadId } from './soupAgentSessionSoupPropertiesFieldAllOfTwoThreadId';
 import type { SoupAgentSessionSoupPropertiesFieldAllOfTwoTurnState } from './soupAgentSessionSoupPropertiesFieldAllOfTwoTurnState';
 import type { SoupAgentSessionSoupPropertiesFieldAllOfTwoViewedAt } from './soupAgentSessionSoupPropertiesFieldAllOfTwoViewedAt';
@@ -38,6 +39,8 @@ export type SoupAgentSessionSoupPropertiesFieldAllOfTwo = {
   repoBranch?: SoupAgentSessionSoupPropertiesFieldAllOfTwoRepoBranch;
   /** The repository the session works with, when one was selected. */
   repoUrl?: SoupAgentSessionSoupPropertiesFieldAllOfTwoRepoUrl;
+  /** The routine whose unattended run created the session, when one did */
+  routineId?: SoupAgentSessionSoupPropertiesFieldAllOfTwoRoutineId;
   /** The session's last known status.
 
 `no_messages` until the first system event arrives, `disconnected` if

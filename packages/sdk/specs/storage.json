@@ -18870,6 +18870,10 @@
         "type": "object",
         "description": "Filters for agent sessions.",
         "properties": {
+          "exclude_routine_runs": {
+            "type": "boolean",
+            "description": "Leave out sessions a routine's unattended run created. Constrains the\nsessions a query already asks for; it does not opt the query in."
+          },
           "ids": {
             "type": "array",
             "items": {
@@ -36160,6 +36164,11 @@
             "$ref": "#/components/schemas/MacroUserIdStr",
             "description": "User who owns the session."
           },
+          "routine_id": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "The routine whose unattended run the session is, when it is one."
+          },
           "session_id": {
             "type": "string",
             "format": "uuid",
@@ -36871,6 +36880,11 @@
               "repoUrl": {
                 "type": ["string", "null"],
                 "description": "The repository the session works with, when one was selected."
+              },
+              "routineId": {
+                "type": ["string", "null"],
+                "format": "uuid",
+                "description": "The routine whose unattended run created the session, when one did"
               },
               "status": {
                 "type": "string",

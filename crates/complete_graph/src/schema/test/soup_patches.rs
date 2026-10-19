@@ -470,6 +470,7 @@ async fn pr_and_linked_session_updates_serialize_current_metadata() {
             updated_at: now,
             viewed_at: None,
             extra: (),
+            routine_id: None,
         }),
     ]);
     let calls = soup.raw_calls.clone();

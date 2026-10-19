@@ -209,6 +209,8 @@ export type AgentSessionEntity = EntityBase & {
   turnState?: string | null;
   bot?: { id: string; name: string; avatarUrl?: string | null } | null;
   threadId?: string | null;
+  /** The routine whose unattended run created the session, when one did. */
+  routineId?: string | null;
   status: string;
   properties?: SoupProperty[];
 };

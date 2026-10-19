@@ -39,6 +39,7 @@ fn agent(id: AgentSessionId, pull_request: Option<&str>) -> SoupCandidate {
         updated_at: Utc::now(),
         viewed_at: None,
         extra: (),
+        routine_id: None,
     }))
 }
 

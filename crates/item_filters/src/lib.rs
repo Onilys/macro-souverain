@@ -493,6 +493,10 @@ pub struct AgentSessionFilters {
     /// owner.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub owners: Vec<String>,
+    /// Leave out sessions a routine's unattended run created. Constrains the
+    /// sessions a query already asks for; it does not opt the query in.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub exclude_routine_runs: bool,
 }
 
 impl IsEmpty for AgentSessionFilters {
@@ -501,6 +505,7 @@ impl IsEmpty for AgentSessionFilters {
             include,
             ids,
             owners,
+            exclude_routine_runs: _,
         } = self;
         !include && ids.is_empty() && owners.is_empty()
     }

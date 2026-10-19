@@ -666,7 +666,11 @@ columns. The search field sits below the top bar, as in Projects; search by name
 creator, or model/agent, or press **Cmd/Ctrl+F** to focus it. **Create Routine** sits
 to the right of search. Click a row to open its settings in the same pane. Toggle
 the **Enabled** checkbox property directly in the list to pause or resume it.
-Open the routine and use its **Run History** tab to see past runs.
+Open the routine and use its **Run History** tab to see past runs. Each run is its
+own agent session. Runs never appear on Home and are hidden from the Agents
+sidebar until **Show routine runs** is pressed. A run that finishes normally sends
+no notification; a failed or cut-short run, a question the agent asks, a held tool
+approval, and people the routine's prompt mentions still notify.
 
 **Create → Routine** (U) and **Create Routine** open the same popover host as task
 and project creation. Enter a name and instructions, then choose a model or agent
