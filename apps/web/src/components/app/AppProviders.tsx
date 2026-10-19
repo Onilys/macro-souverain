@@ -23,6 +23,7 @@ import {
 } from '@notifications';
 import { maybeHandlePlatformNotification } from '@notifications/notification-platform';
 import { useChatRenameWebsocketSync } from '@queries/chat';
+import { useWarmPromptDismissals } from '@queries/prompt-dismissals';
 import { useQuerySync } from '@queries/sync/use-query-sync';
 import { MutationUndoProvider } from '@queries/undo';
 import {
@@ -96,6 +97,7 @@ export function AppProviders(props: ParentProps) {
   useQuerySync(userId);
   useSoupBackfills(userId);
   useCalendarCache(() => userId() !== undefined);
+  useWarmPromptDismissals(userId);
   useGlobalAttachableHistory();
 
   return (

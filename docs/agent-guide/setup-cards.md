@@ -85,6 +85,10 @@ host's queries load, the card shows that remembered state: a shown card
 appears at once, and a hidden one never flashes. With nothing remembered
 (first visit on a browser) it stays hidden until everything has loaded. The
 one stale case is a card dismissed on another device since this browser last
-loaded: it shows until the dismissal list arrives, then hides. The import
-dialog's code loads on first open (fetched ahead when the pointer or focus
-reaches the card).
+loaded: it shows until the dismissal list arrives, then hides. The app loads
+the dismissal list once at startup without retrying, and cards reuse that
+answer (or its failure) instead of refetching when a view opens. Against a
+backend without `/onboarding/prompts` (the shared dev backend before this
+endpoint deploys), the list 404s and cards fall back to the browser's record.
+The import dialog's code loads on first open (fetched ahead when the pointer
+or focus reaches the card).

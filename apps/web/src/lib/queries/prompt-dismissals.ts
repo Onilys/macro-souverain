@@ -10,6 +10,7 @@ import {
   promptDismissalsClient,
 } from '@service-cognition/prompt-dismissals';
 import { useQuery } from '@tanstack/solid-query';
+import type { Accessor } from 'solid-js';
 
 const KEY = ['promptDismissals'] as const;
 
@@ -17,16 +18,37 @@ function fetchDismissedPrompts() {
   return throwOnErr(() => promptDismissalsClient.list());
 }
 
-function promptDismissalsQueryOptions() {
+function promptDismissalsQueryOptions(enabled = true) {
   return {
     queryKey: KEY,
     queryFn: fetchDismissedPrompts,
     staleTime: 5 * 60 * 1000,
+    enabled,
+    // Cards fall back to what the browser remembers when the list is
+    // unavailable, so a retry would only hold them back.
+    retry: false,
   };
 }
 
+/**
+ * The list as a card reads it. The app-level observer below loads it, so a
+ * card mounting never refetches: an answer, or a failure that falls back to
+ * the browser's own record, is available at once.
+ */
 export function usePromptDismissalsQuery() {
-  return useQuery(promptDismissalsQueryOptions);
+  return useQuery(() => ({
+    ...promptDismissalsQueryOptions(),
+    refetchOnMount: false,
+    retryOnMount: false,
+  }));
+}
+
+/**
+ * Loads the list once the user is known and keeps it cached for the session,
+ * so a sidebar card never waits on it when its view opens.
+ */
+export function useWarmPromptDismissals(userId: Accessor<string | undefined>) {
+  useQuery(() => promptDismissalsQueryOptions(userId() !== undefined));
 }
 
 /** Dismiss `promptId` on every device. */
