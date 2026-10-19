@@ -17,6 +17,8 @@ import {
 } from '../ai-usage-limit';
 import type { AddServerRequest } from './generated/schemas/addServerRequest';
 import type { CreateChatRequest } from './generated/schemas/createChatRequest';
+import type { DecisionRequest } from './generated/schemas/decisionRequest';
+import type { DecisionResponse } from './generated/schemas/decisionResponse';
 import type { GetBatchPreviewRequest } from './generated/schemas/getBatchPreviewRequest';
 import type { GetBatchPreviewResponse } from './generated/schemas/getBatchPreviewResponse';
 import type { GetChatPermissionsResponse } from './generated/schemas/getChatPermissionsResponse';
@@ -109,6 +111,14 @@ export type PipedreamCatalogResponse = {
 export const PIPEDREAM_DISABLED = 'PIPEDREAM_DISABLED' as const;
 
 export const cognitionApiServiceClient = {
+  /** Named Jev classifications; failures leave draft properties editable. */
+  decisions(args: DecisionRequest) {
+    return dcsFetch<DecisionResponse>('/decisions', {
+      method: 'POST',
+      body: JSON.stringify(args),
+      signal: AbortSignal.timeout(30_000),
+    });
+  },
   /** Creates a mapping from source_id to target_id */
   async createIdMapping(args: { source_id: string; target_id: string }) {
     const { source_id, target_id } = args;

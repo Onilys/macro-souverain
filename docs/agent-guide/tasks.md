@@ -522,6 +522,28 @@ filter sheets. Desktop uses the centered composer dialog.
 Tasks are documents under the hood (creation hits `POST /dss/documents/create_task`), so they
 also show up in Files/`All` and in AI-chat document listings.
 
+While composing on desktop or mobile, pausing for 700 ms after editing the title
+or description asks Jev for priority and project predictions through the existing
+cognition service’s `POST /decisions` API. Confident suggestions fill the property controls with a
+brief fade; reduced-motion users see the value change without animation. Project
+matching considers up to 28 recently updated projects with edit/owner access from
+the first loaded project page, and runs only while Projects is enabled. Ambiguous
+results leave a field unset or clear an earlier suggestion. Failures leave the
+draft editable and do not prevent creation.
+
+Editing the text can replace an earlier AI suggestion. Choosing or clearing a
+property yourself protects that field from subsequent predictions, including
+after closing and reopening the draft. A project prefilled by the project page is
+also protected. `Clear Draft` resets prediction ownership; `Create More` keeps
+manual selections and drops the previous task's AI suggestions. Late replies
+after edits, submission, clearing, closing, or an account change are ignored.
+
+To verify, type an urgent task, then change its description before a delayed
+prediction returns. Only the latest text should affect the values. Select or
+clear Priority, keep typing, and confirm it stays unchanged while Project may
+still update. Repeat with Project, reopen the draft, and test Create More.
+Assignee and tag prediction are not part of this flow.
+
 ## Projects
 
 Projects are enabled by default in development. Production rollout is gated by

@@ -20,7 +20,10 @@ import { fetchEntityProperties } from '@queries/properties/entity';
 import { useTagsQuery } from '@queries/properties/tags';
 import type { PropertyDefinition } from '@service-properties/generated/schemas/propertyDefinition';
 import type { PropertyDefinitionDetailResponse } from '@service-properties/generated/schemas/propertyDefinitionDetailResponse';
+import { createSignal } from 'solid-js';
 import { createStore, reconcile, type Store, unwrap } from 'solid-js/store';
+import type { TaskPredictions } from '../core/task-predictions';
+import { createTaskPredictionOwnership } from '../primitives/task-prediction-ownership';
 
 /**
  * Props shown in the composer (Linear-style left-to-right order). Project
@@ -213,10 +216,79 @@ function extractPropertyValue(
  */
 export function createTaskComposerProperties(args: {
   initialValues: Record<string, PropertyApiValues>;
+  initialPredictedIds?: string[];
 }) {
   const [propertyValues, setPropertyValues] = createStore<
     Record<string, PropertyApiValues>
   >(args.initialValues);
+  const ownership = createTaskPredictionOwnership(
+    Object.keys(args.initialValues),
+    args.initialPredictedIds
+  );
+  const [predictionVersions, setPredictionVersions] = createSignal<
+    Record<string, number>
+  >({});
+
+  const applyPredictions = (predictions: TaskPredictions) => {
+    const updates: [string, PropertyApiValues | undefined][] = [
+      [
+        SYSTEM_PROPERTY_IDS.PRIORITY,
+        predictions.priority === undefined
+          ? undefined
+          : {
+              valueType: 'SELECT_STRING',
+              values: predictions.priority ? [predictions.priority] : [],
+            },
+      ],
+      [
+        SYSTEM_PROPERTY_IDS.PROJECT,
+        predictions.project === undefined
+          ? undefined
+          : {
+              valueType: 'ENTITY',
+              refs: predictions.project
+                ? [
+                    {
+                      entity_id: predictions.project,
+                      entity_type: 'INITIATIVE',
+                    },
+                  ]
+                : [],
+            },
+      ],
+    ];
+    for (const [id, value] of updates) {
+      if (!value || !ownership.canPredict(id)) continue;
+      // An abstention clears an earlier prediction, never creates an empty
+      // property just because the model had no useful suggestion.
+      if (
+        !propertyValues[id] &&
+        ((value.valueType === 'SELECT_STRING' && !value.values?.length) ||
+          (value.valueType === 'ENTITY' && !value.refs?.length))
+      )
+        continue;
+      if (JSON.stringify(propertyValues[id]) === JSON.stringify(value))
+        continue;
+      ownership.markPredicted(id);
+      setPropertyValues(id, value);
+      setPredictionVersions((versions) => ({
+        ...versions,
+        [id]: (versions[id] ?? 0) + 1,
+      }));
+    }
+  };
+
+  const resetProperties = (values: Record<string, PropertyApiValues>) => {
+    ownership.reset(Object.keys(values));
+    setPredictionVersions({});
+    setPropertyValues(reconcile(values));
+  };
+
+  const clearPredictedProperties = () => {
+    const next = structuredClone(unwrap(propertyValues));
+    for (const id of ownership.predictedIds()) delete next[id];
+    resetProperties(next);
+  };
 
   const systemPropertiesQuery = useListPropertiesQuery(() => ({
     scope: 'system',
@@ -285,9 +357,11 @@ export function createTaskComposerProperties(args: {
 
   const saveHandler: PropertySaveHandler = {
     saveProperty: async (property: Property, value: PropertyApiValues) => {
+      ownership.markManual(property.propertyDefinitionId);
       setPropertyValues(property.propertyDefinitionId, value);
     },
     saveDate: async (property: Property, date: Date) => {
+      ownership.markManual(property.propertyDefinitionId);
       setPropertyValues(property.propertyDefinitionId, {
         valueType: 'DATE',
         value: date,
@@ -326,7 +400,12 @@ export function createTaskComposerProperties(args: {
 
   return {
     propertyValues,
-    setPropertyValues,
+    resetProperties,
+    clearPredictedProperties,
+    applyPredictions,
+    canPredict: ownership.canPredict,
+    predictedPropertyIds: ownership.predictedIds,
+    predictionVersions,
     properties,
     saveHandler,
     composerTags,

@@ -15,7 +15,7 @@ import { useUpsertToHistoryMutation } from '@queries/history/history';
 import { Button, EntityComposer, Scroll } from '@ui';
 import { createSignal, onMount, Show, Suspense } from 'solid-js';
 import type { ComposeTaskSuccess } from '../component/ComposeTask';
-import { ComposeTaskTitleEditor } from '../component/ComposeTask';
+import { ComposeTaskTitleEditor } from '../component/ComposeTaskTitleEditor';
 import { createDocumentWithTags } from '../queries/create-document-with-tags';
 import { createDocumentComposerTags } from '../util/documentComposerProperties';
 

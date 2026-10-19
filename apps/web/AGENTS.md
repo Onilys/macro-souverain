@@ -80,6 +80,9 @@ Then trigger the interaction and read `window.__inst.log`. `'1,2,3' → '' → '
 - Reconcile global focus when focused DOM subtrees are removed; iOS can omit blur events, otherwise floating creation actions stay hidden after search or editor teardown.
 - Mount the floating mobile AI composer only on the Agents view; other views keep their New action or their own reply/comment composer.
 - All API/network calls live in service-clients.
+- Task-composer predictions use Jev's existing `/decisions` API; preserve manual
+  selections (including clears), draft prediction ownership, and stale-result
+  guards in `features/block-md/{primitives,queries}/task-predictions.ts`.
 - Draft autosaves preserve active email thread messages; evict inactive legacy
   caches on save and the active cache on thread exit. Revalidate GraphQL thread
   pages only when a save cannot patch the message list (missing snapshot or a

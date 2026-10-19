@@ -50,6 +50,23 @@ describe('taskComposerStorage', () => {
     expect(loadTaskComposerDraft(storage)).toBeNull();
   });
 
+  it('preserves prediction ownership alongside manual empty values', () => {
+    saveTaskComposerDraft({
+      ...draft,
+      propertyValues: {
+        priority: { valueType: 'SELECT_STRING', values: ['high'] },
+        project: { valueType: 'ENTITY', refs: [] },
+      },
+      predictedPropertyIds: ['priority'],
+    });
+    const loaded = loadTaskComposerDraft();
+    expect(loaded?.predictedPropertyIds).toEqual(['priority']);
+    expect(loaded?.propertyValues.project).toEqual({
+      valueType: 'ENTITY',
+      refs: [],
+    });
+  });
+
   it('expires default-key drafts after the expiry window', () => {
     saveTaskComposerDraft(draft);
     const stored = readRaw(DEFAULT_KEY);

@@ -23,6 +23,8 @@ export interface TaskComposerDraft {
   /** Markdown text fallback (used by older drafts and for the createTask API) */
   content: string;
   propertyValues: Record<string, PropertyApiValues>;
+  /** Values Jev may revise; all other stored values, even empty, are manual. */
+  predictedPropertyIds?: string[];
   timestamp: number;
 }
 
