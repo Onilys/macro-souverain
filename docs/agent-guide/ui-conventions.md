@@ -93,3 +93,5 @@ Search expands below the sidebar header on demand. Escape hides it without clear
 the query; the search shortcut reveals navigation and focuses the field. Projects
 and Routines use the same controls when active. Editor/detail toolbars retain their
 contextual actions.
+
+Creation menus with choices that benefit from explanation use `CreateMenuItem`: 20px icons, 12px muted Inter descriptions, and roomy rows in a 320px menu. Tasks, Agents, Calendar, CRM, and Drive share this treatment. The accessible name stays the action title and its description is separately associated. Single-action buttons and obvious Chat choices stay compact.

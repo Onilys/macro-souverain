@@ -61,3 +61,5 @@ controls and restores the parent on exit. `useSidebarSearchFocus` reveals
 navigation before focusing; `onSearch` can leave a detail view on input focus.
 
 When navigation is collapsed or overlays the main pane, desktop topbars use a 12px left inset so the navigation toggle glyph has matching top and left spacing.
+
+Use `CreateMenuItem` for creation menus whose choices need explanation; it shares the Tasks menu icon, text, description, and accessible-name layout. Place it in the standard `Dropdown.Group` and a 320px menu bounded by the viewport.

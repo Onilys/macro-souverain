@@ -6,6 +6,7 @@ import {
   useViewControlHotkeys,
   ViewSidebar,
 } from '@app/components/view-shell';
+import { CreateMenuItem } from '@app/components/view-shell/CreateMenuItem';
 import { useSidebarSearchFocus } from '@app/components/view-shell/SidebarActionRow';
 import { SidebarCreateAction } from '@app/components/view-shell/SidebarCreateAction';
 import { changeSessionArchiveState } from '@app/features/block-agent/queries/change-session-archive-state';
@@ -24,6 +25,7 @@ import { useUserId } from '@core/context/user';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { unreadFilterFn } from '@entity/utils/filter';
 import RoutineIcon from '@icon/system/regular/clock-clockwise.svg';
+import CodeIcon from '@icon/system/regular/code.svg';
 import PlugIcon from '@icon/system/regular/plugs-connected.svg';
 import AgentIcon from '@icon/system/regular/sparkle.svg';
 import TrayIcon from '@icon/system/regular/tray.svg';
@@ -266,17 +268,26 @@ export function AgentsSidebar(props: AgentsSidebarProps) {
               <Dropdown.Trigger as={SidebarCreateAction} aria-label="New agent">
                 New
               </Dropdown.Trigger>
-              <Dropdown.Content>
+              <Dropdown.Content class="w-80 max-w-[calc(100vw-2rem)]">
                 <Dropdown.Group>
-                  <Dropdown.Item onSelect={() => props.onCreateAgent('agent')}>
-                    Work agent
-                  </Dropdown.Item>
-                  <Dropdown.Item onSelect={() => props.onCreateAgent('coder')}>
-                    Coding agent
-                  </Dropdown.Item>
-                  <Dropdown.Item onSelect={props.onCreateRoutine}>
-                    Routine
-                  </Dropdown.Item>
+                  <CreateMenuItem
+                    icon={AgentIcon}
+                    title="Work agent"
+                    description="Work across your Macro workspace with team-level memory and connected tools, without a coding harness."
+                    onSelect={() => props.onCreateAgent('agent')}
+                  />
+                  <CreateMenuItem
+                    icon={CodeIcon}
+                    title="Coding agent"
+                    description="Code with Cursor, Claude, Codex, or your own harness."
+                    onSelect={() => props.onCreateAgent('coder')}
+                  />
+                  <CreateMenuItem
+                    icon={RoutineIcon}
+                    title="Routine"
+                    description="Run an agent on a schedule for recurring work, like daily triage or weekly summaries."
+                    onSelect={props.onCreateRoutine}
+                  />
                 </Dropdown.Group>
               </Dropdown.Content>
             </Dropdown>

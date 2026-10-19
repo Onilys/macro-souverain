@@ -1,4 +1,5 @@
 import { ViewSidebar } from '@app/components/view-shell';
+import { CreateMenuItem } from '@app/components/view-shell/CreateMenuItem';
 import { SidebarCreateAction } from '@app/components/view-shell/SidebarCreateAction';
 import BuildingsIcon from '@icon/system/regular/buildings.svg';
 import CaretDownIcon from '@icon/system/regular/caret-down.svg';
@@ -44,25 +45,29 @@ export function CrmCreateMenu(props: {
           <CaretDownIcon aria-hidden="true" class="size-3 shrink-0" />
         </Dropdown.Trigger>
       </Show>
-      <Dropdown.Content class="min-w-48">
+      <Dropdown.Content class="w-80 max-w-[calc(100vw-2rem)]">
         <Dropdown.Group>
-          <Dropdown.Item onSelect={props.onCreateCompany}>
-            <BuildingsIcon aria-hidden="true" class="size-4 shrink-0" />
-            <span>Company</span>
-          </Dropdown.Item>
-          <Dropdown.Item onSelect={props.onCreateContact}>
-            <UserIcon aria-hidden="true" class="size-4 shrink-0" />
-            <span>Contact</span>
-          </Dropdown.Item>
+          <CreateMenuItem
+            icon={BuildingsIcon}
+            title="Company"
+            description="Track an organization, its people, and your relationship with it."
+            onSelect={props.onCreateCompany}
+          />
+          <CreateMenuItem
+            icon={UserIcon}
+            title="Contact"
+            description="Keep a person's details and activity connected to their company."
+            onSelect={props.onCreateContact}
+          />
           <Show when={props.pipeline}>
             {(pipeline) => (
-              <Dropdown.Item
+              <CreateMenuItem
+                icon={TableIcon}
+                title="Pipeline"
+                description="Move records through stages to track deals or another repeatable process."
                 disabled={pipeline().disabled}
                 onSelect={() => pipeline().onCreate()}
-              >
-                <TableIcon aria-hidden="true" class="size-4 shrink-0" />
-                <span>Pipeline</span>
-              </Dropdown.Item>
+              />
             )}
           </Show>
         </Dropdown.Group>

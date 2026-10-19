@@ -430,6 +430,11 @@ the list. Check that reading that item keeps the dot lit if another loaded row
 is unread, and that completing the last one clears it. Query bounds and
 pagination are unchanged.
 
+The **New agent** menu explains its three choices with icons and short descriptions:
+Work agents use team-level memory and the Macro workspace without a coding harness;
+Coding agents use Cursor, Claude, Codex, or a custom harness; Routines run an agent
+on a recurring schedule. The existing creation forms open from each item.
+
 The Agents sidebar combines work and coding conversations in one history, newest
 activity first, without a Work / Code toggle. Search covers both kinds. Archived
 conversations remain in their separate section. Opening a conversation selects

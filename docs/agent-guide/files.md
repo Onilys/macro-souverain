@@ -137,3 +137,5 @@ switch via the header pills; on narrow desktop layouts the header keeps a plain
 title and navigation goes through the hamburger overlay. Location, search,
 filters, expanded folders, list focus, and scroll position are restored when
 returning from an opened file.
+
+Drive creation uses wide, icon-led rows with short descriptions for each available file type and upload action. The menu scrolls when needed and preserves the current folder destination and feature gates.

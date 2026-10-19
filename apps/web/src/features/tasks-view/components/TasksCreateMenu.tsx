@@ -1,3 +1,4 @@
+import { CreateMenuItem } from '@app/components/view-shell/CreateMenuItem';
 import { SidebarCreateAction } from '@app/components/view-shell/SidebarCreateAction';
 import { createTaskWithProperties } from '@app/features/block-md/util/taskComposerProperties';
 import { useSplitLayout } from '@components/app/split-layout/layout';
@@ -94,32 +95,22 @@ export function TasksCreateMenu(props: {
           }}
         >
           <Dropdown.Group>
-            <Dropdown.Item
-              class="items-start gap-3 py-3"
+            <CreateMenuItem
+              icon={TaskIcon}
+              title="New Task"
+              description="Track a standalone piece of work."
               onSelect={props.onCreateTask}
-            >
-              <TaskIcon class="mt-0.5 size-5 shrink-0" />
-              <span class="flex min-w-0 flex-col gap-1">
-                <span>New Task</span>
-                <span class="whitespace-normal font-[family-name:Inter_Variable,sans-serif] text-xs font-normal text-ink-extra-muted">
-                  Track a standalone piece of work.
-                </span>
-              </span>
-            </Dropdown.Item>
-            <Dropdown.Item
-              class="items-start gap-3 py-3"
+            />
+            <CreateMenuItem
+              icon={SubtaskIcon}
+              title="New Subtask"
+              description="Choose a parent task and break its work into a smaller step."
               onSelect={() => setParentPickerOpen(true)}
-            >
-              <SubtaskIcon class="mt-0.5 size-5 shrink-0" />
-              <span class="flex min-w-0 flex-col gap-1">
-                <span>New Subtask</span>
-                <span class="whitespace-normal font-[family-name:Inter_Variable,sans-serif] text-xs font-normal text-ink-extra-muted">
-                  Choose a parent task and break its work into a smaller step.
-                </span>
-              </span>
-            </Dropdown.Item>
-            <Dropdown.Item
-              class="items-start gap-3 py-3"
+            />
+            <CreateMenuItem
+              icon={ProjectIcon}
+              title="New Project"
+              description="Group related tasks around a shared goal."
               disabled={!props.projectsEnabled}
               onSelect={() =>
                 layout.popoverSplit({
@@ -127,27 +118,13 @@ export function TasksCreateMenu(props: {
                   id: 'project-compose',
                 })
               }
-            >
-              <ProjectIcon class="mt-0.5 size-5 shrink-0" />
-              <span class="flex min-w-0 flex-col gap-1">
-                <span>New Project</span>
-                <span class="whitespace-normal font-[family-name:Inter_Variable,sans-serif] text-xs font-normal text-ink-extra-muted">
-                  Group related tasks around a shared goal.
-                </span>
-              </span>
-            </Dropdown.Item>
-            <Dropdown.Item
-              class="items-start gap-3 py-3"
+            />
+            <CreateMenuItem
+              icon={TagIcon}
+              title="New Tag"
+              description="Label work so you can organize and filter it across projects."
               onSelect={() => setTagEditorOpen(true)}
-            >
-              <TagIcon class="mt-0.5 size-5 shrink-0" />
-              <span class="flex min-w-0 flex-col gap-1">
-                <span>New Tag</span>
-                <span class="whitespace-normal font-[family-name:Inter_Variable,sans-serif] text-xs font-normal text-ink-extra-muted">
-                  Label work so you can organize and filter it across projects.
-                </span>
-              </span>
-            </Dropdown.Item>
+            />
           </Dropdown.Group>
         </Dropdown.Content>
       </Dropdown>

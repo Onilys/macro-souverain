@@ -487,3 +487,5 @@ action is unavailable.
 focus to its trigger. Busy overlapping events are labeled, while cancelled, declined,
 and free events do not count as conflicts. Calendar 12/24-hour preferences apply to
 already-open invitation cards as well as the calendar view.
+
+The Calendar creation menu uses wide, icon-led rows with short descriptions distinguishing an event, an immediate call, and a shareable booking link. Existing Call and Booking link feature gates still apply.

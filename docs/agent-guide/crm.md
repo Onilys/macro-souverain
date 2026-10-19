@@ -244,3 +244,5 @@ properties. `Prepare export` fetches every page and shows a count and three-row 
 it does not download. `Download CSV` saves the prepared snapshot using the selected
 columns. Changing scope requires preparing again. Cancel stops preparation. CSV uses UTF-8,
 quoted fields, original date timestamps and spreadsheet formula escaping.
+
+The record creation menu uses wide, icon-led rows describing Company, Contact, and Pipeline so you can choose the right record type. Existing pipeline availability and permissions are unchanged.
