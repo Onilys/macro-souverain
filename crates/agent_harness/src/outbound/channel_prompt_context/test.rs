@@ -75,6 +75,7 @@ fn posted(
         deleted_at: None,
         attachments: vec![],
         reactions: vec![],
+        broadcast_from_thread: None,
     }
 }
 fn message() -> Message {

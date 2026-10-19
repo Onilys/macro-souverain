@@ -394,6 +394,7 @@ async fn an_answer_the_thread_may_not_carry_points_at_the_session() {
         deleted_at: None,
         attachments: vec![],
         reactions: vec![],
+        broadcast_from_thread: None,
     };
     messages
         .expect_patch()
@@ -508,6 +509,7 @@ async fn shared_thread_and_dm_snapshots_omit_raw_tool_details() {
                     deleted_at: None,
                     attachments: vec![],
                     reactions: vec![],
+                    broadcast_from_thread: None,
                 })
             });
         let announcer = MessageAnnouncer::new(
