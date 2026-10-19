@@ -22,6 +22,7 @@ import {
   useSolidRouterHistory,
 } from '@app/lib/split-router';
 import { globalSplitManager } from '@app/signal/splitLayout';
+import { ChannelLoading } from '@channel/Channel/ChannelLoading';
 import { createAppSplitRouterMiddleware } from '@components/app/split-layout/split-router/app-middleware';
 import { createAppPanePolicy } from '@components/app/split-layout/split-router/app-pane-policy';
 import {
@@ -393,6 +394,7 @@ export function AppRouterView() {
           <Route
             definition={channelDetailRoute}
             component={ChannelDetailRouteView}
+            loading={ChannelLoading}
           />
         </Route>
         <Route definition={callsRoute} component={CallsRouteView}>

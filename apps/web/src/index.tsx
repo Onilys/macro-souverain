@@ -15,6 +15,7 @@ import { Telemetry } from '@macro-inc/observability';
 import { initMonochromeIcons } from '@ui/utils/monochromeIcons';
 import { ErrorBoundary, render } from 'solid-js/web';
 import { FatalError } from './components/app/FatalError';
+import { prepareNotificationLaunch } from './lib/tauri/notification-launch';
 import { perfMark } from './observability/perf-marks';
 import { Root } from './routes/Root';
 
@@ -105,6 +106,11 @@ async function main() {
   perfMark('boot.main');
   await initializeBrowserObservability();
   perfMark('boot.observability-ready');
+  try {
+    await prepareNotificationLaunch();
+  } catch (error) {
+    Telemetry.error(error, { surface: 'notification-launch' });
+  }
 
   console.log('App Version ', import.meta.env.__APP_VERSION__);
 

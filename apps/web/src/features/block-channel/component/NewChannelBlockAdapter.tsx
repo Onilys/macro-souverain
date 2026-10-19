@@ -21,6 +21,7 @@ import { getCallJoinTab } from '@channel/Call/call-tabs';
 import { useCall } from '@channel/Call/use-call';
 import { ChannelCallsTab } from '@channel/Calls/ChannelCallsTab';
 import type { MessageTimelineStateSnapshot } from '@channel/Channel/Channel';
+import { ChannelLoading } from '@channel/Channel/ChannelLoading';
 import {
   ChannelMessages,
   ChannelSurface,
@@ -561,9 +562,11 @@ export function NewChannelBlockAdapter(props: BlockChannelProps) {
           <div class="flex min-h-0 flex-1 flex-col" data-channel-tab-content>
             <Switch>
               <Match when={activeTab() === 'messages'}>
-                <ChannelMessages
-                  autofocus={canAutofocusSplitContent && !navigatedFromJK()}
-                />
+                <Suspense fallback={<ChannelLoading />}>
+                  <ChannelMessages
+                    autofocus={canAutofocusSplitContent && !navigatedFromJK()}
+                  />
+                </Suspense>
               </Match>
               <Match when={activeTab() === 'attachments'}>
                 <ChannelAttachmentsTab channelId={channelId} />

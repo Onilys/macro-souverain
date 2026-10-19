@@ -12,7 +12,7 @@ import { useReactiveFavicon } from '@components/app/useReactiveFavicon';
 import { useGlobalAttachableHistory } from '@core/component/AI/signal/globalAttachments';
 import { toast } from '@core/component/Toast/Toast';
 import { TeamContextProvider } from '@core/context/team';
-import { useUserId } from '@core/context/user';
+import { useUserId, useUserInfo } from '@core/context/user';
 import { isNativeMobilePlatform } from '@core/mobile/isNativeMobilePlatform';
 import { createBlockOrchestrator } from '@core/orchestrator';
 import { fireAndForget } from '@core/util/fireAndForget';
@@ -77,7 +77,11 @@ function ConfiguredGlobalAppStateProvider(props: ParentProps) {
   useReactiveFavicon(notificationSource);
 
   const blockOrchestrator = createBlockOrchestrator();
-  usePendingNotificationNavigationEffect(notificationSource);
+  const userInfo = useUserInfo();
+  usePendingNotificationNavigationEffect(
+    notificationSource,
+    () => userInfo()?.userId
+  );
 
   return (
     <GlobalAppStateProvider

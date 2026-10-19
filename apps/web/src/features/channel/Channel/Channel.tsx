@@ -115,6 +115,7 @@ import { CHANNEL_TOUR } from '../tour';
 import { isUnifiedInputMode } from '../unified-input-mode';
 import { ActiveCallMessage } from './ActiveCallMessage';
 import { ChannelDropZone } from './ChannelDropZone';
+import { ChannelLoading } from './ChannelLoading';
 import { createChannelDragState } from './create-channel-drag-state';
 import { createChannelFindBar } from './create-channel-find-bar';
 import { createChannelHotkeys } from './create-channel-hotkeys';
@@ -726,10 +727,11 @@ export function Channel(props: ChannelProps) {
     >
       <EntityLoadGate
         result={messagesLoadResult}
+        loadingFallback={<ChannelLoading />}
         loadErrorTitle="Unable to load this channel"
         onRetry={() => fireAndForget(messagesQuery.refetch(), 'channel')}
       >
-        <DebugSuspense name="Channel.root">
+        <DebugSuspense name="Channel.root" fallback={<ChannelLoading />}>
           <deleteConfirmation.ConfirmationDialog />
           <StaticMarkdownContext host="channel">
             <SearchHighlightTermsProvider

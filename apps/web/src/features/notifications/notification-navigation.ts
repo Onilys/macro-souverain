@@ -4,6 +4,7 @@ import {
   getChannelParams,
   navigateToChannelMessage,
 } from '@block-channel/utils/link';
+import { prefetchChannelTarget } from '@channel/queries/prefetch-channel-target';
 import { contentReference } from '@components/app/split-layout/content-reference';
 import type {
   OpenSplitResult,
@@ -22,10 +23,12 @@ import {
 } from '@core/constant/featureFlags';
 import { COMMENT_LINK_PARAM } from '@core/messages/comment-link';
 import type { NotificationType } from '@core/types';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { catchToResult } from '@core/util/result';
 import { openExternalUrl } from '@core/util/url';
 import { Telemetry } from '@macro-inc/observability';
 import { getNotificationById } from '@queries/notification/user-notifications';
+import type { PushNotificationNavigation } from '@service-notification/generated/schemas/pushNotificationNavigation';
 import { errAsync, ResultAsync } from 'neverthrow';
 import { match, P } from 'ts-pattern';
 import { shareEntity } from '../access-requests/core/types';
@@ -117,7 +120,7 @@ export function getChannelNotificationParams(
     }))
     .with({ tag: 'channel_message_send' }, (m) => ({
       messageId: m.content.messageId,
-      threadId: undefined,
+      threadId: m.content.messageId,
     }))
     .with({ tag: 'channel_message_reaction' }, (m) => ({
       messageId: m.content.messageId,
@@ -605,8 +608,34 @@ export function openNotificationFromId(
   notificationId: string,
   layoutManager: SplitManager,
   notificationSource: NotificationSource,
-  options: { canOpen?: () => boolean; onApplied?: VoidFunction } = {}
+  options: {
+    canOpen?: () => boolean;
+    onApplied?: VoidFunction;
+    target?: PushNotificationNavigation;
+  } = {}
 ): ResultAsync<void, OpenNotificationFromIdError> {
+  if (options.target) {
+    if (options.canOpen && !options.canOpen()) {
+      return errAsync({ tag: 'NavigationDeferredError', notificationId });
+    }
+    const { channelId, messageId, threadId } = options.target;
+    fireAndForget(
+      prefetchChannelTarget(channelId, {
+        messageId,
+        threadId: threadId ?? messageId,
+      }),
+      'notification-navigation'
+    );
+    return ResultAsync.fromSafePromise(
+      navigateToChannelMessage(
+        layoutManager.getOrchestrator(),
+        channelId,
+        messageId,
+        threadId ?? messageId,
+        { splitManager: layoutManager, onApplied: options.onApplied }
+      )
+    );
+  }
   const openIfReady = (notification: UnifiedNotification) => {
     if (options.canOpen && !options.canOpen()) {
       return errAsync({

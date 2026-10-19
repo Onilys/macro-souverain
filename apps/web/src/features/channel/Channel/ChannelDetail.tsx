@@ -48,6 +48,7 @@ import {
   Show,
   Switch,
 } from 'solid-js';
+import { ChannelLoading } from './ChannelLoading';
 import {
   ChannelMessages,
   ChannelSurface,
@@ -409,7 +410,10 @@ function ChannelDetailContent(props: ChannelDetailProps) {
           >
             <Switch>
               <Match when={activeTab() === 'messages'}>
-                <DebugSuspense name="ChannelDetail.messages">
+                <DebugSuspense
+                  name="ChannelDetail.messages"
+                  fallback={<ChannelLoading />}
+                >
                   <ChannelMessages autofocus={props.autofocus ?? false} />
                 </DebugSuspense>
               </Match>
