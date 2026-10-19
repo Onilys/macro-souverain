@@ -44,6 +44,7 @@ fn message(n: u128, root: Option<u128>, content: &str) -> Message {
         parent: MessageParent::parse("document", DOCUMENT).unwrap(),
         thread_id: root.map(id),
         sender_id: ChannelSender::new_from_user(user()),
+        guest_name: None,
         imported_author: None,
         bot_profile: None,
         mentions: vec![],

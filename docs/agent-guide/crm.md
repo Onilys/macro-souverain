@@ -161,7 +161,10 @@ the entity actions menu and command menu with stage requests delayed; cancel the
 editors without changing hosted data.
 
 `Collapse CRM sidebar` persists across visits; `Expand CRM sidebar` restores it.
-At narrow widths, `Show CRM navigation` opens the same navigation in a menu.
+At narrow widths, `Show CRM navigation` opens the same navigation in a menu;
+`Collapse CRM sidebar` there closes the menu and leaves the saved preference alone.
+While the sidebar is collapsed, the split's **Close** sits before either toggle,
+including on a pipeline, and stays hidden when the split cannot close.
 The sidebar's Records and Lists sections can also collapse independently.
 
 **Pipelines** in the CRM sidebar hold company or contact entries in the shared
@@ -182,7 +185,8 @@ The **People** list changes or removes their access. A teammate who receives a p
 pipeline sees it in their Customers sidebar. Only the owner sees **Team access**:
 choose **Edit** to share with the team or **None** to make the pipeline private.
 Viewers see only **Copy Link**. **Copy Link** copies a CRM link that opens this pipeline for
-anyone who has access; pasted into an editor it becomes a pipeline mention (see
+anyone who has access, including when followed inside a split already showing Customers;
+pasted into an editor it becomes a pipeline mention (see
 [CRM pipeline mentions](documents.md#crm-pipeline-mentions)). On mobile, team
 access is in the **Team** tab.
 
@@ -206,9 +210,23 @@ tabs. Its header shows the name, edited in place by editors, a **Pipeline
 actions** menu (**Rename** and **Import CSV** for editors, **Export CSV** for
 anyone who can open it, **Trash pipeline** for the owner) and **Share**. The
 toolbar below has **All records**, the pipeline's stored views and **New view**
-(Table or Board), plus Group by (boards), Filter and Sort, then **Add company**
-or **Add contact** (by the pipeline's record type) for editors, which starts a
-row whose reference cell picks the record.
+(Table or Board), plus Group by (boards), Filter and Sort, then **Add deal**
+(company pipelines) or **Add contact** (contact pipelines) for editors. It opens
+a dialog titled **Add deal** (or **Add contact**) with the pipeline's name in a
+chip beside it and Close. Below the header, each field has its label stacked
+above a full-width bordered box: **Company** (or the contact column) first, with
+a **Find or add a company…** (or contact) search, then every pipeline field with
+the table's own cell editors (unset ones read **Empty**). The body scrolls while
+the footer stays pinned with **Cancel** (Esc) and **Add deal**. Select
+fields can create a new option. Choosing **Add company “…”** creates the company
+with the row: a searched domain fills the domain and the name. **Add contact “…”**
+works the same way, and a new contact's email must use a company's domain.
+**Add deal** stays disabled until a record is chosen, and Command-Enter submits.
+The form makes one row with every value set. A board lane's **New record** opens
+the same dialog with the lane's stage filled in. The table's blank row at the
+bottom still adds a row inline. On mobile the dialog is a bottom drawer. To verify
+the person picker, choose an **Owner** in the dialog: its menu must accept the
+click.
 Stored views are everyone's and are written through the pipeline, so changing one
 changes it for all viewers; All records is each viewer's own. A board can move a
 card to another group from its card menu or by dragging, which sets the row's

@@ -1,6 +1,7 @@
 import { useAnalytics } from '@app/lib/analytics/analytics-context';
 import { toast } from '@core/component/Toast/Toast';
 import { isNativeMobilePlatform } from '@core/mobile/isNativeMobilePlatform';
+import { fireAndForget } from '@core/util/fireAndForget';
 import {
   EMAIL_DIGEST_NOTIFICATION_TYPE,
   NOTIFICATION_EVENT_GROUPS,
@@ -127,7 +128,9 @@ export function Notifications() {
                   labelClass="sr-only"
                   checked={settings().isEnabled()}
                   disabled={pushPending()}
-                  onChange={(enabled) => void togglePush(enabled)}
+                  onChange={(enabled) =>
+                    fireAndForget(togglePush(enabled), 'notification-settings')
+                  }
                 />
               </SettingsRow>
             )}
@@ -181,7 +184,12 @@ export function Notifications() {
             <SettingsRow label="Could not load snoozed items">
               <button
                 type="button"
-                onClick={() => void mutedEntitiesQuery.refetch()}
+                onClick={() =>
+                  fireAndForget(
+                    mutedEntitiesQuery.refetch(),
+                    'notification-settings'
+                  )
+                }
               >
                 Retry
               </button>
@@ -210,7 +218,9 @@ export function Notifications() {
                 {(item) => (
                   <MutedItemRow
                     item={item}
-                    onUnmute={() => void unmuteEntity(item)}
+                    onUnmute={() =>
+                      fireAndForget(unmuteEntity(item), 'notification-settings')
+                    }
                     onSnooze={() =>
                       openSnoozeNotifications([item], { owner: dialogOwner })
                     }
@@ -241,7 +251,9 @@ export function Notifications() {
               {(item) => (
                 <MutedItemRow
                   item={item}
-                  onUnmute={() => void unmuteEntity(item)}
+                  onUnmute={() =>
+                    fireAndForget(unmuteEntity(item), 'notification-settings')
+                  }
                   onSnooze={() =>
                     openSnoozeNotifications([item], { owner: dialogOwner })
                   }

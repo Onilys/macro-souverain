@@ -1,5 +1,6 @@
 import { SearchBar, ViewShell, ViewSidebar } from '@app/components/view-shell';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
+import { fireAndForget } from '@core/util/fireAndForget';
 import PageIcon from '@phosphor/browser.svg';
 import CalendarIcon from '@phosphor/calendar-blank.svg';
 import ChartIcon from '@phosphor/chart-bar.svg';
@@ -182,7 +183,7 @@ export function BookingWorkspaceView(props: {
     if (isSaving()) return;
     const next = TABS.find((item) => item.value === value);
     if (!next || next.value === search.tab) return;
-    void requestSelection({ tab: next.value });
+    fireAndForget(requestSelection({ tab: next.value }), 'scheduling');
   };
   const selectOwner = (id: string) => {
     if (
@@ -191,7 +192,7 @@ export function BookingWorkspaceView(props: {
       !scopes().some((scope) => scope.id === id)
     )
       return;
-    void requestSelection({ owner: id });
+    fireAndForget(requestSelection({ owner: id }), 'scheduling');
   };
   const create = async (opener: HTMLElement) => {
     const current = owner();
@@ -248,7 +249,7 @@ export function BookingWorkspaceView(props: {
         error={pageLeave.error()}
         onKeepEditing={pageLeave.keepEditing}
         onDiscard={pageLeave.discard}
-        onSave={() => void pageLeave.save()}
+        onSave={() => fireAndForget(pageLeave.save(), 'scheduling')}
       />
       <ViewShell.Aside>
         <ViewSidebar.Root aria-label="Scheduling navigation">
@@ -355,7 +356,7 @@ export function BookingWorkspaceView(props: {
                   disabled={
                     isSaving() || startingAgent() || !owner()?.source.profile()
                   }
-                  onClick={() => void createWithAgent()}
+                  onClick={() => fireAndForget(createWithAgent(), 'scheduling')}
                 >
                   <SparkleIcon class="size-5" />
                 </Button>
@@ -364,7 +365,7 @@ export function BookingWorkspaceView(props: {
             onTab={selectTab}
             onOwner={selectOwner}
             onBack={() => owner()?.closeScheduleEditor()}
-            onCreate={(opener) => void create(opener)}
+            onCreate={(opener) => fireAndForget(create(opener), 'scheduling')}
           />
         </Show>
         <ViewShell.TopBar>
@@ -446,7 +447,9 @@ export function BookingWorkspaceView(props: {
                         owner()?.source.saving() ||
                         startingAgent()
                       }
-                      onClick={() => void createWithAgent()}
+                      onClick={() =>
+                        fireAndForget(createWithAgent(), 'scheduling')
+                      }
                     >
                       <SparkleIcon class="size-4" />
                       <span>Create with agent</span>
@@ -461,7 +464,9 @@ export function BookingWorkspaceView(props: {
                         owner()?.source.saving() ||
                         startingAgent()
                       }
-                      onClick={(event) => void create(event.currentTarget)}
+                      onClick={(event) =>
+                        fireAndForget(create(event.currentTarget), 'scheduling')
+                      }
                     >
                       <PlusIcon class="size-4" />
                       <span>New</span>
@@ -485,7 +490,9 @@ export function BookingWorkspaceView(props: {
                       variant="strong"
                       size="md"
                       disabled={isSaving() || !owner()?.source.profile()}
-                      onClick={(event) => void create(event.currentTarget)}
+                      onClick={(event) =>
+                        fireAndForget(create(event.currentTarget), 'scheduling')
+                      }
                     >
                       <PlusIcon class="size-4" />
                       <span>New</span>

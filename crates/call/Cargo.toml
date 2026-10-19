@@ -35,7 +35,7 @@ outbound = [
   "dep:urlencoding",
   "ports",
 ]
-ports = ["dep:entity_access", "dep:tokio"]
+ports = ["dep:entity_access", "dep:tokio", "dep:async-trait", "dep:messages"]
 
 [dependencies]
 activity = { path = "../activity", default-features = false }
@@ -75,6 +75,7 @@ macro_event_broker = { path = "../macro_event_broker", default-features = false 
 macro_event_topics = { path = "../macro_event_topics" }
 macro_user_id = { path = "../macro_user_id" }
 macro_uuid = { path = "../macro_uuid" }
+messages = { path = "../messages", default-features = false, features = ["ports"], optional = true }
 model-entity = { path = "../model-entity" }
 model-error-response = { path = "../model-error-response", optional = true }
 models_pagination = { path = "../models_pagination" }

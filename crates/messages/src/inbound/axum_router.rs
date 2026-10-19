@@ -149,6 +149,8 @@ pub struct ParentPath {
 }
 
 /// HTTP failure mapping; business decisions are made by the domain service.
+#[derive(Debug, thiserror::Error)]
+#[error(transparent)]
 pub struct MessageHttpError(MessageError);
 impl From<MessageError> for MessageHttpError {
     fn from(value: MessageError) -> Self {

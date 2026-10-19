@@ -6,6 +6,7 @@ import { useSplitLayout } from '@components/app/split-layout/layout';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
 import { StaticMarkdownContext } from '@core/component/LexicalMarkdown/component/core/StaticMarkdown';
 import { toast } from '@core/component/Toast/Toast';
+import { fireAndForget } from '@core/util/fireAndForget';
 import {
   type EntityData,
   ListEntity,
@@ -129,7 +130,7 @@ function MobileNameResults() {
           {(item) => (
             <CommandMenuListItem
               class="min-h-11"
-              onClick={() => void select(item)}
+              onClick={() => fireAndForget(select(item), 'mobile-search')}
             >
               <ItemDisplay item={item} />
             </CommandMenuListItem>
@@ -218,10 +219,10 @@ function MobileFullTextResults() {
                   entity={entity}
                   hideCheckbox
                   hideContentHits={false}
-                  onClick={() => void open(entity)}
+                  onClick={() => fireAndForget(open(entity), 'mobile-search')}
                   onContentHitClick={(event, location) => {
                     event.stopPropagation();
-                    void open(entity, location);
+                    fireAndForget(open(entity, location), 'mobile-search');
                   }}
                 />
               )}
@@ -238,7 +239,11 @@ function MobileFullTextResults() {
         <p role="alert" class="p-3 text-ink-muted">
           Search failed. Please try again.
         </p>
-        <Button onClick={() => void search.refetch()}>Retry</Button>
+        <Button
+          onClick={() => fireAndForget(search.refetch(), 'mobile-search')}
+        >
+          Retry
+        </Button>
       </Show>
       <Show
         when={

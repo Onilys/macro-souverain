@@ -1,4 +1,5 @@
 import { anyAbortSignal } from '@core/util/abort-signal';
+import { fireAndForget } from '@core/util/fireAndForget';
 import {
   invalidateSlackImport,
   parseSlackImportUpdate,
@@ -126,7 +127,10 @@ export function createImportSource(
         if (!enabled() || message.type !== 'slack_import_updated') return;
         const event = parseSlackImportUpdate(message.data);
         if (!event || event.teamId !== inputs.teamId()) return;
-        void invalidateSlackImport(queryClient, event);
+        fireAndForget(
+          invalidateSlackImport(queryClient, event),
+          'slack-import'
+        );
       });
     })
   );

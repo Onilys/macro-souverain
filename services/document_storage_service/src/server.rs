@@ -1296,6 +1296,12 @@ pub async fn run() -> anyhow::Result<()> {
         ),
     );
     let message_commands: Arc<dyn messages::domain::api::MessageCommands> = message_service.clone();
+    let guest_chat_service = Arc::new(
+        messages::domain::service::guest_chat::GuestChatService::new(
+            message_service.clone(),
+            call_service.clone(),
+        ),
+    );
     let messages_state = messages::inbound::axum_router::MessagesRouterState {
         service: message_service.clone(),
         access: entity_access_service.clone(),
@@ -2237,6 +2243,7 @@ pub async fn run() -> anyhow::Result<()> {
             authorization_state.clone(),
         ),
         messages_state,
+        guest_chat_service,
         annotation_service,
         bots_state: bots::inbound::axum_router::BotsRouterState::new(
             bots_service.clone(),

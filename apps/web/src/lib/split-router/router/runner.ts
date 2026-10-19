@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import {
   createMachine,
   type Machine,
@@ -138,16 +139,16 @@ export function createRunner(options: {
 }) {
   const inFlight = createInFlight();
   const settlers = new WeakMap<Navigation, Settle>();
-  const outstanding: Promise<unknown>[] = [];
+  const outstanding = new Set<Promise<unknown>>();
   const waiters: (() => void)[] = [];
   const paneRuns: PaneRun[] = [];
   let committing = 0;
   let disposed = false;
 
   const track = async (promise: Promise<unknown>) => {
-    outstanding.push(promise);
+    outstanding.add(promise);
     await promise;
-    outstanding.splice(outstanding.indexOf(promise), 1);
+    outstanding.delete(promise);
   };
 
   /** Starts `navigation`; one that never waits has settled by the time `start` returns. */
@@ -165,7 +166,7 @@ export function createRunner(options: {
       result = value;
       resolve(value);
     });
-    void track(promise);
+    fireAndForget(track(promise), 'split-router');
     begin();
 
     return result ?? promise;
@@ -334,7 +335,10 @@ export function createRunner(options: {
   ) => {
     const landed = navigation.revert?.();
 
-    void mapMaybe(landed, () => dispatch({ t: 'revert-landed' }));
+    fireAndForget(
+      mapMaybe(landed, () => dispatch({ t: 'revert-landed' })),
+      'split-router'
+    );
   };
 
   const executeGate = (
@@ -375,7 +379,7 @@ export function createRunner(options: {
     if (isOpen()) return;
 
     const opened = new Promise<void>((resolve) => waiters.push(resolve));
-    void track(opened);
+    fireAndForget(track(opened), 'split-router');
 
     return opened;
   };
@@ -442,7 +446,7 @@ export function createRunner(options: {
 
     /** Resolves once nothing is in flight. */
     async settled(): Promise<void> {
-      while (outstanding.length > 0) {
+      while (outstanding.size > 0) {
         await Promise.all(outstanding);
       }
     },
