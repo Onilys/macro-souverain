@@ -5,9 +5,10 @@ They are borderless with a soft rounded background on hover. Share opens the
 sharing dialog; copying a link is a separate action.
 
 Opening a private file link while signed in shows **You don't have access to
-this file**, the signed-in email, and **Request access**. View is selected by
-default; choose View, Comment, or Edit where supported, submit, then verify
-**Request sent** and **Cancel request**.
+this file**, the file's name, the signed-in email, and **Request access**. The
+name comes from the access-request state, not from the document, which never
+loads. View is selected by default; choose View, Comment, or Edit where
+supported, submit, then verify **Request sent** and **Cancel request**.
 On touch devices, document links open the full-page document route; the same
 request controls appear there, including at phone widths.
 The document stays unavailable until its owner approves. The open denied view

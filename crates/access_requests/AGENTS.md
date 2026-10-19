@@ -19,6 +19,8 @@ the durable notification/realtime dispatcher.
 - Asking for initial access cannot require an existing View receipt. Request
   state hides owner details and other people's requests from ordinary callers
   without access; recorded reviewers can review without a separate View grant.
+  The entity name is deliberately not hidden, so a shared link can say what it
+  points at.
 - Notification delivery is composed in document storage. Stable event IDs and
   durable withdrawal prevent delayed delivery from resurrecting old requests.
 
