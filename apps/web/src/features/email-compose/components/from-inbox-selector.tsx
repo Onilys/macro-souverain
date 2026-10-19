@@ -99,7 +99,7 @@ export function FromInboxSelector(props: {
                   props.links[index() - 1].inboxId !== option.inboxId
                 }
               >
-                <Dropdown.Separator />
+                <Dropdown.Separator class="my-1 h-px border-0 bg-edge-divider" />
               </Show>
               <Dropdown.Item
                 onSelect={() =>
