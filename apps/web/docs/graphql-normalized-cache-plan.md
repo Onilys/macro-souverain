@@ -640,6 +640,12 @@ is discovered by revalidation rather than synthesized.
 The durable v3 queue envelope stores these recipes in optional `countPatches`.
 Older v3 runtimes ignore that field while retaining the original property mutation
 and its revalidations; no compatibility epoch or unrelated offline queue is reset.
+The native enqueue IPC also sends count recipes in a separate optional
+`countPatches` argument. Older installed hosts ignore that argument while keeping
+the mutation, ordinary link patches, and settlement revalidations. Their directory
+counts update after settlement rather than optimistically. New hosts combine both
+patch arguments before the usual atomic enqueue; no enqueue retry or native build
+floor is needed for this optional count behavior.
 
 ### Adoption and mutation coverage
 

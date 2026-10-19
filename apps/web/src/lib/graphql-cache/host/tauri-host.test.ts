@@ -14,6 +14,7 @@ import {
   type EntityFilterCacheArgs,
   type EntityFilterCacheResult,
   INITIAL_CACHE_REVISION,
+  type OptimisticLinkPatchWire,
 } from '../protocol';
 import {
   createTauriCacheHost,
@@ -715,6 +716,83 @@ describe('createTauriCacheHost', () => {
     warning.mockRestore();
     host.dispose();
   });
+
+  it.each([false, true])(
+    'preserves membership when native count support is %s without retrying enqueue',
+    async (supportsCounts) => {
+      const membership: OptimisticLinkPatchWire = {
+        query: 'query { things { id } }',
+        variablesJson: '{}',
+        path: [{ field: 'things' }],
+        operation: { kind: 'remove', entityKey: 'Thing:1' },
+      };
+      const count: OptimisticLinkPatchWire = {
+        query: 'query { totalCount }',
+        variablesJson: '{}',
+        path: [{ field: 'totalCount' }],
+        operation: { kind: 'adjustCount', delta: -1 },
+      };
+      const revalidations = [{ query: count.query, variablesJson: '{}' }];
+      const applied: OptimisticLinkPatchWire[] = [];
+      const optimistic = {
+        transactionId: '1',
+        changed: ['Thing:1'],
+        affectedOps: [],
+        reset: false,
+        upsertKind: { kind: 'inserted' as const },
+        initialClaim: { kind: 'not-runnable' as const },
+      };
+      invokeMock.mockImplementation(
+        async (
+          command: string,
+          args: {
+            data?: unknown;
+            linkPatches?: OptimisticLinkPatchWire[];
+            countPatches?: OptimisticLinkPatchWire[];
+            revalidations?: unknown;
+          }
+        ) => {
+          if (command !== 'graphql_cache_enqueue_optimistic_mutation')
+            return null;
+          // Model the deployed exhaustive enum: unknown variants reject the
+          // entire call, while unknown top-level arguments are ignored.
+          if (
+            args.linkPatches?.some(
+              (patch) => patch.operation.kind === 'adjustCount'
+            )
+          )
+            throw new Error('unknown variant `adjustCount`');
+          expect(args.data).toEqual({ move: { id: '1' } });
+          expect(args.revalidations).toEqual(revalidations);
+          applied.push(...(args.linkPatches ?? []));
+          if (supportsCounts) applied.push(...(args.countPatches ?? []));
+          return optimistic;
+        }
+      );
+      const host = createTauriCacheHost({ scope: 'scope-1' });
+      await expect(
+        host.enqueueOptimisticMutation(
+          {
+            uuid: '00000000-0000-4000-8000-000000000004',
+            query: 'mutation { move { id } }',
+            data: { move: { id: '1' } },
+            linkPatches: [count, membership],
+            revalidations,
+          },
+          { owner: 'runner', nowMs: 123, leaseExpiresAtMs: 1123 }
+        )
+      ).resolves.toEqual(optimistic);
+      expect(applied).toEqual(
+        supportsCounts ? [membership, count] : [membership]
+      );
+      expect(
+        invokeMock.mock.calls.filter(
+          ([command]) => command === 'graphql_cache_enqueue_optimistic_mutation'
+        )
+      ).toHaveLength(1);
+      host.dispose();
+    }
+  );
 
   it('settles optimistic writes through the dedicated commands', async () => {
     const host = createTauriCacheHost({ scope: 'scope-1' });

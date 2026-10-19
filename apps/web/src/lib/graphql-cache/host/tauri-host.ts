@@ -496,7 +496,15 @@ export function createTauriCacheHost(options: TauriHostOptions): CacheHost {
           operationName: args.operationName,
           variables: args.variables,
           data: args.data,
-          linkPatches: args.linkPatches,
+          // Older native hosts reject new variants in their link-patch enum.
+          // They ignore this optional argument and keep membership optimism;
+          // directory counts converge through the existing revalidations.
+          linkPatches: args.linkPatches?.filter(
+            (patch) => patch.operation.kind !== 'adjustCount'
+          ),
+          countPatches: args.linkPatches?.filter(
+            (patch) => patch.operation.kind === 'adjustCount'
+          ),
           revalidations: args.revalidations,
           identityBindings: args.identityBindings,
           clientMetadata: args.clientMetadata,

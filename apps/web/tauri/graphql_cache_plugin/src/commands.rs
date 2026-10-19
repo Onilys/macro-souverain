@@ -396,6 +396,7 @@ pub async fn graphql_cache_enqueue_optimistic_mutation<R: Runtime>(
     variables: Option<Variables>,
     data: serde_json::Value,
     link_patches: Option<Vec<OptimisticLinkPatch>>,
+    count_patches: Option<Vec<OptimisticLinkPatch>>,
     revalidations: Option<Vec<QueryRevalidation>>,
     identity_bindings: Option<Vec<cache_core::identity::IdentityBinding>>,
     created_at_ms: i64,
@@ -413,7 +414,13 @@ pub async fn graphql_cache_enqueue_optimistic_mutation<R: Runtime>(
             operation_name,
             variables.unwrap_or_default(),
             data,
-            link_patches.unwrap_or_default(),
+            // Separate IPC arguments let older binaries ignore count recipes
+            // without rejecting the mutation or its ordinary link patches.
+            link_patches
+                .unwrap_or_default()
+                .into_iter()
+                .chain(count_patches.unwrap_or_default())
+                .collect(),
             revalidations.unwrap_or_default(),
             identity_bindings.unwrap_or_default(),
             created_at_ms,

@@ -15,6 +15,7 @@ tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
 
 [dev-dependencies]
+tauri = { workspace = true, features = ["test"] }
 pollster = { workspace = true }
 tempfile = "3"
 soup-filter-projection = { path = "../../../../crates/soup_filter_projection", default-features = false }
