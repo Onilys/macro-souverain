@@ -32,6 +32,11 @@ type ChannelMessageProps = {
    */
   hideTriggeredBy?: boolean;
   onClick?: JSX.EventHandlerUnion<HTMLDivElement, MouseEvent>;
+  /**
+   * Handler for navigating to a thread from a broadcast message. Called with
+   * the thread root ID when the "Replied to a thread" link is clicked.
+   */
+  onNavigateToThread?: (threadRootId: string) => void;
 };
 
 function isEditingMessage(
@@ -123,6 +128,7 @@ function RegularMessageLayout(props: {
   inputMode?: 'inline' | 'unified';
   messageEditor?: MessageEditor;
   hideTriggeredBy?: boolean;
+  onNavigateToThread?: (threadRootId: string) => void;
 }) {
   return (
     <Message.Layout class="pt-(--regular-message-padding-t)">
@@ -143,6 +149,9 @@ function RegularMessageLayout(props: {
         <Show when={!props.hideTriggeredBy}>
           <Message.FromPill />
         </Show>
+        <Message.ThreadBroadcastLink
+          onNavigateToThread={props.onNavigateToThread}
+        />
       </Message.Slot>
       <Message.Slot placement="content" class="ph-no-capture">
         <MessageContentSlot
@@ -247,6 +256,7 @@ export function ChannelMessage(props: ChannelMessageProps) {
               inputMode={props.inputMode}
               messageEditor={props.messageEditor}
               hideTriggeredBy={props.hideTriggeredBy}
+              onNavigateToThread={props.onNavigateToThread}
             />
           </Match>
         </Switch>

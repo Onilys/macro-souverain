@@ -965,6 +965,9 @@ export function Channel(props: ChannelProps) {
                                               messageListScopeId={
                                                 messageListScopeId
                                               }
+                                              onNavigateToThread={(
+                                                threadRootId
+                                              ) => goToMessage(threadRootId)}
                                             />
                                           );
                                         }}

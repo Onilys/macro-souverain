@@ -90,4 +90,9 @@ export type ThreadProps = {
   monorail?: boolean;
   /** Flat chat surfaces do not draw thread connector rails. */
   hideRail?: boolean;
+  /**
+   * Handler for navigating to a thread from a broadcast message. Called when
+   * the user clicks the "Replied to a thread" link on a broadcast message.
+   */
+  onNavigateToThread?: (threadRootId: string) => void;
 } & ThreadState;

@@ -349,6 +349,7 @@ export function ChannelThread(props: ThreadProps) {
                     // channel navigation landed on it.
                     unifiedReplyBinding()?.boundToRoot || isRootNavTargeted()
                   }
+                  onNavigateToThread={props.onNavigateToThread}
                 />
               </DebugSuspense>
             </MarkMessageNotifications>

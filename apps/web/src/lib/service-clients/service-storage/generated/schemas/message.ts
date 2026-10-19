@@ -23,6 +23,12 @@ export interface Message {
   /** Attached entities. */
   attachments: MessageAttachment[];
   bot_profile?: MessageBotProfile;
+  /**
+   * When set, this channel message is a broadcast copy of a thread reply.
+   * Contains the id of the thread's root message that the original reply
+   * belongs to, so the UI can link back to the thread.
+   */
+  broadcast_from_thread?: string;
   /** Macro Markdown body. */
   content: string;
   /** Creation time. */

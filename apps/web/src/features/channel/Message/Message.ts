@@ -16,6 +16,7 @@ import { Root } from './Root';
 import { SenderIcon } from './SenderIcon';
 import { MessageSenderName } from './SenderName';
 import { Slot } from './Slot';
+import { ThreadBroadcastLink } from './ThreadBroadcastLink';
 import { Timestamp } from './Timestamp';
 
 export const Message = {
@@ -26,6 +27,7 @@ export const Message = {
   AgentBadge,
   AgentSessionLink,
   FromPill,
+  ThreadBroadcastLink,
   SenderIcon,
   Timestamp,
   Content,

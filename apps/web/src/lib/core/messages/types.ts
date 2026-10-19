@@ -18,6 +18,11 @@ export type MessageData = {
   deleted_at?: string | null;
   edited_at?: string | null;
   thread_id?: string | null;
+  /**
+   * When set, this channel message is a broadcast copy of a thread reply.
+   * Contains the id of the thread's root message so the UI can link back.
+   */
+  broadcast_from_thread?: string | null;
   attachments: MessageAttachment[];
   reactions: CountedReaction[];
 };

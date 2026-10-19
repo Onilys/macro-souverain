@@ -47,6 +47,8 @@ export function authoredMentions(mentions: ItemMention[]): SimpleMention[] {
 type BuildPostMessageRequestOptions = {
   snapshot: InputSnapshot;
   threadId?: string;
+  /** When true, also post this thread reply to the channel timeline. */
+  broadcastToChannel?: boolean;
 };
 
 export type OptimisticPostMessageAttachment = {
@@ -62,7 +64,7 @@ export type PostMessageSendPayload = {
 export function buildPostMessageSendPayload(
   options: BuildPostMessageRequestOptions
 ): PostMessageSendPayload {
-  const { snapshot, threadId } = options;
+  const { snapshot, threadId, broadcastToChannel } = options;
   const optimisticAttachments = snapshot.attachments.map((attachment) => {
     const postAttachment = {
       entity_id: attachment.id,
@@ -83,6 +85,7 @@ export function buildPostMessageSendPayload(
       thread_id: threadId,
       mentions: authoredMentions(snapshot.mentions),
       attachments: optimisticAttachments.map((item) => item.attachment),
+      broadcast_to_channel: broadcastToChannel,
     },
     optimisticAttachments,
   };

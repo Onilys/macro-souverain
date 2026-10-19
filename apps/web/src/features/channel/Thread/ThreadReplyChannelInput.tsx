@@ -5,15 +5,23 @@ import {
 } from '@queries/messages/mutations';
 import { usePostTypingUpdateMutation } from '@queries/messages/typing';
 import type { MessageParent } from '@service-storage/messages';
+import { Checkbox } from '@ui';
 import {
   type Accessor,
   createEffect,
   createSignal,
   onCleanup,
   type Setter,
+  Show,
 } from 'solid-js';
 import type { InputHandle, InputSnapshot } from '../Input';
-import { ChannelInput, createInputAttachmentTracker } from '../Input';
+import {
+  ChannelInput,
+  CloseReplyAction,
+  createInputAttachmentTracker,
+  Input,
+  SendAction,
+} from '../Input';
 import { buildPostMessageSendPayload } from '../Input/message-payload';
 import {
   makeAttachmentTrackerPersistenceKey,
@@ -42,6 +50,11 @@ type ThreadReplyChannelInputProps = {
   collapsible?: boolean;
   /** Observe the mounted input's handle (e.g. for entity drops). */
   onReady?: (handle: InputHandle) => void;
+  /**
+   * Whether the "Also send to channel" option is available. Only valid for
+   * channel parents. Defaults to true for channel parents.
+   */
+  canBroadcast?: boolean;
 };
 
 /**
@@ -58,6 +71,11 @@ export function ThreadReplyChannelInput(props: ThreadReplyChannelInputProps) {
   const userId = useUserId();
   const sendMessageMutation = useSendMessageMutation();
   const typingMutation = usePostTypingUpdateMutation();
+
+  const isChannelParent = () => props.parent.type === 'channel';
+  const showBroadcastOption = () =>
+    isChannelParent() && (props.canBroadcast ?? true);
+  const [broadcastToChannel, setBroadcastToChannel] = createSignal(false);
   const channelBotMentionUsers = useMessageBotMentionUsers(() => props.parent);
 
   const tracker = createInputAttachmentTracker({
@@ -144,6 +162,7 @@ export function ThreadReplyChannelInput(props: ThreadReplyChannelInputProps) {
         const payload = buildPostMessageSendPayload({
           snapshot,
           threadId: props.threadId,
+          broadcastToChannel: broadcastToChannel(),
         });
 
         sendMessageMutation.mutate(
@@ -168,9 +187,30 @@ export function ThreadReplyChannelInput(props: ThreadReplyChannelInputProps) {
 
         // Exit right away — the send is optimistic; the mutation's failure
         // toast plus the draft restore above cover the error case.
+        // Reset broadcast checkbox for next reply.
+        setBroadcastToChannel(false);
         props.setReplyInputState(undefined);
         props.onExit();
       }}
-    />
+    >
+      <Input.Layout.ActionsLeft>
+        <CloseReplyAction />
+        <Show when={showBroadcastOption()}>
+          <Checkbox
+            checked={broadcastToChannel()}
+            onChange={setBroadcastToChannel}
+            class="ml-1"
+          >
+            <Checkbox.Control />
+            <Checkbox.Label class="text-xs text-ink-faint select-none whitespace-nowrap">
+              Also send to channel
+            </Checkbox.Label>
+          </Checkbox>
+        </Show>
+      </Input.Layout.ActionsLeft>
+      <Input.Layout.ActionsRight>
+        <SendAction />
+      </Input.Layout.ActionsRight>
+    </ChannelInput>
   );
 }

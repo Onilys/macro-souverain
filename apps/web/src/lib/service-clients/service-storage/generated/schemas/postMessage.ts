@@ -30,4 +30,10 @@ already carries its final id; the server mints one when absent. */
   nonce?: PostMessageNonce;
   /** Root to reply to, if this is a reply. */
   thread_id?: PostMessageThreadId;
+  /**
+   * When true and `thread_id` is set, also post a copy of this reply at
+   * the channel level so it appears in the main timeline (like Slack's
+   * "Also send to channel"). Only valid for channel parents.
+   */
+  broadcast_to_channel?: boolean;
 }
