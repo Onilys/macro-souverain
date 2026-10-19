@@ -1,3 +1,4 @@
+import { ChangesToggle } from '@app/features/changes/changes';
 import { useBlockEntityCommands } from '@app/features/next-soup/actions/use-block-entity-commands';
 import {
   type BlockTool,
@@ -195,8 +196,11 @@ export function AgentSplitHeader(props: {
           <Show when={props.session?.pullRequestUrl}>
             {(url) => <AgentPullRequestChip url={url()} />}
           </Show>
-          <Show when={!isTouchDevice() && props.session?.pullRequestUrl}>
-            {(url) => <AgentGithubButton url={url()} />}
+          <Show when={!isTouchDevice()}>
+            <ChangesToggle />
+            <Show when={props.session?.pullRequestUrl}>
+              {(url) => <AgentGithubButton url={url()} />}
+            </Show>
           </Show>
         </div>
       </SplitHeaderRight>

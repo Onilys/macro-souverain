@@ -49,8 +49,8 @@ PR title appears before the link. Both title and totals come from the existing P
 query; unavailable values stay hidden, without placeholders or captured-count
 fallbacks. File headers highlight on hover. When space is tight, the smaller
 branch/PR/count metadata wraps below the title, while pane actions stay separate.
-The Changes toggle has no diff totals and becomes icon-only below 28rem of header
-width, retaining its name, tooltip, and active state. Breadcrumbs keep their existing layout.
+The Changes toggle is text-only, with no icon or diff totals, and keeps its label
+at every header width. Breadcrumbs keep their existing layout.
 The full-height file tree has a fixed header with its file count on the left and
 **Hide file tree** on the right. Borderless diff controls float above the diff stack
 rather than spanning the pane in a second toolbar. Unified/Split retains text labels

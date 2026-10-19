@@ -1332,18 +1332,19 @@ turn ends, regardless of the coding runtime. Unpushed workspace changes and
 branches without a PR are not included. The capture is the same stored diff the
 PR's Changes pane in Reviews shows for that base and head. On the PR detail,
 the `+N −M` diff count pill also opens Changes when available; otherwise it stays
-a passive count. Session headers have no **Changes** toggle. Once the capture
-has files, a **Review changes** chip (`aria-pressed`; branch icon, `N files`,
+a passive count. The session header has a text-only **Changes** toggle
+(`aria-pressed`). Once the capture has files, a **Review changes** chip (`aria-pressed`; branch icon, `N files`,
 green/red `+N −M`) sits in the composer's chip row, beside the model pill on
 desktop and in its own row above the box on touch and in the Agents workspace.
-It opens a resizable **Changes** pane beside the transcript (drag the 1px divider
-between them) and spotlights the first file; clicking it again closes the pane.
+Either opens a resizable **Changes** pane beside the transcript (drag the 1px
+divider between them); the chip also selects the first file. Clicking either again
+closes the pane.
 In the Agents workspace, changes reach the top of the main area. The session
 title, share, and sidebar controls stay above the conversation on the left.
 The header shows the linked PR as `#N` and its status (unboxed, with open in a
-darker green) followed by a **GitHub** button that opens the PR on GitHub.
+darker green), then **Changes**, then a **GitHub** button that opens the PR on GitHub.
 Chat sessions on Macro's in-memory harness have no repository, so they show
-none of this: no Changes chip, pane, or review-notes chip,
+none of this: no **Changes** toggle, Changes chip, pane, or review-notes chip,
 and the title menu offers **Open repository** only when the session has one.
 The session's split stores the pane in its own search params:
 `s<N>.changes.pane` (`split`, or `full` when spotlit) and `s<N>.changes.style=split`
@@ -1369,7 +1370,9 @@ interaction releases the anchor for manual scrolling; refreshing files does not
 jump back to an unchanged selection. Its header row
 (`[role="group"][aria-label="Changes controls"]`) has no visible Changes title.
 It shows `head → base · #N` as one plain-text GitHub link (**View pull request #N**),
-with an underline on hover and no icon or pill background. Beside the branch link and PR number,
+with an underline on hover and no icon or pill background. The header Changes toggle
+has no icon or diff totals and keeps its label at every header width. When open,
+accent text and a tinted background match the side-panel emphasis. Beside the branch link and PR number,
 exact `+N −M` totals and five green/red squares summarize the addition/deletion mix
 in both split and full-width layouts. At full width, a smaller PR title appears
 before the branch link. If the header lacks room, the smaller

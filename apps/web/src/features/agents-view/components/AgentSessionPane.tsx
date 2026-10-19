@@ -15,7 +15,11 @@ import { Transcript } from '@app/features/block-agent/component/Transcript';
 import { useAgentSession } from '@app/features/block-agent/context/AgentSessionContext';
 import { createAgentRouteTarget } from '@app/features/block-agent/primitives/create-agent-route-target';
 import { AgentChangesProvider } from '@app/features/changes/agent-session-changes';
-import { ChangesSplit, ReviewNotesDock } from '@app/features/changes/changes';
+import {
+  ChangesSplit,
+  ChangesToggle,
+  ReviewNotesDock,
+} from '@app/features/changes/changes';
 import { useBlockEntityCommands } from '@app/features/next-soup/actions';
 import { SidePanel } from '@components/app/side-panel';
 import { SplitFileMenu } from '@components/app/split-layout/components/SplitFileMenu';
@@ -211,6 +215,7 @@ function SessionContent(props: {
           <Show when={session()?.pullRequestUrl}>
             {(url) => <AgentPullRequestChip url={url()} />}
           </Show>
+          <ChangesToggle />
           <Show when={session()?.pullRequestUrl}>
             {(url) => <AgentGithubButton url={url()} />}
           </Show>

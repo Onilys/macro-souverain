@@ -54,14 +54,12 @@ Another host composes the same components its own way.
 Native PR and Agents workspace hosts put their title row and content together
 inside `ChangesSplit`, so changes occupy the full height beside that row.
 Host title, sharing, and sidebar actions remain available on the left. Agent
-session hosts have no header toggle: `ChangesHandoff` renders a composer chip
-(`N files +A −D`, `aria-pressed`) that opens the pane on the first file and closes
-it again, shown whenever the changeset has files. The PR host's Changes
-button stays visible in split view: ghost while closed, accent text on a tinted
-background while open, without the shared foreground pressed overlay; clicking
-it again closes the pane. Below 28rem of the
-header's named `split-header` container, only Changes becomes icon-only, retaining
-its accessible name, tooltip, pressed state, and touch target. Breadcrumbs keep
+session hosts also render `ChangesHandoff`, a composer chip (`N files +A −D`,
+`aria-pressed`) that opens the pane on the first file and closes it again, shown
+whenever the changeset has files. The text-only Changes button stays visible in
+split view: ghost while closed, accent text on a tinted background while open,
+without the shared foreground pressed overlay; clicking it again closes the pane.
+It keeps its label at every header width. Breadcrumbs keep
 their existing layout. The button has no diff totals; those appear beside the
 pane's branch range and PR number in both split and full-width layouts. On a PR
 detail, the diff count pill also opens the pane when a controller is available;
