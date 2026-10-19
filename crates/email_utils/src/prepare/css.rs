@@ -25,6 +25,14 @@ static UNSAFE_PROPERTY: LazyLock<Regex> = LazyLock::new(|| {
 static COLOR_SCHEME: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)prefers-color-scheme").expect("valid regex"));
 
+/// Written where a comment separated two tokens, so they stay separate.
+const EMPTY_COMMENT: &str = "/**/";
+const COMMENT_START: &str = "/*";
+/// Functions whose arguments the browser loads as images.
+const IMAGE_SET_FUNCTIONS: &[&str] = &["image-set", "-webkit-image-set"];
+/// Functions that load a resource; no selector contains them.
+const RESOURCE_FUNCTIONS: &[&str] = &["url", "src", "image-set", "-webkit-image-set"];
+
 /// Grouping and namespace rules a mounted body may keep.
 const ALLOWED_AT_RULES: &[&str] = &[
     "media",
@@ -324,8 +332,8 @@ fn write_value<'i>(
                 | Token::ParenthesisBlock
                 | Token::SquareBracketBlock
         ) || (in_image_set && matches!(token, Token::QuotedString(_)));
-        if rewritten && input.slice_from(start).starts_with("/*") {
-            out.push_str("/**/");
+        if rewritten && input.slice_from(start).starts_with(COMMENT_START) {
+            out.push_str(EMPTY_COMMENT);
         }
         match token {
             Token::UnquotedUrl(url) => {
@@ -351,7 +359,7 @@ fn write_value<'i>(
                 if function == "expression" {
                     return Err(input.new_custom_error(()));
                 }
-                let image_set = function == "image-set" || function == "-webkit-image-set";
+                let image_set = IMAGE_SET_FUNCTIONS.contains(&function.as_str());
                 // Functions such as var() can expand strings into URLs; the
                 // blocked policy cannot evaluate them, so it excludes them.
                 if images.remote == RemoteImages::Block && (image_set || function == "var") {
@@ -459,16 +467,16 @@ fn write_components<'i>(
         if matches!(
             token,
             Token::Function(_) | Token::ParenthesisBlock | Token::SquareBracketBlock
-        ) && input.slice_from(start).starts_with("/*")
+        ) && input.slice_from(start).starts_with(COMMENT_START)
         {
-            prelude.text.push_str("/**/");
+            prelude.text.push_str(EMPTY_COMMENT);
         }
         match token {
             Token::Semicolon | Token::AtKeyword(_) | Token::UnquotedUrl(_) => {
                 prelude.not_selector = true;
             }
             Token::Function(ref name)
-                if ["url", "src", "image-set", "-webkit-image-set"]
+                if RESOURCE_FUNCTIONS
                     .iter()
                     .any(|function| name.eq_ignore_ascii_case(function)) =>
             {
