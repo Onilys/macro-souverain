@@ -1,4 +1,5 @@
 import { getDisplayNameParts, type MacroId } from '@core/user';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { throwOnErr } from '@core/util/result';
 import { queryClient } from '@queries/client';
 import { schedulingClient } from '@service-email/scheduling';
@@ -59,8 +60,8 @@ export function createSchedulingSource(
     },
   }));
   const reload = () => {
-    void profile.refetch();
-    if (loadBookings()) void bookings.refetch();
+    fireAndForget(profile.refetch(), 'scheduling');
+    if (loadBookings()) fireAndForget(bookings.refetch(), 'scheduling');
   };
   return {
     profile: () => (profile.isSuccess ? profile.data : undefined),

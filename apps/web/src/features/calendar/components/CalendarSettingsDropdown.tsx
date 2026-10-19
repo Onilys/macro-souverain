@@ -4,6 +4,7 @@ import { MobileDrawer } from '@components/app/mobile/MobileDrawer';
 import { enableMultiInbox } from '@core/constant/featureFlags';
 import { useAddInboxFlow } from '@core/email-link';
 import { isMobile } from '@core/mobile/isMobile';
+import { fireAndForget } from '@core/util/fireAndForget';
 import CaretRightIcon from '@phosphor/caret-right.svg';
 import CheckIcon from '@phosphor/check.svg';
 import GearIcon from '@phosphor/gear.svg';
@@ -112,16 +113,22 @@ function createCalendarSettingsControls(isNarrow: () => boolean) {
     calendarView.closeEventDetails();
     match(account.action)
       .with('enable', () => {
-        void startAddInbox({
-          scopes: account.consentScopes,
-          emailAddress: account.emailAddress,
-        });
+        fireAndForget(
+          startAddInbox({
+            scopes: account.consentScopes,
+            emailAddress: account.emailAddress,
+          }),
+          'calendar-settings'
+        );
       })
       .with('reconnect', () => {
-        void startAddInbox({
-          scopes: account.consentScopes,
-          emailAddress: account.emailAddress,
-        });
+        fireAndForget(
+          startAddInbox({
+            scopes: account.consentScopes,
+            emailAddress: account.emailAddress,
+          }),
+          'calendar-settings'
+        );
       })
       .with('turnOff', () => {
         setTurnOffTarget({
@@ -135,7 +142,10 @@ function createCalendarSettingsControls(isNarrow: () => boolean) {
   // A brand-new account needs the mailbox scopes alongside calendar.
   const connectAnotherAccount = () => {
     calendarView.closeEventDetails();
-    startAddInbox({ scopes: 'gmail_and_calendar' });
+    fireAndForget(
+      startAddInbox({ scopes: 'gmail_and_calendar' }),
+      'calendar-settings'
+    );
   };
 
   return {

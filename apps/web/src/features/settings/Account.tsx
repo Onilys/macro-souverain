@@ -24,6 +24,7 @@ import {
   useProfilePictureUrl,
 } from '@core/signal/profilePicture';
 import { createStaticFile } from '@core/util/create';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { openFilePicker } from '@core/util/upload';
 import {
   type BundleUpdateStatus,
@@ -161,7 +162,7 @@ async function saveUserName(
       setValue(prev); // rollback on a returned error
       return false;
     }
-    void invalidateOwnUserName();
+    fireAndForget(invalidateOwnUserName(), 'account-settings');
     return true;
   } catch {
     setValue(prev); // rollback if the call throws before returning a Result
@@ -781,7 +782,7 @@ function NameInput(props: {
           setStatus('idle'); // clear prior status while editing
         }}
         onBlur={() => {
-          void commit();
+          fireAndForget(commit(), 'account-settings');
           setIsFocused(false);
         }}
         onKeyDown={handleKeyDown}
@@ -912,7 +913,9 @@ function NativeUpdateRow() {
               variant="accent"
               size="sm"
               depth={3}
-              onClick={() => void tauri?.restartNativeUpdate()}
+              onClick={() =>
+                fireAndForget(tauri?.restartNativeUpdate(), 'native-updates')
+              }
             >
               Restart to update
             </Button>

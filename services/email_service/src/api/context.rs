@@ -66,6 +66,9 @@ pub(crate) struct ApiContext {
             calendar_events::outbound::pg::PgCalendarRepository,
         >,
     >,
+    pub forwarded_attachments: email::domain::forwarded_attachments::ForwardedAttachmentService<
+        crate::outbound::forwarded_attachments::PgForwardedAttachmentRepo,
+    >,
     pub db: sqlx::Pool<sqlx::Postgres>,
     pub auth_service_client: Arc<authentication_service_client::AuthServiceClient>,
     // The raw client is retained only for Gmail webhook JWKS/JWT authentication.

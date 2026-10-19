@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import { Popover } from '@kobalte/core/popover';
 import ArrowCounterClockwise from '@phosphor/arrow-counter-clockwise.svg';
 import PencilSimple from '@phosphor/pencil-simple.svg';
@@ -258,7 +259,8 @@ export function EventEditor(props: EventEditorProps) {
       onSubmit={(event) => {
         event.preventDefault();
         if (props.saving) return;
-        if (props.step === 'review') void props.onSave();
+        if (props.step === 'review')
+          fireAndForget(props.onSave(), 'scheduling');
         else props.onNext();
       }}
     >
