@@ -527,6 +527,31 @@ fn drops_attributes_that_reach_outside_the_body() {
 }
 
 #[test]
+fn keeps_comments_between_tokens_written_from_their_value() {
+    let body = prepare_with(
+        r#"<style>p{background:url/**/("https://evil.test/a.png")}b{background:image/**/-set("https://evil.test/b.png" 1x)}i{background:u/**/rl("https://evil.test/c.png")}</style><p>Text</p>"#,
+        images(RemoteImages::Block, None),
+    )
+    .html;
+    for joined in ["url(", "image-set("] {
+        assert!(!body.contains(joined), "{joined} in {body}");
+    }
+    assert!(body.contains("Text"));
+}
+
+#[test]
+fn drops_rules_whose_selector_holds_declarations() {
+    let body = prepare_with(
+        "<style>@scope (p){x;background-image:url(https://evil.test/a.png);animation:k 1s;y{color:red}}p{color:blue}</style><p>Text</p>",
+        images(RemoteImages::Block, None),
+    )
+    .html;
+    assert!(!body.contains("evil.test"), "{body}");
+    assert!(!body.contains("animation"), "{body}");
+    assert!(body.contains("color:blue"), "{body}");
+}
+
+#[test]
 fn drops_vendor_prefixed_animations_and_transitions() {
     let body = prepare(
         r#"<p style="-webkit-animation:k 1s;-webkit-transition:color 1s;-moz-animation:k 1s;color:red">Text</p>"#,

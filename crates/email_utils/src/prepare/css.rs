@@ -131,7 +131,7 @@ impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
 
     fn parse_prelude<'t>(&mut self, input: &mut Parser<'i, 't>) -> Result<String, Failure<'i>> {
         let prelude = component_text(input)?;
-        if HOST_SELECTOR.is_match(&prelude.decoded) {
+        if prelude.not_selector || HOST_SELECTOR.is_match(&prelude.decoded) {
             return Err(input.new_custom_error(()));
         }
         Ok(prelude.text)
@@ -315,6 +315,18 @@ fn write_value<'i>(
             out.push(' ');
         }
         space = false;
+        // Comments separate tokens. One written from its value rather than its
+        // source would otherwise join the token before it (`url/**/("…")`).
+        let rewritten = matches!(
+            token,
+            Token::UnquotedUrl(_)
+                | Token::Function(_)
+                | Token::ParenthesisBlock
+                | Token::SquareBracketBlock
+        ) || (in_image_set && matches!(token, Token::QuotedString(_)));
+        if rewritten && input.slice_from(start).starts_with("/*") {
+            out.push_str("/**/");
+        }
         match token {
             Token::UnquotedUrl(url) => {
                 write_url(&url, &css_images, out).map_err(|()| input.new_custom_error(()))?
@@ -409,12 +421,16 @@ fn write_url(url: &str, images: &ImagePolicy, out: &mut String) -> Result<(), ()
 struct Prelude {
     text: String,
     decoded: String,
+    /// Holds a token no selector contains (`;`, an at-keyword, a URL). Kept
+    /// verbatim, such text inside `@scope` is read as declarations.
+    not_selector: bool,
 }
 
 fn component_text<'i>(input: &mut Parser<'i, '_>) -> Result<Prelude, Failure<'i>> {
     let mut prelude = Prelude {
         text: String::new(),
         decoded: String::new(),
+        not_selector: false,
     };
     write_components(input, &mut prelude)?;
     Ok(prelude)
@@ -440,6 +456,26 @@ fn write_components<'i>(
             prelude.decoded.push(' ');
         }
         space = false;
+        if matches!(
+            token,
+            Token::Function(_) | Token::ParenthesisBlock | Token::SquareBracketBlock
+        ) && input.slice_from(start).starts_with("/*")
+        {
+            prelude.text.push_str("/**/");
+        }
+        match token {
+            Token::Semicolon | Token::AtKeyword(_) | Token::UnquotedUrl(_) => {
+                prelude.not_selector = true;
+            }
+            Token::Function(ref name)
+                if ["url", "src", "image-set", "-webkit-image-set"]
+                    .iter()
+                    .any(|function| name.eq_ignore_ascii_case(function)) =>
+            {
+                prelude.not_selector = true;
+            }
+            _ => {}
+        }
         let close = match token {
             Token::Function(ref name) => {
                 serialize_identifier(name, &mut prelude.text)
