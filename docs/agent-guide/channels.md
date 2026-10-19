@@ -898,9 +898,10 @@ to the next section. `[` and `]` jump between the visible Favorites,
 Channels, and DMs section headers.
 
 On touch layouts, Channels shows only the Recent conversation feed, with channel
-and DM message previews. There are no view tabs or reserved tab-header space;
-older saved tab selections and mobile-tab links cannot change the list. It loads
-more as the list approaches the end and supports pull to refresh.
+and DM message previews. A floating "Chat" header island identifies the view.
+There are no view tabs; older saved tab selections and mobile-tab links cannot
+change the list. It loads more as the list approaches the end and supports
+pull to refresh.
 The mobile dock Search button opens the independent Search route. Its Channels
 and People categories search cached channel names and people directly; the
 conversation list does not constrain results. Full-text search is explicit,
