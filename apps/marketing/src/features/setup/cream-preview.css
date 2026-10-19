@@ -435,7 +435,7 @@ html[data-palette='cream'] .homepage-sheet-toolbar .homepage-sheet-tool {
   color: var(--color-ink-muted);
 }
 
-/* Slab display copy stays pure black across every cream page, including
+/* Slab display copy uses warm near-black across every cream page, including
    secondary headline lines that otherwise inherit a muted text color. */
 html[data-palette='cream'] :is(
   h1, h2, h3,
@@ -451,7 +451,7 @@ html[data-palette='cream'] :is(
   .unification-before,
   .sales-calc-saved strong
 ) :is(span, em, strong, a) {
-  color: #000 !important;
+  color: #1d1c1a !important;
 }
 
 /* Orbit surfaces previously mixed dark ink into the page.
@@ -597,9 +597,9 @@ html[data-palette='cream'] .feature-flow {
 }
 
 /* Add weight to the existing slab styles without changing their type scale. */
-html[data-palette='cream'] { --cream-slab-weight-increase: 35; }
-html[data-palette='cream'] [class*='font-[Roboto_Slab'] { font-weight: 350; }
-html[data-palette='cream'] .tasks-founder-card h2 { font-weight: 435; }
+html[data-palette='cream'] { --cream-slab-weight-increase: 45; }
+html[data-palette='cream'] [class*='font-[Roboto_Slab'] { font-weight: 360; }
+html[data-palette='cream'] .tasks-founder-card h2 { font-weight: 445; }
 
 /* Product walkthroughs sit above the cream canvas, like the homepage composer. */
 html[data-palette='cream'] :is(.product-page, .feature-page) :is(
