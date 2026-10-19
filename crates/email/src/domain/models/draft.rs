@@ -122,6 +122,8 @@ pub struct SettledDraftIds {
 /// Simplified message info used for validation queries.
 #[derive(Debug, Clone)]
 pub struct SimpleMessageInfo {
+    /// Immutable provider message identity, resolved from storage.
+    pub provider_id: Option<String>,
     /// Database ID of the message.
     pub db_id: Uuid,
     /// The inbox (link) the message belongs to.
@@ -145,6 +147,8 @@ pub struct SimpleMessageInfo {
 /// returns an error instead of an incomplete saved draft.
 #[derive(Clone)]
 pub struct SavedUserDraft {
+    /// Persisted provider write state after this save.
+    pub operation_status: Option<super::mailbox_operation::MessageOperationStatus>,
     /// Persisted sender, including an approved alias when selected.
     pub sender: ContactInfo,
     /// The created or updated draft.

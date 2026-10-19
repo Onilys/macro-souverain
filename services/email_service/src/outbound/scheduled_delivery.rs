@@ -29,7 +29,12 @@ mod content;
 /// Concrete worker adapters, wired by the scheduled worker's composition root.
 pub struct ScheduledDeliveryAdapter {
     pub db: sqlx::PgPool,
+    pub forwarded_attachments: email::domain::forwarded_attachments::ForwardedAttachmentService<
+        crate::outbound::forwarded_attachments::PgForwardedAttachmentRepo,
+    >,
     pub email_api: GmailApi,
+    pub attachment_bytes:
+        std::sync::Arc<dyn email::domain::attachment_access::AuthorizedAttachmentBytes>,
     pub s3_client: s3_client::S3,
     pub attachment_bucket: String,
     pub macro_event_broker: MacroEventBrokerService<KafkaEventPublisher, TaskTracker>,
@@ -60,6 +65,14 @@ impl ScheduledDeliveryRepo for ScheduledDeliveryAdapter {
         else {
             return Ok(None);
         };
+        // Outlook delivery is claimed by its durable draft coordinator. This
+        // legacy adapter must never claim it or release an uncertain send.
+        if !matches!(
+            link.provider,
+            models_email::service::link::UserProvider::Gmail
+        ) {
+            return Ok(None);
+        }
         Ok(
             delivery::claim_delivery(&self.db, link_id, message_id, DELIVERY_LEASE_SECONDS)
                 .await?
@@ -200,19 +213,9 @@ impl ScheduledDeliveryRepo for ScheduledDeliveryAdapter {
                 if let (Some(draft_id), Some(attachments)) = (message_to_send.db_id, db_attachments)
                 {
                     let db = ctx.db.clone();
-                    let s3_client = ctx.s3_client.clone();
-                    let bucket = ctx.attachment_bucket.clone();
                     let link_id = link.id;
                     tokio::spawn(async move {
-                        cleanup_draft_attachments(
-                            db,
-                            &s3_client,
-                            bucket,
-                            link_id,
-                            draft_id,
-                            attachments,
-                        )
-                        .await;
+                        cleanup_draft_attachments(db, link_id, draft_id, attachments).await;
                     });
                 }
             }
@@ -320,12 +323,21 @@ impl ScheduledDeliveryAdapter {
             )?);
         tracing::Span::current().record("phase", "attachments");
         let started = Instant::now();
+        let actor = data
+            .actor_id
+            .as_deref()
+            .and_then(|actor| MacroUserIdStr::parse_from_str(actor).ok());
+        self.forwarded_attachments
+            .for_delivery(actor.as_ref(), claim.link.id, data.message_id)
+            .await?;
         let attachments = prepare_delivery_attachments(
             &self.db,
             &self.s3_client,
-            &self.email_api,
+            self.attachment_bytes.as_ref(),
+            data.actor_id
+                .as_deref()
+                .unwrap_or_else(|| claim.link.macro_id.as_ref()),
             &self.attachment_bucket,
-            &claim.link,
             &mut message,
             Some(&approved),
         )
@@ -373,6 +385,7 @@ impl ScheduledDeliveryAdapter {
 fn classify_preparation_error(error: anyhow::Error) -> PreparationError {
     if error.is::<AttachmentSnapshotMismatch>()
         || error.is::<PreparedSendContentUnavailable>()
+        || error.downcast_ref::<email::domain::forwarded_attachments::ForwardedAttachmentError>().is_some_and(|error| matches!(error, email::domain::forwarded_attachments::ForwardedAttachmentError::DraftNotFound | email::domain::forwarded_attachments::ForwardedAttachmentError::AttachmentNotFound))
         || error.downcast_ref::<EmailApiError>().is_some_and(|error| {
             matches!(
                 error,

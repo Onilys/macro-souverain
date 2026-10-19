@@ -14,6 +14,11 @@ threads, pins, recents, notifications, folders, activity.
 - `src/api/graphql_soup.rs`: the `/soup/graphql` (+ `/soup/graphql/ws`
   subscriptions) GraphQL API — the frontend's main read path for Home/Recent/
   search ("Soup" items); see `crates/graphql_soup` for resolvers/loaders.
+- `src/server.rs`: composition root, including access-request routes and the
+  tracked delivery dispatcher; `src/outbound/access_requests.rs` composes the
+  notification/withdrawal/realtime ports. Policy lives in `crates/access_requests`.
+- Guest call chat is mounted outside account auth at `/call/guest-chat/{call_id}`;
+  `call` verifies the RTC session and `messages` owns the shared discussion.
 - `src/service/entity_mutation.rs`: generic entity-mutation plumbing used
   across item types.
 - `src/service/delete_document_worker.rs`: background worker handling document

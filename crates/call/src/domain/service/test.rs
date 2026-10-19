@@ -25,6 +25,7 @@ use serde_json::json;
 use uuid::Uuid;
 
 mod active_meetings;
+mod guest_chat;
 mod meeting_invites;
 mod meeting_participants;
 mod meeting_startup;
@@ -1044,7 +1045,7 @@ fn build_webhook_service(
     repo: MockCallRepository,
     rtc_client: MockCallRtcClient,
     event_broker: RecordingEventBroker,
-) -> impl CallService {
+) -> impl CallService + messages::domain::service::guest_chat::GuestCallAuthorizer {
     build_webhook_service_with_connection(repo, rtc_client, StubConnectionService, event_broker)
 }
 
@@ -1053,7 +1054,7 @@ fn build_webhook_service_with_connection<Cn: ConnectionService>(
     rtc_client: MockCallRtcClient,
     connection_service: Cn,
     event_broker: RecordingEventBroker,
-) -> impl CallService {
+) -> impl CallService + messages::domain::service::guest_chat::GuestCallAuthorizer {
     let service: BaseWebhookCallService<Cn> = CallServiceImpl::new(
         repo,
         rtc_client,
@@ -4400,4 +4401,28 @@ async fn call_record_reader_reports_a_deleted_record_as_not_found() {
             .await,
         Err(CallError::NotFound(_))
     ));
+}
+
+#[test]
+fn native_call_fallback_persists_only_users_with_unhandled_platforms() {
+    use notification::domain::models::{MobilePushRecipients, NativeCallPushResult};
+    let fully_handled = user("fully@example.com");
+    let ios_fallback = user("ios-fallback@example.com");
+    let android_fallback = user("android-fallback@example.com");
+    let result = NativeCallPushResult {
+        delivered: MobilePushRecipients {
+            ios: HashSet::from([fully_handled.clone(), android_fallback.clone()]),
+            android: HashSet::from([fully_handled.clone(), ios_fallback.clone()]),
+        },
+        fully_delivered: HashSet::from([fully_handled.clone()]),
+    };
+    let fallback = exclude_voip_recipients(
+        HashSet::from([
+            fully_handled,
+            ios_fallback.clone(),
+            android_fallback.clone(),
+        ]),
+        &result.fully_delivered,
+    );
+    assert_eq!(fallback, HashSet::from([ios_fallback, android_fallback]));
 }

@@ -181,7 +181,7 @@ impl EmailSendRepo for EmailPgRepo {
         .fetch_all(&mut *tx)
         .await
         .map_err(anyhow::Error::from)?;
-        let forwarded = sqlx::query_scalar!("SELECT attachment_id FROM email_attachments_fwd WHERE message_id = $1 ORDER BY attachment_id", ids.message_db_id)
+        let forwarded = sqlx::query_scalar!("SELECT attachment_id AS \"attachment_id!\" FROM email_draft_provider_attachment_ids($1, $2) ORDER BY attachment_id", ids.message_db_id, link)
             .fetch_all(&mut *tx).await.map_err(anyhow::Error::from)?;
         let mut expected_uploaded = prepared.snapshot.attachment_ids.clone();
         let mut expected_forwarded = prepared.snapshot.forwarded_attachment_ids.clone();

@@ -11,6 +11,34 @@ import {
   shareLevelsFor,
 } from './ShareButton';
 
+// Share's request workflow has its own source and lifecycle suites. Keep these
+// existing sharing tests independent of a live QueryClient and backend.
+vi.mock('@app/features/access-requests/access-requests', async (original) => ({
+  ...(await original<
+    typeof import('@app/features/access-requests/access-requests')
+  >()),
+  useShareRequests: () => ({
+    state: () => undefined,
+    grants: () => [],
+    loading: () => false,
+    busy: () => false,
+    error: () => undefined,
+  }),
+}));
+vi.mock(
+  '@app/features/access-requests/share-request-trigger',
+  async (original) => ({
+    ...(await original<
+      typeof import('@app/features/access-requests/share-request-trigger')
+    >()),
+    useShareRequestTrigger: (props: { open(): void }) => ({
+      ref: () => {},
+      count: () => 0,
+      open: props.open,
+    }),
+  })
+);
+
 const ME = 'macro|me@example.com';
 const SOMEONE_ELSE = 'macro|someone-else@example.com';
 

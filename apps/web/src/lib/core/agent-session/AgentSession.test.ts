@@ -417,7 +417,7 @@ describe('AgentSession', () => {
     logSource.fetched.mockReturnValue(log.promise);
     const live = AgentSession.acquire(SESSION);
 
-    void live.issue({ type: 'prompt', prompt: 'early' });
+    const issued = live.issue({ type: 'prompt', prompt: 'early' });
     await settle();
     expect(fold.pushSession).not.toHaveBeenCalled();
 
@@ -427,6 +427,7 @@ describe('AgentSession', () => {
       'snapshot',
       'speculated',
     ]);
+    await issued;
     live.release();
   });
 
@@ -835,7 +836,9 @@ describe('AgentSession', () => {
 
     it('waits out a refusal and loads once the create is readable', async () => {
       vi.useFakeTimers();
-      onTestFinished(() => void vi.useRealTimers());
+      onTestFinished(() => {
+        vi.useRealTimers();
+      });
       // The create has answered, but what it wrote is not readable yet.
       harness.get
         .mockResolvedValueOnce(err([{ code: 'UNAUTHORIZED' }]))
@@ -853,7 +856,9 @@ describe('AgentSession', () => {
 
     it('waits out a 404 from a create whose row is not visible yet', async () => {
       vi.useFakeTimers();
-      onTestFinished(() => void vi.useRealTimers());
+      onTestFinished(() => {
+        vi.useRealTimers();
+      });
       harness.get
         .mockResolvedValueOnce(err([{ code: 'NOT_FOUND' }]))
         .mockResolvedValue(ok(session));
@@ -868,7 +873,9 @@ describe('AgentSession', () => {
 
     it('gives up as a retryable failure, not denied access, if it never clears', async () => {
       vi.useFakeTimers();
-      onTestFinished(() => void vi.useRealTimers());
+      onTestFinished(() => {
+        vi.useRealTimers();
+      });
       harness.get.mockResolvedValue(err([{ code: 'UNAUTHORIZED' }]));
 
       const live = AgentSession.acquire(SESSION);
@@ -1151,6 +1158,9 @@ describe('AgentSession', () => {
           parts: [{ kind: 'text', text: 'Hi' }],
           stop: null,
           pending: false,
+          segments: [],
+          phase: null,
+          postedAt: null,
         },
         {
           agentSessionId: SESSION,
@@ -1163,6 +1173,9 @@ describe('AgentSession', () => {
           ],
           stop: null,
           pending: false,
+          segments: [],
+          phase: null,
+          postedAt: null,
         },
       ]);
       const [span] = renderSpans();
@@ -1288,6 +1301,9 @@ describe('AgentSession', () => {
             parts: [{ kind: 'text', text: 'hi' }],
             stop: null,
             pending: false,
+            segments: [],
+            phase: null,
+            postedAt: null,
           },
         },
         {
@@ -1300,6 +1316,9 @@ describe('AgentSession', () => {
             parts: [{ kind: 'thought', text: 'thinking' }],
             stop: null,
             pending: false,
+            segments: [],
+            phase: null,
+            postedAt: null,
           },
         },
       ] satisfies FoldedStreamEvent[]);
@@ -1351,6 +1370,9 @@ describe('AgentSession', () => {
             ],
             stop: null,
             pending: false,
+            segments: [],
+            phase: null,
+            postedAt: null,
           },
         },
       ] satisfies FoldedStreamEvent[]);

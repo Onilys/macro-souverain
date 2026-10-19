@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import { createClient } from '@urql/core';
 import { filter, map, pipe } from 'wonka';
 import {
@@ -28,6 +29,7 @@ const draft = {
 };
 const message: EmailThreadMessageFieldsFragment = {
   __typename: 'GraphqlSoupEmailMessage',
+  operationStatus: null,
   id: id(2),
   threadId: id(3),
   linkId: id(4),
@@ -146,7 +148,7 @@ async function refresh() {
     !row.locallyCancelled &&
     row.response?.cancelEmailSend?.attempt.status !== 'CANCELLED';
 }
-host.onCacheChanged(() => void refresh());
+host.onCacheChanged(() => fireAndForget(refresh(), 'email-send-harness'));
 document.querySelector('#send')!.addEventListener('click', async () => {
   const result = await executeOptimisticMutation(
     client,

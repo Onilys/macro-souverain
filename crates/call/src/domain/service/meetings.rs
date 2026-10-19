@@ -1,4 +1,5 @@
-//! Invitation use cases. Guests receive room access; signed-in attendees also receive call-only Comment access for chat.
+//! Invitation use cases. Guests receive room credentials used for active-session chat;
+//! signed-in attendees also receive call-only Comment access for saved discussions.
 
 use super::*;
 use crate::domain::meetings::{

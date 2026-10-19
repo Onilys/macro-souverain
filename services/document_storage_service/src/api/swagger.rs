@@ -245,6 +245,7 @@ use utoipa::OpenApi;
         documents::get_document_views::get_document_views_handler,
         documents::location::get_location_handler,
         documents_hex::inbound::axum_router::get_location::get_location_v3_handler,
+        documents_hex::inbound::axum_router::get_text::get_text_handler,
         documents_hex::inbound::axum_router::get_branch_name::get_branch_name_handler,
         documents_hex::inbound::axum_router::get_github_pull_requests::get_github_pull_requests_handler,
         documents_hex::inbound::axum_router::get_github_pull_request_tasks::get_github_pull_request_tasks_handler,
@@ -292,6 +293,8 @@ use utoipa::OpenApi;
 
         // messages (channels and documents)
         messages::inbound::axum_router::timeline,
+        messages::inbound::guest_chat::read,
+        messages::inbound::guest_chat::post,
         messages::inbound::axum_router::timeline_entries,
         messages::inbound::axum_router::create,
         messages::inbound::axum_router::get_message,
@@ -442,6 +445,13 @@ use utoipa::OpenApi;
         slack_integration::inbound::axum_router::jobs::finalize,
         slack_integration::inbound::axum_router::jobs::cancel,
 
+        access_requests::inbound::axum_router::state_handler,
+        access_requests::inbound::axum_router::submit_handler,
+        access_requests::inbound::axum_router::cancel_handler,
+        access_requests::inbound::axum_router::resolve_handler,
+        access_requests::inbound::axum_router::direct_handler,
+        access_requests::inbound::axum_router::set_direct_handler,
+        access_requests::inbound::axum_router::remove_direct_handler,
         // reminders
         reminders::inbound::axum_router::get_email_followup_handler,
         reminders::inbound::axum_router::set_email_followup_handler,
@@ -536,6 +546,7 @@ use utoipa::OpenApi;
     ),
     components(
         schemas(
+            access_requests::domain::models::ShareEntity,
             DocumentStorageServiceApiVersion,
             GenericResponse,
             GenericErrorResponse,

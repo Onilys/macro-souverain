@@ -21,11 +21,13 @@ import { useUserId } from '@core/context/user';
 import { useAddInboxFlow } from '@core/email-link';
 import { calendarConsentScopes } from '@core/email-link/consent';
 import { recipientEntityMapper, useContacts } from '@core/user';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { useVisibleCalendarsQuery } from '@queries/calendar/calendars';
 import { useEmailLinksQuery } from '@queries/email/link';
 import type { CreateCalendarEvent } from '@service-cognition/generated/tools/types';
 import { Button, Layer } from '@ui';
 import {
+  createEffect,
   createMemo,
   createSignal,
   ErrorBoundary,
@@ -45,6 +47,12 @@ export type CalendarDraftComposerProps = {
   initialData: CreateCalendarEvent;
   /** Where edits, the confirmation and the rejection go. */
   sink: UserToolReviewSink<CreateCalendarEvent>;
+  /** Capture edits before a surrounding stack navigates or submits. */
+  registerDraftReader?: (reader: () => CreateCalendarEvent | undefined) => void;
+  /** The same validated form snapshot used by individual creation. */
+  registerSubmitReader?: (
+    reader: () => Promise<CreateCalendarEvent | undefined>
+  ) => void;
   /** A key for the preview's synthetic event; the call's id in practice. */
   previewKey: string;
   /** Show the calendar preview under the form. On by default. */
@@ -99,8 +107,10 @@ function CalendarDraftComposerContent(props: CalendarDraftComposerProps) {
     calendarsQuery.isPending || linksQuery.isPending;
   const calendarLoadFailed = () => calendarsQuery.isError || linksQuery.isError;
   const retryCalendarData = () => {
-    if (calendarsQuery.isError) void calendarsQuery.refetch();
-    if (linksQuery.isError) void linksQuery.refetch();
+    if (calendarsQuery.isError)
+      fireAndForget(calendarsQuery.refetch(), 'ai-calendar-compose');
+    if (linksQuery.isError)
+      fireAndForget(linksQuery.refetch(), 'ai-calendar-compose');
   };
   const primaryInbox = () =>
     links().find((link) => link.macro_id === userId() && link.is_primary);
@@ -145,6 +155,8 @@ function CalendarDraftComposerContent(props: CalendarDraftComposerProps) {
   const calendarOptions = createMemo(() =>
     writableCalendars().map((calendar) => ({
       id: calendar.id,
+      provider: calendar.provider,
+      capabilities: calendar.capabilities,
       label: calendarDisplayLabel(calendar, calendarsSpanInboxes()),
       color: calendar.color ?? DEFAULT_CALENDAR_SOURCE.color,
       defaultReminders: calendar.defaultReminders,
@@ -152,16 +164,20 @@ function CalendarDraftComposerContent(props: CalendarDraftComposerProps) {
     }))
   );
 
+  // Undefined while the primary inbox still needs access: the choice is the
+  // user's until then.
+  const defaultCalendarId = () =>
+    primaryNeedsAccess()
+      ? undefined
+      : writableCalendars().find(
+          (calendar) =>
+            calendar.emailLinkId === primaryInbox()?.id && calendar.isPrimary
+        )?.id;
+
   const controller = createCalendarEventFormController({
     initialValue: createCalendarEventToEditorInitialValues(props.initialData),
     calendarOptions,
-    defaultCalendarId: () =>
-      primaryNeedsAccess()
-        ? undefined
-        : writableCalendars().find(
-            (calendar) =>
-              calendar.emailLinkId === primaryInbox()?.id && calendar.isPrimary
-          )?.id,
+    defaultCalendarId,
     guestOptions,
     recurrenceTimeZone:
       props.initialData.time.kind === 'timed'
@@ -173,12 +189,30 @@ function CalendarDraftComposerContent(props: CalendarDraftComposerProps) {
       if (args) props.sink.onEdit?.(args);
     },
   });
+  let calendarInitialized = false;
+  createEffect(() => {
+    const calendars = calendarOptions();
+    if (calendarInitialized || calendars.length === 0) return;
+    calendarInitialized = true;
+    // Resolve the provider-default conference after the calendar catalog loads.
+    // A requested calendar must still exist, and without a request the primary
+    // inbox's calendar is the default; when neither resolves the selection stays
+    // empty so the user chooses explicitly.
+    const requested = props.initialData.calendarId;
+    const selected = requested
+      ? calendars.find((calendar) => calendar.id === requested)
+      : calendars.find((calendar) => calendar.id === defaultCalendarId());
+    if (selected) controller.setField('calendarId', selected.id);
+  });
 
   function currentArgs(values = controller.submitValues()) {
     return values
       ? editorSubmitValuesToCreateCalendarEvent(values, props.initialData)
       : undefined;
   }
+
+  props.registerDraftReader?.(currentArgs);
+  props.registerSubmitReader?.(async () => currentArgs());
 
   async function handleCreate(values: EventEditorSubmitValues) {
     if (interactionLocked()) return;
@@ -248,10 +282,13 @@ function CalendarDraftComposerContent(props: CalendarDraftComposerProps) {
                         variant="outline"
                         size="sm"
                         onClick={() =>
-                          void startAddInbox({
-                            scopes: calendarConsentScopes(link()),
-                            emailAddress: link().email_address,
-                          })
+                          fireAndForget(
+                            startAddInbox({
+                              scopes: calendarConsentScopes(link()),
+                              emailAddress: link().email_address,
+                            }),
+                            'add-inbox'
+                          )
                         }
                       >
                         Reconnect calendar
@@ -263,7 +300,10 @@ function CalendarDraftComposerContent(props: CalendarDraftComposerProps) {
                       variant="outline"
                       size="sm"
                       onClick={() =>
-                        void startAddInbox({ scopes: 'gmail_and_calendar' })
+                        fireAndForget(
+                          startAddInbox({ scopes: 'gmail_and_calendar' }),
+                          'add-inbox'
+                        )
                       }
                     >
                       Connect calendar
@@ -281,8 +321,12 @@ function CalendarDraftComposerContent(props: CalendarDraftComposerProps) {
               finalized || !props.sink.canAct() || operation() === 'reject'
             }
             pending={operation() === 'create'}
-            onCancel={() => void handleCancel()}
-            onSubmit={(values) => void handleCreate(values)}
+            onCancel={() =>
+              fireAndForget(handleCancel(), 'ai-calendar-compose')
+            }
+            onSubmit={(values) =>
+              fireAndForget(handleCreate(values), 'ai-calendar-compose')
+            }
           />
         </div>
         <Show when={props.showPreview !== false}>

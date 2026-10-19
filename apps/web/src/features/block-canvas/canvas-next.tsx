@@ -1,11 +1,13 @@
 import { useSplitLayout } from '@components/app/split-layout/layout';
+import { useMacroMentionLinkResolver } from '@components/app/split-layout/split-router/mention-links';
 import { StaticMarkdownContext } from '@core/component/LexicalMarkdown/component/core/StaticMarkdown';
-import { parseMacroAppUrl } from '@core/component/LexicalMarkdown/plugins';
+import { resolvePastedMacroAppUrl } from '@core/component/LexicalMarkdown/plugins/text-paste/textPastePlugin';
 import {
   fileTypeToBlockName,
   resolveBlockAlias,
 } from '@core/constant/allBlocks';
 import { useHotkeyDOMScope } from '@core/hotkey/hotkeys';
+import { fireAndForget } from '@core/util/fireAndForget';
 import type { GraphicsEditor, TextMeasurer } from '@macro-inc/graphics';
 import { createGraphicsEditor, screenToWorld } from '@macro-inc/graphics';
 import { fetchDocumentMetadata } from '@queries/storage/document-metadata';
@@ -16,6 +18,8 @@ import type { CanvasFile } from './core/document-format';
 import { registerCanvasNextHotkeys } from './hotkeys';
 import { createAssetState } from './primitives/create-asset-state';
 import { createCanvasState } from './primitives/create-canvas-state';
+import { createCanvasInsertState } from './primitives/create-insert-state';
+import { observeObjectSnapping } from './primitives/observe-object-snapping';
 import { importTextClipboard } from './primitives/text-lexical';
 import { canvasAssetSource } from './queries/assets';
 import { CanvasReadOnlyView } from './views/canvas-read-only-view';
@@ -23,6 +27,7 @@ import { CanvasView } from './views/canvas-view';
 import { createCanvasTextMeasurer } from './views/text-content';
 
 export function CanvasNextEditor(props: {
+  documentId: string;
   initial: CanvasFile;
   canEdit: boolean;
   isEmbedded?: boolean;
@@ -46,6 +51,7 @@ export function CanvasNextEditor(props: {
         }
       >
         <EditableCanvasNext
+          documentId={props.documentId}
           editor={editor}
           measureText={measurement.measure}
           fitOnLoad={props.fitOnLoad}
@@ -60,6 +66,7 @@ export function CanvasNextEditor(props: {
 }
 
 function EditableCanvasNext(props: {
+  documentId: string;
   editor: GraphicsEditor;
   measureText: TextMeasurer;
   fitOnLoad?: boolean;
@@ -68,8 +75,11 @@ function EditableCanvasNext(props: {
 }) {
   const editor = props.editor;
   const state = createCanvasState(editor, props.measureText);
+  observeObjectSnapping(editor, props.documentId);
   const assets = createAssetState(state, canvasAssetSource);
+  const insert = createCanvasInsertState(editor.getCamera);
   const { openWithSplit } = useSplitLayout();
+  const resolveAppLink = useMacroMentionLinkResolver();
   let viewport: HTMLElement | undefined;
   const center = () =>
     screenToWorld(editor.getCamera(), {
@@ -80,8 +90,8 @@ function EditableCanvasNext(props: {
     editor,
     state.setNotice,
     (text, html) => {
-      const link = parseMacroAppUrl(text);
-      if (link.isValid && link.id && link.block) {
+      const link = resolvePastedMacroAppUrl(text, resolveAppLink);
+      if (link?.id && link.block) {
         assets.document(
           { id: link.id, name: 'Document', fileType: link.block },
           center()
@@ -92,11 +102,18 @@ function EditableCanvasNext(props: {
       state.chooseTool('select');
     },
     (files) => {
-      void assets.files(files, center());
-    }
+      fireAndForget(assets.files(files, center()), 'canvas-assets');
+    },
+    { canvasId: props.documentId, center }
   );
   const [attachScope, scopeId] = useHotkeyDOMScope('canvas-next');
-  registerCanvasNextHotkeys(scopeId, state, clipboard, props.canEdit);
+  registerCanvasNextHotkeys(
+    scopeId,
+    state,
+    clipboard,
+    props.canEdit,
+    insert.open
+  );
   props.onFinishReady(state.text.finish);
   onCleanup(() => {
     state.text.finish();
@@ -117,6 +134,7 @@ function EditableCanvasNext(props: {
       scopeId={scopeId}
       embedView={CanvasBlockEmbed}
       assets={assets}
+      insert={insert}
       onViewport={(element) => {
         viewport = element;
       }}

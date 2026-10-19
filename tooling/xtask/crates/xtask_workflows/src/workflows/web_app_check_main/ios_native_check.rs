@@ -5,12 +5,17 @@
 //! the App Store, so a PR whose bundle depends on new native code must not
 //! merge before that native build is actually downloadable. The gate:
 //!
-//! 1. Detects native changes with a path filter over `apps/web/tauri/**`,
+//! 1. Detects native changes: a path filter over `apps/web/tauri/**`,
 //!    minus what never reaches the iOS binary (anything Android-only by
 //!    name, the desktop updater manifest, editor config) — the same
-//!    exclusions as the native tree hash in `scripts/ios_native_tree.sh`.
-//!    The filter needs dorny's `every` quantifier: with the default `some`
-//!    a negated pattern matches every file outside it, i.e. everything.
+//!    exclusions as the native tree hash in `scripts/ios_native_tree.sh` —
+//!    or a bump of the client cache wasm package version
+//!    (`crates/client/cache-wasm/Cargo.toml`): the app compiles the cache
+//!    crates natively, and that version is the team's "this cache change
+//!    must ship" signal, so the bump counts as native while other edits
+//!    under `crates/client` don't. The filter needs dorny's `every`
+//!    quantifier: with the default `some` a negated pattern matches every
+//!    file outside it, i.e. everything.
 //! 2. Verifies the PR bumped the iOS release numbers (`just ios-bump`):
 //!    marketing version, build number, and `min-native-build.json`.
 //! 3. Asks the App Store Connect API whether exactly that version + build is
@@ -26,7 +31,7 @@
 //! `IOS_RELEASE_DOPPLER_TOKEN` secret), shared with the release workflow.
 //!
 //! The `skip-ios-update` label bypasses the gate for tauri changes that don't
-//! break the native/web contract; the `iOS Native Check Label` workflow
+//! break the native/web contract; the `Native Check Label` workflow
 //! re-runs this job when that label is added or removed. The labels are read
 //! through the API at run time, not from `github.event`: a re-run keeps the
 //! payload of the event that started the run, so the event's label list is
@@ -42,8 +47,9 @@ pub(super) const JOB_ID: &str = "ios-native-check";
 /// The job's display name (a check run name).
 pub(super) const JOB_NAME: &str = "iOS Native Check";
 
-/// The path filter matched native iOS code.
-const NATIVE_CHANGED: &str = "steps.native-filter.outputs.ios_native == 'true'";
+/// Native iOS code changed: the path filter matched, or the cache wasm
+/// version moved against the base branch.
+const NATIVE_CHANGED: &str = "(steps.native-filter.outputs.ios_native == 'true' || steps.cache-wasm.outputs.bumped == 'true')";
 /// The PR opted out of the gate via the `skip-ios-update` label (as read at
 /// run time, see [`read_labels`]), and its negation. Spelled out rather than
 /// `!SKIP_LABEL`: in GitHub expressions `!` binds tighter than `==`, so
@@ -65,6 +71,7 @@ pub(super) fn job() -> Job {
         // the base branch itself, only when it runs.
         .add_step(super::checkout("Checkout Repo", false))
         .add_step(paths_filter())
+        .add_step(cache_wasm_version_bump())
         .add_step(read_labels())
         .add_step(setup_bun())
         .add_step(verify_bump())
@@ -100,6 +107,35 @@ fn paths_filter() -> Step<Use> {
                   - '!apps/web/tauri/.helix/**'
             "},
         ))
+}
+
+/// Did this PR move the client cache wasm package version against its base?
+/// Compared on the merge ref, so a bump that already landed on main does not
+/// count. Fetches the base branch (shallow) for the comparison.
+fn cache_wasm_version_bump() -> Step<Run> {
+    Step::new("Detect a client cache wasm version bump")
+        .run(indoc::indoc! {r#"
+            set -euo pipefail
+            manifest=crates/client/cache-wasm/Cargo.toml
+            version() { git show "$1:$manifest" 2>/dev/null | sed -n 's/^version *= *"\([^"]*\)".*/\1/p' | head -1 | grep . || echo none; }
+            # The merge commit's first parent is the main this merge result was
+            # built on; a fresh fetch of main could be newer and misattribute
+            # its bumps to the PR.
+            base_sha=$(git cat-file -p HEAD | sed -n 's/^parent //p' | head -1)
+            git fetch -q --depth=1 origin "$base_sha"
+            echo "base_sha=${base_sha}" >> "$GITHUB_OUTPUT"
+            base=$(version "$base_sha")
+            head=$(version HEAD)
+            echo "cache-wasm version: base ${base} (${base_sha:0:10}), merge result ${head}"
+            if [[ "$base" != "$head" ]]; then
+              echo "bumped=true" >> "$GITHUB_OUTPUT"
+              echo "The client cache wasm version moved; the native app compiles that cache, so this counts as a native change."
+            else
+              echo "bumped=false" >> "$GITHUB_OUTPUT"
+            fi
+        "#})
+        .id("cache-wasm")
+        .shell("bash")
 }
 
 /// The PR's labels as they are now. `github.event.pull_request.labels` is
@@ -138,16 +174,11 @@ fn setup_bun() -> Step<Use> {
 
 fn verify_bump() -> Step<Run> {
     Step::new("Verify iOS release numbers were bumped")
-        .run(indoc::indoc! {r#"
-            set -euo pipefail
-            git fetch --depth=1 origin "$BASE_BRANCH"
-            bun scripts/ios-verify-native-bump.mjs
-        "#})
+        .run("bun scripts/ios-verify-native-bump.mjs")
         .if_condition(gated())
-        .shell("bash")
         .working_directory(xtask_paths::repo_dir!("apps/web"))
-        .add_env(("BASE_BRANCH", "${{ github.base_ref }}"))
-        .add_env(("BASE_REF", "origin/${{ github.base_ref }}"))
+        // The base the merge result was built on (fetched by the cache-wasm step).
+        .add_env(("BASE_REF", "${{ steps.cache-wasm.outputs.base_sha }}"))
 }
 
 /// Exports `APPLE_API_KEY` / `APPLE_API_ISSUER` via `GITHUB_ENV` and writes
@@ -172,6 +203,7 @@ fn require_live_version() -> Step<Run> {
     Step::new("Require the App Store release to be live")
         .run(concat!(
             include_str!("../scripts/ios_native_tree.sh"),
+            include_str!("../scripts/pr_merge_commit.sh"),
             include_str!("../scripts/ios_native_check_live.sh")
         ))
         .if_condition(gated())

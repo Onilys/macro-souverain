@@ -276,3 +276,24 @@ it('keeps optimistic sends scoped to their thread when the source navigates', as
     state.dispose();
   }
 });
+
+it.each([
+  ['gmail', true],
+  ['outlook', false],
+] as const)(
+  'uses the selected %s inbox to decide optimistic send ownership',
+  async (inboxId, queued) => {
+    const state = setup();
+    try {
+      const queueActive = vi.fn((selected?: string) => selected === 'gmail');
+      state.compose.delivery.queueActive = queueActive;
+      const send = state.delivery.sendMessage({ ...input, inboxId });
+      expect(queueActive).toHaveBeenCalledWith(inboxId);
+      expect(state.source.thread()?.messages[1].is_draft).toBe(queued);
+      state.request.resolve({ ...identity, inboxId });
+      await send;
+    } finally {
+      state.dispose();
+    }
+  }
+);

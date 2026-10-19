@@ -19,16 +19,22 @@ The channel/contact option opens the recipient picker.
 Recordings, transcriptions
 and summaries appear here; empty state notes "Calls are available to agents."
 
-Opening a recording uses `/app/drive/call/<callId>` inside the Drive shell,
-with one breadcrumbed header (`My Files > <recording name>`) and a route back to
-Drive. The Drive file list does not include calls.
-Old copied `/app/call/<callId>` links redirect to the Drive detail without losing
-the transcript target. The detail shows a loading state, recording/transcript/summary,
-Share, and a call side panel below the breadcrumb header; a failed load shows Try again.
+Opening a recording uses `/app/calls/call/<callId>` inside the Calls view,
+with one breadcrumbed header (`Calls > <recording name>`). Choose `Calls` to
+return to the list with its search, filters, focus, and scroll position preserved.
+The desktop sidebar remains available; choosing a view or filter, or focusing
+search, returns to the list. Phones show the same detail and return breadcrumb
+instead of switching to Drive. Shift+Enter and Open in new split open
+the recording in a second Calls view.
+Old copied `/app/call/<callId>` links redirect to the Calls detail without losing
+the transcript target. Existing `/app/drive/call/<callId>` links still work.
+The detail shows a loading state, recording/transcript/summary, Share, and a call
+side panel below the breadcrumb header; a failed load shows Retry.
 `call_transcript_id=<segmentId>` seeks the matching video segment after loading.
-Check a direct link, an old copied link, a Calls-list click, a second split,
-the breadcrumb return, and clicking the same transcript search hit twice after
-playing elsewhere. On phones, recorded call headers omit **Call Again**.
+Check a direct link, both old link formats, a Calls-list click, a second split,
+the breadcrumb return, browser Back/Forward, and clicking the same transcript
+search hit twice after playing elsewhere. On phones, recorded call headers omit
+**Call Again**.
 
 A channel's `Calls` tab lists that channel's recordings with the same rows, filtered
 by the channel id. Its search field matches call names and transcripts in that
@@ -112,7 +118,7 @@ in the background, so the next call does not wait for that room to be deleted.
 It keeps its label and shows a checkmark for a few seconds after copying, then
 restores the copy icon.
 
-Guest access is limited to the call room; joining does not expose the channel or grant
+Guest access is limited to the call room and its live text discussion; joining does not expose the channel or grant
 anonymous access to saved transcripts and recordings. Guest names are preserved in
 the host's call history. Signed-in attendees receive access to that session's saved
 call without gaining access to the channel.
@@ -170,3 +176,17 @@ Standalone instant and scheduled calls are excluded from team memory. They have 
 `Share with team` or `Team access` controls during the call or on the saved recording.
 Signed-in participants keep direct access to their recordings, transcripts, and summaries;
 joining a standalone call never makes its content available to the wider team.
+
+### Android native channel calls
+
+Android channel calls use a native call activity rather than browser media.
+After joining, the themed drawer shows a large participant tile and a horizontally
+scrolling participant strip; tap a strip tile to make it primary. Speaker toggles
+speaker mode (hold it for headset/Bluetooth routing), Mute and Video control capture, and **Leave** ends the call.
+The local primary video tile exposes Switch camera. Swipe the drawer handle down,
+tap outside the drawer, or use Back to enter PiP on supported devices; **Open call
+controls** in the web call controls restores the native surface. Leaving the channel does
+not end the call. Incoming calls expose Answer/Decline in the **Calls** notification
+channel, including while locked/backgrounded. PiP is a native, device-dependent
+flow. Browser-only tests cannot validate Telecom, FCM wakeup or background media;
+follow the hardware matrix in [Android development](../development/android.md#native-calling).

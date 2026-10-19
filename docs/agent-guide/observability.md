@@ -69,6 +69,28 @@ trace context — timestamps + service are the only join for those.
   applying and message fan-out remain untraced. Call joining now has a user-action
   trace; see below.
 
+## Account WebSocket sessions
+
+Search for `{ name="auth.session_websockets.activate" }` after signing in.
+`user.id_hash` is SHA-256 of the Macro user ID; this trace suppresses automatic
+raw user-ID enrichment because Macro IDs can contain email addresses. No socket
+URLs, tokens, close reasons, or raw credential errors are recorded.
+
+Gateway and storage child spans share that activation trace. `ws.service`
+identifies the socket. `auth.session_socket.resolve_url` measures authorization
+and URL resolution; `auth.session_socket.handshake` measures the upgrade. Their
+`auth.session_socket.connect` parent ends on connection, failure, or cancellation.
+`auth.session_socket.retry` records retry count and backoff milliseconds;
+`auth.session_socket.close` distinguishes disconnects from session teardown.
+Activation ends promptly rather than staying open for the whole login; later
+retries and closure remain children of its trace.
+
+Auth-refresh HTTP requests started during URL resolution inherit its trace
+context. Browser WebSocket upgrades cannot send custom trace headers, and these
+account backends do not currently consume trace-context query parameters, so
+upgrade server spans are not yet joined to this browser trace. Verify browser
+phases separately rather than assuming end-to-end upgrade correlation.
+
 ## Call joining
 
 Click **Start call** on `/app/meet/new` or **Join call** on a shared meeting's

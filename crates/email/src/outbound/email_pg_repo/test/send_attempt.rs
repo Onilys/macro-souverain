@@ -378,6 +378,9 @@ async fn attachment_edits_cannot_change_accepted_snapshot(
     repo.admit_send(&actor(), link(), attempt, prepared())
         .await?;
     let attachment = models_email::service::attachment::AttachmentDraft {
+        upload_pending: false,
+        content_id: None,
+        is_inline: false,
         id: macro_uuid::generate_uuid_v7(),
         draft_id: message(),
         file_name: "file.txt".into(),
@@ -897,6 +900,64 @@ async fn legacy_snapshot_without_sender_replays_the_original_attempt(
     assert_eq!(
         replayed.send_time.unwrap().timestamp_micros(),
         admitted.send_time.unwrap().timestamp_micros(),
+    );
+    Ok(())
+}
+
+#[sqlx::test(
+    migrator = "MACRO_DB_MIGRATIONS",
+    fixtures(path = "../../../../fixtures", scripts("email_draft"))
+)]
+async fn native_provider_attachments_are_part_of_the_approved_send(
+    pool: Pool<Postgres>,
+) -> anyhow::Result<()> {
+    let native = Uuid::parse_str("00000000-0000-0000-0000-00000000aa99")?;
+    sqlx::query!("INSERT INTO email_attachments(id,message_id,provider_attachment_id,filename,mime_type,size_bytes) VALUES($1,$2,'native-file','native.txt','text/plain',4)", native, message()).execute(&pool).await?;
+    let repo = EmailPgRepo::new(pool.clone());
+    let attempt = SendAttemptId(macro_uuid::generate_uuid_v7());
+    assert!(matches!(
+        repo.admit_send(&actor(), link(), attempt, prepared()).await,
+        Err(EmailErr::InvalidSendSnapshot(_))
+    ));
+    let mut approved = prepared();
+    approved.snapshot.forwarded_attachment_ids = vec![native];
+    let admitted = repo.admit_send(&actor(), link(), attempt, approved).await?;
+    assert_eq!(admitted.status, SendAttemptStatus::Accepted);
+    let manifest = sqlx::query_scalar!(
+        "SELECT approved_attachments FROM email_scheduled_messages WHERE message_id=$1",
+        message()
+    )
+    .fetch_one(&pool)
+    .await?;
+    assert_eq!(manifest["forwarded"], serde_json::json!([native]));
+    Ok(())
+}
+
+#[sqlx::test(
+    migrator = "MACRO_DB_MIGRATIONS",
+    fixtures(path = "../../../../fixtures", scripts("email_draft"))
+)]
+async fn outlook_delivery_stays_with_the_provider_coordinator(
+    pool: Pool<Postgres>,
+) -> anyhow::Result<()> {
+    sqlx::query!(
+        "UPDATE email_links SET provider='OUTLOOK' WHERE id=$1",
+        link()
+    )
+    .execute(&pool)
+    .await?;
+    let attempt = SendAttemptId(macro_uuid::generate_uuid_v7());
+    let result = service(pool.clone())
+        .send_email(actor(), link(), attempt, snapshot())
+        .await;
+    assert!(matches!(result, Err(EmailErr::InvalidSendSnapshot(_))));
+    assert!(
+        !sqlx::query_scalar!(
+            "SELECT EXISTS(SELECT 1 FROM email_send_attempts WHERE attempt_id=$1) AS \"exists!\"",
+            attempt.0
+        )
+        .fetch_one(&pool)
+        .await?
     );
     Ok(())
 }

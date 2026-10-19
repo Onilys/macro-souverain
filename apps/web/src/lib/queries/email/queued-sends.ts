@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import type { EmailSendAttemptFieldsFragment } from '@service-storage/graphql/generated/graphql';
 import { createSignal, onCleanup, onMount } from 'solid-js';
 import { supersededSendRestoration } from './send-draft-lifecycle';
@@ -155,14 +156,14 @@ export function useQueuedEmailSends(enabled: () => boolean = () => true) {
     }
   };
   onMount(() => {
-    void refresh(true);
+    fireAndForget(refresh(true), 'email-queued-sends');
     const unsubscribe = enabled()
       ? watchEmailSends(() => {
-          void refresh();
+          fireAndForget(refresh(), 'email-queued-sends');
         })
       : () => {};
     const reconnect = () => {
-      void refresh(true);
+      fireAndForget(refresh(true), 'email-queued-sends');
     };
     window.addEventListener('online', reconnect);
     const interval = enabled() ? setInterval(reconnect, 5_000) : undefined;

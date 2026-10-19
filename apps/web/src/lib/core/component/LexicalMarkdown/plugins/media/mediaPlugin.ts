@@ -21,6 +21,7 @@ import {
   type MediaType,
   type VideoNode,
 } from '@macro-inc/lexical-core';
+import { Telemetry } from '@macro-inc/observability';
 import { fetchBinaryDocumentData } from '@queries/storage/binary-document';
 import { fileExtension } from '@service-storage/util/filename';
 import {
@@ -333,7 +334,7 @@ function registerMediaPlugin(editor: LexicalEditor) {
 
     editor.dispatchCommand(UPLOAD_MEDIA_START_COMMAND, [key, mediaType]);
 
-    uploadStaticFiles(
+    await uploadStaticFiles(
       [file],
       (id) => {
         cachedUploads.set(uploadKey, id);
@@ -400,7 +401,10 @@ function registerMediaPlugin(editor: LexicalEditor) {
 
           $safeInsertMediaNode(node);
           const nodeKey = node.getKey();
-          handleUpload(payload.file, nodeKey, payload.url, mediaType);
+          handleUpload(payload.file, nodeKey, payload.url, mediaType).catch(
+            (error) =>
+              Telemetry.error(error, { surface: 'media-upload', mediaType })
+          );
           return true;
         }
 
@@ -562,7 +566,12 @@ function registerMediaPlugin(editor: LexicalEditor) {
                 ? 'video'
                 : null;
             if (type) {
-              addMediaFromFile(editor, file, type);
+              addMediaFromFile(editor, file, type).catch((error) =>
+                Telemetry.error(error, {
+                  surface: 'media-upload',
+                  mediaType: type,
+                })
+              );
             }
           }
           input.remove();

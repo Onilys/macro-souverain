@@ -99,6 +99,13 @@ fn api_router(state: ApiContext) -> Router {
     // cal.com validates via HMAC signature.
     let webhook_router = Router::new()
         .nest(
+            "/call/guest-chat",
+            messages::inbound::guest_chat::router(
+                state.guest_chat_service.clone(),
+                state.call_public_rate_limiter.clone(),
+            ),
+        )
+        .nest(
             "/call",
             call::inbound::axum_router::webhook_router(
                 state.call_webhook_state.clone(),
@@ -270,6 +277,10 @@ fn api_router(state: ApiContext) -> Router {
         .nest(
             "/reminders",
             reminders::inbound::axum_router::reminders_router(state.reminders_state.clone()),
+        )
+        .nest(
+            "/entities",
+            access_requests::inbound::axum_router::router(state.access_requests_state.clone()),
         )
         .nest(
             "/initiatives",

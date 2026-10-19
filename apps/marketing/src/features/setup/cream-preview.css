@@ -119,8 +119,8 @@ html[data-palette='cream'] .homepage-embedded-stage::after { background: linear-
 html[data-palette='cream'] .homepage-demo-slide-copy h2 { color: #1d1c1a; }
 
 /* ---- Sample workspace (/demo, embedded on the homepage) ----------------
-   RouteDemo injects the dark palette on .dummy-route via @scope; outrank it. */
-.dummy-route[data-palette='cream'] {
+   Match the HTML bootstrap before RouteDemo's client code runs. */
+html[data-palette='cream'] .dummy-route {
   --color-surface-0: #f5f1e8;
   --color-surface-1: #faf8f3;
   --color-surface-2: #fcfbf8;
@@ -369,7 +369,7 @@ html[data-palette='cream'] .downloads-release a:hover { color: var(--color-ink);
 html[data-palette='cream'],
 html[data-palette='cream'] .feature-page,
 html[data-palette='cream'] .workspace-demo,
-.dummy-route[data-palette='cream'] {
+html[data-palette='cream'] .dummy-route {
   --color-accent: oklch(0.2 0.004 70deg);
   --color-content-3: #72706c;
   --color-content-4: #72706c;

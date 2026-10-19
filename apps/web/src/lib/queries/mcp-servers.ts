@@ -23,6 +23,10 @@ function fetchMcpServers() {
   );
 }
 
+export function mcpServersQueryOptions() {
+  return { queryKey: KEYS.list, queryFn: fetchMcpServers };
+}
+
 export function useMcpServersQuery(options?: {
   /**
    * Poll for connection changes. OAuth finishes in another tab, and if this
@@ -41,8 +45,7 @@ export function useMcpServersQuery(options?: {
   neverSuspend?: boolean;
 }) {
   return useQuery(() => ({
-    queryKey: KEYS.list,
-    queryFn: fetchMcpServers,
+    ...mcpServersQueryOptions(),
     refetchOnMount: 'always' as const,
     refetchOnWindowFocus: 'always' as const,
     refetchInterval: options?.refetchInterval,

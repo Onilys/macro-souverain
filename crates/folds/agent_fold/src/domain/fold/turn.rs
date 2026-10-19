@@ -5,6 +5,7 @@ use crate::domain::model::{Author, FailureNotice, FoldedMessage, MessagePart, St
 use agent_client_protocol::RawJsonRpcParams;
 use agent_client_protocol::schema::v1::{Error, PromptRequest, RequestId};
 use agent_runtime_protocol::domain::action::AgentActionId;
+use chrono::{DateTime, Utc};
 use macro_user_id::user_id::MacroUserIdStr;
 use non_empty::NonEmpty;
 
@@ -46,6 +47,7 @@ impl FoldState {
             parts: NonEmpty::one(part),
             stop: None,
             pending: self.speculative,
+            posted_at: None,
         });
         Some(Changed::new(message))
     }
@@ -56,6 +58,7 @@ impl FoldState {
         prompt_id: &RequestId,
         params: Option<&RawJsonRpcParams>,
         user_id: Option<MacroUserIdStr<'static>>,
+        logged_at: Option<DateTime<Utc>>,
     ) -> Vec<Changed> {
         // A speculative prompt behind a stop is the queue head, dispatching
         // once the cancel lands. The turn it follows can only end one way,
@@ -124,6 +127,7 @@ impl FoldState {
                 parts,
                 stop: None,
                 pending: self.speculative,
+                posted_at: logged_at,
             });
             Changed::new(message)
         });
@@ -247,6 +251,7 @@ impl FoldState {
             }),
             stop: None,
             pending: self.speculative,
+            posted_at: None,
         });
         (message, Changed::new(message))
     }

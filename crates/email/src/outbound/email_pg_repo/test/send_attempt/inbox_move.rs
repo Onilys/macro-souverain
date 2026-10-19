@@ -144,9 +144,7 @@ async fn rejected_attachment_set_rolls_back_the_inbox_move(
     migrator = "MACRO_DB_MIGRATIONS",
     fixtures(path = "../../../../../fixtures", scripts("email_draft"))
 )]
-async fn inbox_move_rejects_forwarded_files_without_deleting_them(
-    pool: Pool<Postgres>,
-) -> anyhow::Result<()> {
+async fn inbox_move_preserves_approved_forwarded_files(pool: Pool<Postgres>) -> anyhow::Result<()> {
     let attachment = macro_uuid::generate_uuid_v7();
     let source = Uuid::parse_str("ee000001-0000-0000-0000-000000000001")?;
     sqlx::query!(
@@ -166,17 +164,16 @@ async fn inbox_move_rejects_forwarded_files_without_deleting_them(
     .await?;
     let mut input = send_snapshot();
     input.forwarded_attachment_ids.push(attachment);
-    assert!(matches!(
-        service(pool.clone())
-            .send_email(
-                actor(),
-                destination(),
-                SendAttemptId(macro_uuid::generate_uuid_v7()),
-                input
-            )
-            .await,
-        Err(EmailErr::InvalidSendSnapshot(_))
-    ));
+    let admitted = service(pool.clone())
+        .send_email(
+            actor(),
+            destination(),
+            SendAttemptId(macro_uuid::generate_uuid_v7()),
+            input,
+        )
+        .await?;
+    assert_eq!(admitted.status, SendAttemptStatus::Accepted);
+    assert_eq!(admitted.message_id, Some(message()));
     let retained = sqlx::query!(
         r#"SELECT m.link_id, f.attachment_id FROM email_messages m
            JOIN email_attachments_fwd f ON f.message_id = m.id WHERE m.id = $1"#,
@@ -184,7 +181,7 @@ async fn inbox_move_rejects_forwarded_files_without_deleting_them(
     )
     .fetch_one(&pool)
     .await?;
-    assert_eq!(retained.link_id, link());
+    assert_eq!(retained.link_id, destination());
     assert_eq!(retained.attachment_id, attachment);
     Ok(())
 }
@@ -241,31 +238,40 @@ async fn inbox_move_does_not_replace_an_existing_destination_reply(
     .await?;
     let mut input = send_snapshot();
     input.message.replying_to_id = Some(Uuid::parse_str("ee000001-0000-0000-0000-000000000001")?);
-    assert!(matches!(
-        service(pool.clone())
-            .send_email(
-                actor(),
-                destination(),
-                SendAttemptId(macro_uuid::generate_uuid_v7()),
-                input
-            )
-            .await,
-        Err(EmailErr::InvalidSendSnapshot(_))
-    ));
+    let admitted = service(pool.clone())
+        .send_email(
+            actor(),
+            destination(),
+            SendAttemptId(macro_uuid::generate_uuid_v7()),
+            input,
+        )
+        .await?;
+    assert_eq!(admitted.status, SendAttemptStatus::Accepted);
+    assert_eq!(admitted.message_id, Some(message()));
     let drafts = sqlx::query!(
-        "SELECT id, link_id, subject FROM email_messages WHERE is_draft AND replying_to_id = $1 ORDER BY id",
-        Uuid::parse_str("ee000001-0000-0000-0000-000000000001")?,
+        "SELECT id, link_id, subject, is_draft FROM email_messages WHERE id = ANY($1) ORDER BY id",
+        &[
+            message(),
+            Uuid::parse_str("ee000005-0000-0000-0000-000000000005")?
+        ],
     )
     .fetch_all(&pool)
     .await?;
     assert_eq!(drafts.len(), 2);
     assert_eq!(drafts[0].id, message());
-    assert_eq!(drafts[0].link_id, link());
+    assert_eq!(drafts[0].link_id, destination());
+    assert_eq!(drafts[0].subject.as_deref(), Some("Approved snapshot"));
     assert_eq!(drafts[1].link_id, destination());
-    assert!(
-        drafts
-            .iter()
-            .all(|draft| draft.subject.as_deref() == Some("Re: Hello World"))
+    assert_eq!(drafts[1].subject.as_deref(), Some("Re: Hello World"));
+    assert!(drafts[1].is_draft);
+    assert_eq!(
+        sqlx::query_scalar!(
+            "SELECT COUNT(*) FROM email_scheduled_messages WHERE message_id = $1",
+            drafts[1].id
+        )
+        .fetch_one(&pool)
+        .await?,
+        Some(0)
     );
     Ok(())
 }

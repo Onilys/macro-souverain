@@ -84,6 +84,7 @@ export function createOptimisticThreadSend(
         body_replyless: null,
         replying_to_id: draft.replying_to_id,
         is_draft: false,
+        is_read: existing?.is_read ?? true,
         scheduled_send_time: null,
         created_at: existing?.created_at ?? now,
         updated_at: now,
@@ -124,7 +125,7 @@ export function createOptimisticThreadSend(
   const delivery: EmailComposeContext['delivery'] = {
     ...compose.delivery,
     async sendMessage(input) {
-      if (compose.delivery.queueActive?.())
+      if (compose.delivery.queueActive?.(input.inboxId))
         return await compose.delivery.sendMessage(input);
       const entry = prepare(input);
       if (!entry) return await compose.delivery.sendMessage(input);

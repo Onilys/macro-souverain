@@ -9,6 +9,7 @@ pub use send::{
     EmailSendAttemptInput, EmailSendAttemptPayload, GraphqlEmailSendMutation, load_send_attempt,
 };
 mod objects;
+mod operation;
 mod user_objects;
 mod user_query;
 

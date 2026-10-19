@@ -23,6 +23,15 @@ const mocks = vi.hoisted(() => ({
   anchor: null as MessageListItem['state']['anchor'],
 }));
 
+const [authenticated, setAuthenticated] = createSignal<boolean | undefined>(
+  true
+);
+vi.mock('@core/context/user', () => ({
+  useIsAuthenticated: () => authenticated,
+}));
+
+beforeEach(() => setAuthenticated(true));
+
 vi.mock('@core/mobile/isTouchDevice', () => ({ isTouchDevice: () => true }));
 vi.mock('@components/app/split-layout/layoutUtils', () => ({
   useSplitPanel: () => undefined,
@@ -108,6 +117,22 @@ function setup() {
   input.value = 'Unsent comment';
   return { input, setEditorHasFocus };
 }
+
+it('does not mount comment readers or the composer before sign-in', () => {
+  setAuthenticated(undefined);
+  render(() => <DocumentDiscussion editorHasFocus={false} />);
+  expect(screen.getByText('Sign in to view comments.')).toBeTruthy();
+  expect(mocks.conversation).not.toHaveBeenCalled();
+  expect(mocks.mount).not.toHaveBeenCalled();
+
+  setAuthenticated(false);
+  expect(mocks.conversation).not.toHaveBeenCalled();
+  setAuthenticated(true);
+  expect(mocks.conversation).toHaveBeenCalledOnce();
+  setAuthenticated(false);
+  expect(screen.getByText('Sign in to view comments.')).toBeTruthy();
+  expect(screen.queryByRole('textbox')).toBeNull();
+});
 
 describe('mobile document discussion accessory', () => {
   it('moves the composer to the accessory and hides an empty conversation', () => {

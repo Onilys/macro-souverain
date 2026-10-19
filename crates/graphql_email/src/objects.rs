@@ -15,6 +15,7 @@ use crate::loaders::{
 };
 
 const FULL_MESSAGE_FIELDS: &[&str] = &[
+    "operationStatus",
     "providerId",
     "replyingToId",
     "scheduledSendTime",
@@ -128,6 +129,13 @@ impl GraphqlSoupEmailMessage {
     /// The unique message identifier.
     async fn id(&self) -> ID {
         ID(self.parsed().db_id.to_string())
+    }
+
+    /// Provider-neutral synchronization and delivery progress, including uncertainty.
+    async fn operation_status(
+        &self,
+    ) -> async_graphql::Result<Option<crate::operation::GraphqlMessageOperation>> {
+        Ok(self.full()?.operation_status.clone().map(Into::into))
     }
 
     /// The identifier assigned by the email provider.
@@ -333,6 +341,8 @@ impl GraphqlSoupEmailMessage {
 /// A provider-hosted attachment embedded in an email message.
 #[derive(SimpleObject)]
 pub struct GraphqlSoupEmailMessageAttachment {
+    /// Cloud-reference attachments open in the provider and have no binary download.
+    reference_url: Option<String>,
     /// The attachment's canonical database identifier.
     id: ID,
     /// The attachment identifier assigned by the email provider.
@@ -352,6 +362,7 @@ pub struct GraphqlSoupEmailMessageAttachment {
 impl GraphqlSoupEmailMessageAttachment {
     fn new(value: &MessageAttachment) -> Self {
         Self {
+            reference_url: value.reference_url.clone(),
             id: ID(value.db_id.to_string()),
             provider_id: value.provider_id.clone(),
             filename: value.filename.clone(),
@@ -380,6 +391,12 @@ pub struct GraphqlSoupEmailDraftAttachment {
     size: i32,
     /// The storage key containing the uploaded attachment.
     s3_key: String,
+    /// True until upload completion is verified.
+    upload_pending: bool,
+    /// Original inline attachment identity.
+    content_id: Option<String>,
+    /// Whether the attachment belongs in the message body.
+    is_inline: bool,
 }
 
 impl GraphqlSoupEmailDraftAttachment {
@@ -392,6 +409,9 @@ impl GraphqlSoupEmailDraftAttachment {
             sha: value.sha.clone(),
             size: value.size,
             s3_key: value.s3_key.clone(),
+            upload_pending: value.upload_pending,
+            content_id: value.content_id.clone(),
+            is_inline: value.is_inline,
         }
     }
 }
@@ -590,6 +610,8 @@ mod tests {
                             thread_id,
                             link_id: Uuid::from_u128(3),
                             latest_inbound_message_ts: None,
+                            latest_outbound_message_ts: None,
+                            latest_non_spam_message_ts: None,
                             reminder_returned_at: None,
                         }),
                     )

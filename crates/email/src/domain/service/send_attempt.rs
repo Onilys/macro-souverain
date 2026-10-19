@@ -53,6 +53,11 @@ where
             log_attempt_outcome("send", &attempt, started);
             return self.hydrate_send_attempt(link_id, attempt).await;
         }
+        if link.provider != crate::domain::models::UserProvider::Gmail {
+            return Err(EmailErr::InvalidSendSnapshot(
+                "Queued sends require a Gmail inbox; send this draft through its provider".into(),
+            ));
+        }
         tracing::Span::current().record("phase", "prepare");
         let prepare = async {
             if snapshot.message.db_id.is_none()
@@ -74,11 +79,6 @@ where
             let (message, contacts, new_thread, source_inbox) = self
                 .prepare_message(link, &inboxes, input, false, true)
                 .await?;
-            if source_inbox.is_some() && !snapshot.forwarded_attachment_ids.is_empty() {
-                return Err(EmailErr::InvalidSendSnapshot(
-                    "forwarded attachments belong to the original inbox; select that inbox or upload the files before sending".into(),
-                ));
-            }
             let restore_html = snapshot
                 .restore_body_html
                 .as_ref()

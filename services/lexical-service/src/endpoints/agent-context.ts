@@ -324,6 +324,7 @@ const routineTrigger = z.discriminatedUnion('type', [
 
 const triggerContextSchema = z.discriminatedUnion('kind', [
   discussionContext.extend({ kind: z.literal('mentioned') }),
+  discussionContext.extend({ kind: z.literal('conversation') }),
   z.object({
     kind: z.literal('follow_up'),
     addressed_by: z.enum(['mention', 'explicit_reply', 'inferred']),

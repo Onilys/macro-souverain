@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import { createSignal } from 'solid-js';
 import { EmailDateSelector } from '../components/email-date-selector';
 import {
@@ -93,7 +94,9 @@ export function ScheduleRecoveryFixture() {
       />
       <button
         disabled={schedule.action() === 'unavailable'}
-        onClick={() => void schedule.submit()}
+        onClick={() =>
+          fireAndForget(schedule.submit(), 'email-schedule-fixture')
+        }
       >
         Send email
       </button>

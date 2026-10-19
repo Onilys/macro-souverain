@@ -173,3 +173,17 @@ async fn recovered_completion_publishes_canonical_thread_and_keeps_message_ident
     );
     Ok(())
 }
+
+#[test]
+fn missing_forwarded_sources_fail_before_provider_submission() {
+    use email::domain::forwarded_attachments::ForwardedAttachmentError;
+    for error in [
+        ForwardedAttachmentError::DraftNotFound,
+        ForwardedAttachmentError::AttachmentNotFound,
+    ] {
+        assert!(matches!(
+            classify_preparation_error(error.into()),
+            PreparationError::Failed(_)
+        ));
+    }
+}

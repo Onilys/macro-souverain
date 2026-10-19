@@ -78,20 +78,7 @@ async fn source_deletion_after_snapshot_cannot_shrink_the_payload(
     .await?;
     assert!(current.is_empty());
     assert_eq!(snapshot.forwarded.len(), 2);
-    assert!(
-        snapshot
-            .forwarded
-            .iter()
-            .all(|attachment| attachment.message_provider_id == "gmail-original-msg-001")
-    );
-    assert_eq!(
-        snapshot.forwarded[0].provider_attachment_id.as_deref(),
-        Some("gmail-att-id-002")
-    );
-    assert_eq!(
-        snapshot.forwarded[1].provider_attachment_id.as_deref(),
-        Some("gmail-att-id-001")
-    );
+    assert_eq!(snapshot.forwarded, approved().forwarded);
     Ok(())
 }
 

@@ -7,7 +7,7 @@
 3. For a team channel, click `Create`. For a private channel, select `Private — only specific people` and click `Create`. Creation navigates to the channel (as a split pane: `.../channel/<uuid>`); a system row `Channel <name> created` appears.
 4. Step 3 of 3 is an optional invite dialog for either channel type. The recipient combobox searches people and saved agents by name; it also accepts complete email addresses. Select a suggestion or press **Enter** to tokenize it. An unknown complete email appears as **Invite** with a paper airplane icon. Raw text left in the input is not submitted. Click `Add` when recipients are selected, or `Skip for now` to finish without invitees. Selected agents are added through the channel's agent membership endpoint. For team channels, `Automatically add teammates` defaults on; turning it off leaves the channel discoverable without automatically adding current or future teammates. The switch choice is applied when the invite dialog is finished or closed.
 
-Team channels are always discoverable to the team. Private channels can only be viewed or joined by invitation. A DM is a channel between two users.
+Team channels are always discoverable to the team. Private channels can only be viewed or joined by invitation. A DM is a private conversation between two people, or between one person and an agent persona.
 An external email can be selected as a channel participant. For an unregistered recipient, clicking `Add` sends an email invite.
 
 The first message in a DM to an unregistered recipient sends an email saying
@@ -16,6 +16,100 @@ button leading to signup. It must not invite the recipient to `#<their own name>
 Named-channel invites still show `#<channel name>` and **Join channel**.
 Verify both emails in local Mailpit using distinct, unregistered test addresses;
 repeat with a plus-addressed DM recipient to check the email-name fallback.
+
+## Private conversations with an agent
+
+Agent DM discovery is on in development builds (dev.macro.com and `bun run dev`)
+and off in production; there is no PostHog flag. Override it with
+`VITE_ENABLE_AGENT_DMS=true` or `false` before starting Vite or building the
+frontend. Disabling discovery does not delete existing conversations or cancel
+their work.
+
+Choose an agent in **Create → Message**, or click **Message** in its settings or
+bot profile. The picker offers your agents, eligible team agents, and Macro.
+Choosing an agent removes other recipients. Reopening the same persona returns
+to your existing private channel. Team ownership of an agent does not share
+your DM with teammates. Calls and additional participants are unavailable.
+
+With the backend rollout switch enabled, the backing context stays out of the
+standalone **Agents** and **Home** session lists, including earlier contexts
+and contexts started fresh through the API.
+The DM remains in Channels/DMs. Opening its session by ID still works for an
+authorized reader, including streaming, questions, approvals, and Stop. Verify
+that an ordinary standalone session still appears in Agents/Home, the DM stays
+available in Channels, and reopening the DM resumes the same context.
+
+DM session hiding has a separate backend rollout switch, initially disabled.
+Deploy the warm-marker migration and all updated harness replicas first; once
+no old warm reapers remain, set `HIDE_AGENT_DM_SESSIONS=true` for
+agent-harness-service and redeploy.
+New contexts are hidden immediately; a bounded startup/60-second backfill also
+hides existing contexts, including ones created by a replica still running with
+the switch off. The frontend discovery flag alone does not gate existing DMs
+or API callers. Until this backend switch is enabled, DM contexts retain their
+previous visibility. Before rolling back to code with the old warm predicate,
+restore DM visibility by reverting the migration before starting old service
+code; merely disabling the switch does not unhide existing contexts.
+Updated claim and cleanup require `for_warming` as well as hidden/unthreaded
+state, and exclude conversation reservations; genuine
+speculative sessions still expire normally.
+
+Send normally: no `@` mention is needed. Attachments, references, and quoted
+messages use the channel composer. While the agent works, a typing row with its
+avatar sits under the newest message: `<name> is thinking`, `is typing`,
+`is working`, or `is waiting for an answer`. Below that row, the owner sees the
+passage being written as it streams. They also see any live question or
+permission request and **Stop**, which cancels the active turn. Answer those
+controls to continue. If **Stop** fails, a failure toast appears and the control
+becomes available again so you can retry.
+
+The reply is posted as ordinary messages while the turn runs. Each finished
+passage becomes a message. The steps taken between passages show inside the
+message as compact rows: a status icon (spinner, check, cross, or warning for
+interrupted), a label such as `Ran`, `Read`, `Edited`, or `Searching`, and a
+short detail like the command or file name for readers with session access.
+Stored activity snapshots keep the status and label but omit commands and tool
+input details, in both shared threads and DMs. A long run shows its latest six
+steps behind an `N earlier steps` control. Rows tick live while the run is
+open, then freeze
+into the snapshot saved in the message. Readers without session access always
+see that snapshot. Only the turn's last message notifies. Previews and search
+quote the passages, not the steps. Typing refreshes every 3 seconds and clears
+on its own if the agent's replica dies. Follow-up messages queue in order, and
+the bar above the composer counts them (`1 queued`). Editing a sent message
+does not invoke the agent again. A reply inside a thread is not part of the
+conversation: the agent answers it only when mentioned there, in the thread,
+as in any channel.
+
+Each failed, stopped, or interrupted source message has its own **Retry message**
+action in the current context. Retry is explicit because an interrupted attempt
+may already have performed an external action. Refreshing or reopening the
+channel does not rerun completed messages. A disconnected live display offers
+**Reconnect** without issuing another prompt.
+
+The conversation has no control for resetting the agent's context; it
+continues in one context. A context keeps the persona instructions, model,
+tools, and permission choice it started with, across reconnects; later persona
+edits do not reach it. A
+harness operator can still revoke permission bypass. Contexts started earlier
+through the API stay marked by a divider before their first message.
+
+If access to the persona is revoked or the persona is deleted, the transcript
+remains readable and the composer explains that the agent is unavailable. New
+prompts, retries, and answers to pending approvals require current access.
+
+For rollout verification, cover a private persona, a team persona as two
+different users, simultaneous opens, queued follow-ups, reload during a turn
+(the typing row and live steps return without a duplicate reply), a multi-step
+turn whose steps tick from running to done, attachments, an inline question,
+an approval, and Stop/Retry.
+Check both desktop and a narrow viewport. Search the Channels view by persona
+name to reopen older DMs, including ones outside the currently loaded page.
+Harness traces use `macro.event.type=agent_trigger.conversation_message` and
+`agent.session.id`; the durable turn journal distinguishes queued, running,
+succeeded, failed, stopped, and interrupted attempts. Check completion latency,
+failed/interrupted turns, queue age, and duplicate source admissions during
+internal rollout. Model usage continues through the existing session metering.
 
 ## Imported Slack history
 
@@ -505,6 +599,11 @@ On a cold channel open, verify that delayed bot/agent mention requests leave the
 messages and composer visible. Expand a thread while its replies are still
 loading: existing preview replies should remain visible until the full list
 arrives. Repeat after reopening the channel to cover both cold and cached data.
+For PR mentions, also fail a GitHub connection-status request, then paste a
+mention while the retry is held pending. The composer must stay visible and
+focused, and messages containing PR mentions must render immediately. Resolve
+the retry as linked, unlinked, or failed: none should hide the surrounding UI;
+only a confirmed unlinked/reauthentication status changes the chip to a link.
 Scrolling a collapsed thread into view must keep its timeline preview unchanged,
 without fetching or revealing the full reply list. Cached replies from a previous
 expansion must not enlarge that preview either. Explicit expansion, replying,
@@ -520,14 +619,32 @@ reaction, and typing routes no longer exist. Live updates arrive as one
 frames are no longer sent. Documents share the same client, cache, and
 components (see documents.md).
 
-Reopening a channel already loaded this session requests
-`GET /dss/messages/channel/<id>?selection=<cursor of the newest cached root, direction newer, limit 50>`
-and merges the result into the cached first page. A first open, a message link,
-a channel cached away from its latest page, and a delta longer than one page load
-the latest page with the default selection. The `channel_messages_load` event
-records `path` (`catch_up` or `full`) and `reason`
-(`watermark`, `list_ahead`, `no_cache`, `cache_not_at_latest`, `load_around`,
-`delta_overflow`, or `catch_up_error`).
+Reopening a cached channel, reconnecting its live subscription, or returning
+from an absence past the presence window revalidates its timeline with
+`GET /dss/messages/channel/<id>/timeline?selection=<default latest-page selection>`.
+This replaces stale roots and their reply previews, reactions, and edits, and
+removes deleted roots even when no newer top-level message exists. Loaded older
+pages are also refetched using the refreshed cursors. A committed live change
+restarts any in-flight channel timeline refresh, including when older pages are
+still loading, so its result cannot overwrite that change. Idle channels still
+apply live events without fetching; cached content stays visible if a refresh
+fails. Message links still load around the targeted message.
+The `channel_messages_load` event records `path: full` and `reason`
+(`revalidate`, `no_cache`, `cache_not_at_latest`, or `load_around`).
+Actual in-flight restarts emit a `channel.timeline_restart` span, searchable by
+`channel.id`. `query.count` records the number of restarted queries;
+`query.fetch_more_directions` and `query.outcomes` are arrays in the same query
+order (`refetch`/`forward`/`backward` and `fulfilled`/`rejected`). The span also
+records fulfilled/rejected counts and is marked as an error if any restart fails.
+Idle channels emit no restart span. Request error text and message content are
+not included.
+
+To verify recovery, open a root with no replies, disconnect that client's live
+updates, then add replies and reactions, edit another root, and delete a root
+from a second client without posting a new top-level message. Reconnect the first
+client: the collapsed preview, reply count, reactions, text, and deleted row must
+all catch up without a reload. Repeat with older pages loaded and after a mobile
+background/foreground cycle.
 
 ## Message reaction notifications
 
@@ -565,7 +682,7 @@ seen without moving the conversation. No notification read marking runs
 from an abbreviated list result, even if that result is empty. Access failures
 show **Conversation unavailable** and stay hidden during retry until access is
 confirmed. A route without cached channel metadata shows **Loading conversation**
-until its channel arrives. On mobile, opening from Recent, Channels, or DMs
+until its channel arrives. On mobile, opening from the Recent conversation list
 also navigates immediately: a slow or failed notification lookup must not prevent
 messages and the composer from loading. Full-edge notification hydration runs
 only after navigation is accepted; failure leaves unread state unchanged and
@@ -767,18 +884,13 @@ conversation cards on `Recent`. Switching tabs preserves the active search and
 query, then scrolls the results to the selected channel when present or to the
 start. Closing search restores the active tab and applies the same scroll
 behavior to its lists. An empty result uses the standard search empty state
-artwork and wraps long queries. Desktop and the mobile dock use the same channel
-name search: local fuzzy matches plus service results, deduplicated by channel
-ID. Desktop searches across channels and DMs; mobile retains its Recent,
-Channels, or DMs scope. An empty query shows the ordinary list. Scrolling search
-results loads the next search page; clearing the query restores ordinary list
-pagination. Check both surfaces with a matching query, a query with no matches,
-and a clear/reopen cycle.
-On mobile, a nonempty query with no matches shows **No results**, echoes the
-query, and offers **Clear search**. Clearing restores the selected tab's list
-and keeps the dock search session open. The tab's usual empty state and create
-actions appear only when no search text is entered; loading and request errors
-keep their own states.
+artwork and wraps long queries. Desktop channel name search combines local fuzzy
+matches and service results,
+deduplicated by channel ID, across channels and DMs. An empty query shows the
+ordinary list. Scrolling search results loads the next search page; clearing the
+query restores ordinary list pagination. Check a matching query, a query with no
+matches, and a clear/reopen cycle. Mobile dock search uses the independent Search
+route described below.
 Recent search includes both channels and DMs, including service hits without
 message previews. It does not require message metadata or an importance filter.
 Loaded conversation metadata is preserved when a service hit has the same ID.
@@ -808,25 +920,18 @@ into the appended rows. If the section has no next page, navigation proceeds
 to the next section. `[` and `]` jump between the visible Favorites,
 Channels, and DMs section headers.
 
-On touch layouts, the `Recent`, `Channels`, and `DMs` pill tabs each retain
-their own loaded pages and load more as their active list approaches the end.
-The mobile dock search filters the selected tab by conversation name as you type:
-`DMs` searches people, `Channels` searches non-DM channels, and `Recent` searches
-both. Loaded matches appear immediately; queries of at least three characters
-also search the server, including conversations beyond the loaded page. Changing
-tabs keeps the query and changes its scope. Closing search restores the ordinary
-list. Verify `Channels` → `DMs` → type a person's name with GraphQL enabled:
-unrelated rows disappear, no matches shows **No results**, and switching to
-Channels never keeps DM search hits. Changing the query resets list scroll
-without blurring the dock input. While a background browse-list refresh is still
-pending, scroll near the end of search results: the next search page should load
-without waiting for that refresh or requiring another scroll. Clearing search
-restores the browse list's own pagination and fetching state. A failed browse
-request must not show a load-error message over valid search hits or replace
-**No results**, including during debounce and short local-only queries. Search
-failures still show their own error; clearing search restores the browse error.
-With `enable-graphql-soup` enabled, open an unread conversation from each tab
-and return to the list: all notifications on top-level messages should be seen,
+On touch layouts, Channels shows only the Recent conversation feed, with channel
+and DM message previews. There are no view tabs or reserved tab-header space;
+older saved tab selections and mobile-tab links cannot change the list. It loads
+more as the list approaches the end and supports pull to refresh.
+The mobile dock Search button opens the independent Search route. Its Channels
+and People categories search cached channel names and people directly; the
+conversation list does not constrain results. Full-text search is explicit,
+and People uses the existing channel-content scope. Closing search resets its
+session; the conversation list retains its browse pagination. See
+[Search](search.md) for mode, keyboard, and session-reset checks.
+With `enable-graphql-soup` enabled, open an unread conversation from the mobile
+list and return to the list: all notifications on top-level messages should be seen,
 including mentions and reactions older than the global feed's loaded page.
 Replies and mentions inside threads remain unread. Channel-view unread badges
 only represent top-level messages and mentions; unread replies and reactions do
@@ -928,8 +1033,15 @@ and returns focus to the chat button; reopening preserves the draft and scroll
 position. The call continues while chat is open or closed.
 
 Signed-in participants in channel, quick, and scheduled calls use the same chat
-panel. Guest meeting participants do not see chat because shared messages require
-a Macro account. Each call session has one persistent message thread, using the
+panel. Guests in quick and scheduled calls can also open chat and read and send
+text without signing in. Guest authors appear as **Name (Guest)**. Their composer
+uses Enter to send on desktop and the Send button on touch devices, preserves drafts on close, and
+keeps failed messages available to retry. Guest chat refreshes while open and is
+available only while that guest is connected to the call. Check a signed-in
+participant and a guest exchanging messages in both directions, then verify the
+guest loses access after leaving or after the call ends. Guest messages remain
+in the saved call discussion. Each call session has one persistent message thread;
+signed-in participants use the
 shared message composer, attachments, reactions, and message actions. The `@`
 menu offers Macro and available owned and team agents. Mention an agent and send
 to invoke it in the call thread; follow-up mentions use the same thread. Reply
@@ -1028,12 +1140,12 @@ conversation renders an inline detail whose top bar holds the channel avatar
 and name, the same inset tab strip, live viewer avatars, and the `Call` and
 `Ask Macro` buttons. In Chat an ellipsis follows the name and opens the same
 entity actions as right-clicking the conversation's rail row — `Open in new
-split`, `Rename`, `Favorite`/`Unfavorite`, `Snooze notifications…`, `Mute
-notifications`, `Remind me`, `Copy Link`, `Copy ID` — so a channel can be
-favorited without finding its row. A channel inlined in another view's detail
-stack has no such menu. Channel-picture actions are in neither: they belong to
-the split's own title `...` menu, so open the channel as a split (shift-click a
-rail row) to reach them.
+split`, `Rename`, `Set channel picture`, `Remove channel picture` (only when the
+channel has one), `Favorite`/`Unfavorite`, `Remind me`, `Snooze notifications…`, `Mute
+notifications`, `Copy Link`, `Copy ID` — so a channel can be favorited or given
+a picture without finding its row. A channel inlined in
+another view's detail stack has no such menu. The split's own title `...` menu
+offers the same picture actions.
 
 `Calls` tab: recordings, transcriptions, and summaries for this channel. Click a
 row to open the call. The search field above the list matches call names and
@@ -1076,8 +1188,9 @@ and admins when team settings are available. People keeps search and the compact
 `Add participants` opens a bottom sheet; Bots has its own full-height list and an
 `Invite bot` sheet. Bots uses the same search toolbar and plain rows as People;
 `Search bots` filters existing bots by name, handle, or description, with compact
-`New bot` and `Invite bot` actions beside it. The fallback AI composer and New
-button are hidden throughout this page and return when leaving it. Both sheets use the standard mobile keyboard-aware layout and
+`New bot` and `Invite bot` actions beside it. The fallback New button is hidden
+throughout this page and returns when leaving it. Channel views have no floating
+AI composer. Both sheets use the standard mobile keyboard-aware layout and
 close after a successful add. Check switching tabs, closing/reopening both sheets,
 and scrolling a long participant list above the bottom dock, with and without the
 keyboard open. An invite-bot request from the channel menu opens the Bots tab and
@@ -1125,18 +1238,21 @@ message or acknowledgement and verify that it does not pull you to latest.
 
 ## Channel pictures
 
-Channels and group chats can have a custom picture. Any active participant can
-`Rename` a named channel from the title menu. Direct messages cannot be renamed.
-Only admins and owners also get `Set channel picture` and `Remove channel
-picture`. Choose `Set channel picture` to add or replace a picture. Select a PNG, JPG,
-WebP, or GIF up to 16 MB. The upload must finish before the picture is saved;
-the server accepts only supported images uploaded by the person setting the
-picture. An error leaves the previous picture in place. When a picture is set, the menu also offers
-`Remove channel picture` to restore the standard channel icon. The picture
+Channels and group chats can have a custom picture. Anyone who can `Rename` a
+channel can also set its picture: any active participant of a named channel,
+from the channel's rail context menu, the Chat title ellipsis, or the split's
+own title `...` menu. Direct messages can be neither renamed nor given a
+picture. Choose `Set channel picture` to add or replace a picture. Select a PNG,
+JPG, WebP, or GIF up to 16 MB. The upload must finish before the picture is
+saved; the server accepts only supported images uploaded by the person setting
+the picture. An error leaves the previous picture in place. When a picture is
+set, the menu also offers `Remove channel picture` to restore the standard
+channel icon. The picture
 beside the title is display-only and also appears in shared channel rows.
 Picture changes refresh other participants' open sessions, including after
 reconnecting.
-Members see the picture without editing controls. One-to-one direct messages
+A team channel the viewer has not joined shows its picture without editing
+controls. One-to-one direct messages
 continue to show the other person's user picture.
 
 Opening the slash menu with `/` lists Normal Text, headings, and the other

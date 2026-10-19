@@ -5,6 +5,7 @@ import {
   type BackgroundEffect,
   backgroundProcessorOptions,
 } from '@core/media/background-effect';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { holdAutomaticReload } from '@core/util/reloadForNewerBuild';
 import type { KrispNoiseFilter } from '@livekit/krisp-noise-filter';
 import type { BackgroundProcessorWrapper } from '@livekit/track-processors';
@@ -57,7 +58,8 @@ import {
   useMaybeNativeCallState,
 } from './native-call-state';
 import {
-  isNativeIosCallKitEnabled,
+  isNativeCallEnabled,
+  prepareNativeCallJoin,
   registerCallKitCallEndedHandler,
 } from './use-callkit';
 
@@ -1068,7 +1070,7 @@ function createCallState() {
 
   // Re-enumerate when devices change (e.g. headphones plugged in)
   const handleDeviceChange = () => {
-    enumerateDevices();
+    fireAndForget(enumerateDevices(), 'call-devices');
   };
   navigator.mediaDevices?.addEventListener('devicechange', handleDeviceChange);
 
@@ -1576,6 +1578,7 @@ function createCallState() {
 
   const lifecycle = createCallLifecycle({
     shouldRequestToken: callSession.shouldRequestToken,
+    prepareToken: prepareNativeCallJoin,
     requestToken: requestCallToken,
     connect: (token) =>
       callSession.connectWithToken(token, {
@@ -1614,7 +1617,7 @@ function createCallState() {
           answeredBy: answeringUserId,
         });
       }
-      void invalidateActiveCallQueries();
+      fireAndForget(invalidateActiveCallQueries(), 'call-membership');
       analytics.track('call_action', {
         action: 'joined',
         channelId: call.channelId,
@@ -1649,7 +1652,7 @@ function createCallState() {
   });
 
   const unsubscribeNative =
-    isNativeIosCallKitEnabled() && nativeCall
+    isNativeCallEnabled() && nativeCall
       ? bindNativeCallLifecycle(nativeCall, lifecycle)
       : undefined;
 

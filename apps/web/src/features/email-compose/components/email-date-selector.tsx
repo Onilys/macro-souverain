@@ -2,6 +2,7 @@ import {
   type EmailScheduleState,
   scheduleTimeLocked,
 } from '@app/features/email-compose/primitives/email-send-schedule';
+import { fireAndForget } from '@core/util/fireAndForget';
 import ClockIcon from '@phosphor/clock.svg';
 import { buttonClasses, cn, Tooltip } from '@ui';
 import { addYears } from 'date-fns/addYears';
@@ -98,7 +99,9 @@ export const EmailDateSelector: VoidComponent<EmailDateSelectorProps> = (
                   class="rounded-lg px-2 py-1.5 text-left text-sm text-failure hover:bg-hover disabled:text-ink-extra-muted"
                   disabled={props.operation !== 'idle'}
                   onPointerDown={(event) => event.preventDefault()}
-                  onClick={() => void props.onCancelSchedule?.()}
+                  onClick={() =>
+                    fireAndForget(props.onCancelSchedule?.(), 'email-compose')
+                  }
                 >
                   {props.operation === 'cancelling'
                     ? 'Cancelling schedule…'

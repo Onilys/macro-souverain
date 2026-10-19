@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import { $getRoot } from 'lexical';
 import { createSignal } from 'solid-js';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -74,7 +75,7 @@ it.each([
     try {
       root.edit('Original body');
       if ('state' in root) root.state.context.onSend();
-      else void root.sendEmail();
+      else fireAndForget(root.sendEmail(), 'email-restoration-test');
       await vi.advanceTimersByTimeAsync(0);
       expect(context.delivery.sendMessage).toHaveBeenCalledOnce();
       setLocked(false);
@@ -97,7 +98,7 @@ it.each([
           () => new Promise<never>(() => {})
         );
         if ('state' in root) root.state.context.onSend();
-        else void root.sendEmail();
+        else fireAndForget(root.sendEmail(), 'email-restoration-test');
         await vi.advanceTimersByTimeAsync(0);
         expect(context.drafts.saveLocalDraft).toHaveBeenCalledOnce();
         expect(

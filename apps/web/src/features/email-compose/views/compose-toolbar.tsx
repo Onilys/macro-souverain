@@ -26,20 +26,24 @@ import { useCompose } from '../context/compose-context';
 export function EmailComposeToolbar(props: {
   editor?: () => LexicalEditor | undefined;
   status?: JSX.Element;
+  /** Embedded drafts keep their controls in the card on phones too. */
+  inline?: boolean;
 }) {
   const ctx = useCompose();
   const [showFormatRibbon, setShowFormatRibbon] = createSignal(false);
   const handleAddAttachments = (files: File[]) => {
     const currentAttachments = ctx.attachments();
+    const limit = ctx.attachmentLimitBytes?.() ?? MAX_ATTACHMENTS_BYTES_SIZE;
+    const limitMB = limit / 1_000_000;
 
     const attachmentsToAddByteSize = files.reduce(
       (sum, f) => sum + getUploadFileSize(f),
       0
     );
 
-    if (attachmentsToAddByteSize >= MAX_ATTACHMENTS_BYTES_SIZE) {
+    if (attachmentsToAddByteSize > limit) {
       ctx.attachmentFailure(
-        `${plural('Attachment', files.length)} exceed 18MB`
+        `${plural('Attachment', files.length)} exceed ${limitMB}MB`
       );
       return;
     }
@@ -50,12 +54,9 @@ export function EmailComposeToolbar(props: {
       0
     );
 
-    if (
-      currentAttachmentsByteSize + attachmentsToAddByteSize >=
-      MAX_ATTACHMENTS_BYTES_SIZE
-    ) {
+    if (currentAttachmentsByteSize + attachmentsToAddByteSize > limit) {
       ctx.attachmentFailure("Can't add more attachments", {
-        subtext: 'Total attachments exceed 18MB limit',
+        subtext: `Total attachments exceed ${limitMB}MB limit`,
       });
       return;
     }
@@ -70,7 +71,7 @@ export function EmailComposeToolbar(props: {
 
   return (
     <Show
-      when={!ctx.isMobile()}
+      when={props.inline || !ctx.isMobile()}
       fallback={
         <MobileToolbar
           handleAddAttachments={handleAddAttachments}

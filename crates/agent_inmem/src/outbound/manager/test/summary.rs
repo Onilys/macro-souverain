@@ -111,7 +111,7 @@ async fn a_restarted_manager_reads_a_summary_in_place_of_the_turns_it_covered() 
     let id = AgentSessionId::new();
     sessions
         .create_session(CreateAgentSessionParams {
-            warm: false,
+            purpose: agent_session::domain::model::SessionPurpose::Standalone,
             repo_branch: None,
             id,
             owner_id: Owner::User(owner()),
@@ -148,7 +148,10 @@ async fn a_restarted_manager_reads_a_summary_in_place_of_the_turns_it_covered() 
         Arc::new(crate::domain::mcp::NoMcpServers),
         Arc::new(crate::testing::TestModelAccess::paid()),
     );
-    let transport = before.attach(on_model(None), None).await;
+    let transport = before
+        .attach(on_model(None), None)
+        .await
+        .expect("history should restore");
     sessions
         .attach_session(id, RuntimeAttachment::solo(transport))
         .await

@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import { draftQueueActive } from '@queries/email/draft-queue';
 import { useQueuedEmailSends } from '@queries/email/queued-sends';
 import {
@@ -152,13 +153,18 @@ function SendStatus(props: {
               props.intent.metadata.replace &&
               props.intent.phase === 'pending')
           }
-          onClick={() => void cancel()}
+          onClick={() => fireAndForget(cancel(), 'email-compose-cancel-send')}
         >
           {emailSendLocked(props.intent) ? 'Cancel' : 'Restore draft'}
         </Button>
       </Show>
       <Show when={status() === 'DELIVERY_UNCONFIRMED'}>
-        <Button disabled={working()} onClick={() => void checkStatus()}>
+        <Button
+          disabled={working()}
+          onClick={() =>
+            fireAndForget(checkStatus(), 'email-compose-check-send')
+          }
+        >
           Check status
         </Button>
       </Show>

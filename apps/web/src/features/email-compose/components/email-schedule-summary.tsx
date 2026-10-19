@@ -1,5 +1,6 @@
 import type { EmailScheduleState } from '@app/features/email-compose/primitives/email-send-schedule';
 import { formatTimeZoneAbbreviation } from '@core/util/date';
+import { fireAndForget } from '@core/util/fireAndForget';
 import ClockIcon from '@phosphor/clock.svg';
 import { Button, cn } from '@ui';
 import { format } from 'date-fns/format';
@@ -58,7 +59,11 @@ function describeSchedule(
       actionLabel: 'Check status',
       accessibleActionLabel: 'Check delivery status',
       action: props.onCheckStatus
-        ? () => void props.onCheckStatus?.()
+        ? () =>
+            fireAndForget(
+              props.onCheckStatus?.(),
+              'email-compose-check-schedule'
+            )
         : undefined,
     };
   }
@@ -69,7 +74,11 @@ function describeSchedule(
         'Cancel to restore this draft and review it before sending again.',
       actionLabel: 'Restore draft',
       accessibleActionLabel: 'Restore failed scheduled draft',
-      action: () => void props.onCancelSchedule(),
+      action: () =>
+        fireAndForget(
+          props.onCancelSchedule(),
+          'email-compose-cancel-schedule'
+        ),
     };
   }
   if (state.proposedTime) {
@@ -86,7 +95,7 @@ function describeSchedule(
     detail: undefined,
     actionLabel: 'Cancel',
     accessibleActionLabel: 'Cancel scheduled send',
-    action: () => void props.onCancelSchedule(),
+    action: () => fireAndForget(props.onCancelSchedule(), 'email-compose'),
   };
 }
 

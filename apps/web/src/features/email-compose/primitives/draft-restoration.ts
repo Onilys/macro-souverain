@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import { createEffect, createSignal, on, onCleanup } from 'solid-js';
 import type { EmailMessage } from '../../email-message/core/email-message';
 import type {
@@ -93,7 +94,8 @@ function observeAvailableRestorations(
     on(
       () => [pending(), options.ready?.() ?? true] as const,
       ([request, ready]) => {
-        if (request && ready) void restore(request);
+        if (request && ready)
+          fireAndForget(restore(request), 'email-draft-restoration');
       }
     )
   );

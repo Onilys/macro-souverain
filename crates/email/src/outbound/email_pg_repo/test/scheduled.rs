@@ -111,6 +111,7 @@ async fn sent_or_claimed_delivery_rejects_update_cancel_and_migration(
             message,
             Uuid::parse_str("11111111-1111-1111-1111-111111111111")?,
             &[link],
+            None
         )
         .await?
         .is_none()
@@ -241,7 +242,9 @@ async fn scheduled_source_rejects_delete_and_migration_into_existing_reply(
         thread_client_binding: None,
     };
     assert!(matches!(
-        service.save_draft_for_user_impl(actor(), Some(target_link), input).await,
+        service
+            .save_draft_for_user_impl(actor(), Some(target_link), input)
+            .await,
         Err(EmailErr::MessageDeliveryConflict(id)) if id == message
     ));
     let subject = sqlx::query_scalar!(
@@ -699,5 +702,67 @@ async fn cancelling_a_schedule_preserves_historical_delivery_facts(
     for row in rows {
         assert_eq!(row.cancelled, !row.sent && !row.delivery_unconfirmed);
     }
+    Ok(())
+}
+
+#[sqlx::test(
+    migrator = "MACRO_DB_MIGRATIONS",
+    fixtures(path = "../../../../fixtures", scripts("email_draft"))
+)]
+async fn late_provider_upload_cannot_change_a_committed_schedule(
+    pool: Pool<Postgres>,
+) -> anyhow::Result<()> {
+    use crate::domain::draft_attachments::{
+        AttachmentChange, AttachmentError, DraftAttachmentRepository,
+    };
+    let (link, draft) = identity();
+    let file = Uuid::now_v7();
+    let mut admission = pool.begin().await?;
+    sqlx::query!(
+        "SELECT id FROM email_messages WHERE id=$1 FOR UPDATE",
+        draft
+    )
+    .fetch_one(&mut *admission)
+    .await?;
+    let blocker = sqlx::query_scalar!("SELECT pg_backend_pid()")
+        .fetch_one(&mut *admission)
+        .await?
+        .unwrap();
+    let repo = EmailPgRepo::new(pool.clone());
+    let upload = tokio::spawn(async move {
+        repo.commit_attachment_change(
+            actor().as_ref(),
+            link,
+            draft,
+            AttachmentChange::Upload(crate::domain::models::AttachmentDraft {
+                id: file,
+                draft_id: draft,
+                file_name: "late.txt".into(),
+                content_type: "text/plain".into(),
+                sha: "a".repeat(64),
+                size: 4,
+                s3_key: format!("audit/{file}"),
+                upload_pending: false,
+                content_id: None,
+                is_inline: false,
+            }),
+        )
+        .await
+    });
+    wait_for_transaction_waiter(&pool, blocker).await?;
+    sqlx::query!("INSERT INTO email_scheduled_messages(link_id,message_id,send_time,sent) VALUES($1,$2,NOW()+INTERVAL '1 hour',false)",link,draft).execute(&mut *admission).await?;
+    admission.commit().await?;
+    assert!(matches!(
+        upload.await?,
+        Err(AttachmentError::DeliveryConflict)
+    ));
+    assert!(
+        !sqlx::query_scalar!(
+            "SELECT EXISTS(SELECT 1 FROM email_attachments_drafts WHERE id=$1) AS \"exists!\"",
+            file
+        )
+        .fetch_one(&pool)
+        .await?
+    );
     Ok(())
 }
