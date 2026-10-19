@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE import_run\n            SET status = $3::text::import_run_status, error = $4, updated_at = NOW()\n            WHERE user_id = $1 AND source = $2 AND status::text = ANY($5::text[])\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3f8a5d3704ab2fea6a214affeb9bc5e4b139181ac11b82c6576906e5ec1dbb61"
+}

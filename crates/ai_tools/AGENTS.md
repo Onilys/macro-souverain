@@ -17,6 +17,9 @@ execution, display) that don't belong to a single domain.
 - `src/deferred.rs`: tools whose result arrives after the turn (long-running
   work).
 - `src/tool_context.rs` + `src/tool_context/`: per-tool context extraction.
+- `src/import_workspace.rs`: `ToolEntityCreator` as the import crate's
+  `WorkspaceWriter` (folders, documents, tasks, databases as Macro AI for the
+  user), sharing its document/task paths with `EntityCreator`.
 - `src/bin/gen_tool_schemas.rs`, `src/bin/gen_ai_request_schemas.rs`:
   schema-generation binaries the frontend consumes.
 

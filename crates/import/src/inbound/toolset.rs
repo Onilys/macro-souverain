@@ -9,7 +9,7 @@ use crate::domain::models::{ImportEntity, ImportSource, ImportStatus, Initiator,
 use crate::domain::ports::{ImportError, ImportedDocumentProperties, ImportedDocumentProperty};
 use crate::domain::service::{
     DiscardOutcome, ImportFinalizer, ImportNotionPageOutcome, ImportStager, NotionPageImporter,
-    StageOutcome,
+    NotionWorkspaceImporter, StageOutcome,
 };
 use ai_toolset::{
     AsyncTool, AsyncToolCollection, RequestContext, ServiceContext, ToolCallError, ToolResult,
@@ -20,6 +20,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
+
+mod import_from_notion;
+
+pub use import_from_notion::{ImportFromNotion, ImportFromNotionResponse, NotionImportAction};
 
 #[cfg(test)]
 mod test;
@@ -66,11 +70,12 @@ impl<T> ImportToolContext<T> {
 }
 
 /// The import toolset for interactive chat.
-pub fn import_toolset<T: ImportStager + NotionPageImporter>()
+pub fn import_toolset<T: ImportStager + NotionPageImporter + NotionWorkspaceImporter>()
 -> AsyncToolCollection<ImportToolContext<T>> {
     AsyncToolCollection::new()
         .add_tool::<CreateImportEntity, ImportToolContext<T>>()
         .add_tool::<ImportNotionPage, ImportToolContext<T>>()
+        .add_tool::<ImportFromNotion, ImportToolContext<T>>()
         .add_tool::<DeleteImportEntity, ImportToolContext<T>>()
         .add_tool::<ListImportEntities, ImportToolContext<T>>()
 }

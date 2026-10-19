@@ -21,6 +21,7 @@ use agent::types::{ChatMessage, ChatMessageContent, Role};
 use agent::{AgentLoop, PredefinedModel};
 use ai_toolset::{RequestContext, ToolResult, ToolSet, ToolSetError};
 use futures::StreamExt;
+use import_notion::domain::ports::NotionConnections;
 use macro_user_id::user_id::MacroUserIdStr;
 use mcp_select::{ConnectorSelect, UserMcpTools};
 use std::collections::HashSet;
@@ -31,10 +32,12 @@ use std::time::Duration;
 use uuid::Uuid;
 
 mod admission;
+mod notion_workspace;
 mod prompts;
 mod slack;
 mod slack_discovery;
 
+pub use notion_workspace::NoNotionConnections;
 pub use slack_discovery::NoSlackSource;
 use slack_discovery::SlackBatch;
 
@@ -248,10 +251,57 @@ pub trait NotionPageImporter: Send + Sync + 'static {
     ) -> impl Future<Output = Result<ImportNotionPageOutcome>> + Send;
 }
 
+/// Importing a whole Notion workspace (or part of it) through a reviewed plan.
+///
+/// Planning reads the workspace and asks the decision model what to do with
+/// each object; the plan is staged as ledger rows and presented for review.
+/// Approving the review writes the plan; nothing is written before that.
+pub trait NotionWorkspaceImporter: Send + Sync + 'static {
+    /// Plan an import of `scope`, replacing any previous plan. Planning runs
+    /// in the background; this waits up to `wait` for it and reports where it
+    /// got.
+    fn prepare_notion_import(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        scope: import_notion::domain::model::ImportScope,
+        wait: Duration,
+    ) -> impl Future<Output = Result<NotionImportReport>> + Send;
+
+    /// Where the user's Notion import stands.
+    fn notion_import_report(
+        &self,
+        user: &MacroUserIdStr<'static>,
+    ) -> impl Future<Output = Result<NotionImportReport>> + Send;
+
+    /// Tie the staged plan to the review presenting it.
+    fn attach_notion_review(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        review_id: Uuid,
+    ) -> impl Future<Output = Result<u64>> + Send;
+
+    /// Write the plan tied to `review_id`, leaving out `excluded` rows.
+    /// Writing runs in the background; this returns once it has started.
+    fn start_notion_write(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        review_id: Uuid,
+        excluded: Vec<Uuid>,
+    ) -> impl Future<Output = Result<NotionImportReport>> + Send;
+
+    /// Stop planning or writing. Objects already written stay. Returns
+    /// whether anything was running.
+    fn cancel_notion_import(
+        &self,
+        user: &MacroUserIdStr<'static>,
+    ) -> impl Future<Output = Result<bool>> + Send;
+}
+
 /// Concrete orchestrator wiring the repo, the user's MCP servers, the
 /// entity creator, and usage recording together.
-pub struct ImportServiceImpl<R, S, C, W = NoSlackSource> {
+pub struct ImportServiceImpl<R, S, C, W = NoSlackSource, N = NoNotionConnections> {
     repo: R,
+    notion: Arc<N>,
     slack_source: Arc<W>,
     mcp_tools: Arc<S>,
     creator: Arc<C>,
@@ -260,10 +310,11 @@ pub struct ImportServiceImpl<R, S, C, W = NoSlackSource> {
     notifier: Option<ImportNotify>,
 }
 
-impl<R: Clone, S, C, W: SlackWorkspaceSource> Clone for ImportServiceImpl<R, S, C, W> {
+impl<R: Clone, S, C, W: SlackWorkspaceSource, N> Clone for ImportServiceImpl<R, S, C, W, N> {
     fn clone(&self) -> Self {
         Self {
             repo: self.repo.clone(),
+            notion: self.notion.clone(),
             slack_source: self.slack_source.clone(),
             mcp_tools: self.mcp_tools.clone(),
             creator: self.creator.clone(),
@@ -284,6 +335,7 @@ impl<R, S, C> ImportServiceImpl<R, S, C> {
     ) -> Self {
         Self {
             repo,
+            notion: Arc::new(NoNotionConnections),
             slack_source: Arc::new(NoSlackSource),
             mcp_tools,
             creator,
@@ -294,14 +346,15 @@ impl<R, S, C> ImportServiceImpl<R, S, C> {
     }
 }
 
-impl<R, S, C, W: SlackWorkspaceSource> ImportServiceImpl<R, S, C, W> {
+impl<R, S, C, W: SlackWorkspaceSource, N: Send + Sync + 'static> ImportServiceImpl<R, S, C, W, N> {
     /// Attach a live Slack workspace reader, preserving the service configuration.
     pub fn with_slack_source<W2: SlackWorkspaceSource>(
         self,
         source: Arc<W2>,
-    ) -> ImportServiceImpl<R, S, C, W2> {
+    ) -> ImportServiceImpl<R, S, C, W2, N> {
         ImportServiceImpl {
             repo: self.repo,
+            notion: self.notion,
             mcp_tools: self.mcp_tools,
             creator: self.creator,
             recorder: self.recorder,
@@ -317,6 +370,24 @@ impl<R, S, C, W: SlackWorkspaceSource> ImportServiceImpl<R, S, C, W> {
         self
     }
 
+    /// Read users' Notion workspaces through `connections` for workspace
+    /// imports.
+    pub fn with_notion_connections<N2: NotionConnections>(
+        self,
+        connections: Arc<N2>,
+    ) -> ImportServiceImpl<R, S, C, W, N2> {
+        ImportServiceImpl {
+            repo: self.repo,
+            notion: connections,
+            mcp_tools: self.mcp_tools,
+            creator: self.creator,
+            recorder: self.recorder,
+            admission: self.admission,
+            notifier: self.notifier,
+            slack_source: self.slack_source,
+        }
+    }
+
     async fn notify(&self, user: &MacroUserIdStr<'static>) {
         if let Some(notifier) = &self.notifier {
             notifier(user.clone()).await;
@@ -324,7 +395,7 @@ impl<R, S, C, W: SlackWorkspaceSource> ImportServiceImpl<R, S, C, W> {
     }
 }
 
-impl<R, S, C, W: SlackWorkspaceSource> ImportServiceImpl<R, S, C, W>
+impl<R, S, C, W: SlackWorkspaceSource, N: Send + Sync + 'static> ImportServiceImpl<R, S, C, W, N>
 where
     R: ImportRepo + CanonicalImportRepo + Clone,
     S: ConnectorSelect,
@@ -733,7 +804,8 @@ where
     }
 }
 
-impl<R, S, C, W: SlackWorkspaceSource> ImportService for ImportServiceImpl<R, S, C, W>
+impl<R, S, C, W: SlackWorkspaceSource, N: Send + Sync + 'static> ImportService
+    for ImportServiceImpl<R, S, C, W, N>
 where
     R: ImportRepo + CanonicalImportRepo + Clone,
     S: ConnectorSelect,
@@ -821,7 +893,7 @@ where
     }
 }
 
-impl<R, S, C, W: SlackWorkspaceSource> ImportServiceImpl<R, S, C, W>
+impl<R, S, C, W: SlackWorkspaceSource, N: Send + Sync + 'static> ImportServiceImpl<R, S, C, W, N>
 where
     R: ImportRepo + CanonicalImportRepo + Clone,
     S: ConnectorSelect,
@@ -911,7 +983,8 @@ where
     }
 }
 
-impl<R, S, C, W: SlackWorkspaceSource> ImportStager for ImportServiceImpl<R, S, C, W>
+impl<R, S, C, W: SlackWorkspaceSource, N: Send + Sync + 'static> ImportStager
+    for ImportServiceImpl<R, S, C, W, N>
 where
     R: ImportRepo + CanonicalImportRepo + Clone,
     S: ConnectorSelect,
@@ -994,7 +1067,8 @@ where
     }
 }
 
-impl<R, S, C, W: SlackWorkspaceSource> NotionPageImporter for ImportServiceImpl<R, S, C, W>
+impl<R, S, C, W: SlackWorkspaceSource, N: Send + Sync + 'static> NotionPageImporter
+    for ImportServiceImpl<R, S, C, W, N>
 where
     R: ImportRepo + CanonicalImportRepo + Clone,
     S: ConnectorSelect,
@@ -1129,7 +1203,8 @@ where
     }
 }
 
-impl<R, S, C, W: SlackWorkspaceSource> ImportFinalizer for ImportServiceImpl<R, S, C, W>
+impl<R, S, C, W: SlackWorkspaceSource, N: Send + Sync + 'static> ImportFinalizer
+    for ImportServiceImpl<R, S, C, W, N>
 where
     R: ImportRepo + CanonicalImportRepo + Clone,
     S: ConnectorSelect,

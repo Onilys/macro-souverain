@@ -241,24 +241,27 @@ pub enum Initiator {
     Serialize,
     Deserialize,
     ToSchema,
+    JsonSchema,
     strum::EnumString,
     strum::AsRefStr,
 )]
 #[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "snake_case")]
 pub enum RunStatus {
-    /// Discovery is staging candidates.
+    /// Slack discovery is staging candidates, or a Notion workspace import is
+    /// being planned.
     Running,
-    /// Discovery finished; staged rows (if any) are ready.
+    /// Discovery or planning finished; staged rows (if any) are ready.
     Ready,
-    /// Legacy: an onboarding automatic import was running. No longer written.
+    /// An approved Notion workspace import plan is being written.
     Importing,
-    /// Legacy: an onboarding automatic import finished. No longer written.
+    /// A Notion workspace import finished writing; `error` notes objects
+    /// that could not be imported.
     Completed,
-    /// Discovery failed; `error` has details. Retryable.
+    /// Discovery, planning or writing failed; `error` has details. Retryable.
     Failed,
-    /// Legacy: the user dismissed an onboarding import section. No longer
-    /// written.
+    /// A Notion workspace import was cancelled. Older rows may hold it from
+    /// the removed onboarding import, where it meant a dismissed section.
     Dismissed,
 }
 
@@ -537,17 +540,113 @@ pub struct NotionDocMeta {
     pub url: Option<String>,
     /// One-line summary of what the page contains.
     pub summary: Option<String>,
+    /// Where this object sits in a workspace import plan; absent for pages
+    /// staged one at a time. Written by the workspace import, never by a
+    /// model, so it is left out of the tool schema.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(skip)]
+    pub plan: Option<NotionPlanItem>,
 }
 
 impl NotionDocMeta {
+    /// Metadata for one object of a workspace import plan, capped like
+    /// everything else the ledger stores.
+    pub fn for_plan(title: String, url: String, plan: NotionPlanItem) -> Self {
+        Self {
+            title,
+            url: Some(url),
+            summary: None,
+            plan: Some(plan),
+        }
+        .capped()
+    }
+
     fn capped(self) -> Self {
         Self {
             title: truncated(self.title, MAX_TEXT),
             url: truncate_opt(self.url, MAX_TEXT),
             summary: truncate_opt(self.summary, MAX_SUMMARY),
+            plan: self.plan.map(NotionPlanItem::capped),
         }
     }
 }
+
+/// What a workspace import does with one Notion object.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, ToSchema, strum::Display,
+)]
+#[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
+pub enum NotionDecision {
+    /// Bring it over as it is: a page becomes a document, a data source a
+    /// database.
+    Copy,
+    /// A data source that is really a task list: its rows become Macro tasks.
+    Tasks,
+    /// Leave it in Notion.
+    Skip,
+    /// Needs judgment the import cannot make; the agent handles it by hand.
+    Hand,
+}
+
+/// Which Notion columns hold a task list's task fields, by property name.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct NotionTaskFields {
+    /// The status column.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    /// The priority column.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub priority: Option<String>,
+    /// The due date column.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub due: Option<String>,
+    /// The assignee column.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assignee: Option<String>,
+}
+
+/// One object's place in a workspace import plan.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct NotionPlanItem {
+    /// What the import does with it.
+    pub decision: NotionDecision,
+    /// Why, in a short sentence, when the decision model gave one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    /// Titles of the pages above it, outermost first.
+    #[serde(default)]
+    pub path: Vec<String>,
+    /// For a data source: rows counted while planning.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rows: Option<u32>,
+    /// For a data source: whether it has more rows than `rows`.
+    #[serde(default)]
+    pub more_rows: bool,
+    /// For a task list: which columns hold the task fields.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub task_fields: Option<NotionTaskFields>,
+}
+
+impl NotionPlanItem {
+    fn capped(self) -> Self {
+        Self {
+            reason: truncate_opt(self.reason, MAX_SUMMARY),
+            path: self
+                .path
+                .into_iter()
+                .take(MAX_PLAN_DEPTH)
+                .map(|title| truncated(title, MAX_TEXT))
+                .collect(),
+            ..self
+        }
+    }
+}
+
+/// Deepest ancestor path a plan item records.
+const MAX_PLAN_DEPTH: usize = 12;
 
 /// A person active in a staged Slack channel.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, ToSchema)]
@@ -729,4 +828,63 @@ pub struct ImportState {
     pub runs: Vec<ImportRun>,
     /// Visible import entities, newest first.
     pub entities: Vec<ImportEntity>,
+}
+
+/// One object a workspace import report calls out.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct NotionReportItem {
+    /// The ledger row.
+    pub import_id: Uuid,
+    /// The object's title.
+    pub title: String,
+    /// What the object is.
+    pub kind: ImportKind,
+    /// Its Notion URL.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    /// Why it is called out: the decision model's reason, or the failure.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+/// Where a Notion workspace import stands.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct NotionImportReport {
+    /// The run's state: `running` while planning, `ready` once a plan is
+    /// staged, `importing` while writing, `completed`, `failed`, or
+    /// `dismissed` when cancelled. Absent before the first run.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<RunStatus>,
+    /// Why the run failed, when it did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    /// Pages in the plan.
+    pub pages: u32,
+    /// Data sources (database tables) in the plan.
+    pub data_sources: u32,
+    /// Objects to copy as they are.
+    pub copy: u32,
+    /// Data sources whose rows become tasks.
+    pub tasks: u32,
+    /// Objects left in Notion.
+    pub skip: u32,
+    /// Objects that need handling by hand.
+    pub hand: u32,
+    /// Plan objects already imported.
+    pub imported: u32,
+    /// Plan objects still waiting to be written.
+    pub waiting: u32,
+    /// Plan objects being written now.
+    pub writing: u32,
+    /// The review the plan is tied to, once presented.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review_id: Option<Uuid>,
+    /// Objects that need handling by hand, with reasons.
+    #[serde(default)]
+    pub hand_items: Vec<NotionReportItem>,
+    /// Objects that failed to import, with the failure.
+    #[serde(default)]
+    pub failures: Vec<NotionReportItem>,
 }

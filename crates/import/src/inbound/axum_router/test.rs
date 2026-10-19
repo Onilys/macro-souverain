@@ -2,6 +2,7 @@ use super::*;
 use ai_billing::{AiAdmissionError, DenyReason};
 use axum::{body::Body, http::Request};
 use macro_authorization::{InternalIdentityClaims, MacroAuthorizationError};
+use macro_user_id::cowlike::CowLike;
 use macro_user_id::user_id::MacroUserIdStr;
 use model_user::UserContext;
 use rootcause::Report;
@@ -43,6 +44,56 @@ impl MacroAuthorizationService for FakeAuthorization {
 struct FakeImportService {
     calls: Mutex<Vec<(MacroUserIdStr<'static>, ImportSource)>>,
     outcome: Mutex<Option<Result<bool>>>,
+    cancels: Mutex<Vec<MacroUserIdStr<'static>>>,
+}
+
+impl NotionWorkspaceImporter for FakeImportService {
+    async fn prepare_notion_import(
+        &self,
+        _user: &MacroUserIdStr<'static>,
+        _scope: import_notion::domain::model::ImportScope,
+        _wait: std::time::Duration,
+    ) -> Result<NotionImportReport> {
+        unimplemented!("routes never plan")
+    }
+
+    async fn notion_import_report(
+        &self,
+        _user: &MacroUserIdStr<'static>,
+    ) -> Result<NotionImportReport> {
+        let cancelled = !self.cancels.lock().unwrap().is_empty();
+        Ok(NotionImportReport {
+            status: Some(if cancelled {
+                crate::domain::models::RunStatus::Dismissed
+            } else {
+                crate::domain::models::RunStatus::Importing
+            }),
+            imported: 3,
+            ..NotionImportReport::default()
+        })
+    }
+
+    async fn attach_notion_review(
+        &self,
+        _user: &MacroUserIdStr<'static>,
+        _review_id: Uuid,
+    ) -> Result<u64> {
+        unimplemented!("routes never attach reviews")
+    }
+
+    async fn start_notion_write(
+        &self,
+        _user: &MacroUserIdStr<'static>,
+        _review_id: Uuid,
+        _excluded: Vec<Uuid>,
+    ) -> Result<NotionImportReport> {
+        unimplemented!("routes never write")
+    }
+
+    async fn cancel_notion_import(&self, user: &MacroUserIdStr<'static>) -> Result<bool> {
+        self.cancels.lock().unwrap().push(user.clone());
+        Ok(true)
+    }
 }
 
 impl ImportService for FakeImportService {
@@ -73,6 +124,7 @@ fn discovery_router(outcome: Result<bool>) -> (Router, Arc<FakeImportService>) {
     let service = Arc::new(FakeImportService {
         calls: Mutex::new(Vec::new()),
         outcome: Mutex::new(Some(outcome)),
+        cancels: Mutex::new(Vec::new()),
     });
     let router = import_router(ImportRouterState {
         service: service.clone(),
@@ -208,4 +260,34 @@ async fn admission_failures_use_shared_http_contract() {
 fn other_errors_remain_internal() {
     let response = error_response(ImportError::Other(anyhow::anyhow!("private diagnostic")));
     assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+}
+
+#[tokio::test]
+async fn cancelling_a_notion_import_cancels_it_for_the_caller_and_reports_where_it_stopped() {
+    let (router, service) = discovery_router(Ok(true));
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/import/notion/cancel")
+                .header("authorization", "Bearer valid")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        service.cancels.lock().unwrap().as_slice(),
+        [MacroUserIdStr::parse_from_str(TEST_USER)
+            .unwrap()
+            .into_owned()]
+    );
+    let body = axum::body::to_bytes(response.into_body(), 4096)
+        .await
+        .unwrap();
+    let report: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(report["status"], "dismissed");
+    assert_eq!(report["imported"], 3);
 }

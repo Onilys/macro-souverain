@@ -898,3 +898,168 @@ async fn concurrent_different_workspace_bindings_have_one_winner(pool: PgPool) {
     assert_eq!(confirmed.workspace_id, known.workspace_id);
     assert!(confirmed.confirmed_unknown_at.is_some());
 }
+
+fn plan_row(foreign_id: &str, parent: Option<&str>, title: &str) -> PlanRow {
+    PlanRow {
+        kind: ImportKind::Page,
+        foreign_id: foreign_id.to_string(),
+        parent_foreign_id: parent.map(str::to_string),
+        metadata: serde_json::json!({
+            "title": title,
+            "url": null,
+            "summary": null,
+            "plan": { "decision": "copy", "path": [], "moreRows": false }
+        }),
+    }
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn a_new_plan_replaces_the_staged_one_links_parents_and_keeps_imported_rows(pool: PgPool) {
+    let actor = ledger_actor(&pool, "plan-replace").await;
+    let repo = PgImportRepo::new(pool);
+    let first = repo
+        .replace_plan(
+            &actor,
+            ImportSource::Notion,
+            &[
+                plan_row("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", None, "Engineering"),
+                plan_row(
+                    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                    Some("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+                    "Q3 plan",
+                ),
+                plan_row("cccccccccccccccccccccccccccccccc", None, "Dropped later"),
+            ],
+        )
+        .await
+        .unwrap();
+    assert_eq!(first.len(), 3);
+    let engineering = first[0].id;
+    assert_eq!(first[1].parent_id, Some(engineering));
+
+    // Engineering gets imported before the next plan.
+    repo.mark_importing(&actor, &[engineering]).await.unwrap();
+    repo.mark_imported(&actor, engineering, "doc-1", "md", None)
+        .await
+        .unwrap();
+
+    let second = repo
+        .replace_plan(
+            &actor,
+            ImportSource::Notion,
+            &[
+                plan_row("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", None, "Engineering"),
+                plan_row(
+                    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                    Some("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+                    "Q3 plan, renamed",
+                ),
+            ],
+        )
+        .await
+        .unwrap();
+
+    // The imported row stays imported and is not restaged; its child still
+    // hangs under it.
+    assert_eq!(second.len(), 1);
+    assert_eq!(second[0].parent_id, Some(engineering));
+    assert_eq!(second[0].metadata["title"], "Q3 plan, renamed");
+    let all = repo
+        .list(&actor, Some(ImportSource::Notion), None)
+        .await
+        .unwrap();
+    assert_eq!(all.len(), 2, "the dropped row of the old plan is gone");
+    assert!(
+        all.iter()
+            .any(|row| row.id == engineering && row.status == ImportStatus::Imported)
+    );
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn a_review_ties_only_the_staged_plan_and_runs_move_only_from_the_given_states(pool: PgPool) {
+    let actor = ledger_actor(&pool, "plan-review").await;
+    let repo = PgImportRepo::new(pool.clone());
+    let staged = repo
+        .replace_plan(
+            &actor,
+            ImportSource::Notion,
+            &[plan_row(
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                None,
+                "Engineering",
+            )],
+        )
+        .await
+        .unwrap();
+    // A page staged one at a time is not part of the plan.
+    repo.upsert_staged(
+        &actor,
+        ImportSource::Notion,
+        ImportKind::Page,
+        Initiator::Chat,
+        "dddddddddddddddddddddddddddddddd",
+        &serde_json::json!({ "title": "Single page", "url": null, "summary": null }),
+    )
+    .await
+    .unwrap();
+    let session = Uuid::now_v7();
+    sqlx::query!(
+        r#"INSERT INTO agent_session (id, owner_id, bot_id, harness, model, workspace, for_warming) VALUES ($1, $2, '00000000-0000-0000-0000-00000000a2a2', 'macro-inmem', 'test-model', '/workspace', false)"#,
+        session,
+        actor.as_ref(),
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let review = Uuid::now_v7();
+    sqlx::query!(
+        r#"INSERT INTO agent_session_review (id, agent_session_id, record) VALUES ($1, $2, '{}'::jsonb)"#,
+        review,
+        session,
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(
+        repo.attach_review(&actor, ImportSource::Notion, review)
+            .await
+            .unwrap(),
+        1
+    );
+    let tied = repo.get(&actor, staged[0].id).await.unwrap().unwrap();
+    assert_eq!(tied.review_id, Some(review));
+
+    assert!(
+        repo.start_run(&actor, ImportSource::Notion, &[])
+            .await
+            .unwrap()
+    );
+    assert!(
+        !repo
+            .transition_run(
+                &actor,
+                ImportSource::Notion,
+                &[RunStatus::Ready],
+                RunStatus::Importing,
+                None,
+            )
+            .await
+            .unwrap(),
+        "a running plan cannot start writing"
+    );
+    assert!(
+        repo.transition_run(
+            &actor,
+            ImportSource::Notion,
+            &[RunStatus::Running],
+            RunStatus::Dismissed,
+            Some("Cancelled"),
+        )
+        .await
+        .unwrap()
+    );
+    let runs = repo.list_runs(&actor).await.unwrap();
+    assert_eq!(runs[0].status, RunStatus::Dismissed);
+    assert_eq!(runs[0].error.as_deref(), Some("Cancelled"));
+}

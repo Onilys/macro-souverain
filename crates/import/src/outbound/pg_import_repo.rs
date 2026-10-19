@@ -7,11 +7,12 @@
 use crate::domain::models::{
     ImportEntity, ImportKind, ImportRun, ImportSource, ImportStatus, Initiator, RunStatus,
 };
-use crate::domain::ports::{ImportError, ImportRepo, Result};
+use crate::domain::ports::{ImportError, ImportRepo, NotionPlanRepo, PlanRow, Result};
 use chrono::{DateTime, Utc};
 use macro_user_id::cowlike::CowLike;
 use macro_user_id::user_id::MacroUserIdStr;
 use sqlx::PgPool;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::str::FromStr;
 use uuid::Uuid;
@@ -593,6 +594,137 @@ impl ImportRepo for PgImportRepo {
 // The domain error stays sqlx-free; this adapter owns the mapping so `?`
 // works on sqlx results throughout the crate's outbound code. The raw sqlx
 // error travels inside the report.
+impl NotionPlanRepo for PgImportRepo {
+    #[tracing::instrument(skip(self, rows), fields(rows = rows.len()), err)]
+    async fn replace_plan(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        source: ImportSource,
+        rows: &[PlanRow],
+    ) -> Result<Vec<ImportEntity>> {
+        let mut transaction = self.pool.begin().await?;
+        sqlx::query!(
+            r#"
+            DELETE FROM import_entity
+            WHERE user_id = $1 AND source = $2 AND status = 'staged'
+              AND metadata->'plan' IS NOT NULL
+            "#,
+            user.as_ref(),
+            source.as_ref(),
+        )
+        .execute(&mut *transaction)
+        .await?;
+
+        let mut ids: HashMap<&str, Uuid> = HashMap::with_capacity(rows.len());
+        let mut staged = Vec::with_capacity(rows.len());
+        for row in rows {
+            let parent_id = row
+                .parent_foreign_id
+                .as_deref()
+                .and_then(|parent| ids.get(parent).copied());
+            let inserted = sqlx::query_as!(
+                ImportEntityDbRow,
+                r#"
+                INSERT INTO import_entity
+                    (user_id, source, kind, foreign_id, status, initiator, metadata, parent_id)
+                VALUES ($1, $2, $3, $4, 'staged', 'chat', $5, $6)
+                ON CONFLICT (user_id, source, foreign_id) DO UPDATE
+                SET kind = EXCLUDED.kind, metadata = EXCLUDED.metadata,
+                    parent_id = EXCLUDED.parent_id, status = 'staged', review_id = NULL,
+                    last_error = NULL, updated_at = NOW()
+                WHERE import_entity.status IN ('staged', 'discarded')
+                RETURNING id, user_id, team_id, source, kind, foreign_id, parent_id, review_id,
+                          status, initiator, metadata, entity_id, entity_type, last_error,
+                          created_at, updated_at
+                "#,
+                user.as_ref(),
+                source.as_ref(),
+                row.kind.as_ref(),
+                row.foreign_id,
+                row.metadata,
+                parent_id,
+            )
+            .fetch_optional(&mut *transaction)
+            .await?;
+            let id = match inserted {
+                Some(inserted) => {
+                    let entity = ImportEntity::try_from(inserted)?;
+                    let id = entity.id;
+                    staged.push(entity);
+                    id
+                }
+                // Already importing or imported: children still hang under it.
+                None => {
+                    sqlx::query_scalar!(
+                        r#"
+                        SELECT id FROM import_entity
+                        WHERE user_id = $1 AND source = $2 AND foreign_id = $3
+                        "#,
+                        user.as_ref(),
+                        source.as_ref(),
+                        row.foreign_id,
+                    )
+                    .fetch_one(&mut *transaction)
+                    .await?
+                }
+            };
+            ids.insert(row.foreign_id.as_str(), id);
+        }
+        transaction.commit().await?;
+        Ok(staged)
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn attach_review(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        source: ImportSource,
+        review_id: Uuid,
+    ) -> Result<u64> {
+        let result = sqlx::query!(
+            r#"
+            UPDATE import_entity
+            SET review_id = $3, updated_at = NOW()
+            WHERE user_id = $1 AND source = $2 AND status = 'staged'
+              AND metadata->'plan' IS NOT NULL AND review_id IS NULL
+            "#,
+            user.as_ref(),
+            source.as_ref(),
+            review_id,
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
+    #[tracing::instrument(skip(self), err)]
+    async fn transition_run(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        source: ImportSource,
+        from: &[RunStatus],
+        to: RunStatus,
+        error: Option<&str>,
+    ) -> Result<bool> {
+        let from = run_status_strings(from);
+        let result = sqlx::query!(
+            r#"
+            UPDATE import_run
+            SET status = $3::text::import_run_status, error = $4, updated_at = NOW()
+            WHERE user_id = $1 AND source = $2 AND status::text = ANY($5::text[])
+            "#,
+            user.as_ref(),
+            source.as_ref(),
+            to.as_ref(),
+            error,
+            &from,
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() > 0)
+    }
+}
+
 impl From<sqlx::Error> for ImportError {
     fn from(e: sqlx::Error) -> Self {
         Self::Db(rootcause::report!(e).into_dynamic())

@@ -115,9 +115,9 @@ impl<Sess> Default for SlackBatch<Sess> {
 }
 
 impl<Sess: SlackWorkspaceSession> SlackBatch<Sess> {
-    pub(super) async fn resolve_emails<R, S, C, W>(
+    pub(super) async fn resolve_emails<R, S, C, W, N: Send + Sync + 'static>(
         &mut self,
-        service: &ImportServiceImpl<R, S, C, W>,
+        service: &ImportServiceImpl<R, S, C, W, N>,
         user: &MacroUserIdStr<'static>,
         team_id: Uuid,
         meta: &SlackChannelMeta,
@@ -225,8 +225,8 @@ pub(super) async fn resolve_members(
 
 /// Stage every visible public Slack channel for the user to pick from, then
 /// enrich staged rows with matched members until the deadline.
-pub(super) async fn discover_slack<R, S, C, W>(
-    service: &ImportServiceImpl<R, S, C, W>,
+pub(super) async fn discover_slack<R, S, C, W, N: Send + Sync + 'static>(
+    service: &ImportServiceImpl<R, S, C, W, N>,
     user: &MacroUserIdStr<'static>,
 ) -> Result<usize, SlackSourceError>
 where
@@ -326,8 +326,8 @@ where
     Ok(count)
 }
 
-async fn enrich_slack<R, S, C, W>(
-    service: &ImportServiceImpl<R, S, C, W>,
+async fn enrich_slack<R, S, C, W, N: Send + Sync + 'static>(
+    service: &ImportServiceImpl<R, S, C, W, N>,
     user: &MacroUserIdStr<'static>,
     session: &W::Session,
     roster: &[MacroUserIdStr<'static>],

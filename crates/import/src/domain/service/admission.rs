@@ -7,7 +7,7 @@ use ai_usage::AiFeature;
 use macro_user_id::user_id::MacroUserIdStr;
 use std::sync::Arc;
 
-impl<R, S, C, W: SlackWorkspaceSource> ImportServiceImpl<R, S, C, W> {
+impl<R, S, C, W: SlackWorkspaceSource, N: Send + Sync + 'static> ImportServiceImpl<R, S, C, W, N> {
     /// Attach configured shared admission. Production hosts must supply this;
     /// the source-compatible constructor defaults to disabled enforcement.
     pub fn with_admission(mut self, admission: Arc<dyn AiAdmissionService>) -> Self {

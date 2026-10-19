@@ -604,15 +604,16 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
                     properties_service.clone(),
                 ),
             team_repository: ai_tools::build_team_repository(pool.clone()),
+            project_service: tool_service_context.project_tool_context.service.clone(),
+            databases_service: tool_service_context.databases_tool_context.service.clone(),
         };
+        let pipedream_connections = Arc::new(
+            pipedream_mcp::outbound::pg_connection_repo::PgConnectionRepo::new(pool.clone()),
+        );
         let mcp_selector: Arc<ai_tools::ToolMcpSelector> =
             Arc::new(mcp_select::McpToolSelector::new(
                 Arc::new(mcp_repo.clone()),
-                Arc::new(
-                    pipedream_mcp::outbound::pg_connection_repo::PgConnectionRepo::new(
-                        pool.clone(),
-                    ),
-                ),
+                pipedream_connections.clone(),
                 Arc::new(None),
             ));
         let import_service = Arc::new(
@@ -624,6 +625,12 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
             )
             .with_slack_source(Arc::new(
                 import::outbound::mcp_slack_source::McpSlackSource::new(mcp_selector.clone()),
+            ))
+            .with_notion_connections(Arc::new(
+                import_notion::outbound::pipedream::PipedreamNotionConnections::new(
+                    pipedream_connections,
+                    None,
+                ),
             ))
             .with_admission(admission.clone()),
         );

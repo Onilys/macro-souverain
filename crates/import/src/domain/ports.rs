@@ -37,6 +37,15 @@ pub enum ImportError {
     /// Completion must follow a committed reservation for exactly this UUID.
     #[error("import target is not reserved")]
     TargetNotReserved,
+    /// Notion could not be read.
+    #[error(transparent)]
+    Notion(#[from] import_notion::domain::ports::NotionError),
+    /// The user has not connected Notion, or turned it off.
+    #[error("Notion is not connected")]
+    NotionNotConnected,
+    /// The import is not in a state that allows this; the message says why.
+    #[error("{0}")]
+    NotReady(&'static str),
     /// Anything else.
     #[error(transparent)]
     Other(#[from] anyhow::Error),
@@ -462,4 +471,135 @@ pub trait EntityCreator: Send + Sync + 'static {
         target: &ImportTargetReservation,
         participant_emails: &[String],
     ) -> impl Future<Output = anyhow::Result<Uuid>> + Send;
+}
+
+/// A database a workspace import just created, with the starter table and its
+/// title column, which the import reuses for the first data source.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewDatabase {
+    /// The new database.
+    pub database_id: Uuid,
+    /// The table every new database starts with.
+    pub table: models_databases::TableId,
+    /// That table's title column.
+    pub title_column: models_databases::ColumnId,
+}
+
+/// A team member a Notion person can be matched to, by email.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TeamMember {
+    /// The member's Macro user id.
+    pub user_id: MacroUserIdStr<'static>,
+    /// Their email, lowercase.
+    pub email: String,
+}
+
+/// Creates the Macro side of a workspace import: folders mirroring the
+/// source's tree, documents and tasks inside them, and databases.
+///
+/// Every entity is created as `user`, through the same services the app
+/// uses, so permissions, search and sync behave as for anything the user
+/// made by hand.
+pub trait WorkspaceWriter: Send + Sync + 'static {
+    /// Create a folder, inside `parent` when given. Returns the folder id.
+    fn create_folder(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        name: &str,
+        parent: Option<Uuid>,
+    ) -> impl Future<Output = anyhow::Result<Uuid>> + Send;
+
+    /// Create a markdown document inside `folder` when given, applying
+    /// `properties` best-effort. Returns the document id.
+    fn create_document(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        name: &str,
+        markdown: &str,
+        properties: &ImportedDocumentProperties,
+        folder: Option<Uuid>,
+    ) -> impl Future<Output = anyhow::Result<String>> + Send;
+
+    /// Create a task inside `folder` when given, applying `properties`
+    /// best-effort. Returns the task id.
+    fn create_task(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        name: &str,
+        markdown: &str,
+        properties: &ImportedTaskProperties,
+        folder: Option<Uuid>,
+    ) -> impl Future<Output = anyhow::Result<String>> + Send;
+
+    /// Create an empty database named `name`.
+    fn create_database(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        name: &str,
+    ) -> impl Future<Output = anyhow::Result<NewDatabase>> + Send;
+
+    /// Apply `ops` to a database `user` created, in one transaction. Ops may
+    /// refer to ids minted earlier in the same batch.
+    fn apply_database_ops(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        database_id: Uuid,
+        ops: Vec<models_databases::DatabaseOp>,
+    ) -> impl Future<Output = anyhow::Result<Vec<models_databases::OpResult>>> + Send;
+
+    /// The members of `user`'s team (including `user`), for matching Notion
+    /// people by email. Empty when the user has no team.
+    fn team_members(
+        &self,
+        user: &MacroUserIdStr<'static>,
+    ) -> impl Future<Output = anyhow::Result<Vec<TeamMember>>> + Send;
+}
+
+/// One object of a workspace import plan, ready to stage.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlanRow {
+    /// What the object is.
+    pub kind: ImportKind,
+    /// The object's id in the source.
+    pub foreign_id: String,
+    /// The `foreign_id` of the plan row it sits under, if any.
+    pub parent_foreign_id: Option<String>,
+    /// The row's metadata, already capped.
+    pub metadata: serde_json::Value,
+}
+
+/// Ledger operations a workspace import needs beyond single-row staging.
+pub trait NotionPlanRepo: Send + Sync + 'static {
+    /// Replace `user`'s current plan for `source`: drop the staged rows of the
+    /// previous plan, then stage `rows` in order (parents before children),
+    /// linking each to its parent row. Objects already importing or imported
+    /// keep their rows. Returns the rows now staged.
+    fn replace_plan(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        source: ImportSource,
+        rows: &[PlanRow],
+    ) -> impl Future<Output = Result<Vec<ImportEntity>>> + Send;
+
+    /// Tie the current plan's staged rows to `review_id`. Returns how many
+    /// rows it tied.
+    fn attach_review(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        source: ImportSource,
+        review_id: Uuid,
+    ) -> impl Future<Output = Result<u64>> + Send;
+
+    /// Move `user`'s run for `source` to `to` when it is in one of `from`.
+    /// Moving a run to the state it is in only refreshes it, which is how a
+    /// long job keeps its run from looking abandoned. Returns whether the run
+    /// moved.
+    fn transition_run(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        source: ImportSource,
+        from: &[RunStatus],
+        to: RunStatus,
+        error: Option<&str>,
+    ) -> impl Future<Output = Result<bool>> + Send;
 }

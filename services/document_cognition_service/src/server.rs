@@ -662,33 +662,6 @@ pub async fn run() -> anyhow::Result<()> {
         channels_connection_gateway.clone(),
     );
 
-    let entity_creator = ai_tools::ToolEntityCreator {
-        document_creator: document_tool_context.creator.clone(),
-        entity_access_service: entity_access_service.clone(),
-        channel_service: channel_tool_context.service.clone(),
-        task_properties: task_properties_for_import,
-        document_properties: document_properties_for_import,
-        team_repository: ai_tools::build_team_repository(db.clone()),
-    };
-    let import_service = Arc::new(
-        import::domain::service::ImportServiceImpl::new(
-            import::outbound::pg_import_repo::PgImportRepo::new(db.clone()),
-            mcp_selector.clone(),
-            Arc::new(entity_creator),
-            recorder.clone(),
-        )
-        .with_slack_source(Arc::new(
-            import::outbound::mcp_slack_source::McpSlackSource::new(mcp_selector.clone()),
-        ))
-        .with_admission(admission.clone())
-        .with_notifier(import_notify),
-    );
-
-    // No boot-time recovery: running batches heartbeat their rows, and the
-    // read path reaps rows whose heartbeat stopped — safe with multiple
-    // replicas, where a boot-time sweep would clobber other instances' jobs.
-    tracing::info!("initialized import service");
-
     let project_tool_context = ai_tools::build_project_tool_context(
         db.clone(),
         macro_event_broker.clone(),
@@ -716,6 +689,42 @@ pub async fn run() -> anyhow::Result<()> {
         ),
         ai_tools::MaybeToolEventBroker::Real(macro_event_broker.clone()),
     );
+
+    let entity_creator = ai_tools::ToolEntityCreator {
+        document_creator: document_tool_context.creator.clone(),
+        entity_access_service: entity_access_service.clone(),
+        channel_service: channel_tool_context.service.clone(),
+        task_properties: task_properties_for_import,
+        document_properties: document_properties_for_import,
+        team_repository: ai_tools::build_team_repository(db.clone()),
+        project_service: project_tool_context.service.clone(),
+        databases_service: databases_tool_context.service.clone(),
+    };
+    let import_service = Arc::new(
+        import::domain::service::ImportServiceImpl::new(
+            import::outbound::pg_import_repo::PgImportRepo::new(db.clone()),
+            mcp_selector.clone(),
+            Arc::new(entity_creator),
+            recorder.clone(),
+        )
+        .with_slack_source(Arc::new(
+            import::outbound::mcp_slack_source::McpSlackSource::new(mcp_selector.clone()),
+        ))
+        .with_notion_connections(Arc::new(
+            import_notion::outbound::pipedream::PipedreamNotionConnections::new(
+                Arc::new(pipedream_repo.clone()),
+                pipedream_client.clone(),
+            ),
+        ))
+        .with_admission(admission.clone())
+        .with_notifier(import_notify),
+    );
+
+    // No boot-time recovery: running batches heartbeat their rows, and the
+    // read path reaps rows whose heartbeat stopped — safe with multiple
+    // replicas, where a boot-time sweep would clobber other instances' jobs.
+    tracing::info!("initialized import service");
+
     let databases_sql_tool_context = ai_tools::build_databases_sql_tool_context(
         &databases_tool_context,
         soup_service.clone(),

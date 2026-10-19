@@ -1469,14 +1469,40 @@ pub struct ToolEntityCreator {
     pub document_properties: ToolDocumentPropertiesApplicator,
     /// Team roster lookups, to resolve source-tool emails to teammates.
     pub team_repository: Arc<ToolTeamService>,
+    /// Folder creation for workspace imports (shared with project tools).
+    pub project_service: Arc<ToolProjectService>,
+    /// Database creation and writes for workspace imports (shared with
+    /// database tools).
+    pub databases_service: Arc<ToolDatabasesService>,
 }
 
 impl ToolEntityCreator {
-    fn creation_principal(user: &MacroUserIdStr<'static>) -> model_owner::CreationPrincipal {
+    pub(crate) fn creation_principal(
+        user: &MacroUserIdStr<'static>,
+    ) -> model_owner::CreationPrincipal {
         model_owner::CreationPrincipal::BotForUser {
             bot: bot_id::MACRO_AI_BOT_ID,
             user: user.clone(),
         }
+    }
+
+    /// Require `user` to hold edit access on `folder`, as the project and
+    /// document tools do before creating inside one.
+    pub(crate) async fn authorize_folder(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        folder: uuid::Uuid,
+    ) -> anyhow::Result<()> {
+        self.entity_access_service
+            .generate_entity_access_receipt::<EditAccessLevel>(
+                user,
+                None,
+                &folder.to_string(),
+                model_entity::EntityType::Project,
+            )
+            .await
+            .map_err(|error| anyhow::anyhow!("no edit access to folder {folder}: {error:?}"))?;
+        Ok(())
     }
 
     async fn create_doc(
@@ -1486,15 +1512,19 @@ impl ToolEntityCreator {
         markdown: &str,
         is_task: bool,
         team_id: Option<uuid::Uuid>,
+        folder: Option<uuid::Uuid>,
     ) -> anyhow::Result<String> {
         use std::str::FromStr as _;
-        let document = documents::domain::create::NewPlainTextDocument::builder(
-            documents::domain::create::NewDocumentMetadata::new(name.to_string()),
-        )
-        .file_type(model::document::FileType::from_str("md").expect("md is a valid file type"))
-        .text(markdown.to_string())
-        .task_flag(is_task, team_id)
-        .build()?;
+        let mut metadata = documents::domain::create::NewDocumentMetadata::builder(name);
+        if let Some(folder) = folder {
+            self.authorize_folder(user, folder).await?;
+            metadata = metadata.project_id(folder);
+        }
+        let document = documents::domain::create::NewPlainTextDocument::builder(metadata.build())
+            .file_type(model::document::FileType::from_str("md").expect("md is a valid file type"))
+            .text(markdown.to_string())
+            .task_flag(is_task, team_id)
+            .build()?;
         let ai_for_user = Self::creation_principal(user);
         let created = self
             .document_creator
@@ -1510,7 +1540,7 @@ impl ToolEntityCreator {
     }
 
     /// The user's team id (when they have one) and its member ids.
-    async fn team_roster(
+    pub(crate) async fn team_roster(
         &self,
         user: &MacroUserIdStr<'static>,
     ) -> (Option<uuid::Uuid>, Vec<MacroUserIdStr<'static>>) {
@@ -1538,6 +1568,67 @@ impl ToolEntityCreator {
                 (Some(team_id), Vec::new())
             }
         }
+    }
+
+    /// Create an imported task, in `folder` when given, numbered within the
+    /// user's team, then apply its properties best-effort.
+    pub(crate) async fn create_imported_task(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        name: &str,
+        markdown: &str,
+        properties: &import::domain::ports::ImportedTaskProperties,
+        folder: Option<uuid::Uuid>,
+    ) -> anyhow::Result<String> {
+        // Same team resolution as the CreateDocument tool, so imported tasks
+        // number correctly within the user's team; the roster doubles as the
+        // assignee-email lookup.
+        let (team_id, roster) = self.team_roster(user).await;
+        let task_id = self
+            .create_doc(user, name, markdown, true, team_id, folder)
+            .await?;
+        self.apply_task_properties(user, &task_id, properties, &roster)
+            .await;
+        Ok(task_id)
+    }
+
+    /// Create an imported markdown document, in `folder` when given, then
+    /// apply its properties best-effort.
+    pub(crate) async fn create_imported_document(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        name: &str,
+        markdown: &str,
+        properties: &import::domain::ports::ImportedDocumentProperties,
+        folder: Option<uuid::Uuid>,
+    ) -> anyhow::Result<String> {
+        let document_id = self
+            .create_doc(user, name, markdown, false, None, folder)
+            .await?;
+        let access = match self
+            .entity_access_service
+            .generate_entity_access_receipt::<EditAccessLevel>(
+                user,
+                None,
+                &document_id,
+                model_entity::EntityType::Document,
+            )
+            .await
+        {
+            Ok(access) => access,
+            Err(error) => {
+                tracing::warn!(
+                    document_id,
+                    error = ?error,
+                    "failed to authorize imported document properties"
+                );
+                return Ok(document_id);
+            }
+        };
+        self.document_properties
+            .apply(user, &access, &document_id, properties)
+            .await;
+        Ok(document_id)
     }
 
     /// Apply imported task properties best-effort: each one logs and is
@@ -1655,14 +1746,8 @@ impl import::domain::ports::EntityCreator for ToolEntityCreator {
         markdown: &str,
         properties: &import::domain::ports::ImportedTaskProperties,
     ) -> anyhow::Result<String> {
-        // Same team resolution as the CreateDocument tool, so imported tasks
-        // number correctly within the user's team; the roster doubles as the
-        // assignee-email lookup.
-        let (team_id, roster) = self.team_roster(user).await;
-        let task_id = self.create_doc(user, name, markdown, true, team_id).await?;
-        self.apply_task_properties(user, &task_id, properties, &roster)
-            .await;
-        Ok(task_id)
+        self.create_imported_task(user, name, markdown, properties, None)
+            .await
     }
 
     async fn create_markdown_doc(
@@ -1672,31 +1757,8 @@ impl import::domain::ports::EntityCreator for ToolEntityCreator {
         markdown: &str,
         properties: &import::domain::ports::ImportedDocumentProperties,
     ) -> anyhow::Result<String> {
-        let document_id = self.create_doc(user, name, markdown, false, None).await?;
-        let access = match self
-            .entity_access_service
-            .generate_entity_access_receipt::<EditAccessLevel>(
-                user,
-                None,
-                &document_id,
-                model_entity::EntityType::Document,
-            )
+        self.create_imported_document(user, name, markdown, properties, None)
             .await
-        {
-            Ok(access) => access,
-            Err(error) => {
-                tracing::warn!(
-                    document_id,
-                    error = ?error,
-                    "failed to authorize imported document properties"
-                );
-                return Ok(document_id);
-            }
-        };
-        self.document_properties
-            .apply(user, &access, &document_id, properties)
-            .await;
-        Ok(document_id)
     }
 
     async fn create_channel(
@@ -1740,6 +1802,10 @@ pub type ToolImportService = import::domain::service::ImportServiceImpl<
     ToolMcpSelector,
     ToolEntityCreator,
     import::outbound::mcp_slack_source::McpSlackSource<ToolMcpSelector>,
+    import_notion::outbound::pipedream::PipedreamNotionConnections<
+        pipedream_mcp::outbound::pg_connection_repo::PgConnectionRepo,
+        pipedream_mcp::outbound::api::PipedreamClient,
+    >,
 >;
 
 /// Type alias for the import tool context, wired by hosts with connector access.
