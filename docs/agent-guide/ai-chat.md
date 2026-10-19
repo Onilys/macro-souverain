@@ -829,7 +829,11 @@ The harness spawns a fresh Deno process for each execution. Dependencies are
 bundled at build time; no TypeScript compilation or package downloads happen
 in a run. The process receives a short-lived normal user token after the session
 owner's execution approval. SDK methods make HTTP requests to configured Macro
-service hosts using normal API authorization. There is no runner service,
+service hosts using normal API authorization. The token also signs the session's
+agent identity: SDK messages show that agent as sender and the owner in the
+`from` pill. Ordinary user tokens have no agent attribution; client headers and
+message bodies cannot choose it. Other SDK endpoints still authenticate the owner
+as a user. There is no runner service,
 WebSocket bridge, or per-API-call approval callback. Eight executions may run
 per harness process. Network hosts, process lifetime, output and memory are
 bounded; filesystem writes, arbitrary imports and subprocesses are denied.
@@ -969,9 +973,12 @@ removable file pill under the body once its name resolves. The card's paperclip
 uploaded as a Macro document, shown as a pill while it uploads, and `Send email`
 stays disabled until every upload finishes. Macro-native documents written in the
 editor have no file and cannot be attached; the send reports which document
-could not be attached. Attachments together may total 18 MB. The sent and
-saved-draft rows read `with N attachments`, and the expanded sent card shows
-the pills read-only.
+could not be attached. Attachments together may total the sending inbox's limit
+(18 MB on Gmail, 25 MB on Outlook): a picked or dropped file that would pass it
+opens the same confirmation as the email composer, offering to upload it to Macro and link it from the body as a public
+view-only document instead; Cancel adds nothing, and files that fit still
+attach. The sent and saved-draft rows read `with N attachments`, and the
+expanded sent card shows the pills read-only.
 
 The reliable completion signal is the disappearance of the `Stop generating` button — poll
 with `evaluate_script`. Do not wait on response text: the page displays

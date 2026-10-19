@@ -19,7 +19,8 @@ export type SendRefusal =
   | 'media-not-uploaded'
   | 'draft-not-saved'
   | 'draft-not-confirmed'
-  | 'attachment-not-uploaded';
+  | 'attachment-not-uploaded'
+  | 'files-uploading';
 
 const SEND_REFUSAL_SUBTEXT: Record<SendRefusal, string> = {
   offline: "You're offline",
@@ -29,9 +30,13 @@ const SEND_REFUSAL_SUBTEXT: Record<SendRefusal, string> = {
   'draft-not-saved': 'Draft not saved',
   'draft-not-confirmed': 'Draft still syncing, try again',
   'attachment-not-uploaded': 'Attachment not uploaded',
+  'files-uploading': 'Files are still uploading',
 };
 
-export function refuseSend(notices: EmailComposeFeedback, reason: SendRefusal) {
+export function refuseSend(
+  notices: Pick<EmailComposeFeedback, 'feedback'>,
+  reason: SendRefusal
+) {
   notices.feedback.failure('Failed to send email', {
     subtext: SEND_REFUSAL_SUBTEXT[reason],
   });

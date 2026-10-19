@@ -41,6 +41,8 @@ pub struct ExecutionIdentity {
     pub session: AgentSessionId,
     /// User whose permissions the tools enforce.
     pub owner: MacroUserIdStr<'static>,
+    /// Agent from the authenticated session, used to attribute SDK messages.
+    pub agent_id: bot_id::BotId,
     /// The server-resolved turn. Work cannot outlive or move to another turn.
     pub turn: Uuid,
 }

@@ -100,6 +100,7 @@ struct FakeJwtValidator;
 impl JwtValidator for FakeJwtValidator {
     fn validate(&self, jwt: &str) -> Result<ValidatedIdentity, Report<MacroAuthorizationError>> {
         Ok(ValidatedIdentity {
+            agent_id: None,
             user_id: jwt.to_string(),
             fusion_user_id: "fusion-user".to_string(),
             organization_id: None,
@@ -127,6 +128,7 @@ impl BotAuthorizer for SelfBotAuthorizer {
                 let macro_user_id = MacroUserIdStr::try_from(user_id.clone())
                     .map_err(|_| Report::new(MacroAuthorizationError::ActingUserNotAuthorized))?;
                 Some(MacroUserAuthentication {
+                    agent_id: None,
                     macro_user_id,
                     user_context: model_user::UserContext {
                         user_id,
@@ -173,6 +175,7 @@ impl HarnessAuthorizer for SelfHarnessAuthorizer {
                 user_id: user_id.clone(),
             },
             acting_user: MacroUserAuthentication {
+                agent_id: None,
                 macro_user_id,
                 user_context: model_user::UserContext {
                     user_id,

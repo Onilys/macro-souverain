@@ -377,9 +377,7 @@ it('blocks queued standalone envelope, attachment, signature, schedule, delete, 
     composer.setSubject('Changed');
     composer.setRecipients('to', []);
     composer.onSelectInbox?.('other');
-    composer.onAddAttachments([
-      { type: 'local', file: new File(['audit'], 'audit.txt') },
-    ]);
+    composer.onAddAttachments([new File(['audit'], 'audit.txt')]);
     root.state.setIncludeSignature(false);
     composer.onDelete?.();
     composer.onSend();
@@ -586,11 +584,11 @@ it.each(['standalone', 'reply'] as const)(
     ];
     try {
       root.edit('Body with forwarded attachments');
+      const form = 'state' in root ? root.state.form : root.form;
+      for (const file of forwarded) form.attachments.add(file);
       if ('state' in root) {
-        await root.state.context.onAddAttachments(forwarded);
         root.state.context.onSend();
       } else {
-        for (const file of forwarded) root.form.attachments.add(file);
         await root.sendEmail();
       }
       await vi.advanceTimersByTimeAsync(0);

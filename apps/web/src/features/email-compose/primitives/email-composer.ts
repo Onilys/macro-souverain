@@ -1,6 +1,8 @@
-import { MACRO_EMAIL_SIGNATURE } from '@app/features/email-compose/core/constants';
+import {
+  attachmentLimitBytes,
+  MACRO_EMAIL_SIGNATURE,
+} from '@app/features/email-compose/core/constants';
 import { setEditorStateFromHtml } from '@core/component/LexicalMarkdown/utils/setEditorStateFromHtml';
-import { getUploadFileSize } from '@core/mobile/nativeStagedUpload';
 import { fireAndForget } from '@core/util/fireAndForget';
 import { $generateHtmlFromNodes } from '@lexical/html';
 import {
@@ -35,9 +37,9 @@ import type {
   EmailDelivery,
   EmailDraftLifecycleSource,
   EmailDraftStorage,
+  EmailEditorFiles,
   PersistedEmailIdentity,
 } from '../context/compose-capabilities';
-import { attachmentLimitBytes } from '../core/constants';
 import { decodeBase64Utf8 } from '../core/decode-base64';
 import type { EmailRecipient } from '../core/email-recipient';
 import { fromInboxOptions } from '../core/email-sender';
@@ -58,6 +60,8 @@ import {
   prepareEmailBody,
 } from '../primitives/prepare-email-body';
 import { endUndoSend } from '../primitives/undo-send-claim';
+import { partitionByAttachmentLimit } from './attachment-limit';
+import { createAttachmentLinkOffer } from './attachment-links';
 import {
   createAttachmentPersistence,
   refuseAttachmentsOffline,
@@ -109,6 +113,7 @@ export type EmailComposerOptions = {
   notices: EmailComposeFeedback;
   accounts: EmailComposeAccounts;
   connectivity: EmailConnectivity;
+  editorFiles: Pick<EmailEditorFiles, 'uploadDocuments' | 'makePublic'>;
   viewerEmail: Accessor<string | undefined>;
   hasPaidAccess: Accessor<boolean>;
   recipients: Accessor<EmailRecipient[]>;
@@ -596,30 +601,39 @@ export function createEmailComposer(props: EmailComposerOptions) {
 
   // --- Attachment handling ---
 
-  const handleAddAttachments = async (attachments: DraftFormAttachment[]) => {
+  const attachmentLinks = createAttachmentLinkOffer({
+    editor,
+    canEdit: () =>
+      !persistencePaused() && terminalState() === undefined && !hasInboxError(),
+    version: () =>
+      `${identityVersion}:${session.epoch()}:${activeInboxId() ?? ''}`,
+    notices: props.notices,
+    editorFiles: props.editorFiles,
+  });
+
+  const handleAddAttachments = async (files: File[]) => {
     if (persistencePaused()) return;
     if (await refuseAttachmentsOffline(props.connectivity, props.notices))
       return;
-    const size = (a: DraftFormAttachment) =>
-      a.type === 'local' ? getUploadFileSize(a.file) : a.fileSize;
+    if (persistencePaused()) return;
     const limit = attachmentLimitBytes(
-      props.accounts.inboxes().find((i) => i.id === activeInboxId())?.provider
+      props.accounts.inboxes().find((inbox) => inbox.id === activeInboxId())
+        ?.provider
     );
-    if (
-      [...form.attachments.list(), ...attachments].reduce(
-        (sum, a) => sum + size(a),
-        0
-      ) > limit
-    ) {
-      props.notices.feedback.failure(
-        `Combined attachments exceed the ${limit / 1_000_000} MB limit for this inbox.`
-      );
-      return;
+    const { attachable, oversized } = partitionByAttachmentLimit(
+      files,
+      form.attachments.list(),
+      limit
+    );
+    for (const file of attachable) {
+      form.attachments.add({ type: 'local', file });
     }
-    for (const attachment of attachments) {
-      form.attachments.add(attachment);
+    if (attachable.length > 0) markDirtyAndScheduleSave();
+    try {
+      await attachmentLinks.share(oversized, limit);
+    } catch (error) {
+      props.notices.reportError(error);
     }
-    markDirtyAndScheduleSave();
   };
 
   const handleRemoveAttachment = async (attachment: DraftFormAttachment) => {
@@ -826,6 +840,8 @@ export function createEmailComposer(props: EmailComposerOptions) {
     if (offline) return refuseSend(props.notices, offline);
     if (pendingInlineMedia(editor()))
       return refuseSend(props.notices, 'media-not-uploaded');
+    if (attachmentLinks.uploading())
+      return refuseSend(props.notices, 'files-uploading');
     const scheduleAction = schedule.action();
     if (scheduleAction === 'unavailable') {
       props.notices.feedback.alert(
@@ -1006,6 +1022,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
   const resetState = () => {
     setSentDraftId(undefined);
     setRestoredBodyHtml(plainTextToHtml(''));
+    attachmentLinks.detach();
     clearEmailBody(editor());
     setContent('');
     session.dispatch({ type: 'reset' });
@@ -1066,6 +1083,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
     autosave.cancel();
     session.dispatch({ type: 'reset' });
     const omittedAttachments = attachmentPersistence.detach();
+    attachmentLinks.detach();
     schedule.detach();
     setCompleted(false);
     setTerminalState(undefined);
@@ -1318,10 +1336,6 @@ export function createEmailComposer(props: EmailComposerOptions) {
     recipients: form.recipients,
     subject: form.subject,
     attachments: form.attachments.list,
-    attachmentLimitBytes: () =>
-      attachmentLimitBytes(
-        props.accounts.inboxes().find((i) => i.id === activeInboxId())?.provider
-      ),
     initialHtml,
 
     // Form state (write)
@@ -1384,6 +1398,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
       completed() ||
       terminalState() !== undefined ||
       scheduling() ||
+      attachmentLinks.uploading() ||
       schedule.action() === 'unavailable',
     isSending: () => submitting() || scheduling(),
     hasDraft: () => currentDraftId() != null,
@@ -1401,6 +1416,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
       if (schedule.operation() === 'updating') return 'Updating schedule…';
       if (schedule.operation() === 'cancelling') return 'Cancelling schedule…';
       if (submitting()) return 'Sending…';
+      if (attachmentLinks.uploading()) return 'Uploading files to share…';
       if (schedule.action() === 'unavailable')
         return `Scheduled for ${schedule.confirmedTime()?.toLocaleString()}. Choose a new time to update it, or cancel the schedule to edit.`;
       return undefined;
@@ -1448,6 +1464,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
     acknowledgeSaved: autosave.acknowledgeSaved,
     context: ctxValue,
     editor,
+    form,
     previewName,
     hasInboxError,
     draftDirty,

@@ -36,7 +36,11 @@ export function CrmSidebar(props: {
   onImport: () => void;
   onExport: () => void;
   onSettings: () => void;
-  onCollapse: () => void;
+  /**
+   * Collapses the docked sidebar. The narrow navigation menu omits it, along
+   * with the split close, which stays in the split header beside the menu.
+   */
+  onCollapse?: () => void;
 }) {
   const [recordsOpen, setRecordsOpen] = createSignal(true);
   const [listsOpen, setListsOpen] = createSignal(true);
@@ -46,19 +50,23 @@ export function CrmSidebar(props: {
         <Show when={!isTouchDevice()}>
           <ViewSidebar.Header>
             <div class="flex min-w-0 items-center gap-1">
-              <ViewSidebar.CloseButton class="shrink-0" />
+              <Show when={props.onCollapse}>
+                <ViewSidebar.CloseButton class="shrink-0" />
+              </Show>
               <ViewSidebar.Title>Customers</ViewSidebar.Title>
             </div>
-            <Tooltip label="Collapse CRM sidebar">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                label="Collapse CRM sidebar"
-                onClick={props.onCollapse}
-              >
-                <SidebarIcon class="size-4" />
-              </Button>
-            </Tooltip>
+            <Show when={props.onCollapse}>
+              <Tooltip label="Collapse CRM sidebar">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  label="Collapse CRM sidebar"
+                  onClick={props.onCollapse}
+                >
+                  <SidebarIcon class="size-4" />
+                </Button>
+              </Tooltip>
+            </Show>
           </ViewSidebar.Header>
         </Show>
         <ViewSidebar.Primary ref={tourTarget(COMPANIES_TOUR.create)}>

@@ -9,6 +9,7 @@ import {
 } from '@app/features/calendar-view/calendar-url';
 import { CALENDAR_VIEW_ID } from '@app/features/calendar-view/types';
 import { changesSearch } from '@app/features/changes/changes-search';
+import { mobileSearchRouteStateSchema } from '@app/features/command/mobile/mobile-search-route-state';
 import { crmViewReference } from '@app/features/crm/crm-route';
 import { driveDetailTrailSchema } from '@app/features/drive-view/primitives/drive-detail-trail';
 import {
@@ -634,7 +635,10 @@ export const searchRoute = defineRoute({
   id: 'view-search',
   path: 'search',
   search: '*' as const,
+  state: mobileSearchRouteStateSchema,
   claim: () => ({ namespace: 'component', id: 'search' }),
+  // Each visit owns its query and result scroll state, even in a reused pane.
+  remountKey: (_params, { entryId }) => entryId,
 });
 
 export const prDetailRoute = defineRoute({

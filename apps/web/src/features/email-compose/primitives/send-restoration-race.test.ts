@@ -10,6 +10,60 @@ import { mountReplyComposer } from '../tests/reply';
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
+
+it.each([false, true])(
+  'cancels delayed mark-done when the queued reply is restored: %s',
+  async (restore) => {
+    const context = createComposeContext();
+    const archived = vi.fn();
+    let completeMarkDone = () => {};
+    let listener: ((event: EmailDraftRestoration) => void) | undefined;
+    context.drafts.watchRestorations = (changed) => {
+      listener = changed;
+      return () => {};
+    };
+    context.drafts.readDraft = vi.fn(async () => ({
+      draft: message('draft', {
+        is_draft: true,
+        replying_to_id: 'parent',
+        body_text: 'Restored body',
+        body_html_sanitized: null,
+      }),
+      persistence: 'queued' as const,
+    }));
+    const root = mountReplyComposer(context, undefined, {
+      draft: message('draft', { is_draft: true }),
+      onMarkDone: (options) => {
+        completeMarkDone = () => {
+          if (!options?.cancelled?.()) archived();
+        };
+        return true;
+      },
+    });
+    try {
+      await root.sendEmail(true);
+      expect(context.delivery.sendMessage).toHaveBeenCalledOnce();
+      if (restore) {
+        listener?.({
+          draftId: 'draft',
+          originalDraftId: 'draft',
+          threadId: 'thread',
+          inboxId: 'inbox',
+          replyingToId: 'parent',
+        });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(root.editor.read(() => $getRoot().getTextContent())).toBe(
+          'Restored body'
+        );
+      }
+      completeMarkDone();
+      expect(archived).toHaveBeenCalledTimes(restore ? 0 : 1);
+    } finally {
+      root.dispose();
+    }
+  }
+);
+
 it.each([
   ['standalone', false],
   ['reply', false],

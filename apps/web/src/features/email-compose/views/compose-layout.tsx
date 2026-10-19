@@ -281,11 +281,7 @@ export function ComposeLayout(props: {
           debugName={props.bodyDebugName}
           inputRef={registerRef('messageInput')}
           mobileScrollRef={() => mobileScrollRef}
-          onAddFiles={(files) => {
-            ctx.onAddAttachments(
-              files.map((file) => ({ type: 'local', file }))
-            );
-          }}
+          onAddFiles={ctx.onAddAttachments}
         />
         {props.toolbar}
       </div>

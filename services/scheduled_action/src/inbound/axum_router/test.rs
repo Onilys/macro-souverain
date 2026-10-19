@@ -152,6 +152,7 @@ impl MacroAuthorizationService for FakeAuth {
                 .map(|user_id| {
                     let macro_user_id = MacroUserIdStr::try_from(user_id).expect("acting user id");
                     MacroUserAuthentication {
+                        agent_id: None,
                         user_context: UserContext {
                             user_id: macro_user_id.to_string(),
                             ..Default::default()

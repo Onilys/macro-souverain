@@ -92,6 +92,7 @@ function setup() {
       totalCount: () => items().length,
       hasMore: () => false,
       isLoadingMore: () => false,
+      error: () => undefined,
       loadMore: async () => {},
     };
     const result = useCommandItems(() => '', category, {

@@ -47,6 +47,7 @@ impl JwtValidator for Tokens {
             _ => return Err(Report::new(MacroAuthorizationError::InvalidCredentials)),
         };
         Ok(ValidatedIdentity {
+            agent_id: None,
             user_id: user_id.to_string(),
             fusion_user_id: format!("fusion-{jwt}"),
             organization_id: None,

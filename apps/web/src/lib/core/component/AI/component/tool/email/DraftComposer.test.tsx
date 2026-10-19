@@ -73,12 +73,19 @@ vi.mock('@tanstack/solid-query', () => ({ useQueryClient: () => ({}) }));
 vi.mock('@ui', () => ({
   ComposerSurface: () => null,
   cn: () => '',
+  confirmDialog: vi.fn(async () => false),
   Button: (props: JSX.ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button {...props} />
   ),
 }));
 vi.mock('@app/features/email-compose/editor-adapter', () => ({
   createComposeBodyActions: () => ({}),
+}));
+vi.mock('@app/features/email-compose/make-attachment-public', () => ({
+  makeAttachmentPublic: vi.fn(),
+}));
+vi.mock('@app/features/email-compose/upload-documents', () => ({
+  uploadAttachmentDocuments: vi.fn(async () => []),
 }));
 vi.mock('@app/features/email-compose/components/signature-preview', () => ({
   SignaturePreview: (props: { html: string }) => (

@@ -38,6 +38,7 @@ export function ScheduleRecoveryFixture() {
       archive: async () => {},
     },
     notices: {
+      confirm: async () => false,
       feedback: {
         success: () => undefined,
         failure: (message) => {

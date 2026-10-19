@@ -161,10 +161,12 @@ the entity actions menu and command menu with stage requests delayed; cancel the
 editors without changing hosted data.
 
 `Collapse CRM sidebar` persists across visits; `Expand CRM sidebar` restores it.
-At narrow widths, `Show CRM navigation` opens the same navigation in a menu;
-`Collapse CRM sidebar` there closes the menu and leaves the saved preference alone.
-While the sidebar is collapsed, the split's **Close** sits before either toggle,
-including on a pipeline, and stays hidden when the split cannot close.
+At narrow widths, `Show CRM navigation` opens the same navigation in a menu
+without **Close** or `Collapse CRM sidebar`; picking a destination or clicking
+outside closes it.
+While the sidebar is collapsed or shown as a menu, the split's **Close** sits
+before either toggle, including on a pipeline, and stays hidden when the split
+cannot close.
 The sidebar's Records and Lists sections can also collapse independently.
 
 **Pipelines** in the CRM sidebar hold company or contact entries in the shared
@@ -267,8 +269,11 @@ message and keep the last saved membership. With no lists, create one in the CRM
 `Domain` (or `Domains`, `Website`) column and an optional `Name` or `Company`
 column, such as a Companies export (up to 10,000 rows, at most 5 MB). Each row
 takes its first valid domain; rows without one or repeating an earlier domain are
-skipped. The explicit Import button writes the previewed companies four at a
-time; domains the team already tracks count as already in the CRM. Partial
+skipped. **Choose file** opens the CSV picker; the selected filename appears
+beside it (wrapping on narrow screens), and **Change file** opens it again.
+Cancelling the picker keeps the selection. The explicit Import button writes the
+previewed companies four at a time; domains the team already tracks count as
+already in the CRM. Partial
 failures retain only failed rows for retry. Stage, Owner, and Revenue live on
 pipeline rows, not companies: when the file has values in those columns and
 pipelines are available, a picker chooses where they go: **New private

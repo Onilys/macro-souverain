@@ -33,8 +33,7 @@ it.each(['standalone', 'reply'] as const)(
       root.edit('Body with still-uploading image');
       context.connectivity.looksOffline = () => false;
       const file = new File(['audit'], 'audit.txt', { type: 'text/plain' });
-      if ('state' in root)
-        await root.state.context.onAddAttachments([{ type: 'local', file }]);
+      if ('state' in root) await root.state.context.onAddAttachments([file]);
       else await root.handleAddAttachments([file]);
       if ('state' in root) root.state.context.onSend();
       else await root.sendEmail();
@@ -61,7 +60,7 @@ it.each(['standalone', 'reply'] as const)(
     const file = new File(['audit'], 'audit.txt');
     const add = () =>
       'state' in root
-        ? root.state.context.onAddAttachments([{ type: 'local', file }])
+        ? root.state.context.onAddAttachments([file])
         : root.handleAddAttachments([file]);
     try {
       await add();

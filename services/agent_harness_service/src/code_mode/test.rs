@@ -29,6 +29,7 @@ async fn owner_approval_is_required_before_credentials_and_cancel_skips_gate() {
     let identity = ExecutionIdentity {
         execution: agent_code_mode::domain::ExecutionId::mint(),
         session: session.id,
+        agent_id: session.bot_id,
         owner: session.owner_user().unwrap().clone(),
         turn: macro_uuid::Uuid::from_u128(1),
     };
