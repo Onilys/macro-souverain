@@ -116,18 +116,22 @@ function createCalendarSettingsControls(isNarrow: () => boolean) {
         fireAndForget(
           startAddInbox({
             scopes: account.consentScopes,
+            provider: account.provider,
+            reconnectLinkId: account.linkId,
             emailAddress: account.emailAddress,
           }),
-          'calendar-settings'
+          'add-inbox'
         );
       })
       .with('reconnect', () => {
         fireAndForget(
           startAddInbox({
             scopes: account.consentScopes,
+            provider: account.provider,
+            reconnectLinkId: account.linkId,
             emailAddress: account.emailAddress,
           }),
-          'calendar-settings'
+          'add-inbox'
         );
       })
       .with('turnOff', () => {

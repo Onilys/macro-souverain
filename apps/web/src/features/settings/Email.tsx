@@ -22,9 +22,9 @@ import {
   reconnectScopes,
 } from '@core/email-link/consent';
 import { fireAndForget } from '@core/util/fireAndForget';
-import GmailIcon from '@icon/mcp-gmail.svg';
 import ArrowsClockwiseIcon from '@phosphor-icons/core/regular/arrows-clockwise.svg?component-solid';
 import CalendarSlashIcon from '@phosphor-icons/core/regular/calendar-slash.svg?component-solid';
+import EnvelopeIcon from '@phosphor-icons/core/regular/envelope.svg?component-solid';
 import PlusIcon from '@phosphor-icons/core/regular/plus.svg?component-solid';
 import {
   type BackfillProgress,
@@ -42,6 +42,7 @@ import {
 import { Dialog, Panel, Tooltip } from '@ui';
 import { createMemo, createSignal, For, Match, Show, Switch } from 'solid-js';
 import { match } from 'ts-pattern';
+import { InboxSettingsOperations } from './InboxSettingsOperations';
 import { ConnectAction, StatusDot } from './integration-ui';
 import {
   SettingsButton as Button,
@@ -122,7 +123,7 @@ export function EmailCard() {
     if (isEmailActionPending()) return;
     setIsEmailActionPending(true);
     try {
-      await startAddInbox();
+      openAddInboxDialog();
     } finally {
       setIsEmailActionPending(false);
     }
@@ -158,8 +159,8 @@ export function EmailCard() {
     <>
       <SettingsCard>
         <IntegrationRow
-          icon={<GmailIcon />}
-          title="Gmail"
+          icon={<EnvelopeIcon />}
+          title="Email"
           description="Read, organize, and act on your email."
           status={
             <Show when={emailActive()}>
@@ -190,6 +191,8 @@ export function EmailCard() {
                   fireAndForget(
                     startAddInbox({
                       scopes: reconnectScopes(primary()),
+                      provider: primary().provider,
+                      reconnectLinkId: primary().id,
                       emailAddress: primary().email_address,
                     }),
                     'add-inbox'
@@ -199,6 +202,8 @@ export function EmailCard() {
                   fireAndForget(
                     startAddInbox({
                       scopes: calendarConsentScopes(primary()),
+                      provider: primary().provider,
+                      reconnectLinkId: primary().id,
                       emailAddress: primary().email_address,
                     }),
                     'add-inbox'
@@ -239,6 +244,8 @@ export function EmailCard() {
                   fireAndForget(
                     startAddInbox({
                       scopes: reconnectScopes(link),
+                      provider: link.provider,
+                      reconnectLinkId: link.id,
                       emailAddress: link.email_address,
                     }),
                     'add-inbox'
@@ -248,6 +255,8 @@ export function EmailCard() {
                   fireAndForget(
                     startAddInbox({
                       scopes: calendarConsentScopes(link),
+                      provider: link.provider,
+                      reconnectLinkId: link.id,
                       emailAddress: link.email_address,
                     }),
                     'add-inbox'
@@ -272,7 +281,7 @@ export function EmailCard() {
           <Show when={multiInboxFlag().enabled}>
             <SettingsRow
               label="Add another inbox"
-              description="Connect more Gmail accounts."
+              description="Connect Gmail, Outlook.com, or Microsoft 365."
             >
               <Tooltip label="Add inbox">
                 <Button
@@ -464,6 +473,11 @@ function InboxRow(props: {
               <Chip label="Shared" />
             </Show>
           </div>
+          <span class="text-xs text-ink-muted">
+            {props.link.provider === 'OUTLOOK'
+              ? 'Outlook / Microsoft 365'
+              : 'Gmail'}
+          </span>
           <Show when={ENABLE_INBOX_SYNC_STATUS}>
             <Switch
               fallback={
@@ -589,6 +603,7 @@ function InboxRow(props: {
           </Tooltip>
         </div>
       </div>
+      <InboxSettingsOperations linkId={props.link.id} />
     </div>
   );
 }

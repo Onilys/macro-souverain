@@ -11,6 +11,7 @@ export const authKeys = createQueryKeys('auth', {
   cursorApiKeyStatus: null,
   cursorModels: null,
   githubLinkStatus: null,
+  emailConnectionProviders: null,
   userInfo: null,
   userLanguage: null,
   userName: (userId: string) => ({

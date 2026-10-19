@@ -2304,7 +2304,9 @@ table cells is preserved in paragraphs when the editor opens the document.
 
 `@` opens the mention menu wherever the caret starts a word, including directly
 in front of existing text — the menu opens empty there instead of searching for
-the word ahead of the caret. Typed inside a word (`he@llo`) it stays literal text.
+the word ahead of the caret. It also opens immediately after a soft line break:
+type a word, press Shift+Enter, then type `@` and a name to filter the menu.
+Typed inside a word (`he@llo`) it stays literal text.
 On Android, verify this with the software keyboard: tap `@`, type a name to
 filter, and tap a result to insert a single mention. The menu should remain
 visible above the keyboard while typing.
