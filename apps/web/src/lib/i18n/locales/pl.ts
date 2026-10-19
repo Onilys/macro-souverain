@@ -1,6 +1,19 @@
 import type { PartialDictionary } from '../dictionary';
 
 export default {
+  channelLabels: {
+    newChannel: 'Nowy kanał',
+    newLabel: 'Nowa etykieta',
+    newLabelEllipsis: 'Nowa etykieta…',
+    newSmartLabel: 'Nowa inteligentna etykieta',
+    editSmartLabel: 'Edytuj inteligentną etykietę',
+    deleteLabel: 'Usuń etykietę',
+    deleteSmartLabel: 'Usuń inteligentną etykietę',
+    markAllAsRead: 'Oznacz wszystko jako przeczytane',
+    addToLabel: 'Dodaj do etykiety',
+    moveToLabel: 'Przenieś do etykiety',
+    ungroupFrom: 'Usuń z „{{label}}”',
+  },
   commandMenu: {
     categoryAll: 'Wszystko',
     categoryCommands: 'Polecenia',
@@ -374,6 +387,13 @@ export default {
     failedToCreateFolder: 'Nie udało się utworzyć folderu',
   },
   entityActions: {
+    addToFavorites: 'Dodaj do ulubionych',
+    archive: 'Archiwizuj',
+    unarchive: 'Przywróć z archiwum',
+    openOnGitHub: 'Otwórz w GitHub',
+    viewItemsWithTag: 'Pokaż wszystkie elementy z tym tagiem',
+    editTag: 'Edytuj tag',
+    removeTag: 'Usuń tag',
     markDone: 'Oznacz jako ukończone',
     markNotDone: 'Oznacz jako nieukończone',
     markRead: 'Oznacz jako przeczytane',

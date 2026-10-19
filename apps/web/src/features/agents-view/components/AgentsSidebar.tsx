@@ -16,6 +16,7 @@ import {
   MaybeSoupEntityActionDrawerManager,
   SoupEntityContextMenu,
 } from '@app/features/soup';
+import { t } from '@app/lib/i18n';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
 import { MenuItem } from '@core/component/ContextMenu';
 import { useUserId } from '@core/context/user';
@@ -104,7 +105,11 @@ function ConversationContextMenu(props: {
         props.conversation.ownerId === userId() ? (
           <MenuItem
             icon={TrayIcon}
-            text={props.conversation.isArchived ? 'Unarchive' : 'Archive'}
+            text={
+              props.conversation.isArchived
+                ? t('entityActions.unarchive')
+                : t('entityActions.archive')
+            }
             onClick={setArchived}
           />
         ) : undefined

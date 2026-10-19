@@ -1,6 +1,19 @@
 import type { PartialDictionary } from '../dictionary';
 
 export default {
+  channelLabels: {
+    newChannel: '새 채널',
+    newLabel: '새 라벨',
+    newLabelEllipsis: '새 라벨…',
+    newSmartLabel: '새 스마트 라벨',
+    editSmartLabel: '스마트 라벨 편집',
+    deleteLabel: '라벨 삭제',
+    deleteSmartLabel: '스마트 라벨 삭제',
+    markAllAsRead: '모두 읽음으로 표시',
+    addToLabel: '라벨에 추가',
+    moveToLabel: '라벨로 이동',
+    ungroupFrom: '“{{label}}”에서 제외',
+  },
   commandMenu: {
     categoryAll: '전체',
     categoryCommands: '명령',
@@ -372,6 +385,13 @@ export default {
     failedToCreateFolder: '폴더를 만들지 못했습니다',
   },
   entityActions: {
+    addToFavorites: '즐겨찾기에 추가',
+    archive: '보관',
+    unarchive: '보관 취소',
+    openOnGitHub: 'GitHub에서 열기',
+    viewItemsWithTag: '이 태그가 있는 항목 모두 보기',
+    editTag: '태그 편집',
+    removeTag: '태그 삭제',
     markDone: '완료로 표시',
     markNotDone: '미완료로 표시',
     markRead: '읽음으로 표시',

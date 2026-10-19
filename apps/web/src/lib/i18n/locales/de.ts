@@ -1,6 +1,19 @@
 import type { PartialDictionary } from '../dictionary';
 
 export default {
+  channelLabels: {
+    newChannel: 'Neuer Kanal',
+    newLabel: 'Neues Label',
+    newLabelEllipsis: 'Neues Label…',
+    newSmartLabel: 'Neues Smart-Label',
+    editSmartLabel: 'Smart-Label bearbeiten',
+    deleteLabel: 'Label löschen',
+    deleteSmartLabel: 'Smart-Label löschen',
+    markAllAsRead: 'Alle als gelesen markieren',
+    addToLabel: 'Zu Label hinzufügen',
+    moveToLabel: 'In Label verschieben',
+    ungroupFrom: 'Aus „{{label}}“ entfernen',
+  },
   commandMenu: {
     categoryAll: 'Alle',
     categoryCommands: 'Befehle',
@@ -377,6 +390,13 @@ export default {
     failedToCreateFolder: 'Ordner konnte nicht erstellt werden',
   },
   entityActions: {
+    addToFavorites: 'Zu Favoriten hinzufügen',
+    archive: 'Archivieren',
+    unarchive: 'Archivierung aufheben',
+    openOnGitHub: 'Auf GitHub öffnen',
+    viewItemsWithTag: 'Alle Elemente mit Tag anzeigen',
+    editTag: 'Tag bearbeiten',
+    removeTag: 'Tag entfernen',
     markDone: 'Als erledigt markieren',
     markNotDone: 'Als nicht erledigt markieren',
     markRead: 'Als gelesen markieren',

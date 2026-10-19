@@ -1,6 +1,19 @@
 import type { PartialDictionary } from '../dictionary';
 
 export default {
+  channelLabels: {
+    newChannel: 'Ny kanal',
+    newLabel: 'Ny etiket',
+    newLabelEllipsis: 'Ny etiket…',
+    newSmartLabel: 'Ny smart etiket',
+    editSmartLabel: 'Redigér smart etiket',
+    deleteLabel: 'Slet etiket',
+    deleteSmartLabel: 'Slet smart etiket',
+    markAllAsRead: 'Markér alle som læst',
+    addToLabel: 'Føj til etiket',
+    moveToLabel: 'Flyt til etiket',
+    ungroupFrom: 'Fjern fra »{{label}}«',
+  },
   commandMenu: {
     categoryAll: 'Alle',
     categoryCommands: 'Kommando',
@@ -374,6 +387,13 @@ export default {
     failedToCreateFolder: 'Mappen kunne ikke oprettes',
   },
   entityActions: {
+    addToFavorites: 'Føj til favoritter',
+    archive: 'Arkivér',
+    unarchive: 'Fjern fra arkiv',
+    openOnGitHub: 'Åbn på GitHub',
+    viewItemsWithTag: 'Vis alle elementer med tagget',
+    editTag: 'Redigér tag',
+    removeTag: 'Fjern tag',
     markDone: 'Markér som færdig',
     markNotDone: 'Markér som ikke færdig',
     markRead: 'Markér som læst',

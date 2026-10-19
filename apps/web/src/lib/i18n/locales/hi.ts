@@ -1,6 +1,19 @@
 import type { PartialDictionary } from '../dictionary';
 
 export default {
+  channelLabels: {
+    newChannel: 'नया चैनल',
+    newLabel: 'नया लेबल',
+    newLabelEllipsis: 'नया लेबल…',
+    newSmartLabel: 'नया स्मार्ट लेबल',
+    editSmartLabel: 'स्मार्ट लेबल संपादित करें',
+    deleteLabel: 'लेबल मिटाएं',
+    deleteSmartLabel: 'स्मार्ट लेबल मिटाएं',
+    markAllAsRead: 'सभी को पढ़ा गया मार्क करें',
+    addToLabel: 'लेबल में जोड़ें',
+    moveToLabel: 'लेबल में ले जाएं',
+    ungroupFrom: '“{{label}}” से हटाएं',
+  },
   commandMenu: {
     categoryAll: 'सभी',
     categoryCommands: 'कमांड',
@@ -370,6 +383,13 @@ export default {
     failedToCreateFolder: 'फ़ोल्डर नहीं बनाया जा सका',
   },
   entityActions: {
+    addToFavorites: 'पसंदीदा में जोड़ें',
+    archive: 'संग्रहित करें',
+    unarchive: 'संग्रह से निकालें',
+    openOnGitHub: 'GitHub पर खोलें',
+    viewItemsWithTag: 'इस टैग वाले सभी आइटम देखें',
+    editTag: 'टैग संपादित करें',
+    removeTag: 'टैग हटाएं',
     markDone: 'पूरा हुआ मार्क करें',
     markNotDone: 'अधूरा मार्क करें',
     markRead: 'पढ़ा गया मार्क करें',

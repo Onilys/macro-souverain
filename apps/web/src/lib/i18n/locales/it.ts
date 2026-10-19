@@ -1,6 +1,19 @@
 import type { PartialDictionary } from '../dictionary';
 
 export default {
+  channelLabels: {
+    newChannel: 'Nuovo canale',
+    newLabel: 'Nuova etichetta',
+    newLabelEllipsis: 'Nuova etichetta…',
+    newSmartLabel: 'Nuova etichetta intelligente',
+    editSmartLabel: 'Modifica etichetta intelligente',
+    deleteLabel: 'Elimina etichetta',
+    deleteSmartLabel: 'Elimina etichetta intelligente',
+    markAllAsRead: 'Segna tutto come letto',
+    addToLabel: 'Aggiungi a etichetta',
+    moveToLabel: 'Sposta in etichetta',
+    ungroupFrom: 'Rimuovi da «{{label}}»',
+  },
   commandMenu: {
     categoryAll: 'Tutto',
     categoryCommands: 'Comandi',
@@ -375,6 +388,13 @@ export default {
     failedToCreateFolder: 'Impossibile creare la cartella',
   },
   entityActions: {
+    addToFavorites: 'Aggiungi ai preferiti',
+    archive: 'Archivia',
+    unarchive: 'Annulla archiviazione',
+    openOnGitHub: 'Apri su GitHub',
+    viewItemsWithTag: 'Mostra tutti gli elementi con questo tag',
+    editTag: 'Modifica tag',
+    removeTag: 'Rimuovi tag',
     markDone: 'Segna come completato',
     markNotDone: 'Segna come non completato',
     markRead: 'Segna come letto',

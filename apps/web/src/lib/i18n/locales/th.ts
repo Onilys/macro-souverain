@@ -1,6 +1,19 @@
 import type { PartialDictionary } from '../dictionary';
 
 export default {
+  channelLabels: {
+    newChannel: 'ช่องใหม่',
+    newLabel: 'ป้ายกำกับใหม่',
+    newLabelEllipsis: 'ป้ายกำกับใหม่…',
+    newSmartLabel: 'ป้ายกำกับอัจฉริยะใหม่',
+    editSmartLabel: 'แก้ไขป้ายกำกับอัจฉริยะ',
+    deleteLabel: 'ลบป้ายกำกับ',
+    deleteSmartLabel: 'ลบป้ายกำกับอัจฉริยะ',
+    markAllAsRead: 'ทำเครื่องหมายทั้งหมดว่าอ่านแล้ว',
+    addToLabel: 'เพิ่มในป้ายกำกับ',
+    moveToLabel: 'ย้ายไปที่ป้ายกำกับ',
+    ungroupFrom: 'นำออกจาก “{{label}}”',
+  },
   commandMenu: {
     categoryAll: 'ทั้งหมด',
     categoryCommands: 'คำสั่ง',
@@ -364,6 +377,13 @@ export default {
     failedToCreateFolder: 'สร้างโฟลเดอร์ไม่สำเร็จ',
   },
   entityActions: {
+    addToFavorites: 'เพิ่มในรายการโปรด',
+    archive: 'เก็บถาวร',
+    unarchive: 'ยกเลิกการเก็บถาวร',
+    openOnGitHub: 'เปิดใน GitHub',
+    viewItemsWithTag: 'ดูรายการทั้งหมดที่มีแท็กนี้',
+    editTag: 'แก้ไขแท็ก',
+    removeTag: 'นำแท็กออก',
     markDone: 'ทำเครื่องหมายว่าเสร็จแล้ว',
     markNotDone: 'ทำเครื่องหมายว่ายังไม่เสร็จ',
     markRead: 'ทำเครื่องหมายว่าอ่านแล้ว',

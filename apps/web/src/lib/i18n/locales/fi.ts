@@ -1,6 +1,19 @@
 import type { PartialDictionary } from '../dictionary';
 
 export default {
+  channelLabels: {
+    newChannel: 'Uusi kanava',
+    newLabel: 'Uusi ryhmä',
+    newLabelEllipsis: 'Uusi ryhmä…',
+    newSmartLabel: 'Uusi älykäs ryhmä',
+    editSmartLabel: 'Muokkaa älykästä ryhmää',
+    deleteLabel: 'Poista ryhmä',
+    deleteSmartLabel: 'Poista älykäs ryhmä',
+    markAllAsRead: 'Merkitse kaikki luetuiksi',
+    addToLabel: 'Lisää ryhmään',
+    moveToLabel: 'Siirrä ryhmään',
+    ungroupFrom: 'Poista ryhmästä ”{{label}}”',
+  },
   commandMenu: {
     categoryAll: 'Kaikki',
     categoryCommands: 'Komennot',
@@ -374,6 +387,13 @@ export default {
     failedToCreateFolder: 'Kansion luonti epäonnistui',
   },
   entityActions: {
+    addToFavorites: 'Lisää suosikkeihin',
+    archive: 'Arkistoi',
+    unarchive: 'Palauta arkistosta',
+    openOnGitHub: 'Avaa GitHubissa',
+    viewItemsWithTag: 'Näytä kaikki kohteet, joilla on tunniste',
+    editTag: 'Muokkaa tunnistetta',
+    removeTag: 'Poista tunniste',
     markDone: 'Merkitse valmiiksi',
     markNotDone: 'Merkitse keskeneräiseksi',
     markRead: 'Merkitse luetuksi',

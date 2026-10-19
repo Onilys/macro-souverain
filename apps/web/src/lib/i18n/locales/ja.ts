@@ -1,6 +1,19 @@
 import type { PartialDictionary } from '../dictionary';
 
 export default {
+  channelLabels: {
+    newChannel: '新規チャンネル',
+    newLabel: '新規ラベル',
+    newLabelEllipsis: '新規ラベル…',
+    newSmartLabel: '新規スマートラベル',
+    editSmartLabel: 'スマートラベルを編集',
+    deleteLabel: 'ラベルを削除',
+    deleteSmartLabel: 'スマートラベルを削除',
+    markAllAsRead: 'すべて既読にする',
+    addToLabel: 'ラベルに追加',
+    moveToLabel: 'ラベルに移動',
+    ungroupFrom: '「{{label}}」から外す',
+  },
   commandMenu: {
     categoryAll: 'すべて',
     categoryCommands: 'コマンド',
@@ -373,6 +386,13 @@ export default {
     failedToCreateFolder: 'フォルダを作成できませんでした',
   },
   entityActions: {
+    addToFavorites: 'お気に入りに追加',
+    archive: 'アーカイブ',
+    unarchive: 'アーカイブを解除',
+    openOnGitHub: 'GitHubで開く',
+    viewItemsWithTag: 'このタグのアイテムをすべて表示',
+    editTag: 'タグを編集',
+    removeTag: 'タグを削除',
     markDone: '完了にする',
     markNotDone: '未完了にする',
     markRead: '既読にする',

@@ -1,6 +1,19 @@
 import type { PartialDictionary } from '../dictionary';
 
 export default {
+  channelLabels: {
+    newChannel: 'Nieuw kanaal',
+    newLabel: 'Nieuw label',
+    newLabelEllipsis: 'Nieuw label…',
+    newSmartLabel: 'Nieuw slim label',
+    editSmartLabel: 'Slim label bewerken',
+    deleteLabel: 'Label verwijderen',
+    deleteSmartLabel: 'Slim label verwijderen',
+    markAllAsRead: 'Alles als gelezen markeren',
+    addToLabel: 'Toevoegen aan label',
+    moveToLabel: 'Verplaatsen naar label',
+    ungroupFrom: 'Uit ‘{{label}}’ halen',
+  },
   commandMenu: {
     categoryAll: 'Alles',
     categoryCommands: 'Opdracht',
@@ -374,6 +387,13 @@ export default {
     failedToCreateFolder: 'Map maken mislukt',
   },
   entityActions: {
+    addToFavorites: 'Toevoegen aan favorieten',
+    archive: 'Archiveren',
+    unarchive: 'Dearchiveren',
+    openOnGitHub: 'Openen op GitHub',
+    viewItemsWithTag: 'Alle items met deze tag bekijken',
+    editTag: 'Tag bewerken',
+    removeTag: 'Tag verwijderen',
     markDone: 'Markeren als voltooid',
     markNotDone: 'Markeren als niet voltooid',
     markRead: 'Markeren als gelezen',

@@ -1,6 +1,19 @@
 import type { PartialDictionary } from '../dictionary';
 
 export default {
+  channelLabels: {
+    newChannel: 'Novo canal',
+    newLabel: 'Novo grupo',
+    newLabelEllipsis: 'Novo grupo…',
+    newSmartLabel: 'Novo grupo inteligente',
+    editSmartLabel: 'Editar grupo inteligente',
+    deleteLabel: 'Eliminar grupo',
+    deleteSmartLabel: 'Eliminar grupo inteligente',
+    markAllAsRead: 'Marcar tudo como lido',
+    addToLabel: 'Adicionar a um grupo',
+    moveToLabel: 'Mover para um grupo',
+    ungroupFrom: 'Remover de «{{label}}»',
+  },
   commandMenu: {
     categoryAll: 'Tudo',
     categoryCommands: 'Comando',
@@ -376,6 +389,13 @@ export default {
     failedToCreateFolder: 'Não foi possível criar a pasta',
   },
   entityActions: {
+    addToFavorites: 'Adicionar aos favoritos',
+    archive: 'Arquivar',
+    unarchive: 'Desarquivar',
+    openOnGitHub: 'Abrir no GitHub',
+    viewItemsWithTag: 'Ver todos os itens com esta etiqueta',
+    editTag: 'Editar etiqueta',
+    removeTag: 'Remover etiqueta',
     markDone: 'Marcar como concluído',
     markNotDone: 'Marcar como não concluído',
     markRead: 'Marcar como lido',

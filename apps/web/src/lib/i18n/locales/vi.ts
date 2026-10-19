@@ -1,6 +1,19 @@
 import type { PartialDictionary } from '../dictionary';
 
 export default {
+  channelLabels: {
+    newChannel: 'Kênh mới',
+    newLabel: 'Nhãn mới',
+    newLabelEllipsis: 'Nhãn mới…',
+    newSmartLabel: 'Nhãn thông minh mới',
+    editSmartLabel: 'Sửa nhãn thông minh',
+    deleteLabel: 'Xóa nhãn',
+    deleteSmartLabel: 'Xóa nhãn thông minh',
+    markAllAsRead: 'Đánh dấu tất cả là đã đọc',
+    addToLabel: 'Thêm vào nhãn',
+    moveToLabel: 'Chuyển vào nhãn',
+    ungroupFrom: 'Bỏ khỏi “{{label}}”',
+  },
   commandMenu: {
     categoryAll: 'Tất cả',
     categoryCommands: 'Lệnh',
@@ -373,6 +386,13 @@ export default {
     failedToCreateFolder: 'Không thể tạo thư mục',
   },
   entityActions: {
+    addToFavorites: 'Thêm vào mục yêu thích',
+    archive: 'Lưu trữ',
+    unarchive: 'Bỏ lưu trữ',
+    openOnGitHub: 'Mở trên GitHub',
+    viewItemsWithTag: 'Xem tất cả mục có thẻ này',
+    editTag: 'Sửa thẻ',
+    removeTag: 'Gỡ thẻ',
     markDone: 'Đánh dấu là xong',
     markNotDone: 'Đánh dấu là chưa xong',
     markRead: 'Đánh dấu là đã đọc',

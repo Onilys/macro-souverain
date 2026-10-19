@@ -1,6 +1,19 @@
 import type { PartialDictionary } from '../dictionary';
 
 export default {
+  channelLabels: {
+    newChannel: 'Saluran baru',
+    newLabel: 'Label baru',
+    newLabelEllipsis: 'Label baru…',
+    newSmartLabel: 'Label pintar baru',
+    editSmartLabel: 'Edit label pintar',
+    deleteLabel: 'Hapus label',
+    deleteSmartLabel: 'Hapus label pintar',
+    markAllAsRead: 'Tandai semua sudah dibaca',
+    addToLabel: 'Tambahkan ke label',
+    moveToLabel: 'Pindahkan ke label',
+    ungroupFrom: 'Keluarkan dari “{{label}}”',
+  },
   commandMenu: {
     categoryAll: 'Semua',
     categoryCommands: 'Perintah',
@@ -373,6 +386,13 @@ export default {
     failedToCreateFolder: 'Gagal membuat folder',
   },
   entityActions: {
+    addToFavorites: 'Tambahkan ke favorit',
+    archive: 'Arsipkan',
+    unarchive: 'Batalkan arsip',
+    openOnGitHub: 'Buka di GitHub',
+    viewItemsWithTag: 'Lihat semua item dengan tag ini',
+    editTag: 'Edit tag',
+    removeTag: 'Hapus tag',
     markDone: 'Tandai selesai',
     markNotDone: 'Tandai belum selesai',
     markRead: 'Tandai sudah dibaca',

@@ -1,6 +1,19 @@
 import type { PartialDictionary } from '../dictionary';
 
 export default {
+  channelLabels: {
+    newChannel: '新增頻道',
+    newLabel: '新增分組',
+    newLabelEllipsis: '新增分組…',
+    newSmartLabel: '新增智慧分組',
+    editSmartLabel: '編輯智慧分組',
+    deleteLabel: '刪除分組',
+    deleteSmartLabel: '刪除智慧分組',
+    markAllAsRead: '全部標示為已讀',
+    addToLabel: '加入分組',
+    moveToLabel: '移至分組',
+    ungroupFrom: '從「{{label}}」移出',
+  },
   commandMenu: {
     categoryAll: '全部',
     categoryCommands: '指令',
@@ -363,6 +376,13 @@ export default {
     failedToCreateFolder: '無法建立資料夾',
   },
   entityActions: {
+    addToFavorites: '加入我的最愛',
+    archive: '封存',
+    unarchive: '取消封存',
+    openOnGitHub: '在 GitHub 上開啟',
+    viewItemsWithTag: '檢視所有含此標籤的項目',
+    editTag: '編輯標籤',
+    removeTag: '移除標籤',
     markDone: '標示為完成',
     markNotDone: '標示為未完成',
     markRead: '標示為已讀',

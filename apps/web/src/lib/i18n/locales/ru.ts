@@ -1,6 +1,19 @@
 import type { PartialDictionary } from '../dictionary';
 
 export default {
+  channelLabels: {
+    newChannel: 'Новый канал',
+    newLabel: 'Новая метка',
+    newLabelEllipsis: 'Новая метка…',
+    newSmartLabel: 'Новая умная метка',
+    editSmartLabel: 'Изменить умную метку',
+    deleteLabel: 'Удалить метку',
+    deleteSmartLabel: 'Удалить умную метку',
+    markAllAsRead: 'Отметить все как прочитанные',
+    addToLabel: 'Добавить в метку',
+    moveToLabel: 'Переместить в метку',
+    ungroupFrom: 'Убрать из «{{label}}»',
+  },
   commandMenu: {
     categoryAll: 'Все',
     categoryCommands: 'Команды',
@@ -373,6 +386,13 @@ export default {
     failedToCreateFolder: 'Не удалось создать папку',
   },
   entityActions: {
+    addToFavorites: 'Добавить в избранное',
+    archive: 'Архивировать',
+    unarchive: 'Разархивировать',
+    openOnGitHub: 'Открыть в GitHub',
+    viewItemsWithTag: 'Показать все элементы с этим тегом',
+    editTag: 'Изменить тег',
+    removeTag: 'Удалить тег',
     markDone: 'Отметить как выполненное',
     markNotDone: 'Отметить как невыполненное',
     markRead: 'Отметить как прочитанное',

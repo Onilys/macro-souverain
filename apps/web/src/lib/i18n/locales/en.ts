@@ -1,3 +1,4 @@
+import channelLabels from './en/channel-labels';
 import commandMenu from './en/command-menu';
 import commands from './en/commands';
 import common from './en/common';
@@ -15,6 +16,7 @@ import viewMenus from './en/view-menus';
  * `./en`; translations in `./<language>.ts` mirror these keys.
  */
 export default {
+  channelLabels,
   commandMenu,
   commands,
   common,
