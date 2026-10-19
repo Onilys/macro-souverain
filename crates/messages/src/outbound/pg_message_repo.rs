@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 mod historical;
 mod timeline;
+mod transfer;
 
 #[cfg(test)]
 mod test;

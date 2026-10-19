@@ -468,6 +468,19 @@ pub trait HistoricalMessageRepository: Send + Sync + 'static {
     ) -> impl Future<Output = Result<(), MessageError>> + Send;
 }
 
+/// Moves every discussion from one parent to another for a domain that replaces
+/// one entity with another. The caller has authorized both parents.
+pub trait DiscussionTransferRepository: Send + Sync + 'static {
+    /// Atomically re-parent all messages and threads, including tombstones,
+    /// detaching anchors that cannot exist on the new parent. Returns how many
+    /// messages moved.
+    fn move_discussions(
+        &self,
+        from: &MessageParent,
+        to: &MessageParent,
+    ) -> impl Future<Output = Result<u64, MessageError>> + Send;
+}
+
 /// Publish committed changes, deriving delivery policy from the persisted parent.
 pub trait MessageEventPublisher: Send + Sync + 'static {
     /// Deliver a change through realtime and contextual notification adapters.

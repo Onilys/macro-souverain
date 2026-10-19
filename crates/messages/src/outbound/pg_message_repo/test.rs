@@ -5,6 +5,7 @@ const USER: &str = "macro|message-test@example.com";
 
 mod initiative;
 mod schema_drop;
+mod transfer;
 
 async fn setup(pool: &PgPool) {
     let user_id = macro_uuid::generate_uuid_v7();

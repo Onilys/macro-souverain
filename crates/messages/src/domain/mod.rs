@@ -27,3 +27,6 @@ pub mod ports;
 /// Message authorization and use-case orchestration.
 #[cfg(feature = "ports")]
 pub mod service;
+/// Moving a whole discussion when one entity replaces another.
+#[cfg(feature = "ports")]
+pub mod transfer;
