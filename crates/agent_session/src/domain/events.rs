@@ -113,6 +113,9 @@ pub struct SessionIdentity {
     /// a consumer fanning out never has to read the session's log.
     #[serde(default)]
     pub audience: Vec<MacroUserIdStr<'static>>,
+    /// The routine whose unattended run the session is, when it is one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub routine_id: Option<Uuid>,
 }
 
 /// A turn the runtime answered.

@@ -48,6 +48,7 @@ fn identity(session: AgentSessionId) -> SessionIdentity {
         owner_id: MacroUserIdStr::try_from_email("owner@macro.com").unwrap(),
         origin: None,
         audience: Vec::new(),
+        routine_id: None,
     }
 }
 

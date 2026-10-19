@@ -58,6 +58,7 @@ fn settled() -> AgentSessionLifecycleEvent {
             owner_id: owner(),
             origin: None,
             audience: vec![owner()],
+            routine_id: None,
         },
         last_turn: Some(TurnSummary {
             turn: TurnId(0),

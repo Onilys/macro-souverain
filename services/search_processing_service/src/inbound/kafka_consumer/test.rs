@@ -1629,6 +1629,7 @@ fn agent_session_lifecycle_decodes_and_routes_by_session() {
         owner_id: user_id(),
         origin: None,
         audience: vec![],
+        routine_id: None,
     };
     for event in [
         AgentSessionLifecycleEvent::Renamed(SessionRenamedMetadata {

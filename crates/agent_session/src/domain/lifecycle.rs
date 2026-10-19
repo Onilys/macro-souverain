@@ -58,5 +58,6 @@ pub fn session_identity(
         owner_id: owner.clone(),
         origin,
         audience,
+        routine_id: session.routine_id,
     })
 }

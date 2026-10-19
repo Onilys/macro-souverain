@@ -1697,6 +1697,7 @@ fn agent_session_lifecycle_event(
             uuid::Uuid::from_u128(3),
         )),
         audience: Vec::new(),
+        routine_id: None,
     }))
 }
 
