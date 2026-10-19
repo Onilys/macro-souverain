@@ -45126,6 +45126,12 @@ export const messageTimelineResponse = zod
                   ),
               ])
               .optional(),
+            broadcast_from_thread: zod
+              .uuid()
+              .nullish()
+              .describe(
+                "When set, this channel message is a broadcast copy of a thread reply.\nContains the id of the thread's root message that the original reply\nbelongs to, so the UI can link back to the thread."
+              ),
             content: zod.string().describe('Macro Markdown body.'),
             created_at: zod.iso.datetime({}).describe('Creation time.'),
             deleted_at: zod.iso
@@ -45443,6 +45449,12 @@ export const messageTimelineResponse = zod
                                 ),
                             ])
                             .optional(),
+                          broadcast_from_thread: zod
+                            .uuid()
+                            .nullish()
+                            .describe(
+                              "When set, this channel message is a broadcast copy of a thread reply.\nContains the id of the thread's root message that the original reply\nbelongs to, so the UI can link back to the thread."
+                            ),
                           content: zod
                             .string()
                             .describe('Macro Markdown body.'),
@@ -45772,6 +45784,12 @@ export const entityMessageCreateBody = zod
       )
       .optional()
       .describe('Initial attachments.'),
+    broadcast_to_channel: zod
+      .boolean()
+      .optional()
+      .describe(
+        'When true and `thread_id` is set, also post a copy of this reply at\nthe channel level so it appears in the main timeline (like Slack\'s\n\"Also send to channel\"). Only valid for channel parents.'
+      ),
     content: zod.string().describe('Macro Markdown body.'),
     id: zod
       .uuid()
@@ -45832,6 +45850,12 @@ export const entityMessageCreateResponse = zod
           .describe('Public bot profile attached to bot-authored messages.'),
       ])
       .optional(),
+    broadcast_from_thread: zod
+      .uuid()
+      .nullish()
+      .describe(
+        "When set, this channel message is a broadcast copy of a thread reply.\nContains the id of the thread's root message that the original reply\nbelongs to, so the UI can link back to the thread."
+      ),
     content: zod.string().describe('Macro Markdown body.'),
     created_at: zod.iso.datetime({}).describe('Creation time.'),
     deleted_at: zod.iso
@@ -45988,6 +46012,12 @@ export const entityMessageGetMessageResponse = zod
           .describe('Public bot profile attached to bot-authored messages.'),
       ])
       .optional(),
+    broadcast_from_thread: zod
+      .uuid()
+      .nullish()
+      .describe(
+        "When set, this channel message is a broadcast copy of a thread reply.\nContains the id of the thread's root message that the original reply\nbelongs to, so the UI can link back to the thread."
+      ),
     content: zod.string().describe('Macro Markdown body.'),
     created_at: zod.iso.datetime({}).describe('Creation time.'),
     deleted_at: zod.iso
@@ -46148,6 +46178,12 @@ export const entityMessageDeleteMessageResponse = zod
           .describe('Public bot profile attached to bot-authored messages.'),
       ])
       .optional(),
+    broadcast_from_thread: zod
+      .uuid()
+      .nullish()
+      .describe(
+        "When set, this channel message is a broadcast copy of a thread reply.\nContains the id of the thread's root message that the original reply\nbelongs to, so the UI can link back to the thread."
+      ),
     content: zod.string().describe('Macro Markdown body.'),
     created_at: zod.iso.datetime({}).describe('Creation time.'),
     deleted_at: zod.iso
@@ -46404,6 +46440,12 @@ export const entityMessageEditResponse = zod
           .describe('Public bot profile attached to bot-authored messages.'),
       ])
       .optional(),
+    broadcast_from_thread: zod
+      .uuid()
+      .nullish()
+      .describe(
+        "When set, this channel message is a broadcast copy of a thread reply.\nContains the id of the thread's root message that the original reply\nbelongs to, so the UI can link back to the thread."
+      ),
     content: zod.string().describe('Macro Markdown body.'),
     created_at: zod.iso.datetime({}).describe('Creation time.'),
     deleted_at: zod.iso
@@ -46568,6 +46610,12 @@ export const entityMessageReactResponse = zod
           .describe('Public bot profile attached to bot-authored messages.'),
       ])
       .optional(),
+    broadcast_from_thread: zod
+      .uuid()
+      .nullish()
+      .describe(
+        "When set, this channel message is a broadcast copy of a thread reply.\nContains the id of the thread's root message that the original reply\nbelongs to, so the UI can link back to the thread."
+      ),
     content: zod.string().describe('Macro Markdown body.'),
     created_at: zod.iso.datetime({}).describe('Creation time.'),
     deleted_at: zod.iso
@@ -46731,6 +46779,12 @@ export const entityMessageLegacyResponse = zod
           .describe('Public bot profile attached to bot-authored messages.'),
       ])
       .optional(),
+    broadcast_from_thread: zod
+      .uuid()
+      .nullish()
+      .describe(
+        "When set, this channel message is a broadcast copy of a thread reply.\nContains the id of the thread's root message that the original reply\nbelongs to, so the UI can link back to the thread."
+      ),
     content: zod.string().describe('Macro Markdown body.'),
     created_at: zod.iso.datetime({}).describe('Creation time.'),
     deleted_at: zod.iso
@@ -46904,6 +46958,12 @@ export const entityMessageGetThreadResponse = zod
                   ),
               ])
               .optional(),
+            broadcast_from_thread: zod
+              .uuid()
+              .nullish()
+              .describe(
+                "When set, this channel message is a broadcast copy of a thread reply.\nContains the id of the thread's root message that the original reply\nbelongs to, so the UI can link back to the thread."
+              ),
             content: zod.string().describe('Macro Markdown body.'),
             created_at: zod.iso.datetime({}).describe('Creation time.'),
             deleted_at: zod.iso
@@ -47067,6 +47127,12 @@ export const entityMessageGetThreadResponse = zod
               ),
           ])
           .optional(),
+        broadcast_from_thread: zod
+          .uuid()
+          .nullish()
+          .describe(
+            "When set, this channel message is a broadcast copy of a thread reply.\nContains the id of the thread's root message that the original reply\nbelongs to, so the UI can link back to the thread."
+          ),
         content: zod.string().describe('Macro Markdown body.'),
         created_at: zod.iso.datetime({}).describe('Creation time.'),
         deleted_at: zod.iso
@@ -47641,6 +47707,12 @@ export const messageTimelineEntriesResponse = zod
                           ),
                       ])
                       .optional(),
+                    broadcast_from_thread: zod
+                      .uuid()
+                      .nullish()
+                      .describe(
+                        "When set, this channel message is a broadcast copy of a thread reply.\nContains the id of the thread's root message that the original reply\nbelongs to, so the UI can link back to the thread."
+                      ),
                     content: zod.string().describe('Macro Markdown body.'),
                     created_at: zod.iso.datetime({}).describe('Creation time.'),
                     deleted_at: zod.iso
@@ -47990,6 +48062,12 @@ export const messageTimelineEntriesResponse = zod
                                         ),
                                     ])
                                     .optional(),
+                                  broadcast_from_thread: zod
+                                    .uuid()
+                                    .nullish()
+                                    .describe(
+                                      "When set, this channel message is a broadcast copy of a thread reply.\nContains the id of the thread's root message that the original reply\nbelongs to, so the UI can link back to the thread."
+                                    ),
                                   content: zod
                                     .string()
                                     .describe('Macro Markdown body.'),

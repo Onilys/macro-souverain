@@ -1208,6 +1208,7 @@ export * from './messageAttachment';
 export * from './messageAttachmentHeight';
 export * from './messageAttachmentWidth';
 export * from './messageBotProfile';
+export * from './messageBroadcastFromThread';
 export * from './messageChange';
 export * from './messageChangeOneOf';
 export * from './messageChangeOneOfFive';

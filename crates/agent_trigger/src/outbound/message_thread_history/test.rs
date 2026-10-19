@@ -56,6 +56,7 @@ fn message(id: Uuid, deleted: bool) -> Message {
         deleted_at: deleted.then_some(now),
         attachments: vec![],
         reactions: vec![],
+        broadcast_from_thread: None,
     }
 }
 

@@ -8,6 +8,7 @@
 import type { CountedReaction } from './countedReaction';
 import type { MessageAttachment } from './messageAttachment';
 import type { MessageBotProfile } from './messageBotProfile';
+import type { MessageBroadcastFromThread } from './messageBroadcastFromThread';
 import type { MessageDeletedAt } from './messageDeletedAt';
 import type { MessageEditedAt } from './messageEditedAt';
 import type { MessageImportedAuthor } from './messageImportedAuthor';
@@ -23,12 +24,10 @@ export interface Message {
   /** Attached entities. */
   attachments: MessageAttachment[];
   bot_profile?: MessageBotProfile;
-  /**
-   * When set, this channel message is a broadcast copy of a thread reply.
-   * Contains the id of the thread's root message that the original reply
-   * belongs to, so the UI can link back to the thread.
-   */
-  broadcast_from_thread?: string;
+  /** When set, this channel message is a broadcast copy of a thread reply.
+Contains the id of the thread's root message that the original reply
+belongs to, so the UI can link back to the thread. */
+  broadcast_from_thread?: MessageBroadcastFromThread;
   /** Macro Markdown body. */
   content: string;
   /** Creation time. */

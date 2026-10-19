@@ -139,6 +139,7 @@ fn posted(
         deleted_at: None,
         attachments: vec![],
         reactions: vec![],
+        broadcast_from_thread: None,
     }
 }
 /// The context entry for a message by a user the directory names.
