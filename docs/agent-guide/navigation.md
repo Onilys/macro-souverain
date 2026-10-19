@@ -472,7 +472,7 @@ the other entity actions used on Home.
 
 Home's inner rail starts with a large, unframed **New Chat** label that returns
 to Home's starting pane without creating a chat. Email and Tasks use the same
-20px semibold text styling and top placement for **New Email** and **New Task**,
+18px semibold, solid-color text styling and top placement for **New Email** and **New Task**,
 without an entity icon or pill background. All sidebar titles retain a chevron, including single actions and static labels. When multiple desktop splits are open, a **Close** (X)
 button appears beside each sidebar's New button and closes that split, including
 when the sidebar is an overlay in a narrow split. Verify with three splits:

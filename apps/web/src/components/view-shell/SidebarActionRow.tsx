@@ -212,10 +212,10 @@ export function SidebarActionRow(props: {
           class={
             current().hasCreate()
               ? 'sr-only'
-              : 'flex flex-1 items-center gap-1.5 text-xl leading-7 font-semibold tracking-[-0.025em] text-ink-muted'
+              : 'flex flex-1 items-center gap-1.5 text-lg leading-7 font-semibold tracking-[-0.025em] text-ink-muted'
           }
         >
-          <span class="whitespace-nowrap bg-linear-to-br from-ink from-15% to-ink-subtle to-85% bg-clip-text text-transparent forced-colors:bg-none forced-colors:text-ink-muted">
+          <span class="whitespace-nowrap text-ink">
             {current().title() ?? props.title}
           </span>
           <Show when={!current().hasCreate()}>

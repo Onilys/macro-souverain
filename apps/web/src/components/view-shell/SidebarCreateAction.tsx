@@ -45,7 +45,7 @@ export function SidebarCreateAction(
       tooltip={props.tooltip ?? props['aria-label'] ?? props.label}
       class={
         sidebar
-          ? 'h-8 w-max shrink-0 justify-start gap-1.5 rounded-md border-0 px-2 text-xl leading-7 font-semibold tracking-[-0.025em] text-ink-muted'
+          ? 'h-8 w-max shrink-0 justify-start gap-1.5 rounded-md border-0 px-2 text-lg leading-7 font-semibold tracking-[-0.025em] text-ink-muted'
           : 'h-8 min-w-8 gap-1.5 px-3 text-sm leading-5'
       }
     >
@@ -58,7 +58,7 @@ export function SidebarCreateAction(
           </>
         }
       >
-        <span class="shrink-0 whitespace-nowrap bg-linear-to-br from-ink from-15% to-ink-subtle to-85% bg-clip-text text-transparent forced-colors:bg-none forced-colors:text-ink-muted">
+        <span class="shrink-0 whitespace-nowrap text-ink">
           {local.sidebarLabel ??
             description() ??
             props['aria-label'] ??
