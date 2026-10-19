@@ -446,6 +446,12 @@ input CreateCalendarEventInput {
 	"""
 	conference: GraphqlCalendarConferenceChange
 	"""
+	Mint a Macro call and write its join link into the description and
+	location before creating the event, so the invitation carries it.
+	Cannot be combined with `conference`.
+	"""
+	macroCall: Boolean! = false
+	"""
 	Present to create an out-of-office status event (primary calendar
 	only, timed, no attendees).
 	"""
@@ -7948,6 +7954,16 @@ type GraphqlSoupEmailThread implements GraphqlSoupEntity {
 	Most recent explicit return from an email reminder.
 	"""
 	reminderReturnedAt: String
+	"""
+	Timestamp of the latest outbound message, in RFC 3339 format: the SENT
+	view's sort key.
+	"""
+	latestOutboundMessageTs: String
+	"""
+	Timestamp of the latest message that is not spam, in RFC 3339 format:
+	the sort key of every mail view except INBOX and SENT.
+	"""
+	latestNonSpamMessageTs: String
 	"""
 	Complete body-free metadata for local draft edits and discards.
 	"""

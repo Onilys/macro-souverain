@@ -167,7 +167,6 @@ export function BookingReceiptView(props: {
                 }
               >
                 <RescheduleForm
-                  timeZone={r().scheduleTimeZone}
                   load={props.loadSlots}
                   submit={async (start) => {
                     setError('');
