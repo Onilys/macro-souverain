@@ -44,6 +44,7 @@ vi.mock('../Message', () => {
       Reactions: Nothing,
       ActionMenu: Nothing,
       FromPill: () => <span>from {useMessage()().sender?.triggered_by}</span>,
+      ThreadBroadcastLink: Nothing,
     },
   };
 });
