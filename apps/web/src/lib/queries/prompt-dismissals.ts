@@ -3,6 +3,7 @@
  * on every device. Dismissing updates the cache optimistically; a failed
  * write refetches the server's answer.
  */
+import { fireAndForget } from '@core/util/fireAndForget';
 import { throwOnErr } from '@core/util/result';
 import { queryClient } from '@queries/client';
 import {
@@ -58,7 +59,11 @@ export function dismissPromptEverywhere(promptId: string): void {
       ? current
       : { dismissed: [...(current?.dismissed ?? []), promptId] }
   );
-  void promptDismissalsClient.dismiss(promptId).then((result) => {
-    if (result.isErr()) void queryClient.invalidateQueries({ queryKey: KEY });
-  });
+  fireAndForget(saveDismissal(promptId), 'prompt-dismissals.dismiss');
+}
+
+/** A failed write refetches the server's answer instead of keeping the guess. */
+async function saveDismissal(promptId: string) {
+  const result = await promptDismissalsClient.dismiss(promptId);
+  if (result.isErr()) queryClient.invalidateQueries({ queryKey: KEY });
 }

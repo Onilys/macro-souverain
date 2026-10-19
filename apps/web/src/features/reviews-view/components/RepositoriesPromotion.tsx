@@ -11,6 +11,7 @@ import { toast } from '@core/component/Toast/Toast';
 import { enableSidebarPromotions } from '@core/constant/featureFlags';
 import { SERVER_HOSTS } from '@core/constant/servers';
 import { useUserId } from '@core/context/user';
+import { fireAndForget } from '@core/util/fireAndForget';
 import {
   useGithubLinkStatusQuery,
   useInitGithubLinkMutation,
@@ -74,11 +75,13 @@ export function RepositoriesPromotion(props: { class?: string }) {
       }))
       .with('reauthentication_required', () => ({
         label: COPY.reconnectAction,
-        onClick: () => void authorize(true),
+        onClick: () =>
+          fireAndForget(authorize(true), 'sidebar-promotion.github'),
       }))
       .otherwise(() => ({
         label: COPY.connectAction,
-        onClick: () => void authorize(false),
+        onClick: () =>
+          fireAndForget(authorize(false), 'sidebar-promotion.github'),
       }));
 
   return (

@@ -1,5 +1,6 @@
 import { SearchBar } from '@app/components/view-shell';
 import { toast } from '@core/component/Toast/Toast';
+import { fireAndForget } from '@core/util/fireAndForget';
 import ArrowLeftIcon from '@phosphor/arrow-left.svg';
 import SpinnerIcon from '@phosphor/spinner-gap.svg';
 import WarningIcon from '@phosphor/warning-circle.svg';
@@ -97,7 +98,8 @@ export function NativeImportPane(props: {
     on(
       importState.ready,
       (ready) => {
-        if (ready && needsDiscovery(run(), items())) void discover();
+        if (ready && needsDiscovery(run(), items()))
+          fireAndForget(discover(), 'connector-import.discover');
       },
       { defer: false }
     )
@@ -233,7 +235,7 @@ export function NativeImportPane(props: {
           variant="ghost"
           depth={2}
           disabled={searching() || importing()}
-          onClick={() => void discover()}
+          onClick={() => fireAndForget(discover(), 'connector-import.discover')}
         >
           Search again
         </Button>
@@ -241,7 +243,7 @@ export function NativeImportPane(props: {
           variant="strong"
           depth={2}
           disabled={!importIds().length || importing()}
-          onClick={() => void runImport()}
+          onClick={() => fireAndForget(runImport(), 'connector-import.import')}
         >
           {importIds().length ? `Import ${importIds().length}` : 'Import'}
         </Button>

@@ -13,6 +13,7 @@ import {
 } from '@core/constant/featureFlags';
 import { useUserId } from '@core/context/user';
 import { useAddInboxFlow } from '@core/email-link';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { untrack } from 'solid-js';
 import { match } from 'ts-pattern';
 import { z } from 'zod';
@@ -79,7 +80,11 @@ export function ConnectCalendarsPromotion(props: { class?: string }) {
       return {
         label: COPY.action,
         // A brand-new account needs the mailbox scopes alongside calendar.
-        onClick: () => void startAddInbox({ scopes: 'gmail_and_calendar' }),
+        onClick: () =>
+          fireAndForget(
+            startAddInbox({ scopes: 'gmail_and_calendar' }),
+            'sidebar-promotion.calendar'
+          ),
       };
     return {
       label: match(fix.kind)
@@ -87,10 +92,13 @@ export function ConnectCalendarsPromotion(props: { class?: string }) {
         .with('enable', () => COPY.enableAction)
         .exhaustive(),
       onClick: () =>
-        void startAddInbox({
-          scopes: fix.scopes,
-          emailAddress: fix.emailAddress,
-        }),
+        fireAndForget(
+          startAddInbox({
+            scopes: fix.scopes,
+            emailAddress: fix.emailAddress,
+          }),
+          'sidebar-promotion.calendar'
+        ),
     };
   };
   return (

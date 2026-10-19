@@ -11,6 +11,7 @@ import {
   usePipedreamMcpFlag,
   usePipedreamMcpFlagResult,
 } from '@core/pipedream/flag';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { lazyNamed } from '@core/util/lazyNamed';
 import { createSignal, type JSX, Show, Suspense } from 'solid-js';
 import { IMPORT_CATEGORIES } from './core/catalog';
@@ -91,8 +92,12 @@ export function ConnectorImportPromotion(props: {
     <>
       <div
         class="contents"
-        onPointerEnter={() => void loadDialog()}
-        onFocusIn={() => void loadDialog()}
+        onPointerEnter={() =>
+          fireAndForget(loadDialog(), 'connector-import.preload')
+        }
+        onFocusIn={() =>
+          fireAndForget(loadDialog(), 'connector-import.preload')
+        }
       >
         <SidebarPromotion
           id={importPromotionId(props.category)}

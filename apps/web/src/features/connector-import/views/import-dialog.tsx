@@ -1,5 +1,6 @@
 import { LogoStack } from '@app/features/sidebar-promotion/components/logo-stack';
 import { toast } from '@core/component/Toast/Toast';
+import { fireAndForget } from '@core/util/fireAndForget';
 import CaretRightIcon from '@phosphor/caret-right.svg';
 import type { ImportSource } from '@service-cognition/import';
 import { ActionDialogShell, Dialog } from '@ui';
@@ -161,8 +162,18 @@ function ImportDialogBody(props: {
                         (connecting() !== undefined &&
                           connecting() !== provider.appSlug)
                       }
-                      onConnect={() => void connect(provider)}
-                      onImport={() => void startImport(provider)}
+                      onConnect={() =>
+                        fireAndForget(
+                          connect(provider),
+                          'connector-import.connect'
+                        )
+                      }
+                      onImport={() =>
+                        fireAndForget(
+                          startImport(provider),
+                          'connector-import.start'
+                        )
+                      }
                     />
                   )}
                 </For>
