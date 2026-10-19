@@ -10,8 +10,7 @@ follow the visitor's system color scheme. `?theme=cream` and `?theme=dark` pin a
 palette. `features/setup/cream-preview.css` owns the light palette; the shared
 router applies it across navigation, and each HTML entry applies it before
 first paint. Sample workspace styles read that HTML palette before route code
-runs. The cream page background is a softly warm off-white (`#f5f2ec`).
-Check both palettes when changing a shared demo or surface.
+runs. Check both palettes when changing a shared demo or surface.
 Cream slab typography adds 45 to the base font weight; utility-class slab text
 uses weight 360, and the Tasks founder heading uses 445.
 Slab display copy uses warm near-black (`#1d1c1a`) in the cream palette.

@@ -39,7 +39,7 @@ export async function verifyDemo(
           `Workspace background matches the palette before JS (${label})`
         ).toHaveCSS(
           'background-color',
-          theme === 'cream' ? 'rgb(245, 242, 236)' : 'oklch(0.17 0 0)'
+          theme === 'cream' ? 'rgb(245, 241, 232)' : 'oklch(0.17 0 0)'
         );
         await expect(workspace).toHaveCSS(
           'color',
