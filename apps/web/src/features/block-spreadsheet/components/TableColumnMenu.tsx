@@ -1,4 +1,3 @@
-import FunnelFill from '@icon/system/fill/funnel-simple-fill.svg';
 import ArrowLineLeft from '@icon/system/regular/arrow-left.svg';
 import ArrowLineRight from '@icon/system/regular/arrow-right.svg';
 import CaretDown from '@icon/system/regular/caret-down.svg';
@@ -71,7 +70,7 @@ export function TableColumnMenu(props: {
           class="size-full min-h-0 min-w-0 rounded-sm border border-edge-muted bg-panel p-0 text-ink-muted hover:text-ink touch:min-h-0 touch:min-w-0"
         >
           <Show when={props.filter} fallback={<CaretDown class="size-3" />}>
-            <FunnelFill class="size-3 text-accent" />
+            <Funnel class="size-3 text-accent" />
           </Show>
         </Dropdown.Trigger>
         <Dropdown.Content

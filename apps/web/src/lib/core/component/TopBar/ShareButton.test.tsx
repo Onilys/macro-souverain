@@ -371,13 +371,17 @@ vi.mock('@ui', async () => {
     ButtonGroup: Object.assign(Container, { Divider: () => null }),
     SegmentedControl: (props: {
       'aria-label'?: string;
+      options: readonly { value: string; label: string }[];
       onChange?: (value: string) => void;
     }) => (
       <div role="group" aria-label={props['aria-label']}>
-        <For each={['NONE', 'PUBLIC', 'TEAM']}>
-          {(scope) => (
-            <button onClick={() => props.onChange?.(scope)}>
-              Set link {scope}
+        <For each={props.options}>
+          {(option) => (
+            <button
+              aria-label={`Set ${props['aria-label']} ${option.value}`}
+              onClick={() => props.onChange?.(option.value)}
+            >
+              {option.label}
             </button>
           )}
         </For>
@@ -488,7 +492,7 @@ describe('agent session sharing', () => {
       );
 
       if (mobile) fireEvent.click(screen.getByRole('tab', { name: 'People' }));
-      fireEvent.click(editOptions()[mobile ? 0 : 2]);
+      fireEvent.click(editOptions()[mobile ? 0 : 1]);
       await vi.waitFor(() =>
         expect(mocks.updateAgentPermissions).toHaveBeenCalledWith(
           'persisted-session',
@@ -505,7 +509,7 @@ describe('agent session sharing', () => {
       );
 
       if (mobile) fireEvent.click(screen.getByRole('tab', { name: 'Link' }));
-      fireEvent.click(editOptions()[mobile ? 0 : 1]);
+      fireEvent.click(editOptions()[mobile ? 0 : 2]);
       await vi.waitFor(() =>
         expect(mocks.updateAgentPermissions).toHaveBeenCalledWith(
           'persisted-session',
@@ -572,7 +576,9 @@ describe('agent session sharing', () => {
         screen.getByRole('button', { name: 'Select channel' })
       ).toBeTruthy();
       if (!mobile) {
-        expect(screen.queryByRole('button', { name: 'Share' })).toBeNull();
+        expect(
+          screen.getByRole('button', { name: 'Share' }).hasAttribute('disabled')
+        ).toBe(true);
         selectChannel();
       }
       expect(screen.getByRole('button', { name: 'Share' })).toBeTruthy();
@@ -580,7 +586,9 @@ describe('agent session sharing', () => {
         expect(screen.getByRole('tab', { name: 'People' })).toBeTruthy();
         expect(screen.getByRole('tab', { name: 'Link' })).toBeTruthy();
       } else {
-        expect(screen.getByText('Who has access')).toBeTruthy();
+        expect(
+          screen.getByText('People with access to this agent session')
+        ).toBeTruthy();
         expect(
           screen.getByRole('group', { name: 'Link sharing scope' })
         ).toBeTruthy();
@@ -648,7 +656,7 @@ describe('agent session sharing', () => {
       />
     ));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy Link' }));
     expect(copyContextLink).toHaveBeenCalledOnce();
     expect(mocks.copyLink).not.toHaveBeenCalled();
   });
@@ -664,7 +672,9 @@ describe('agent session sharing', () => {
   });
   it('shares the persisted session instead of its enclosing launcher identity', async () => {
     const { onOpenChange } = mountShare(true);
-    expect(screen.getByText('Who has access')).toBeTruthy();
+    expect(
+      screen.getByText('People with access to this agent session')
+    ).toBeTruthy();
     expect(mocks.blockPermissionsRead).not.toHaveBeenCalled();
     expect(mocks.getDocumentPermissions).not.toHaveBeenCalled();
     expect(mocks.getChatPermissions).not.toHaveBeenCalled();
@@ -703,7 +713,7 @@ describe('agent session sharing', () => {
         screen.queryByRole('group', { name: 'Link sharing scope' })
       ).toBeNull();
       expect(screen.queryByRole('tab', { name: 'Link' })).toBeNull();
-      fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Copy Link' }));
       expect(onCopyLink).toHaveBeenCalledWith(
         'https://macro.com/app/agent/persisted-session'
       );
@@ -721,7 +731,9 @@ describe('agent session sharing', () => {
         expect(screen.queryByRole('tab', { name: 'People' })).toBeNull();
       } else {
         expect(screen.getAllByText('Owner').length).toBeGreaterThan(0);
-        expect(screen.queryByText('Who has access')).toBeNull();
+        expect(
+          screen.queryByText('People with access to this agent session')
+        ).toBeNull();
       }
     }
   );
@@ -746,7 +758,9 @@ describe('agent session sharing', () => {
         );
       else
         await vi.waitFor(() =>
-          expect(screen.getByText('Who has access')).toBeTruthy()
+          expect(
+            screen.getByText('People with access to this agent session')
+          ).toBeTruthy()
         );
     }
   );
@@ -754,7 +768,7 @@ describe('agent session sharing', () => {
   it('cancels an owner draft without sharing', () => {
     const { onOpenChange } = mountShare(true);
     selectChannel();
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(mocks.sendToChannel).not.toHaveBeenCalled();
   });
@@ -899,9 +913,7 @@ describe('call team sharing', () => {
 
     expect(screen.getByText('Team access')).toBeTruthy();
     expect(
-      screen.getByText(
-        "Give everyone on the owner's team access to this call without needing a link."
-      )
+      screen.getByText("Share this call directly with the owner's team.")
     ).toBeTruthy();
     expect(
       screen
@@ -986,9 +998,7 @@ describe('chat team sharing', () => {
 
     expect(screen.getByText('Team access')).toBeTruthy();
     expect(
-      screen.getByText(
-        "Give everyone on the owner's team access to this chat without needing a link."
-      )
+      screen.getByText("Share this chat directly with the owner's team.")
     ).toBeTruthy();
     expect(
       screen.getByRole('group', { name: 'Link sharing scope' })
@@ -1073,9 +1083,7 @@ describe('project team sharing', () => {
 
     expect(screen.getByText('Team access')).toBeTruthy();
     expect(
-      screen.getByText(
-        "Give everyone on the owner's team access to this folder without needing a link."
-      )
+      screen.getByText("Share this folder directly with the owner's team.")
     ).toBeTruthy();
     expect(
       screen.queryByRole('group', { name: 'Link sharing scope' })
@@ -1143,9 +1151,7 @@ describe('project team sharing', () => {
 
     expect(screen.getByText('Team access')).toBeTruthy();
     expect(
-      screen.getByText(
-        "Give everyone on the owner's team access to this folder without needing a link."
-      )
+      screen.getByText("Share this folder directly with the owner's team.")
     ).toBeTruthy();
     expect(
       screen.queryByRole('group', { name: 'Link sharing scope' })
@@ -1299,10 +1305,15 @@ describe('native project sharing', () => {
         hasDirectShares: true,
       });
       if (mobile) fireEvent.click(screen.getByRole('tab', { name: 'People' }));
-      else expect(screen.getByText('Who has access')).toBeTruthy();
+      else
+        expect(
+          screen.getByText('People with access to this project')
+        ).toBeTruthy();
       expect(screen.getByText('Collaborator row')).toBeTruthy();
       if (mobile) fireEvent.click(screen.getByRole('tab', { name: 'Link' }));
-      expect(screen.getByText('Link access')).toBeTruthy();
+      expect(
+        screen.getByRole('group', { name: 'Link sharing scope' })
+      ).toBeTruthy();
     }
   );
 
@@ -1497,7 +1508,7 @@ describe('pipeline sharing', () => {
       screen.queryByRole('group', { name: 'Team access level' })
     ).toBeNull();
     expect(screen.queryByRole('button', { name: 'Select channel' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy Link' }));
     expect(mocks.copyLink).toHaveBeenCalledOnce();
     expect(mocks.updatePipelineTeamShare).not.toHaveBeenCalled();
   });
@@ -1607,15 +1618,24 @@ describe('form share roles', () => {
   });
 });
 
-it('keeps copy available with link access off without granting or sending anything', async () => {
+it('copies an existing public link without granting or sending anything', async () => {
+  mocks.getAgentPermissions.mockResolvedValue(
+    ok({
+      id: 'session-permissions',
+      owner: ME,
+      linkShare: 'PUBLIC',
+      linkShareAccessLevel: 'view',
+      channelSharePermissions: [],
+    })
+  );
   const { onOpenChange } = mountShare(true);
-  await vi.waitFor(() => expect(screen.getByText('Link access')).toBeTruthy());
-  expect(screen.getAllByRole('button', { name: 'Copy link' })).toHaveLength(1);
-  fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+  await screen.findByRole('button', { name: 'Copy Link' });
+  expect(screen.getAllByRole('button', { name: 'Copy Link' })).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Copy Link' }));
   expect(mocks.copyLink).toHaveBeenCalled();
   expect(mocks.updateAgentPermissions).not.toHaveBeenCalled();
   expect(mocks.sendToChannel).not.toHaveBeenCalled();
   expect(mocks.sendToUsers).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   expect(onOpenChange).toHaveBeenCalledWith(false);
 });

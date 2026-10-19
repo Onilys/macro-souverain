@@ -1,9 +1,9 @@
-import TableIcon from '@icon/system/fill/table-fill.svg';
 import ArrowsOutSimple from '@icon/system/regular/arrows-out-simple.svg';
 import CaretDown from '@icon/system/regular/caret-down.svg';
 import PencilSimple from '@icon/system/regular/pencil-simple.svg';
 import Rows from '@icon/system/regular/rows.svg';
 import SelectionAll from '@icon/system/regular/selection-all.svg';
+import TableIcon from '@icon/system/regular/table.svg';
 import Trash from '@icon/system/regular/trash.svg';
 import XCircle from '@icon/system/regular/x-circle.svg';
 import type { SheetTable } from '@macro-inc/spreadsheet/sheet-tables';

@@ -1,6 +1,6 @@
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
-import CheckSquare from '@icon/system/fill/check-square-fill.svg';
 import CaretDown from '@icon/system/regular/caret-down.svg';
+import CheckSquare from '@icon/system/regular/check-square.svg';
 import Square from '@icon/system/regular/square.svg';
 import { cellPlainText } from '@macro-inc/spreadsheet/cell-mentions';
 import {

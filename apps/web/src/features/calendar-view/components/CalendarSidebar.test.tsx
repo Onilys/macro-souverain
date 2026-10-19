@@ -19,6 +19,8 @@ const requests = vi.hoisted(() => ({
   teamOoo: vi.fn<() => Promise<TeamOutOfOfficeItem[]>>(),
 }));
 
+// Search owns live client connections; this fixture only exercises OOO rows.
+vi.mock('./CalendarSearch', () => ({ CalendarSearch: () => null }));
 vi.mock('@core/context/user', () => ({
   useUserId: () => () => 'macro|gab@macro.com',
 }));
