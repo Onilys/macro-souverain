@@ -5,6 +5,7 @@ import type { RequestState } from '../core/types';
 
 export function fakeSharingSource(initial: Partial<RequestState> = {}) {
   const [state, setState] = createSignal<RequestState>({
+    entityName: 'Shared document',
     owner: 'macro|owner@test.com',
     canReview: false,
     accessLevel: 'view',

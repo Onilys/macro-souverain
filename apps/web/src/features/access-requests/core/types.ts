@@ -25,6 +25,8 @@ export type AccessRequest = {
   retryAfter?: string | null;
 };
 export type RequestState = {
+  /** Absent while an older backend is still serving this endpoint. */
+  entityName?: string | null;
   owner?: string | null;
   canReview: boolean;
   accessLevel?: AccessLevel | null;

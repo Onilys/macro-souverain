@@ -9,7 +9,12 @@ import { RequestAccessView } from './views/RequestAccessView';
 
 vi.mock('@core/auth', () => ({ useIsAuthenticated: () => () => true }));
 vi.mock('@core/component/AccessErrorViews/Unauthorized', () => ({
-  default: (props: ParentProps) => <div>{props.children}</div>,
+  default: (props: ParentProps<{ itemName?: string }>) => (
+    <div>
+      <span>{props.itemName}</span>
+      {props.children}
+    </div>
+  ),
 }));
 vi.mock('@entity/owner/owner-display', () => ({
   OwnerLabel: (props: { ownerId: string }) => <span>{props.ownerId}</span>,
@@ -112,6 +117,36 @@ it('lets a reviewer approve a request from the denied document screen without op
   fireEvent.click(view.getByRole('button', { name: 'Grant access' }));
   expect(source.resolve).toHaveBeenCalledWith(request, 'view');
   expect(onAccessGranted).not.toHaveBeenCalled();
+});
+
+it('names the document on the denied screen without loading its content', () => {
+  source = fakeSharingSource({
+    accessLevel: null,
+    entityName: 'Quarterly plan',
+  }).source;
+  const view = render(() => (
+    <DocumentAccessDenied
+      documentId="01a140ad-06d5-7791-8b68-bc128654bbba"
+      onAccessGranted={vi.fn()}
+    />
+  ));
+  expect(view.getByText('Quarterly plan')).toBeTruthy();
+  expect(view.getByRole('button', { name: 'Request access' })).toBeTruthy();
+});
+
+it('omits the document name when an older backend does not send one', () => {
+  source = fakeSharingSource({
+    accessLevel: null,
+    entityName: undefined,
+  }).source;
+  const view = render(() => (
+    <DocumentAccessDenied
+      documentId="01a140ad-06d5-7791-8b68-bc128654bbba"
+      onAccessGranted={vi.fn()}
+    />
+  ));
+  expect(view.queryByText('Quarterly plan')).toBeNull();
+  expect(view.getByRole('button', { name: 'Request access' })).toBeTruthy();
 });
 
 it('preserves a reviewer’s selected grant level through a background request refresh', () => {

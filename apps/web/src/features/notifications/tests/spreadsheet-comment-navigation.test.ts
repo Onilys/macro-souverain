@@ -131,6 +131,7 @@ it.each([null, 'view'] as const)(
     vi.mocked(fetchAccessRequestState).mockResolvedValue({
       canReview: true,
       accessLevel,
+      entityName: 'Shared spreadsheet',
       owner: 'macro|owner@macro.com',
       supportedLevels: ['view', 'comment', 'edit'],
       requests: [],

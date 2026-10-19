@@ -62,7 +62,7 @@ export function DocumentAccessDenied(props: {
     )
   );
   return (
-    <Unauthorized>
+    <Unauthorized itemName={source.state()?.entityName ?? undefined}>
       <Show when={authenticated()}>
         <div class="mt-6 flex w-full flex-col gap-3 text-sm">
           <Show when={source.loading()}>
