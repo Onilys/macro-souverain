@@ -639,14 +639,16 @@ When calls are enabled, `C C` (Create → Call) opens `/app/meet/new`. The call 
 created only after `Start call`; Escape closes the Create menu.
 Project opens the native project composer; Folder remains the Files folder action.
 
-Mobile glass presses animate the enclosing surface over 300ms. Round buttons
+Native-app glass presses animate the enclosing surface over 300ms. Round buttons
 retain roughly 20% growth; wide pills and grouped controls extend their glass
 fill and rim by up to 3px per edge, with 8% icon growth around each icon's center.
 Labels and layout stay fixed; icons remain visually aligned through release.
 Selecting or deselecting a pill updates its fill and text together, including
 during release or a rapid second tap. A subtle radial sheen spreads from the tap
-location and fades on release. On touch devices, buttons omit the circular
+location and fades on release. On native touch, buttons omit the circular
 hover/press overlay and native tap highlight; the shimmer supplies feedback.
+The website stays flat: framed buttons keep their outline, and there is no
+press sheen or scale.
 Release, cancellation, or dragging outside
 restores the surface. Disabled controls stay still; reduced motion keeps only
 the static highlight.

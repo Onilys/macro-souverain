@@ -18,8 +18,9 @@ export function glassPressGeometry(width: number, height: number) {
 
 /**
  * Automatically animate glass/island controls and their enclosing groups,
- * including controls rendered through portals. CSS owns the persistent paint
- * layers and their release transitions; controls own action timing.
+ * including controls rendered through portals. Native touch only; the website
+ * is flat. CSS owns the persistent paint layers and their release transitions;
+ * controls own action timing.
  */
 export function installGlassPress() {
   let pressed:
@@ -34,11 +35,18 @@ export function installGlassPress() {
   };
   const down = (event: PointerEvent) => {
     if (!isTouchDevice() || !event.isPrimary || event.button !== 0) return;
+    // Website chrome is flat; press sheen/scale is a native-app treatment.
+    if (document.documentElement.dataset.platform === 'web') return;
     if (!(event.target instanceof Element)) return;
     const control = event.target.closest<HTMLElement>(CONTROL);
     if (!control || control.closest(DISABLED)) return;
     const group = control.closest<HTMLElement>(GROUP);
-    if (!group && !control.matches('.glass, .island, [class~="touch:island"]'))
+    if (
+      !group &&
+      !control.matches(
+        '.glass, .island, [class~="touch:island"], [class~="native:glass"]'
+      )
+    )
       return;
     release();
     const element = group ?? control;

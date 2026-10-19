@@ -36,11 +36,17 @@ describe('Button emphasis', () => {
     ));
     const button = screen.getByRole('button', { name: 'Create' });
     expect(button.classList.contains('glass')).toBe(false);
-    expect(button.classList.contains('touch:glass')).toBe(true);
+    expect(button.classList.contains('native:glass')).toBe(false);
+    expect(button.classList.contains('touch:glass')).toBe(false);
+    expect(button.classList.contains('native:touch:glass')).toBe(true);
     setGlass(true);
-    expect(button.classList.contains('glass')).toBe(true);
+    expect(button.classList.contains('native:glass')).toBe(true);
+    expect(button.classList.contains('glass')).toBe(false);
+    expect(button.classList.contains('native:touch:glass')).toBe(false);
     expect(button.classList.contains('touch:glass')).toBe(false);
     setGlass(false);
+    expect(button.classList.contains('native:touch:glass')).toBe(false);
+    expect(button.classList.contains('native:glass')).toBe(false);
     expect(button.classList.contains('touch:glass')).toBe(false);
     expect(button.classList.contains('glass')).toBe(false);
     expect(button.classList.contains('bg-accent')).toBe(true);
@@ -57,6 +63,7 @@ describe('Button emphasis', () => {
     for (const button of screen.getAllByRole('button')) {
       expect(button.classList.contains('bg-control')).toBe(true);
       expect(button.classList.contains('glass')).toBe(false);
+      expect(button.classList.contains('native:touch:glass')).toBe(false);
     }
   });
 });

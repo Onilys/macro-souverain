@@ -75,7 +75,7 @@ export type ButtonClassOptions = {
   size?: ButtonSize;
   fullWidth?: boolean;
   noTouchResize?: boolean;
-  /** Override glass: framed variants default to touch-only; true enables all devices. */
+  /** Override glass: framed variants default to native-touch; true enables native desktop. Website is always flat. */
   glass?: boolean;
   square?: boolean;
   class?: string;
@@ -92,7 +92,7 @@ export type ButtonProps = ButtonRootProps<'button'> &
      */
     fullWidth?: boolean;
     noTouchResize?: boolean;
-    /** Override glass: framed variants default to touch-only; true enables all devices. */
+    /** Override glass: framed variants default to native-touch; true enables native desktop. Website is always flat. */
     glass?: boolean;
     square?: boolean;
     variant?: ButtonVariant;
@@ -131,8 +131,10 @@ export function buttonClasses(options: ButtonClassOptions = {}): string {
 
   return cn(
     buttonVariants({ variant, size }),
-    glass === true && 'glass',
-    glass === undefined && (variant ?? 'ghost') !== 'ghost' && 'touch:glass',
+    glass === true && 'native:glass',
+    glass === undefined &&
+      (variant ?? 'ghost') !== 'ghost' &&
+      'native:touch:glass',
     fullWidth && 'w-full',
     !noTouchResize && BUTTON_TOUCH_STYLES,
     square && 'aspect-square p-0',
@@ -151,7 +153,7 @@ function isIconSize(size: ButtonSize): boolean {
  *
  * @do Use ghost for unframed actions, at any size.
  * @do Use strong for outline actions with bolder type and cta for accent-filled actions.
- * @do Use glass={true} to opt in on desktop, or glass={false} to opt out on touch.
+ * @do Use glass={true} to opt in on native desktop, or glass={false} to opt out on native touch. The website is always flat.
  * @do Always set `label` on icon-only buttons; it is the accessible name.
  * @do Use `danger` only for destructive actions, paired with a confirmation.
  * @dont Do not restyle a button with utility classes when a variant already

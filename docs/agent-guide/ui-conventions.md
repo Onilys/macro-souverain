@@ -14,8 +14,9 @@ New event and Channel's idle Call and Ask Macro) are borderless with a rounded-x
 background on hover. Emphasized variants retain their treatment, including an
 active call's green ink and outline frame. Channel, company, contact, and project
 content tabs use inset controls in the top bar. Button sizes do not change variant colors or framing; individual
-framed controls default to glass on touch and flat on desktop. Use `glass={true}`
-to enable glass on all devices, or `glass={false}` to disable it everywhere.
+framed controls default to glass on native touch (iOS/Android) and stay flat on
+the website and on desktop. Use `glass={true}` to enable glass on native desktop,
+or `glass={false}` to disable it on native touch.
 Embedded and low-emphasis actions use `ghost`; inline calendar-invitation text
 actions remove the transparent border to keep their text alignment.
 

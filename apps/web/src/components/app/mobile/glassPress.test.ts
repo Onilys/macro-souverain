@@ -61,7 +61,7 @@ describe('mobile glass surface press', () => {
     expect(group.style.getPropertyValue('--press-y')).toBe('20px');
     expect(group.children).toHaveLength(2);
   });
-  it.each(['glass', 'island', 'touch:island'])(
+  it.each(['glass', 'island', 'touch:island', 'native:glass'])(
     'animates standalone %s buttons without per-control setup',
     (className) => {
       const button = document.createElement('button');
@@ -161,5 +161,12 @@ describe('mobile glass surface press', () => {
     pointer(group.querySelector('button')!, 'pointerdown');
     window.dispatchEvent(new Event('blur'));
     expect(group.hasAttribute('data-glass-press')).toBe(false);
+  });
+  it('does not animate on the website', () => {
+    document.documentElement.dataset.platform = 'web';
+    const group = surface();
+    pointer(group.querySelector('button')!, 'pointerdown');
+    expect(group.hasAttribute('data-glass-press')).toBe(false);
+    delete document.documentElement.dataset.platform;
   });
 });

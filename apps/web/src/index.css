@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@source inline("{data-highlighted:}text-{comment,note,canvas,html,folder,email,code,pdf,image,write,chat,video,rss,calendar,contact,default},{tauri-ios:}{hidden}");
+@source inline("{data-highlighted:}text-{comment,note,canvas,html,folder,email,code,pdf,image,write,chat,video,rss,calendar,contact,default},{tauri-ios:}{hidden},{native:,native:touch:,web:}{glass,ring}");
 @source inline("z-{popup-viewer,viewer-definition-lookup}");
 @source './lib/core/component/LexicalMarkdown/theme.ts';
 @source '../**/*.tsx';
@@ -671,6 +671,10 @@ body.tauri-ios {
 /* scuffed: might wan to use signals for this */
 @custom-variant touch (&:where(html[data-touch-device="true"] *));
 @custom-variant not-touch (&:where(html:not([data-touch-device="true"]) *));
+/* Native apps (iOS, Android, desktop Tauri). Require data-platform so a missing
+   attribute on the website doesn't flash native glass before JS runs. */
+@custom-variant native (&:where(html[data-platform]:not([data-platform="web"]) *));
+@custom-variant web (&:where(html[data-platform="web"] *));
 
 /* Restore native feedback suppressed by Tailwind's reset; glass opts out below. */
 html[data-touch-device='true'] {
@@ -740,8 +744,9 @@ html[data-theme-light='false'] {
    utility so it composes with variants — `mobile:island` — instead of
    hand-prefixing each part. */
 @utility island {
-  /* Dark mode uses glass; light mode keeps its ring and cast shadow. */
-  @apply min-h-[40px] min-w-[40px] bg-chrome text-ink dark-mode:glass light-mode:ring light-mode:ring-edge/70 light-mode:shadow-[0_4px_20px_8px_oklch(0.15_0_0/0.07)];
+  /* Glass is native-only. The website, and native light mode, use a ring and
+     cast shadow so chrome stays raised without the specular rim. */
+  @apply min-h-[40px] min-w-[40px] bg-chrome text-ink native:dark-mode:glass light-mode:ring light-mode:ring-edge/70 light-mode:shadow-[0_4px_20px_8px_oklch(0.15_0_0/0.07)] web:ring web:ring-edge/70 web:shadow-[0_4px_20px_8px_oklch(0.15_0_0/0.07)];
 
   --glass-blur: 18px;
   --glass-saturate: 1.5;
@@ -769,7 +774,9 @@ html[data-theme-light='false'] {
 /* Glass chrome: backdrop blur, a soft cast shadow, and a specular rim drawn as a 1px
    gradient masked to the border box (a plain `border` can't fade along its
    length). Shape and background come from the consumer, so this composes with
-   any radius — the rim inherits it — and with variants (`mobile:glass`).
+   any radius — the rim inherits it — and with variants (`mobile:glass`,
+   `native:glass`). Control glass (buttons, islands) is native-only; the
+   website keeps framed buttons flat. Surfaces (menus, dialogs) still use glass.
 
    Desktop glass uses the marketing site's hero-ring geometry. Consumers can
    override --glass-rim-background to customize the rim without owning its
@@ -795,6 +802,19 @@ html[data-theme-light='false'] {
   --glass-backdrop: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   &:where(html:not([data-touch-device="true"]) *) {
     --glass-backdrop: none;
+  }
+  /* Glass on controls is native-only. Menus, dialogs, and other surfaces keep
+     the rim on the website. Border-width: 0 is restored so framed buttons
+     keep their outline instead of a missing rim. */
+  &:is(button, a, [role='button'], [role='tab']):where(html[data-platform="web"] *) {
+    --glass-backdrop: none;
+    --glass-shadow: none;
+    backdrop-filter: none;
+    box-shadow: none;
+    border-width: revert-layer !important;
+    &::after {
+      content: none;
+    }
   }
   --glass-shadow:
     inset 0 1px 0 color-mix(in oklch, var(--glass-tint) calc(var(--glass-highlight-base) * var(--glass-scale)), transparent),
@@ -991,12 +1011,13 @@ html[data-theme-light='true'] :is(.glass-input, .elevated-surface) {
 /* Persistent paint layers belong to the material, including native controls.
    ::before paints the live fill, shadow and tap-centered sheen; ::after keeps
    the glass rim. No child nodes, computed-style snapshots or release cleanup.
+   Website (data-platform=web) stays flat: no press sheen, scale, or expansion.
    Keep this scope in sync with glassPress.ts's surface selection. */
-html[data-touch-device='true'] :is(
+html[data-touch-device='true']:not([data-platform='web']) :is(
   [data-mobile-dock-island],
   [data-header-island],
   [data-slot='button-group'].glass,
-  :is(button, a, [role='button'], [role='tab']):is(.glass, .island, [class~='touch:island'])
+  :is(button, a, [role='button'], [role='tab']):is(.glass, .island, [class~='touch:island'], [class~='native:glass'])
 ) {
   /* The shimmer replaces native tap feedback only on these press surfaces. */
   -webkit-tap-highlight-color: transparent;

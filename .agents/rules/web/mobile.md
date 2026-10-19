@@ -34,8 +34,9 @@ read their code, and follow that pattern rather than inventing a new one.
   selecting or dragging starts only after a long press, and horizontal
   swipes ignore the left edge (iOS back swipe).
 - Primary nav fires `hapticImpact('light')` on pointer down and acts on
-  click, so a held or cancelled touch does nothing. `glass` and `island`
-  controls get press animation from `installGlassPress`; add none.
+  click, so a held or cancelled touch does nothing. Native `glass` and `island`
+  controls get press animation from `installGlassPress`; add none. The website
+  has no glass press.
 
 ## Sheets, menus, and dialogs
 
