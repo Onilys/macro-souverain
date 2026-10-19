@@ -40,7 +40,7 @@ pub fn build_initiative_tool_context(
         ),
     ));
     let resources: Arc<dyn InitiativeResources> = Arc::new(ProjectResources::new(
-        properties,
+        properties.clone(),
         Arc::new(SystemPropertiesServiceImpl::new(
             PgSystemPropertiesRepository::new(pool.clone()),
         )),
@@ -54,6 +54,16 @@ pub fn build_initiative_tool_context(
     .with_event_publisher(Arc::new(
         initiative::outbound::event_publisher::BrokerInitiativeEventPublisher::new(
             event_broker.clone(),
+        ),
+    ))
+    .with_task_conversions(Arc::new(
+        initiative_task_conversion::TaskConversionAdapter::new(
+            documents.service.clone(),
+            properties,
+            access.clone(),
+            messages::outbound::pg_message_repo::PgMessageRepository::new(pool.clone()),
+            documents.sync_service_client.as_ref().clone(),
+            documents.document_permission_jwt_secret.clone(),
         ),
     ));
     InitiativeToolContext {

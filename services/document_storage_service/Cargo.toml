@@ -35,6 +35,7 @@ teams = { path = "../../crates/teams", default-features = false, features = ["ou
 agent_changes = { path = "../../crates/agent_changes", default-features = false, features = ["outbound"] }
 dictation = { path = "../../crates/dictation", features = ["inbound", "outbound"] }
 initiative_description = { path = "../../crates/initiative_description" }
+initiative_task_conversion = { path = "../../crates/initiative_task_conversion" }
 agent_session = { path = "../../crates/agent_session", features = ["outbound"] }
 agent_session_realtime = { path = "../../crates/agent_session_realtime" }
 activity = { path = "../../crates/activity" }

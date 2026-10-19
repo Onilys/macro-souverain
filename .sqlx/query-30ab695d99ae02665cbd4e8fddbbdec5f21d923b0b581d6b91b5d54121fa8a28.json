@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE comms_messages\n            SET parent_entity_type = $3, parent_entity_id = $4\n            WHERE parent_entity_type = $1 AND parent_entity_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "30ab695d99ae02665cbd4e8fddbbdec5f21d923b0b581d6b91b5d54121fa8a28"
+}

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE comms_message_threads\n                SET anchor = NULL, updated_at = NOW()\n                WHERE parent_entity_type = $1 AND parent_entity_id = $2\n                  AND anchor IS NOT NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0baea06fab3533f1acaacf33b428709f5cb50b27f7f0abf268fc0401a7aa777a"
+}

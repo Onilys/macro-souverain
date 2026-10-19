@@ -1057,6 +1057,7 @@ dependencies = [
  "import",
  "initiative",
  "initiative_description",
+ "initiative_task_conversion",
  "item_filters",
  "lazy_static",
  "lexical_client",
@@ -6525,6 +6526,7 @@ dependencies = [
  "import",
  "initiative",
  "initiative_description",
+ "initiative_task_conversion",
  "jsonwebtoken 10.3.0",
  "last_online_tracker",
  "lazy_static",
@@ -10590,6 +10592,32 @@ dependencies = [
  "initiative",
  "model-entity",
  "rootcause",
+ "tokio",
+ "tracing",
+ "uuid",
+ "workspace-hack",
+]
+
+[[package]]
+name = "initiative_task_conversion"
+version = "0.1.0"
+dependencies = [
+ "document_sub_type",
+ "documents",
+ "entity_access",
+ "entity_mutation",
+ "initiative",
+ "macro_sync_service_jwt",
+ "macro_user_id",
+ "messages",
+ "model",
+ "model-entity",
+ "models_permissions",
+ "models_properties",
+ "properties",
+ "rootcause",
+ "sync_service_client",
+ "system_properties",
  "tokio",
  "tracing",
  "uuid",

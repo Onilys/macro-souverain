@@ -1512,6 +1512,16 @@ pub async fn run() -> anyhow::Result<()> {
             initiative::outbound::event_publisher::BrokerInitiativeEventPublisher::new(
                 macro_event_broker.clone(),
             ),
+        ))
+        .with_task_conversions(Arc::new(
+            initiative_task_conversion::TaskConversionAdapter::new(
+                document_service.clone(),
+                properties_service.clone(),
+                entity_access_service.clone(),
+                messages::outbound::pg_message_repo::PgMessageRepository::new(db.clone()),
+                sync_service_client.as_ref().clone(),
+                config.document_permission_jwt.as_ref().to_string(),
+            ),
         )),
     );
 

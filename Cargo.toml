@@ -87,6 +87,7 @@ members = [
   "crates/import",
   "crates/initiative",
   "crates/initiative_description",
+  "crates/initiative_task_conversion",
   "crates/item_filter_index",
   "crates/integration_tests/local_e2e",
   "crates/loops_client",
