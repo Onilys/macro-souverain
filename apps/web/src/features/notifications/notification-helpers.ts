@@ -18,7 +18,11 @@ import { type Accessor, createEffect, createMemo, onCleanup } from 'solid-js';
 import { isMatching, P } from 'ts-pattern';
 import { DOCUMENT_COMMENT_EVENT_TYPES } from './document-comment-notification';
 import type { NotificationSource } from './notification-source';
-import { CHANNEL_EVENT_TYPES, setDoneOverride } from './notification-source';
+import {
+  CHANNEL_EVENT_TYPES,
+  setDoneOverride,
+  setSeenOverride,
+} from './notification-source';
 import { compositeEntity, type UnifiedNotification } from './types';
 
 export const isChannelNotification = isMatching({
@@ -201,21 +205,59 @@ export async function ensureNotificationSourceLoaded(
 }
 
 /**
+ * IDs of the entity's notifications this client still shows as unseen: the
+ * caller's rendered rows plus the global feed. An unstarted GraphQL feed is
+ * skipped because reading it would start it.
+ */
+function locallyUnseenNotificationIds(
+  notificationSource: NotificationSource,
+  entity: Entity,
+  displayed: readonly UnifiedNotification[]
+): string[] {
+  const feed = notificationSource._notificationsQuery.isStarted
+    ? (notificationSource.notificationsByEntity()[compositeEntity(entity)] ??
+      [])
+    : [];
+  const ids = new Set<string>();
+  for (const notification of [...displayed, ...feed]) {
+    if (notification.state === 'unseen') ids.add(notification.id);
+  }
+  return [...ids];
+}
+
+/**
  * Marks all notifications for an entity as read
  * @param notificationSource
  * @param entity
+ * @param displayed the entity's notifications as the caller renders them
  * @returns Promise<void>
  */
 export async function markNotificationsForEntityAsRead(
   notificationSource: NotificationSource,
-  entity: Entity
+  entity: Entity,
+  displayed: readonly UnifiedNotification[] = []
 ): Promise<void> {
   const entityRef = toNotificationEntityRef(entity);
   if (isFeatureEnabled(enableGraphqlSoup) && entityRef) {
-    await updateNotificationsForEntities({
-      entities: [entityRef],
-      operation: 'MARK_SEEN',
-    });
+    const unseenIds = locallyUnseenNotificationIds(
+      notificationSource,
+      entity,
+      displayed
+    );
+    // Assert seen locally first, as bulkMarkAsRead does. Without it a cached
+    // copy or a page read before this write lands can show the entity unread
+    // again, and the entity mutation never returns rows it did not change.
+    const rollback = setSeenOverride(unseenIds, new Date().toISOString());
+    try {
+      await updateNotificationsForEntities({
+        entities: [entityRef],
+        operation: 'MARK_SEEN',
+        displayedIds: unseenIds,
+      });
+    } catch (error) {
+      rollback();
+      throw error;
+    }
     return;
   }
 
@@ -227,10 +269,15 @@ export async function markNotificationsForEntityAsRead(
 /** Best-effort read marker for navigation/timer callers with no awaiting UI. */
 export async function markNotificationsForEntityAsReadInBackground(
   notificationSource: NotificationSource,
-  entity: Entity
+  entity: Entity,
+  displayed: readonly UnifiedNotification[] = []
 ): Promise<void> {
   try {
-    await markNotificationsForEntityAsRead(notificationSource, entity);
+    await markNotificationsForEntityAsRead(
+      notificationSource,
+      entity,
+      displayed
+    );
   } catch (error) {
     console.error('Failed to mark entity notifications as read', error);
   }

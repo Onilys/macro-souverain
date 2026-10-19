@@ -13,6 +13,7 @@ import {
 import {
   createNotificationSource,
   setDoneOverride,
+  setSeenOverride,
 } from '../notification-source';
 import type { UnifiedNotification } from '../types';
 
@@ -27,6 +28,8 @@ const mocks = vi.hoisted(() => ({
   notificationsQuery: {} as Record<string, unknown>,
   optimisticInsertNotification: vi.fn(),
   updateSoupForNotification: vi.fn(),
+  toNotificationEntityRef: vi.fn(),
+  updateNotificationsForEntities: vi.fn(),
   socketCallback: undefined as
     | ((data: { type: string; data: string }) => void)
     | undefined,
@@ -77,8 +80,8 @@ vi.mock('@queries/notification/user-notifications', () => ({
 
 vi.mock('@queries/client', () => ({ queryClient: {} }));
 vi.mock('@queries/notification/entity-mutations', () => ({
-  toNotificationEntityRef: vi.fn(),
-  updateNotificationsForEntities: vi.fn(),
+  toNotificationEntityRef: mocks.toNotificationEntityRef,
+  updateNotificationsForEntities: mocks.updateNotificationsForEntities,
 }));
 
 vi.mock('@queries/notification/unsubscribes', () => ({
@@ -134,6 +137,8 @@ describe('createNotificationSource', () => {
     mocks.socketCallback = undefined;
     mocks.optimisticInsertNotification.mockReset();
     mocks.updateSoupForNotification.mockReset();
+    mocks.toNotificationEntityRef.mockReset();
+    mocks.updateNotificationsForEntities.mockReset().mockResolvedValue([]);
     mocks.seenMutation.mutateAsync.mockReset().mockResolvedValue(undefined);
     mocks.doneMutation.mutateAsync.mockReset().mockResolvedValue(undefined);
     mocks.mutedEntitiesQuery = {
@@ -666,6 +671,126 @@ describe('createNotificationSource', () => {
       }
     }
   );
+
+  it('keeps a GraphQL entity read on a stale Soup edge the server reports as already seen', async () => {
+    mocks.graphqlEnabled = true;
+    const row = notification('stale-reminder-edge', 'calendar_event', 'event');
+    mocks.notificationsQuery = {
+      data: [],
+      transport: 'graphql',
+      isFetching: false,
+    };
+    mocks.toNotificationEntityRef.mockReturnValue({
+      type: 'calendar_event',
+      id: 'event',
+    });
+    const { source, dispose } = createRoot((dispose) => ({
+      source: createNotificationSource({} as ConnectionGatewayWebsocket),
+      dispose,
+    }));
+    const rowFor = (edge: UnifiedNotification) =>
+      ({
+        id: 'event',
+        type: 'calendar_event',
+        name: 'Prod Deploy',
+        notifications: [edge],
+      }) as EntityData & { notifications: UnifiedNotification[] };
+    try {
+      const entity = rowFor(row);
+      await markNotificationsForEntityAsRead(
+        source,
+        { type: 'calendar_event', id: 'event' },
+        getEntityNotifications(entity, source)
+      );
+      expect(mocks.updateNotificationsForEntities).toHaveBeenCalledWith({
+        entities: [{ type: 'calendar_event', id: 'event' }],
+        operation: 'MARK_SEEN',
+        displayedIds: [row.id],
+      });
+      // The no-op response changed nothing, and a later page can still carry
+      // the pre-write snapshot. Neither may show the row unread again.
+      expect(getEntityNotifications(entity, source)[0].state).toBe('seen');
+      expect(getEntityNotifications(rowFor({ ...row }), source)[0].state).toBe(
+        'seen'
+      );
+      expect(row.state).toBe('unseen');
+    } finally {
+      setSeenOverride([row.id], undefined);
+      dispose();
+    }
+  });
+
+  it('rolls back a failed GraphQL entity read', async () => {
+    mocks.graphqlEnabled = true;
+    const row = notification('failed-entity-read', 'calendar_event', 'event');
+    mocks.notificationsQuery = {
+      data: [],
+      transport: 'graphql',
+      isFetching: false,
+    };
+    mocks.toNotificationEntityRef.mockReturnValue({
+      type: 'calendar_event',
+      id: 'event',
+    });
+    mocks.updateNotificationsForEntities.mockRejectedValueOnce(
+      new Error('offline')
+    );
+    const { source, dispose } = createRoot((dispose) => ({
+      source: createNotificationSource({} as ConnectionGatewayWebsocket),
+      dispose,
+    }));
+    try {
+      await expect(
+        markNotificationsForEntityAsRead(
+          source,
+          { type: 'calendar_event', id: 'event' },
+          [source.withLocalOverrides!(row)]
+        )
+      ).rejects.toThrow('offline');
+      expect(source.withLocalOverrides!(row).state).toBe('unseen');
+    } finally {
+      dispose();
+    }
+  });
+
+  it('does not start a cold GraphQL feed to find an entity read target', async () => {
+    mocks.graphqlEnabled = true;
+    const dataRead = vi.fn(() => []);
+    mocks.notificationsQuery = {
+      transport: 'graphql',
+      isStarted: false,
+      isFetching: false,
+      get isLoading() {
+        dataRead();
+        return false;
+      },
+      get data() {
+        return dataRead();
+      },
+    };
+    mocks.toNotificationEntityRef.mockReturnValue({
+      type: 'document',
+      id: 'doc',
+    });
+    const { source, dispose } = createRoot((dispose) => ({
+      source: createNotificationSource({} as ConnectionGatewayWebsocket),
+      dispose,
+    }));
+    try {
+      await markNotificationsForEntityAsRead(source, {
+        type: 'document',
+        id: 'doc',
+      });
+      expect(dataRead).not.toHaveBeenCalled();
+      expect(mocks.updateNotificationsForEntities).toHaveBeenCalledWith({
+        entities: [{ type: 'document', id: 'doc' }],
+        operation: 'MARK_SEEN',
+        displayedIds: [],
+      });
+    } finally {
+      dispose();
+    }
+  });
 
   it.each(['seen', 'done'] as const)(
     'still prunes absent %s overrides for REST-only readers',

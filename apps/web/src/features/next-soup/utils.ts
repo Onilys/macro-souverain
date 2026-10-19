@@ -885,16 +885,17 @@ export function markChannelNotificationsSeenOnOpen(
 
 /** Mark calendar-event notifications seen when opening their occurrence. */
 export function markCalendarNotificationSeenOnOpen(
-  entity: EntityData,
+  entity: EntityWithRawNotifications<EntityData>,
   notificationSource: NotificationSource
 ) {
   // Calendar events open a component split without a block to clear notifications.
   if (entity.type !== 'calendar_event') return;
   fireAndForget(
-    markNotificationsForEntityAsReadInBackground(notificationSource, {
-      type: entity.type,
-      id: entity.id,
-    }),
+    markNotificationsForEntityAsReadInBackground(
+      notificationSource,
+      { type: entity.type, id: entity.id },
+      getEntityNotifications(entity, notificationSource)
+    ),
     'open-entity-in-split'
   );
 }

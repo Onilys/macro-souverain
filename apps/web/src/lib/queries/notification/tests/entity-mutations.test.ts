@@ -71,4 +71,30 @@ describe('updateNotificationsForEntities', () => {
 
     expect(mocks.refreshActiveGraphqlSoupQueries).toHaveBeenCalledOnce();
   });
+
+  it('revalidates a cached reader when the server skips a displayed row', async () => {
+    // The server already had the notification seen, so the no-op response
+    // carries nothing that could overwrite the cached unseen copy.
+    await updateNotificationsForEntities({
+      entities: [{ type: 'calendar_event', id: 'event-1' }],
+      operation: 'MARK_SEEN',
+      displayedIds: ['notification-1'],
+    });
+
+    expect(mocks.refreshActiveGraphqlSoupQueries).toHaveBeenCalledOnce();
+  });
+
+  it('trusts the cache when every displayed row came back changed', async () => {
+    mocks.updateGraphqlNotificationsForEntities.mockResolvedValueOnce([
+      { id: 'notification-1' },
+    ] as never);
+
+    await updateNotificationsForEntities({
+      entities: [{ type: 'calendar_event', id: 'event-1' }],
+      operation: 'MARK_SEEN',
+      displayedIds: ['notification-1'],
+    });
+
+    expect(mocks.refreshActiveGraphqlSoupQueries).not.toHaveBeenCalled();
+  });
 });

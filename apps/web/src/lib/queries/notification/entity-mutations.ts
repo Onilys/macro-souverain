@@ -123,6 +123,8 @@ export function toNotificationEntityInput(
 export async function updateNotificationsForEntities(args: {
   entities: NotificationEntityRef[];
   operation: NotificationEntityUpdateOperation;
+  /** Notification IDs the caller still renders in their pre-operation state. */
+  displayedIds?: readonly string[];
 }): Promise<UnifiedNotification[]> {
   if (args.entities.length === 0) return [];
 
@@ -130,8 +132,15 @@ export async function updateNotificationsForEntities(args: {
     entities: args.entities.map(toNotificationEntityInput),
     operation: args.operation,
   });
-  if (!graphqlCacheEnabled()) {
+  const notifications = rows.map((row) => mapGraphqlNotification(row));
+  // The server only returns rows it changed. A displayed row it skipped was
+  // already in the target state, so the cached copy is stale and nothing in
+  // this response will overwrite it.
+  const changedIds = new Set(notifications.map(({ id }) => id));
+  const displayedRowIsStale =
+    args.displayedIds?.some((id) => !changedIds.has(id)) ?? false;
+  if (!graphqlCacheEnabled() || displayedRowIsStale) {
     await refreshActiveGraphqlSoupQueries();
   }
-  return rows.map((row) => mapGraphqlNotification(row));
+  return notifications;
 }
