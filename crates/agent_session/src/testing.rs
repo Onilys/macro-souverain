@@ -212,6 +212,7 @@ impl AgentSessionRepo for InMemoryAgentSessionRepo {
             status: SessionStatus::default(),
             created_at: now,
             modified_at: now,
+            routine_id: params.purpose.routine_id(),
         };
         if let Some(hash) = params.egress_token_hash {
             self.egress_token_hashes
@@ -423,6 +424,19 @@ impl AgentSessionRepo for InMemoryAgentSessionRepo {
             AgentSessionError::Unknown(anyhow::anyhow!("no agent session {}", id.as_uuid()))
         })?;
         session.model = model.to_owned();
+        session.modified_at = chrono::Utc::now();
+        Ok(())
+    }
+
+    async fn set_routine(&self, id: AgentSessionId, routine_id: Uuid) -> Result<()> {
+        let mut sessions = self
+            .sessions
+            .lock()
+            .expect("in-memory session store is not poisoned");
+        let session = sessions.get_mut(&id).ok_or_else(|| {
+            AgentSessionError::Unknown(anyhow::anyhow!("no agent session {}", id.as_uuid()))
+        })?;
+        session.routine_id = Some(routine_id);
         session.modified_at = chrono::Utc::now();
         Ok(())
     }
@@ -1000,6 +1014,7 @@ pub fn test_agent_session(id: AgentSessionId) -> AgentSession {
         status: SessionStatus::NoMessages,
         created_at: now,
         modified_at: now,
+        routine_id: None,
     }
 }
 

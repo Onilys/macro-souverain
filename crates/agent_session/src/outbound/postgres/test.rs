@@ -1319,6 +1319,47 @@ async fn inline_macro_sessions_start_hidden(pool: PgPool) {
     assert!(!hidden[1].list_hidden, "a composer session is listed");
 }
 
+/// A routine's run records its routine, whether the harness created the row
+/// knowing it or an external runtime created it first. It stays listed: lists
+/// leave routine runs out by asking to, not by hiding them.
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn routine_runs_record_their_routine(pool: PgPool) {
+    let repo = test_repo(&pool);
+    let bot_id = create_test_bot(&pool).await;
+    let routine_id = Uuid::now_v7();
+
+    let managed = create_session(
+        &repo,
+        CreateAgentSessionParams {
+            purpose: crate::domain::model::SessionPurpose::Routine { routine_id },
+            ..new_session(bot_id, None, None)
+        },
+    )
+    .await;
+    assert_eq!(managed.routine_id, Some(routine_id));
+    let listed = sqlx::query_scalar!(
+        "SELECT NOT list_hidden AS \"listed!\" FROM agent_session WHERE id = $1",
+        managed.id.as_uuid(),
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("read list visibility");
+    assert!(listed, "a routine run is listed");
+
+    let external = create_session(&repo, new_session(bot_id, None, None)).await;
+    assert_eq!(external.routine_id, None);
+    AgentSessionRepo::set_routine(&repo, external.id, routine_id)
+        .await
+        .expect("record the routine");
+    AgentSessionRepo::set_routine(&repo, external.id, routine_id)
+        .await
+        .expect("recording it again is a no-op");
+    let external = AgentSessionRepo::get(&repo, external.id)
+        .await
+        .expect("read the session");
+    assert_eq!(external.routine_id, Some(routine_id));
+}
+
 /// A preview reports every existing id with whether the viewer holds a grant:
 /// the owner through their own row, a channel member through the channel's,
 /// a stranger through none, and an unknown id not at all. Duplicates in the

@@ -141,6 +141,7 @@ where
                         profile: Some(profile),
                         instructions: None,
                         model: selection.model.clone(),
+                        routine_id: command.routine_id,
                     })
                     .await
             }
@@ -152,6 +153,7 @@ where
                         owner: selection.owner,
                         repo_url: None,
                         model: selection.model.clone(),
+                        routine_id: command.routine_id,
                     })
                     .await
             }

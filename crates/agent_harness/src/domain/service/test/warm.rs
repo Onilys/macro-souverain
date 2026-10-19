@@ -143,6 +143,7 @@ async fn warming_initializes_without_a_prompt_or_visible_created_event() {
                 bot_id: bot_id::MACRO_NEW_BOT_ID,
                 profile: None,
             }),
+            routine_id: None,
         })
         .await
         .expect("claim prepared session");
@@ -222,6 +223,7 @@ async fn a_missed_warm_claim_records_why_on_the_open_span() {
                 bot_id: bot_id::MACRO_NEW_BOT_ID,
                 profile: None,
             }),
+            routine_id: None,
         })
         .await
         .expect("cold open after a missed claim");
@@ -273,6 +275,7 @@ async fn an_open_without_a_client_id_records_that_no_warm_id_was_sent() {
                 bot_id: bot_id::MACRO_NEW_BOT_ID,
                 profile: None,
             }),
+            routine_id: None,
         })
         .await
         .expect("cold open");
@@ -327,4 +330,46 @@ async fn warming_past_the_owner_cap_records_the_refusal() {
         Some(&opentelemetry::Value::from("refused_owner_cap"))
     );
     assert!(attributes.contains_key("agent.session.model"));
+}
+
+/// A warm row was created without the routine, so claiming one would leave a
+/// routine run looking like a session its owner opened.
+#[tokio::test]
+async fn a_routine_run_opens_its_own_session_instead_of_claiming_a_warm_one() {
+    let (service, repo, containers, _, _) = harness();
+    let service = service.with_warm_sessions(
+        Arc::new(WarmLifecycleStub {
+            claim: WarmClaim::Claimed,
+        }),
+        Arc::new(agent_session::domain::ports::NoOpToolCatalog),
+    );
+    let routine_id = macro_uuid::Uuid::now_v7();
+    let session = service
+        .open_managed_session(OpenManagedSession {
+            id: Some(AgentSessionId::new()),
+            owner: model_owner::Owner::User(sender()),
+            prompt: None,
+            repo_url: None,
+            repo_branch: None,
+            instructions: None,
+            model: None,
+            profile: Some(agent_session::domain::ports::SelectedManagedPersona {
+                bot_id: bot_id::MACRO_NEW_BOT_ID,
+                profile: None,
+            }),
+            routine_id: Some(routine_id),
+        })
+        .await
+        .expect("open the routine run");
+
+    assert_eq!(session.routine_id, Some(routine_id));
+    assert_eq!(
+        repo.get(session.id).await.expect("persisted").routine_id,
+        Some(routine_id)
+    );
+    assert_eq!(containers.spawned(), 1, "a fresh runtime, not a warm one");
+    service
+        .execute(session.id, HarnessCommand::Delete)
+        .await
+        .expect("delete");
 }

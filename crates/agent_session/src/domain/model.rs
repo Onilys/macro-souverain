@@ -193,6 +193,12 @@ pub enum SessionPurpose {
     Warm,
     /// Context backing an agent DM; accessed through its conversation.
     AgentDm,
+    /// A routine's unattended run. Listed, but kept out of Home and the
+    /// default Agents list, and its successful turns notify nobody.
+    Routine {
+        /// The routine whose run this is.
+        routine_id: Uuid,
+    },
 }
 
 impl SessionPurpose {
@@ -215,6 +221,15 @@ impl SessionPurpose {
             Self::Warm => true,
             Self::AgentDm => hide_agent_dms,
             Self::Standalone => bot_id == bot_id::MACRO_NEW_BOT_ID && thread_id.is_some(),
+            Self::Routine { .. } => false,
+        }
+    }
+
+    /// The routine whose run the session is, when it is one.
+    pub fn routine_id(self) -> Option<Uuid> {
+        match self {
+            Self::Routine { routine_id } => Some(routine_id),
+            Self::Standalone | Self::Warm | Self::AgentDm => None,
         }
     }
 }
@@ -297,6 +312,8 @@ pub struct AgentSession {
     pub pull_request_url: Option<String>,
     /// The Macro task the session was explicitly linked to.
     pub task_id: Option<String>,
+    /// The routine whose unattended run created the session, if one did.
+    pub routine_id: Option<Uuid>,
     /// Directory the harness runs in, snapshotted at creation. The session
     /// actor sends it as the working directory of `session/new`, and resume
     /// and load re-enter it - the directory the session actually ran in,

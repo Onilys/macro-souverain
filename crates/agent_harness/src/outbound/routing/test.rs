@@ -173,6 +173,7 @@ impl AgentSessionRepo for FixedBotSessions {
             status: SessionStatus::NoMessages,
             created_at: chrono::Utc::now(),
             modified_at: chrono::Utc::now(),
+            routine_id: None,
         })
     }
 
@@ -213,6 +214,14 @@ impl AgentSessionRepo for FixedBotSessions {
 
     async fn set_model(&self, _id: AgentSessionId, _model: &str) -> SessionResult<()> {
         unimplemented!("the router never sets models")
+    }
+
+    async fn set_routine(
+        &self,
+        _id: AgentSessionId,
+        _routine_id: macro_uuid::Uuid,
+    ) -> SessionResult<()> {
+        unimplemented!("the router never records routines")
     }
 
     async fn set_egress_token_hash(&self, _id: AgentSessionId, _hash: &str) -> SessionResult<()> {

@@ -1903,6 +1903,10 @@ where
         self.repo.set_model(id, model).await
     }
 
+    async fn set_routine(&self, id: AgentSessionId, routine_id: Uuid) -> Result<()> {
+        self.repo.set_routine(id, routine_id).await
+    }
+
     async fn set_name(&self, id: AgentSessionId, name: &str) -> Result<()> {
         self.repo.set_name(id, name).await
     }

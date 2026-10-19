@@ -117,6 +117,7 @@ impl AgentSessionRepo for StubSessions {
             status: SessionStatus::NoMessages,
             created_at: chrono::Utc::now(),
             modified_at: chrono::Utc::now(),
+            routine_id: None,
         })
     }
 
@@ -157,6 +158,14 @@ impl AgentSessionRepo for StubSessions {
 
     async fn set_model(&self, _id: AgentSessionId, _model: &str) -> SessionResult<()> {
         unimplemented!("the manager never sets models")
+    }
+
+    async fn set_routine(
+        &self,
+        _id: AgentSessionId,
+        _routine_id: macro_uuid::Uuid,
+    ) -> SessionResult<()> {
+        unimplemented!("the manager never records routines")
     }
 
     async fn set_egress_token_hash(&self, _id: AgentSessionId, _hash: &str) -> SessionResult<()> {

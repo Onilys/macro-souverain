@@ -196,6 +196,7 @@ where
                         model: None,
                     },
                     session_id,
+                    routine_id: None,
                 })
                 .await
                 .map_err(failed)?;

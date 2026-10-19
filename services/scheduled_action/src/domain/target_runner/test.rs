@@ -313,6 +313,9 @@ async fn model_targets_use_macro_sessions_with_the_selected_model_and_event_cont
             action.owner_user().unwrap()
         );
         assert_eq!(preparations[0].session_id.as_uuid(), handle.session_id);
+        // The session records which routine ran it.
+        assert_eq!(preparations[0].routine_id, action.id);
+        assert!(preparations[0].routine_id.is_some());
 
         let prompts = runner.sessions.prompts.lock().unwrap();
         assert_eq!(prompts.len(), 1);

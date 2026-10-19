@@ -63,6 +63,7 @@ impl<Sessions: RoutineSessions, Events: RoutineEventReader> ScheduledAgentRunner
                     model: model.map(|model| model.as_str().to_owned()),
                 },
                 session_id: identity.session_id,
+                routine_id: action.id,
             })
             .await;
         match prepared {

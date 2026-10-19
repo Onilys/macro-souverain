@@ -2221,6 +2221,7 @@ pub async fn create_agent_session_handler<
                             repo_url,
                             owner,
                             model: request.model.filter(|model| !model.trim().is_empty()),
+                            routine_id: None,
                         })
                         .await?;
                     return Ok((
@@ -2253,6 +2254,7 @@ pub async fn create_agent_session_handler<
                 profile,
                 instructions,
                 model: request.model.filter(|model| !model.trim().is_empty()),
+                routine_id: None,
             })
             .await?;
         return Ok((

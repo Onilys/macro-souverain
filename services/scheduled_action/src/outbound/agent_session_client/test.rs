@@ -143,6 +143,7 @@ async fn all_commands_use_internal_auth_and_domain_wire_contract_at_both_prefixe
         let prepare = PrepareRoutineSession {
             selection: selection.clone(),
             session_id: identity.session_id,
+            routine_id: Some(Uuid::nil()),
         };
         let prompt = PromptRoutineSession {
             action: identity.clone(),
@@ -248,6 +249,7 @@ async fn typed_sanitized_domain_errors_are_preserved() {
             .prepare(PrepareRoutineSession {
                 selection: selection(),
                 session_id: identity().session_id,
+                routine_id: None,
             })
             .await
             .unwrap_err();
