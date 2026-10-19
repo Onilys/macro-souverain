@@ -66,6 +66,17 @@ Then trigger the interaction and read `window.__inst.log`. `'1,2,3' → '' → '
 
 ## Development Patterns
 
+### Pipedream native authorization
+
+Keep native Pipedream consent in the system browser: the desktop navigation
+plugin redirects external popups and breaks the embedded iframe's return path.
+`pipedream-connect.html` is a separate Vite entry, served at
+`/app/pipedream-connect.html`, without a Macro browser login. The Connect token
+and one-time state travel only in its URL fragment, which the page removes on
+load. Its **Return to Macro** link is consumed by the Tauri navigation bridge
+without changing the active route. Backend registration still verifies account
+ownership. Cancel, logout, and the ten-minute timeout retire pending callbacks.
+
 ### General
 - Disable GraphQL cache sessions and clear login hints on confirmed auth 401s,
   even with retained user data; preserve session state on transient failures.
@@ -83,6 +94,8 @@ Then trigger the interaction and read `window.__inst.log`. `'1,2,3' → '' → '
 - Task-composer predictions use Jev's existing `/decisions` API; preserve manual
   selections (including clears), draft prediction ownership, and stale-result
   guards in `features/block-md/{primitives,queries}/task-predictions.ts`.
+- Keep desktop inbox consent in the system browser with a
+  `macro:///inbox-link-callback` return; webview origins are not desktop callbacks.
 - Draft autosaves preserve active email thread messages; evict inactive legacy
   caches on save and the active cache on thread exit. Revalidate GraphQL thread
   pages only when a save cannot patch the message list (missing snapshot or a
@@ -118,6 +131,24 @@ the startup bundle, and Lexical nodes.
 
 ## Notes
 - Don't shy away from pulling good examples into context. In the case of solid-primtiives/kobalte try reading documentation, or just temp clone into /tmp to reference
+
+## iOS release signing
+
+Follow [`docs/ios-releases.md`](docs/ios-releases.md) for App Store signing and
+provisioning, including both extensions. The release script temporarily selects
+manual export when a distribution certificate path is supplied.
+
+## Desktop file drops
+
+Keep `app.windows[].dragDropEnabled` false in `tauri/src-tauri/tauri.macos.conf.json`.
+Markdown editors and attachment inputs use browser events through `fileFolderDrop`
+and `fileDrop`; Tauri's native handler intercepts Finder drops before those handlers
+receive them. This config change requires a rebuilt macOS app; a frontend bundle
+update alone does not apply it.
+
+Tauri replaces arrays when merging platform configuration. Keep the other macOS
+window settings aligned with `tauri/src-tauri/tauri.conf.json` when changing the
+shared window. Verify with the [Finder-drop walkthrough](../../docs/agent-guide/documents.md#desktop-file-drops).
 
 ## Subscription offers
 

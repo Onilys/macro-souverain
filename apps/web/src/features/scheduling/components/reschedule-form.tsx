@@ -1,14 +1,16 @@
 import { fireAndForget } from '@core/util/fireAndForget';
 import { Button, DatePicker } from '@ui';
 import { createSignal, Show } from 'solid-js';
-import { Field, SelectInput } from './fields';
+import { Field, SelectInput, TimeZoneInput } from './fields';
 
 export function RescheduleForm(props: {
-  timeZone: string;
   load: (date: string) => Promise<{ startsAt: string; endsAt: string }[]>;
   submit: (startsAt: string) => Promise<void>;
   onCancel: () => void;
 }) {
+  const [zone, setZone] = createSignal(
+    Intl.DateTimeFormat().resolvedOptions().timeZone
+  );
   const [date, setDate] = createSignal('');
   const [slots, setSlots] = createSignal<
     { startsAt: string; endsAt: string }[]
@@ -62,10 +64,19 @@ export function RescheduleForm(props: {
       onSubmit={(e) => fireAndForget(save(e), 'scheduling')}
     >
       <h2 class="font-semibold">Choose a new time</h2>
-      <Field
-        label="Date"
-        hint={`Dates and times in ${props.timeZone.replaceAll('_', ' ')}`}
-      >
+      <Field label="Your time zone">
+        <TimeZoneInput
+          value={zone()}
+          disabled={saving()}
+          onChange={(value) => {
+            setZone(value);
+            setDate('');
+            setSlots([]);
+            setSelected('');
+          }}
+        />
+      </Field>
+      <Field label="Date">
         <DatePicker
           aria-label="Date"
           disabled={saving()}
@@ -101,7 +112,7 @@ export function RescheduleForm(props: {
               options={slots().map((s) => ({
                 value: s.startsAt,
                 label: new Date(s.startsAt).toLocaleTimeString([], {
-                  timeZone: props.timeZone,
+                  timeZone: zone(),
                   hour: 'numeric',
                   minute: '2-digit',
                 }),
