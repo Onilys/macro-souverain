@@ -15,6 +15,10 @@ types, the `EmailThread` edge resolvers, and draft mutations.
   and content, keyed by thread/message id.
 - `src/user_query.rs` / `src/user_objects.rs`: viewer-scoped email settings
   (labels, links, sync status) separate from message content.
+- `src/prepared_body.rs`: `preparedBody(version)`, the reader HTML prepared by
+  `email_utils::prepare` on the blocking pool. At most one preparation per CPU
+  runs at once; with no free slot, or after two seconds, it returns null and
+  the client prepares the body itself.
 
 ## Scope
 

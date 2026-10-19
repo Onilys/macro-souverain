@@ -99,8 +99,10 @@ async fn prepare_within(
     // A page of messages resolves in one task, so all preparation runs on the
     // blocking pool. The permit lives as long as the work, so work a timed-out
     // request abandoned still counts against the bound.
+    let work_span = span.clone();
     let work = tokio::task::spawn_blocking(move || {
         let _permit = permit;
+        let _span = work_span.enter();
         prepare_email_body(
             &EmailBodyInput {
                 html: Some(&html),
