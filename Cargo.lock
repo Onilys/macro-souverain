@@ -22288,7 +22288,6 @@ dependencies = [
  "rustls-webpki",
  "schemars 1.2.1",
  "scopeguard",
- "scraper",
  "security-framework-sys",
  "semver",
  "serde",
