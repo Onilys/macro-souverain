@@ -29,7 +29,7 @@ tester.run('browser-floor', browserFloorRule, {
     },
     { code: 'navigator.vibrate?.(10);', options: safari },
     {
-      code: 'void navigator.permissions?.query({ name: "camera" });',
+      code: 'const status = navigator.permissions?.query({ name: "camera" });',
       options: safari,
     },
     {
