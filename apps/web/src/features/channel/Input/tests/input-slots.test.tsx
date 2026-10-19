@@ -359,6 +359,7 @@ vi.mock('@queries/channel/channel-participants', () => ({
 vi.mock('@core/context/user', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@core/context/user')>()),
   useUserId: () => () => 'macro|me@macro.test',
+  useIsAuthenticated: () => () => true,
 }));
 vi.mock('@queries/messages/mutations', () => ({
   useSendMessageMutation: () => ({ mutate: vi.fn() }),

@@ -128,11 +128,17 @@ export function MeetingRouteContent(props: {
           }),
         disconnect: call.meetingSession.disconnect,
       }}
-      renderCall={(onLeave, name) => (
+      renderCall={(onLeave, name, credentials) => (
         <CallOverlay
           onLeave={onLeave}
           localName={name()}
-          showChat={authenticated() === true}
+          showChat={
+            authenticated() === true ||
+            (authenticated() === false && !!credentials())
+          }
+          guestChatSession={
+            authenticated() === false ? credentials() : undefined
+          }
           showTeamSharing={canShareWithTeam()}
           sharedWithTeam={
             record.isSuccess ? record.data.shareWithTeam : undefined

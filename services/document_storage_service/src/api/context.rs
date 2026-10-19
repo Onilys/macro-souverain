@@ -888,6 +888,7 @@ pub(crate) struct ApiContext {
     pub projects_state: ProjectsState,
     pub channels_state: DssChannelsState,
     pub messages_state: DssMessagesState,
+    pub guest_chat_service: Arc<dyn messages::domain::service::guest_chat::GuestChatApi>,
     pub annotation_service: Arc<DssAnnotationService>,
     /// Shared channel service, for calling channel domain operations outside
     /// the channels router (starter-doc seeding records mention backlinks).

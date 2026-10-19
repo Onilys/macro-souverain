@@ -1,4 +1,5 @@
 import { MACRO_EMAIL_SIGNATURE } from '@app/features/email-compose/core/constants';
+import { getUploadFileSize } from '@core/mobile/nativeStagedUpload';
 import { fireAndForget } from '@core/util/fireAndForget';
 import { $generateHtmlFromNodes } from '@lexical/html';
 import {
@@ -15,10 +16,15 @@ import {
   on,
 } from 'solid-js';
 import { unwrap } from 'solid-js/store';
+import type { MessageOperationSourceFactory } from '../../email-message/context/message-operation-source';
 import type {
   EmailContact,
   EmailMessage,
 } from '../../email-message/core/email-message';
+import {
+  operationBlocksEditing,
+  operationBlocksSending,
+} from '../../email-message/core/message-operation';
 import type {
   EmailAttachmentStorage,
   EmailComposeAccounts,
@@ -30,6 +36,7 @@ import type {
   EmailDraftStorage,
   PersistedEmailIdentity,
 } from '../context/compose-capabilities';
+import { attachmentLimitBytes } from '../core/constants';
 import { decodeBase64Utf8 } from '../core/decode-base64';
 import type { EmailRecipient } from '../core/email-recipient';
 import { fromInboxOptions } from '../core/email-sender';
@@ -62,6 +69,7 @@ import {
 } from './draft-persistence';
 import { createDraftSaveNotice } from './draft-save-notice';
 import { createDraftSession } from './draft-session';
+import { createDraftTransfer } from './draft-transfer';
 import { createEmailSendSchedule } from './email-send-schedule';
 import {
   refuseSend,
@@ -90,6 +98,7 @@ export function hasComposeUndo(draftId: string): boolean {
 }
 
 export type EmailComposerOptions = {
+  operations?: MessageOperationSourceFactory;
   drafts: EmailDraftStorage;
   attachmentStorage: EmailAttachmentStorage;
   delivery: EmailDelivery;
@@ -219,6 +228,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
   );
   const persistedInboxId = session.inboxId;
   const [movingInbox, setMovingInbox] = createSignal(false);
+  let draftTransfer: ReturnType<typeof createDraftTransfer> | undefined;
   let identityVersion = 0;
   let editVersion = 0;
   let persistedEditVersion = 0;
@@ -410,10 +420,23 @@ export function createEmailComposer(props: EmailComposerOptions) {
     'sent' | 'missing' | undefined
   >();
   let schedule: ReturnType<typeof createEmailSendSchedule>;
+  const operationSource = props.operations?.(currentDraftId, currentThreadId);
+  const currentOperation = () => {
+    const live = operationSource?.operation();
+    return live === undefined ? props.draft?.operation : live;
+  };
+  const deliveryBlocked = () =>
+    operationSource?.needsReload?.() ||
+    operationBlocksSending(currentOperation());
+  const operationBlocked = () =>
+    operationSource?.needsReload?.() ||
+    operationBlocksEditing(currentOperation());
   const persistencePaused = () =>
+    operationBlocked() ||
     submitting() ||
     discarding() ||
     movingInbox() ||
+    !!draftTransfer?.pending() ||
     completed() ||
     schedule?.pending() ||
     schedule?.state().type === 'scheduled';
@@ -440,6 +463,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
   });
 
   const saveForSchedule = async () => {
+    if (deliveryBlocked()) return undefined;
     const currentEditor = editor();
     const cleanupWatermark = $appendWatermarkNodeToLast(
       currentEditor,
@@ -513,6 +537,22 @@ export function createEmailComposer(props: EmailComposerOptions) {
       (await refuseAttachmentsOffline(props.connectivity, props.notices))
     )
       return;
+    const size = (a: DraftFormAttachment) =>
+      a.type === 'local' ? getUploadFileSize(a.file) : a.fileSize;
+    const limit = attachmentLimitBytes(
+      props.accounts.inboxes().find((i) => i.id === activeInboxId())?.provider
+    );
+    if (
+      [...form.attachments.list(), ...attachments].reduce(
+        (sum, a) => sum + size(a),
+        0
+      ) > limit
+    ) {
+      props.notices.feedback.failure(
+        `Combined attachments exceed the ${limit / 1_000_000} MB limit for this inbox.`
+      );
+      return;
+    }
     for (const attachment of attachments) {
       form.attachments.add(attachment);
     }
@@ -642,12 +682,14 @@ export function createEmailComposer(props: EmailComposerOptions) {
   };
 
   const onSubmit = async () => {
+    if (deliveryBlocked()) return;
     if (
       attachmentPersistence.removing() ||
       schedule.pending() ||
       submitting() ||
       discarding() ||
       movingInbox() ||
+      draftTransfer?.pending() ||
       completed() ||
       terminalState()
     )
@@ -812,10 +854,12 @@ export function createEmailComposer(props: EmailComposerOptions) {
 
   const scheduling = schedule.pending;
   const scheduleBlocked = () =>
+    deliveryBlocked() ||
     attachmentPersistence.removing() ||
     submitting() ||
     discarding() ||
     movingInbox() ||
+    !!draftTransfer?.pending() ||
     completed();
   const handleSendTimeChange = (date: Date | null) => {
     if (scheduleBlocked()) return false;
@@ -901,7 +945,12 @@ export function createEmailComposer(props: EmailComposerOptions) {
   let lastScheduledTime = schedule.confirmedTime()?.toISOString();
   let handledTerminalIdentity: string | undefined;
   const lifecycleInputs = () =>
-    [lifecycle.state(), scheduling(), movingInbox(), submitting()] as const;
+    [
+      lifecycle.state(),
+      scheduling(),
+      movingInbox() || !!draftTransfer?.pending(),
+      submitting(),
+    ] as const;
   createEffect(
     on(lifecycleInputs, ([state, , moving, sending]) => {
       // While this composer sends, the draft turning into a sent message is
@@ -987,8 +1036,19 @@ export function createEmailComposer(props: EmailComposerOptions) {
     })
   );
 
+  draftTransfer = createDraftTransfer({
+    session,
+    drafts: props.drafts,
+    attachments: form.attachments,
+    save: () => autosave.save(),
+    invalidateOldSaves: () => {
+      identityVersion += 1;
+      autosave.cancel();
+    },
+  });
   const selectInbox = async (inboxId: string, senderEmail?: string) => {
     if (
+      (!draftTransfer?.pending() && deliveryBlocked()) ||
       submitting() ||
       discarding() ||
       movingInbox() ||
@@ -999,13 +1059,44 @@ export function createEmailComposer(props: EmailComposerOptions) {
       return;
     setMovingInbox(true);
     try {
+      const sourceInboxId = activeInboxId();
+      const destination = props.accounts
+        .inboxes()
+        .find((inbox) => inbox.id === inboxId);
+      if (!destination) return;
+      if (!sourceInboxId && currentDraftId()) {
+        throw new Error(
+          'Reconnect the draft’s original inbox before changing its sender.'
+        );
+      }
+      autosave.cancel();
+      if (sourceInboxId && sourceInboxId !== inboxId) {
+        await draftTransfer?.move(destination, sourceInboxId);
+      }
       form.setSelectedInbox(inboxId, senderEmail);
       editVersion += 1;
       setDraftDirty(true);
-      autosave.cancel();
       await autosave.save();
-    } catch {
-      // Persistence reports failures; replay lifecycle after the move settles.
+    } catch (error) {
+      props.notices.reportError(error);
+      props.notices.feedback.failure(
+        error instanceof Error
+          ? error.message
+          : 'Could not change inbox. Retry the same inbox to recover.',
+        {
+          actions: [
+            {
+              label: 'Retry inbox change',
+              onClick: () => {
+                fireAndForget(
+                  selectInbox(inboxId, senderEmail),
+                  'email-compose'
+                );
+              },
+            },
+          ],
+        }
+      );
     } finally {
       setMovingInbox(false);
     }
@@ -1075,6 +1166,10 @@ export function createEmailComposer(props: EmailComposerOptions) {
     recipients: form.recipients,
     subject: form.subject,
     attachments: form.attachments.list,
+    attachmentLimitBytes: () =>
+      attachmentLimitBytes(
+        props.accounts.inboxes().find((i) => i.id === activeInboxId())?.provider
+      ),
     initialHtml,
 
     // Form state (write)
@@ -1113,19 +1208,23 @@ export function createEmailComposer(props: EmailComposerOptions) {
 
     // Status
     disabled: () =>
+      operationBlocked() ||
       hasInboxError() ||
       submitting() ||
       discarding() ||
       movingInbox() ||
+      !!draftTransfer?.pending() ||
       completed() ||
       terminalState() !== undefined ||
       scheduling() ||
       schedule.state().type === 'scheduled',
     primaryActionDisabled: () =>
+      deliveryBlocked() ||
       hasInboxError() ||
       submitting() ||
       discarding() ||
       movingInbox() ||
+      !!draftTransfer?.pending() ||
       completed() ||
       terminalState() !== undefined ||
       scheduling() ||
@@ -1181,6 +1280,9 @@ export function createEmailComposer(props: EmailComposerOptions) {
   }
 
   return {
+    currentDraftId,
+    currentThreadId,
+    operationSource,
     draftId: currentDraftId,
     retryDraft,
     flushLocal: autosave.flushLocal,

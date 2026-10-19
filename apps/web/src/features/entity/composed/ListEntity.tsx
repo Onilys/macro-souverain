@@ -47,6 +47,7 @@ import {
   filterValidNotifications,
 } from '../utils/notification';
 import { useIsShared } from '../utils/shared';
+import { usesCompactEmailRow } from './list-entity/email-row-layout';
 import { NarrowCondensedLayout } from './list-entity/narrow-condensed-layout';
 import { NarrowEmailLayout } from './list-entity/narrow-email-layout';
 import { NarrowInboxLayout } from './list-entity/narrow-inbox-layout';
@@ -196,13 +197,16 @@ export function ListEntity(props: ListEntityProps) {
   const usesCondensedNarrowLayout = () => !isWide() && isCondensedVariant();
   const isSingleLineVariant = () =>
     listLayout?.narrowLayout() === 'single-line';
-  // Compact email rows (a narrow Email list, beside the reading pane) span the
-  // list edge to edge like a mail client's, so the highlight is a full-bleed
-  // band and the open row's accent bar runs its whole height.
+  // Compact email rows span the list edge to edge like a mail client's, so the
+  // highlight is a full-bleed band and the open row's accent bar runs its
+  // whole height.
   const isNarrowEmail = () =>
-    !isWide() &&
-    listLayout?.narrowLayout() === 'inbox' &&
-    isEmailEntity(props.entity);
+    usesCompactEmailRow({
+      wide: isWide(),
+      touch: isTouchDevice(),
+      narrowLayout: listLayout?.narrowLayout(),
+      email: isEmailEntity(props.entity),
+    });
 
   const mobileStacks = createMemo(() => {
     if (!isTouchDevice()) return [];
@@ -286,14 +290,10 @@ export function ListEntity(props: ListEntityProps) {
             <NarrowSingleLineLayout {...layoutProps()} />
           </MaybeEntityRow>
         </Match>
-        {/* Email lists stack their rows compactly; mixed lists keep the
-            per-type icon that tells their rows apart. */}
+        {/* Email lists on desktop stack their rows compactly; mixed lists keep
+            the per-type icon that tells their rows apart. */}
         <Match
-          when={
-            listLayout?.narrowLayout() === 'inbox' &&
-            isEmailEntity(props.entity) &&
-            props.entity
-          }
+          when={isNarrowEmail() && isEmailEntity(props.entity) && props.entity}
         >
           {(entity) => (
             <MaybeEntityRow

@@ -23,7 +23,18 @@
 
 Production Google/SSO and inbox/calendar connections may return to either
 `https://macro.com` or `https://www.macro.com`. Verify connections from both hosts;
-the inbox link flow returns to `/app/inbox-link-callback` on the originating host.
+the web inbox link flow returns to `/app/inbox-link-callback` on the originating host.
+
+On desktop, connecting a Gmail or Outlook account, reconnecting one, or enabling
+calendar opens the selected provider's consent in the system browser. The app
+stays open; the callback is
+`macro:///inbox-link-callback?link_id=...`, which provisions the inbox using the
+existing app session and restores the saved layout, including its query and hash.
+Verify each enabled provider, including reconnects with email-only and calendar
+permissions. Check that opening consent alone does not report an account
+connected, that returning from consent shows the second account, and that
+canceling leaves the app usable. iOS and Android continue to use their native
+authentication sessions.
 
 ## Temporary open signup in Develop
 
@@ -77,6 +88,14 @@ For simulator checks, `xcrun devicectl device process launch --device <udid>
 Signed universal links and share-sheet flows still need end-to-end verification;
 see the [Tauri guide](../../apps/web/tauri/src-tauri/README.md#ios-27-scene-lifecycle)
 and [repeatable iOS smoke test](../../apps/web/tests/native/ios/README.md).
+
+## Signed-out GraphQL regression
+
+Open a public sharing link with stale login hints and an expired session. Once
+user-info returns 401, GraphQL must use the plain network client, dispose any
+normalized cache and live-update session, and clear the login hints. Repeat with
+retained user-info data from an earlier successful request. A network failure or
+5xx must not end the session; successful sign-in must re-enable eligible caching.
 
 ## Native Android
 
