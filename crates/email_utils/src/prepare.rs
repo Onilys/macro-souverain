@@ -10,7 +10,9 @@ mod resource_policy;
 #[cfg(test)]
 mod test;
 
-use ego_tree::NodeId;
+use std::collections::HashSet;
+
+use ego_tree::{NodeId, NodeRef, Tree};
 use html5ever::{QualName, local_name, namespace_url, ns};
 use scraper::node::{Element, Text};
 use scraper::{ElementRef, Html, Node};
@@ -216,8 +218,71 @@ fn parse_email_content(
     }
 }
 
-fn document_parts(html: &str, images: &ImagePolicy, options: ScrubOptions) -> DocumentParts {
+/// Parses `html` into a tree whose parent links match its child lists.
+///
+/// scraper reparents children with ego-tree's `reparent_from_id_append`, which
+/// updates the parent of only the first and last moved child. Misnested
+/// formatting elements (`<a><center><p><p><center><a>`) leave the ones between
+/// pointing at their old parent, and a walk that climbs through parents then
+/// never ends. Sibling chains stay correct, so the tree is rebuilt from them
+/// when any parent link disagrees.
+fn parse_document(html: &str) -> Html {
     let mut document = Html::parse_document(html);
+    if has_stale_parents(&document.tree) {
+        document.tree = rebuild_from_children(&document.tree);
+    }
+    document
+}
+
+/// Each node reachable from the root through child lists, once, with its parent.
+fn reachable(tree: &Tree<Node>) -> Vec<(NodeRef<'_, Node>, Option<NodeId>)> {
+    let mut seen = HashSet::from([tree.root().id()]);
+    let mut nodes = Vec::new();
+    let mut pending = vec![(tree.root(), None)];
+    while let Some((node, parent)) = pending.pop() {
+        nodes.push((node, parent));
+        let mut child = node.first_child();
+        while let Some(current) = child {
+            if !seen.insert(current.id()) {
+                break;
+            }
+            pending.push((current, Some(node.id())));
+            child = current.next_sibling();
+        }
+    }
+    nodes
+}
+
+fn has_stale_parents(tree: &Tree<Node>) -> bool {
+    reachable(tree)
+        .into_iter()
+        .any(|(node, parent)| parent.is_some() && node.parent().map(|p| p.id()) != parent)
+}
+
+fn rebuild_from_children(tree: &Tree<Node>) -> Tree<Node> {
+    let mut rebuilt = Tree::new(tree.root().value().clone());
+    let mut seen = HashSet::from([tree.root().id()]);
+    let mut pending = vec![(tree.root(), rebuilt.root().id())];
+    while let Some((node, copy)) = pending.pop() {
+        let mut child = node.first_child();
+        while let Some(current) = child {
+            if !seen.insert(current.id()) {
+                break;
+            }
+            let child_copy = rebuilt
+                .get_mut(copy)
+                .expect("live node")
+                .append(current.value().clone())
+                .id();
+            pending.push((current, child_copy));
+            child = current.next_sibling();
+        }
+    }
+    rebuilt
+}
+
+fn document_parts(html: &str, images: &ImagePolicy, options: ScrubOptions) -> DocumentParts {
+    let mut document = parse_document(html);
     let root = document.tree.root().id();
     scrub(&mut document, root, images, options);
     bound_nesting(&mut document, root);

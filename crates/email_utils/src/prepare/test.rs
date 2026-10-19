@@ -453,3 +453,32 @@ fn breaks_the_first_rule_after_a_cdo_like_the_web_renderer() {
         "{body}"
     );
 }
+
+#[test]
+fn prepares_misnested_links_without_looping() {
+    // scraper leaves stale parent links for this input; walking them looped.
+    let (sender, receiver) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        sender.send((
+            prepare("<a><center><p><p><center><a>"),
+            prepare("<a>1<center>2<p>3<p>4<center>5<a>6"),
+        ))
+    });
+    let (empty, body) = receiver
+        .recv_timeout(std::time::Duration::from_secs(10))
+        .expect("preparation finished");
+    assert_eq!(empty.html, "");
+    // The web renderer's output for the same input.
+    assert_eq!(
+        body.html,
+        "<a>1</a><center><a>2<p>3</p><p>4</p></a><center><a>5</a><a>6</a></center></center>"
+    );
+}
+
+#[test]
+fn parses_into_a_tree_whose_parents_match_their_children() {
+    let document = parse_document("<a><center><p><p><center><a>");
+    for (node, parent) in reachable(&document.tree) {
+        assert_eq!(node.parent().map(|parent| parent.id()), parent);
+    }
+}
