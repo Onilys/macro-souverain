@@ -2,7 +2,7 @@ import * as aws from '@pulumi/aws';
 import type { Bucket } from '@pulumi/aws/s3';
 import type * as pulumi from '@pulumi/pulumi';
 import { stack } from '../../../shared';
-import { ALLOWED_ORIGINS } from './cors';
+import { allowedOrigins } from './cors';
 
 /**
  * @description Creates the s3 bucket to act as document storage
@@ -55,7 +55,7 @@ export function createBucket({
         {
           allowedHeaders: ['*'],
           allowedMethods: ['GET', 'PUT', 'POST', 'DELETE', 'HEAD'],
-          allowedOrigins: ALLOWED_ORIGINS,
+          allowedOrigins: allowedOrigins(stack),
           exposeHeaders: ['ETag', ...(exposeHeaders || [])],
           maxAgeSeconds: 3000,
         },
@@ -108,7 +108,7 @@ export function createBucketV2(
         {
           allowedHeaders: ['*'],
           allowedMethods: ['GET', 'PUT', 'POST', 'DELETE', 'HEAD'],
-          allowedOrigins: ALLOWED_ORIGINS,
+          allowedOrigins: allowedOrigins(stack),
           exposeHeaders: ['ETag'],
           maxAgeSeconds: 3000,
         },

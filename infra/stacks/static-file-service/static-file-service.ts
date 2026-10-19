@@ -2,7 +2,7 @@ import * as aws from '@pulumi/aws';
 import * as awsx from '@pulumi/awsx';
 import * as pulumi from '@pulumi/pulumi';
 import {
-  ALLOWED_ORIGINS,
+  allowedOrigins,
   DATADOG_API_KEY,
   DEFAULT_CONTINUE_BEFORE_STEADY_STATE,
   withTelemetry,
@@ -139,7 +139,7 @@ export class StaticFileService extends pulumi.ComponentResource {
         {
           allowedHeaders: ['*'],
           allowedMethods: ['GET', 'PUT', 'POST', 'DELETE', 'HEAD'],
-          allowedOrigins: ALLOWED_ORIGINS,
+          allowedOrigins: allowedOrigins(stack),
           exposeHeaders: ['ETag'],
           maxAgeSeconds: 3000,
         },
