@@ -405,7 +405,9 @@ jobs:
       working-directory: apps/web
     - name: Interface Language Browser Tests
       if: needs.path-check.outputs.i18n_changed == 'true'
-      run: just test-i18n-browser
+      run: |-
+        bunx playwright install-deps chromium
+        just test-i18n-browser
       working-directory: apps/web
     - name: Teardown Nix
       if: always()

@@ -457,10 +457,12 @@ fn run_signup_browser_tests() -> Step<Run> {
 }
 
 /// Menus in every interface language, failing on clipped labels. Only when
-/// translations or the surfaces they render on change.
+/// translations or the surfaces they render on change. A cached browser skips
+/// `--with-deps`, which installs the Thai, CJK, and Devanagari fonts; without
+/// them Chromium draws each character as a box and long labels look clipped.
 fn run_i18n_browser_tests() -> Step<Run> {
     Step::new("Interface Language Browser Tests")
-        .run("just test-i18n-browser")
+        .run("bunx playwright install-deps chromium\njust test-i18n-browser")
         .if_condition(Expression::new(
             "needs.path-check.outputs.i18n_changed == 'true'",
         ))
