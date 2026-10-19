@@ -334,8 +334,9 @@ export function CalendarSidebar() {
         <ShowFeatureFlag flag={enableCalendarTeamOoo}>
           <CalendarTeamOooSection />
         </ShowFeatureFlag>
-        <ConnectCalendarsPromotion class="mt-auto" />
       </ViewSidebar.Content>
+      {/* Outside the scrolling list, so a long list never slides it under Settings. */}
+      <ConnectCalendarsPromotion class="px-(--sidebar-gutter) pt-2" />
       <ViewSidebar.Footer class="border-0">
         <ViewSidebar.Nav aria-label="Calendar tools">
           <CalendarSettingsDropdown sidebar />
