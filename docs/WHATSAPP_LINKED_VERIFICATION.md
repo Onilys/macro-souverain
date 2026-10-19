@@ -43,6 +43,12 @@ Commands used the repository Nix environment unless they are `go.sh` commands.
 | `CHECK_BASE=f683155… just check` | Passed; Rust formatting, frontend formatting/lint and code rules completed, with the repository's warn-only diagnostics |
 | Root `cargo deny check` | Passed with existing warnings |
 | Additional Tauri-wide `cargo deny … check` | Failed on pre-existing native graph findings; see below |
+| Required auditor review | No remaining concrete source blocker; verified the recorded checks, generated-contract scope, browser screenshots and external prerequisites |
+
+The companion PR uses the repository's `[no preview]` title marker. Its initially
+automatic preview run was canceled during the build; AWS credential setup, preview
+creation and deployment steps were skipped. No preview was deployed. The dedicated
+GitHub protocol workflow also passed its race, patched-writer and vet checks.
 
 The app bundle was built to exercise the actual native UI in the browser harness.
 Unchanged compiled browser prerequisites were reused where possible. One harness
