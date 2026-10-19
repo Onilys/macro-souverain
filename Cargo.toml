@@ -85,6 +85,7 @@ members = [
   "crates/harness_token",
   "crates/harnesses",
   "crates/import",
+  "crates/import_notion",
   "crates/initiative",
   "crates/initiative_description",
   "crates/item_filter_index",

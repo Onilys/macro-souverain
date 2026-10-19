@@ -524,6 +524,7 @@ dependencies = [
  "harness_id",
  "harnesses",
  "http-body-util",
+ "import",
  "initiative",
  "kafka_util",
  "lexical_client",
@@ -1055,6 +1056,7 @@ dependencies = [
  "github_pull_requests",
  "image_generation",
  "import",
+ "import_notion",
  "initiative",
  "initiative_description",
  "item_filters",
@@ -1079,6 +1081,7 @@ dependencies = [
  "model_notifications",
  "model_owner",
  "model_user",
+ "models_databases",
  "models_dcs",
  "models_email",
  "models_pagination",
@@ -6349,6 +6352,7 @@ dependencies = [
  "http 1.4.0",
  "http-body-util",
  "import",
+ "import_notion",
  "jev",
  "last_online_tracker",
  "lazy_static",
@@ -10402,12 +10406,14 @@ dependencies = [
  "connection_gateway_client",
  "dateparser",
  "futures",
+ "import_notion",
  "macro_authorization",
  "macro_db_migrator",
  "macro_user_id",
  "mcp_select",
  "model-entity",
  "model_user",
+ "models_databases",
  "models_properties",
  "properties",
  "regex",
@@ -10423,6 +10429,27 @@ dependencies = [
  "tracing",
  "utoipa",
  "uuid",
+ "workspace-hack",
+]
+
+[[package]]
+name = "import_notion"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "futures",
+ "indexmap 2.14.0",
+ "lazy-regex",
+ "macro_user_id",
+ "pipedream_mcp",
+ "rand 0.9.4",
+ "rootcause",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
  "workspace-hack",
 ]
 
@@ -12411,6 +12438,7 @@ dependencies = [
  "github_pull_requests",
  "http 1.4.0",
  "import",
+ "import_notion",
  "lexical_client",
  "macro_auth",
  "macro_aws_config",
@@ -14911,6 +14939,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "axum",
+ "base64 0.22.1",
  "futures",
  "macro_authorization",
  "macro_user_id",
@@ -14928,6 +14957,7 @@ dependencies = [
  "tracing",
  "url",
  "utoipa",
+ "wiremock",
  "workspace-hack",
 ]
 

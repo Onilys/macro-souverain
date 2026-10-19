@@ -129,3 +129,46 @@ pub trait ConnectorCapabilities: Send + Sync + 'static {
         app_slug: &str,
     ) -> impl Future<Output = anyhow::Result<Vec<super::service::discovery::ConnectorTool>>> + Send;
 }
+
+/// An HTTP method a connected app's API is called with through the proxy.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ProxyMethod {
+    /// `GET`.
+    Get,
+    /// `POST`.
+    Post,
+    /// `PATCH`.
+    Patch,
+}
+
+/// A connected app's answer, relayed through the proxy whatever its status.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ProxyResponse {
+    /// The HTTP status.
+    pub status: u16,
+    /// How long the app asked callers to wait, from a `Retry-After` header in
+    /// seconds.
+    pub retry_after: Option<std::time::Duration>,
+    /// The response body.
+    pub body: String,
+}
+
+/// Port for calling a connected app's own API with the account's
+/// credentials, which Pipedream injects server-side.
+pub trait ConnectedAppProxy: Send + Sync + 'static {
+    /// Send a request to the connected app's API on behalf of `connection`'s
+    /// account.
+    ///
+    /// `url` is absolute (e.g. `https://api.notion.com/v1/search`).
+    /// `headers` are upstream headers, never `Authorization`. A non-2xx
+    /// answer from the app is a response, not an error, so callers can read
+    /// its status and back off.
+    fn proxy(
+        &self,
+        connection: &PipedreamConnection,
+        method: ProxyMethod,
+        url: &str,
+        headers: &[(&str, &str)],
+        body: Option<&serde_json::Value>,
+    ) -> impl Future<Output = anyhow::Result<ProxyResponse>> + Send;
+}

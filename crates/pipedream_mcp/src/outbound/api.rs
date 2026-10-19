@@ -2,8 +2,13 @@ use crate::domain::models::{
     CatalogEntry, CatalogPage, ConnectToken, McpServer, PipedreamAccount, PipedreamConnection,
     client_info,
 };
-use crate::domain::ports::{ConnectorDirectory, McpConnection, PipedreamConnect};
+use crate::domain::ports::{
+    ConnectedAppProxy, ConnectorDirectory, McpConnection, PipedreamConnect, ProxyMethod,
+    ProxyResponse,
+};
 use anyhow::Context;
+use base64::Engine;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use reqwest::header::{HeaderMap, HeaderValue};
 use rmcp::service::ServiceExt;
 use rmcp::transport::StreamableHttpClientTransport;
@@ -424,6 +429,62 @@ impl McpConnection for PipedreamClient {
         let config = StreamableHttpClientTransportConfig::with_uri(upstream.url.as_str());
         let transport = StreamableHttpClientTransport::with_client(client, config);
         Ok(client_info().serve(transport).await?)
+    }
+}
+
+/// The prefix Pipedream's Connect proxy strips to find upstream headers.
+const PROXY_HEADER_PREFIX: &str = "x-pd-proxy-";
+
+impl ConnectedAppProxy for PipedreamClient {
+    #[tracing::instrument(skip_all, err, fields(app = %connection.app_slug, user_id = %connection.user_id, method = ?method))]
+    async fn proxy(
+        &self,
+        connection: &PipedreamConnection,
+        method: ProxyMethod,
+        url: &str,
+        headers: &[(&str, &str)],
+        body: Option<&serde_json::Value>,
+    ) -> anyhow::Result<ProxyResponse> {
+        let endpoint = self.connect_api(&format!("/proxy/{}", URL_SAFE_NO_PAD.encode(url)));
+        let request = match method {
+            ProxyMethod::Get => self.http.get(endpoint),
+            ProxyMethod::Post => self.http.post(endpoint),
+            ProxyMethod::Patch => self.http.patch(endpoint),
+        };
+        let mut request = self.authed(request).await?.query(&[
+            ("external_user_id", connection.user_id.as_ref()),
+            ("account_id", connection.account_id.as_str()),
+        ]);
+        for (name, value) in headers {
+            if name.eq_ignore_ascii_case(reqwest::header::AUTHORIZATION.as_str()) {
+                anyhow::bail!("the Connect proxy injects Authorization; callers may not set it");
+            }
+            request = request.header(format!("{PROXY_HEADER_PREFIX}{name}"), *value);
+        }
+        if let Some(body) = body {
+            request = request.json(body);
+        }
+
+        let response = request
+            .send()
+            .await
+            .context("calling the Pipedream Connect proxy")?;
+        let status = response.status().as_u16();
+        let retry_after = response
+            .headers()
+            .get(reqwest::header::RETRY_AFTER)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.trim().parse::<u64>().ok())
+            .map(Duration::from_secs);
+        let body = response
+            .text()
+            .await
+            .context("reading the Pipedream Connect proxy response")?;
+        Ok(ProxyResponse {
+            status,
+            retry_after,
+            body,
+        })
     }
 }
 
