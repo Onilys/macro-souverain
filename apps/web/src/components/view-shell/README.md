@@ -35,7 +35,8 @@ align trailing controls by their outer edges or offset an individual icon.
 Use `SidebarActionRow` to register search and creation under the feature owner.
 The sidebar's first row replaces the visible title with a large, unframed creation
 action, sized to show its complete label without an entity icon, background, border,
-or shadow. Keep creation text at 18px with 8px horizontal button padding, a 6px chevron gap, and 8px between header controls at every sidebar width. This is followed by Search and close/collapse controls in the same 48px header.
+or shadow. Keep creation text at 16px with 8px horizontal button padding, a 6px chevron gap, and 8px between header controls at every sidebar width. This is followed by Search and close/collapse controls in the same 48px header.
+Keep the creation wrapper flex-aligned with the trailing controls so an inline baseline gap cannot offset the title.
 Views without creation keep a noninteractive title with the same typography and solid text color.
 Always show a decorative 16px trailing chevron, including single actions and static titles.
 Multiple creation choices use a dropdown.
@@ -51,7 +52,7 @@ Main-area titles use 14px semibold text, matching document and task breadcrumbs.
 
 Creation takes a render function, `create={() => <MyCreateMenu />}`, so each
 placement owns independent menu state under the feature context.
-`SidebarCreateAction` renders an 18px semibold creation title with solid
+`SidebarCreateAction` renders a 16px semibold creation title with solid
 `ink` text in the sidebar and a
 compact muted New button in the main toolbar. Provide `sidebarCreate` when the
 sidebar needs a different menu from the main toolbar. Explicit

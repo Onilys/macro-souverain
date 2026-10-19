@@ -212,7 +212,7 @@ export function SidebarActionRow(props: {
           class={
             current().hasCreate()
               ? 'sr-only'
-              : 'flex flex-1 items-center gap-1.5 text-lg leading-7 font-semibold tracking-[-0.025em] text-ink-muted'
+              : 'flex flex-1 items-center gap-1.5 text-base leading-6 font-semibold tracking-[-0.025em] text-ink-muted'
           }
         >
           <span class="whitespace-nowrap text-ink">
@@ -225,7 +225,7 @@ export function SidebarActionRow(props: {
         <Show when={current().hasCreate()}>
           <div
             data-sidebar-create-area=""
-            class="mr-auto shrink-0"
+            class="mr-auto flex shrink-0 items-center"
             role="group"
             aria-label={`Create in ${current().title() ?? props.title}`}
           >
