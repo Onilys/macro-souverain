@@ -49,8 +49,8 @@ pub struct ArchivedCall {
     pub duration_ms: i64,
     /// Whether a recording egress was started before the call was archived.
     pub has_recording: bool,
-    /// Number of distinct participants over the call's lifetime.
-    pub participant_count: usize,
+    /// Macro accounts that joined the call over its lifetime, once each.
+    pub participants: Vec<String>,
 }
 
 /// The people known to have been on, or invited to, an archived call.

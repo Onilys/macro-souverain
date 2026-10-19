@@ -182,7 +182,10 @@ GraphQL hydration checkpoints require the native
 through the bundle updater, set `MIN_NATIVE_BUILD_ANDROID` to the first Android
 versionCode that implements the command and `MIN_NATIVE_BUILD_IOS` to the first
 iOS CFBundleVersion that implements it. Set both together: build numbers are
-independent. The schema 3 manifest carries `minNativeBuilds: { android, ios }`;
+independent. Production builds (`just build-prod`) read both from
+`apps/web/min-native-build.json`; `just ios-bump` raises the iOS one (see
+`apps/web/docs/ios-releases.md`). The schema 3 manifest carries
+`minNativeBuilds: { android, ios }`;
 the endpoint returns the requesting platform's minimum in its existing response.
 The updater checks that minimum during extraction, restore, and application.
 Old schema 2 updaters reject schema 3 and continue using their existing bundle.

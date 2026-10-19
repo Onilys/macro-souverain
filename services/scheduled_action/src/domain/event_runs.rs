@@ -209,6 +209,7 @@ pub enum EventAccessCapability {
     Document(EntityAccessReceipt<ViewAccessLevel>),
     Channel(EntityAccessReceipt<ViewOnly>),
     EmailThread(EntityAccessReceipt<ViewAccessLevel>),
+    Call(EntityAccessReceipt<ViewAccessLevel>),
 }
 
 impl EventAccessCapability {
@@ -224,6 +225,9 @@ impl EventAccessCapability {
             }
             (Self::EmailThread(receipt), EventEntityType::EmailThread) => {
                 receipt_matches(receipt, owner, event, EntityType::EmailThread)
+            }
+            (Self::Call(receipt), EventEntityType::Call) => {
+                receipt_matches(receipt, owner, event, EntityType::Call)
             }
             _ => false,
         }
