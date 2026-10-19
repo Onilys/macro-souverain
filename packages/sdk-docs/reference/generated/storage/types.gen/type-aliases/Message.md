@@ -1,6 +1,6 @@
 # Type Alias: Message
 
-> **Message** = \{ `attachments`: [`MessageAttachment`](MessageAttachment.md)[]; `bot_profile?`: `null` \| [`BotSenderProfile`](BotSenderProfile.md); `content`: `string`; `created_at`: `string`; `deleted_at?`: `string` \| `null`; `edited_at?`: `string` \| `null`; `id`: `string`; `imported_author?`: `null` \| [`ImportedAuthor`](ImportedAuthor.md); `mentions`: [`SimpleMention`](SimpleMention.md)[]; `parent`: [`MessageParent`](MessageParent.md); `reactions`: [`CountedReaction`](CountedReaction.md)[]; `sender_id`: `string`; `thread_id?`: `string` \| `null`; `triggered_by?`: `string` \| `null`; `updated_at`: `string`; \}
+> **Message** = \{ `attachments`: [`MessageAttachment`](MessageAttachment.md)[]; `bot_profile?`: `null` \| [`BotSenderProfile`](BotSenderProfile.md); `broadcast_from_thread?`: `string` \| `null`; `content`: `string`; `created_at`: `string`; `deleted_at?`: `string` \| `null`; `edited_at?`: `string` \| `null`; `id`: `string`; `imported_author?`: `null` \| [`ImportedAuthor`](ImportedAuthor.md); `mentions`: [`SimpleMention`](SimpleMention.md)[]; `parent`: [`MessageParent`](MessageParent.md); `reactions`: [`CountedReaction`](CountedReaction.md)[]; `sender_id`: `string`; `thread_id?`: `string` \| `null`; `triggered_by?`: `string` \| `null`; `updated_at`: `string`; \}
 
 Shared message representation for channel timelines and entity discussions.
 
@@ -10,6 +10,7 @@ Shared message representation for channel timelines and entity discussions.
 | ------ | ------ | ------ |
 | <a id="property-attachments"></a> `attachments` | [`MessageAttachment`](MessageAttachment.md)[] | Attached entities. |
 | <a id="property-bot_profile"></a> `bot_profile?` | `null` \| [`BotSenderProfile`](BotSenderProfile.md) | - |
+| <a id="property-broadcast_from_thread"></a> `broadcast_from_thread?` | `string` \| `null` | When set, this channel message is a broadcast copy of a thread reply. Contains the id of the thread's root message that the original reply belongs to, so the UI can link back to the thread. |
 | <a id="property-content"></a> `content` | `string` | Macro Markdown body. |
 | <a id="property-created_at"></a> `created_at` | `string` | Creation time. |
 | <a id="property-deleted_at"></a> `deleted_at?` | `string` \| `null` | Message tombstone, independent of thread deletion. |

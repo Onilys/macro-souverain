@@ -2623,6 +2623,7 @@ async fn a_document_session_preserves_its_origin_and_inherits_live_document_acce
                 mentions: vec![],
                 attachments: vec![],
                 nonce: None,
+                broadcast_to_channel: false,
             },
         })
         .await

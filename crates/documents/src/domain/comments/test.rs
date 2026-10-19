@@ -55,6 +55,7 @@ fn message(n: u128, root: Option<u128>, content: &str) -> Message {
         deleted_at: None,
         attachments: vec![],
         reactions: vec![],
+        broadcast_from_thread: None,
     }
 }
 
