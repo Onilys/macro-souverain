@@ -37,7 +37,14 @@ export function PromoCard(props: {
     >
       {/* Same-height row: the logos and the close glyph share one inset. */}
       <div class="flex items-start justify-between gap-2">
-        <LogoStack logos={props.logos} />
+        <LogoStack
+          logos={props.logos}
+          class={
+            isTouchDevice()
+              ? undefined
+              : '[--logo-stack-separator:var(--color-composer)]'
+          }
+        />
         <Button
           variant="ghost"
           size="icon-sm"

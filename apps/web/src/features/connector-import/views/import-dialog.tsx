@@ -142,8 +142,7 @@ function ImportDialogBody(props: {
               <ActionDialogShell.Header>
                 <LogoStack
                   logos={props.config.providers}
-                  size="md"
-                  class="mb-3 [--logo-stack-separator:var(--color-surface)]"
+                  class="mb-3 [--logo-stack-separator:var(--color-dialog)]"
                 />
                 <ActionDialogShell.Title>
                   {props.config.action}
