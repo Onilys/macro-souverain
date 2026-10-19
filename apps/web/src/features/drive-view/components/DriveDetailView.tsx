@@ -18,7 +18,7 @@ import { ShareTrigger } from '@core/component/TopBar/ShareButton';
 import { useDocumentShareModal } from '@core/component/TopBar/shareModal';
 import { useCopyLink } from '@core/util/useCopyLink';
 import { ErrorBoundary, For, Match, Show, Switch } from 'solid-js';
-import { useDriveView } from '../context/drive-context';
+import { useOptionalDriveView } from '../context/drive-context';
 import { driveLocationBreadcrumbs } from '../core/breadcrumbs';
 import { useDriveDetailNavigation } from '../drive-detail-navigation';
 import { FileDetailBreadcrumbItem } from '../views/FileDetailBreadcrumbItem';
@@ -216,9 +216,14 @@ function StackEntityDetail(props: {
 }
 
 export function DriveDetailView() {
-  const { state, sidebar } = useDriveView();
+  const drive = useOptionalDriveView();
   const breadcrumbOrderOffset = () =>
-    driveLocationBreadcrumbs(state.value().location, sidebar.folders()).length;
+    drive
+      ? driveLocationBreadcrumbs(
+          drive.state.value().location,
+          drive.sidebar.folders()
+        ).length
+      : 0;
   const navigationStack = useDriveDetailNavigation();
   const activeHasBlockHeader = () => {
     const target = navigationStack.active()?.data;
