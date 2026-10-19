@@ -1075,6 +1075,9 @@ supported edits and retry behavior.
 Mention `@Macro` in any channel message. Without the `enable-chat-v3-agents` rollout it is
 the classic in-channel reply; with it, the same mention opens an **agent session** — a
 dedicated transcript at `/app/agent/<uuid>` whose replies also stream back into the thread.
+When that reply chips something the rest of the channel may not already open, it ends by asking
+"Do you want me to share this with the members of the channel?" — the same offer as the
+classic bot — and shares only after a yes, or when the request already asked it to.
 `@cursor` opens a session. Macro Coding Agent (`@coder`) is unavailable in mention
 suggestions. There is only ever one Macro entry in the mention menu; which of the
 two answers is the rollout's decision, not a second choice in the menu.

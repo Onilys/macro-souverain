@@ -9,6 +9,7 @@ pub mod about_macro;
 pub mod agent_identity;
 pub mod agent_session;
 pub mod channel_mention;
+pub mod channel_share;
 pub mod citations;
 pub mod coding_agents;
 pub mod connected_toolsets;
@@ -77,6 +78,7 @@ pub static SESSION_TOOL_USE_PROMPT: ComposedPrompt = BASE_PROMPT
     .compose(&crm_pipelines::PROMPT)
     .compose(&user_tools::BOOKING_PROMPT)
     .compose(&user_tools::SESSION_PROMPT)
+    .compose(&channel_share::PROMPT)
     .compose(&skills::PROMPT)
     .compose(&document_content_links::PROMPT)
     .compose(&email::PROMPT);
@@ -88,6 +90,7 @@ pub static CODE_MODE_SESSION_TOOL_USE_PROMPT: ComposedPrompt = BASE_PROMPT
     .compose(&crm_pipelines::PROMPT)
     .compose(&user_tools::BOOKING_PROMPT)
     .compose(&user_tools::CODE_MODE_SESSION_PROMPT)
+    .compose(&channel_share::PROMPT)
     .compose(&skills::PROMPT)
     .compose(&document_content_links::PROMPT)
     .compose(&email::PROMPT);
@@ -337,6 +340,22 @@ mod tests {
         assert!(preamble.contains("clickable chips"));
         assert!(preamble.contains("agent session"));
         assert!(preamble.contains("date/time"));
+    }
+
+    #[test]
+    fn agent_session_prompts_offer_to_share_a_chipped_item_with_the_channel() {
+        for prompt in [
+            SESSION_TOOL_USE_PROMPT.to_string(),
+            CODE_MODE_SESSION_TOOL_USE_PROMPT.to_string(),
+        ] {
+            assert!(
+                prompt.contains("Do you want me to share this with the members of the channel?")
+            );
+            assert!(prompt.contains("`ShareWithChannel`"));
+            assert!(prompt.contains("reply with only \"Okay.\""));
+        }
+        let chat = TOOL_USE_PROMPT.to_string();
+        assert!(!chat.contains("Do you want me to share this with the members of the channel?"));
     }
 
     #[test]
