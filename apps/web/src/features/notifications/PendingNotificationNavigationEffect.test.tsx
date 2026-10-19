@@ -117,7 +117,11 @@ describe('usePendingNotificationNavigationEffect', () => {
       'notification-1',
       host.manager,
       source,
-      { canOpen: expect.any(Function), onApplied: expect.any(Function) }
+      {
+        canOpen: expect.any(Function),
+        onApplied: expect.any(Function),
+        channelTarget: undefined,
+      }
     );
     expect(attempts[0]?.canOpen()).toBe(true);
 

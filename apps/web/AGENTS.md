@@ -127,6 +127,18 @@ Reset rejected checkout offers before refetching eligibility.
 ## macOS desktop gotcha: third-party iframes
 WKWebView asks the desktop navigation plugin about iframe loads as well as page loads, and the plugin cannot tell them apart. A third-party iframe is classified as external: its load is cancelled and the page opens in the browser, leaving an empty frame in the app. List a third-party page the app frames in `EMBEDDED_DOCUMENTS` in `tauri/src-tauri/src/lib.rs`.
 
+## iOS push startup
+
+Keep the first router mount behind the push listener's buffered-event handoff.
+Channel pushes carry validated flat `channelId`, `messageId`, and optional
+`threadId` fields; choose the initial hash route before mounting, and use the
+existing split navigation for later taps. Older payloads retain notification-ID
+lookup. A failed or stalled listener releases the startup gate; registration
+and network availability must not block it.
+`notification.push.startup` times that wait; `notification.push.handoff` records
+the chosen route/queued intent and IDs, not channel-load or message-positioning
+latency. End-to-end push-to-message trace correlation remains unverified.
+
 ## iOS gotcha: Web Workers must be lazy
 On iOS WKWebView, eagerly constructing an ES module Web Worker (`new Worker(url, { type: 'module' })`) whose script is served via the `tauri://` custom URL scheme **deadlocks the WebContent process**. The worker thread parks in WebKit's sync module loader waiting for an IPC response that never wakes it; JS execution silently stops after that point.
 

@@ -29,6 +29,16 @@ supported while the app process is running, not after quitting it. The isolated
 Linux WebKit/D-Bus regression is `bun run native:e2e:notifications`; compositor
 focus behavior still needs a real Wayland/X11 desktop check.
 
+On native iOS, tapping a new channel message, mention, reply, or reaction push
+selects its message destination directly from the payload. On cold launch, the
+first app page should be that channel, with the targeted reply/thread supplied
+at mount; Home must not flash while a notification lookup runs. On resume, the
+existing webview navigates in place. Receiving a push without tapping it must
+not navigate. Old pushes without a destination still use notification-ID lookup.
+If the native listener fails or does not finish within 1.5 seconds, startup
+continues and later taps use normal in-app navigation. Test both a killed app
+and a backgrounded app using the [iOS push procedure](../../apps/web/tests/native/ios/README.md#thread-reply-push-notifications).
+
 On native Android, enable notifications in Settings while signed in. Android 13+
 also asks for system permission; the system's **Activity** notification channel
 must be enabled. Remote push owns system notification display after registration,

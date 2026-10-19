@@ -36,6 +36,7 @@ import {
 } from './document-comment-location';
 import { GITHUB_EVENT_TYPES } from './github-event-types';
 import { isChannelNotification } from './notification-helpers';
+import type { ChannelNotificationTarget } from './notification-navigation-intent';
 import type { NotificationSource } from './notification-source';
 import { CHANNEL_EVENT_TYPES } from './notification-source';
 import {
@@ -605,7 +606,11 @@ export function openNotificationFromId(
   notificationId: string,
   layoutManager: SplitManager,
   notificationSource: NotificationSource,
-  options: { canOpen?: () => boolean; onApplied?: VoidFunction } = {}
+  options: {
+    canOpen?: () => boolean;
+    onApplied?: VoidFunction;
+    channelTarget?: ChannelNotificationTarget;
+  } = {}
 ): ResultAsync<void, OpenNotificationFromIdError> {
   const openIfReady = (notification: UnifiedNotification) => {
     if (options.canOpen && !options.canOpen()) {
@@ -623,6 +628,25 @@ export function openNotificationFromId(
       { onApplied: options.onApplied }
     );
   };
+
+  const target = options.channelTarget;
+  if (target) {
+    if (options.canOpen && !options.canOpen()) {
+      return errAsync({
+        tag: 'NavigationDeferredError' as const,
+        notificationId,
+      });
+    }
+    return ResultAsync.fromSafePromise(
+      navigateToChannelMessage(
+        layoutManager.getOrchestrator(),
+        target.channelId,
+        target.messageId,
+        target.threadId,
+        { splitManager: layoutManager, onApplied: options.onApplied }
+      )
+    );
+  }
 
   // Check notification source first
   const cached = notificationSource

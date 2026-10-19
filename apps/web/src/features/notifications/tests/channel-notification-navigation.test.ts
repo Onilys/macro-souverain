@@ -1,9 +1,14 @@
 import { createRoutedSplitLayout } from '@components/app/split-layout/tests/fixtures';
 import { toast } from '@core/component/Toast/Toast';
 import type { BlockOrchestrator } from '@core/orchestrator';
+import { getNotificationById } from '@queries/notification/user-notifications';
 import { createRoot } from 'solid-js';
 import { beforeEach, expect, it, onTestFinished, vi } from 'vitest';
-import { openNotification } from '../notification-navigation';
+import {
+  openNotification,
+  openNotificationFromId,
+} from '../notification-navigation';
+import type { NotificationSource } from '../notification-source';
 import type { UnifiedNotification } from '../types';
 
 vi.mock('@app/signal/splitLayout', () => ({
@@ -199,3 +204,44 @@ it.each(['split', 'closed'] as const)(
     expect(navigate).toHaveBeenCalledWith({ channel_message_id: 'message' });
   }
 );
+
+it('opens a push destination without reading notification history or fetching the notification', async () => {
+  const { layout, navigate } = setup('closed');
+  const notifications = vi.fn(() => {
+    throw new Error('history must not be read');
+  });
+  const source = { notifications } as unknown as NotificationSource;
+  const applied = vi.fn();
+  const result = await openNotificationFromId('push', layout, source, {
+    channelTarget: {
+      channelId: 'channel',
+      messageId: 'reply',
+      threadId: 'parent',
+    },
+    onApplied: applied,
+  });
+  expect(result.isOk()).toBe(true);
+  expect(notifications).not.toHaveBeenCalled();
+  expect(getNotificationById).not.toHaveBeenCalled();
+  expect(applied).toHaveBeenCalledOnce();
+  expect(navigate).toHaveBeenCalledWith({
+    channel_message_id: 'reply',
+    channel_thread_id: 'parent',
+  });
+});
+
+it('does not apply a superseded direct push destination', async () => {
+  const { layout, navigate } = setup('closed');
+  const result = await openNotificationFromId(
+    'push',
+    layout,
+    {} as NotificationSource,
+    {
+      channelTarget: { channelId: 'channel', messageId: 'reply' },
+      canOpen: () => false,
+    }
+  );
+  expect(result.isErr()).toBe(true);
+  expect(navigate).not.toHaveBeenCalled();
+  expect(getNotificationById).not.toHaveBeenCalled();
+});

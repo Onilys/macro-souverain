@@ -9,10 +9,10 @@ import type {
   NotificationEvent,
   NotificationRegistrationResult,
 } from '@inkibra/tauri-plugins/packages/tauri-plugin-notifications';
+import { Telemetry } from '@macro-inc/observability';
 import {
   type PlatformNotificationInterface,
   PlatformNotificationProvider,
-  triggerNotificationNavigation,
 } from '@notifications';
 import {
   fetchPushRecipient,
@@ -28,19 +28,16 @@ import {
   createSignal,
   type JSX,
   onCleanup,
+  Show,
 } from 'solid-js';
 import { createTauriNotificationInterface } from './notification';
 import { createPushApi, type PushEvent } from './push-api';
+import { openPushNotification } from './push-navigation';
 import { useExpectTauri } from './TauriProvider';
-
-function getNotificationId(payload: Record<string, unknown>) {
-  const value = payload.notificationId;
-  return typeof value === 'string' && value.length > 0 ? value : undefined;
-}
 
 function usePushNotifications(
   deviceType: 'android' | 'ios',
-  onPushNotification?: (event: NotificationEvent) => void
+  onPushNotification?: (event: NotificationEvent, beforeRouter: boolean) => void
 ) {
   const api = createPushApi(deviceType);
   // Bumped by every registration-changing action so an in-flight one can
@@ -53,6 +50,26 @@ function usePushNotifications(
   let disposed = false;
   let requestingPermission = false;
   let notificationWatch: Promise<void> | undefined;
+  const [launchReady, setLaunchReady] = createSignal(deviceType !== 'ios');
+  const launchSpan =
+    deviceType === 'ios'
+      ? Telemetry.span('notification.push.startup')
+      : undefined;
+  function releaseLaunch(outcome: 'ready' | 'failed' | 'timeout') {
+    if (launchReady()) return;
+    launchSpan?.setAttr('notification.startup.outcome', outcome);
+    launchSpan?.end();
+    setLaunchReady(true);
+  }
+  // A broken native bridge must not trap the whole app behind its boot shell.
+  const launchTimeout = setTimeout(() => releaseLaunch('timeout'), 1500);
+  onCleanup(() => {
+    clearTimeout(launchTimeout);
+    if (!launchReady()) {
+      launchSpan?.setAttr('notification.startup.outcome', 'disposed');
+      launchSpan?.end();
+    }
+  });
   let watchRetryTimeout: ReturnType<typeof setTimeout> | undefined;
 
   const [registrationResult, setRegistrationResult] = makePersisted(
@@ -335,6 +352,7 @@ function usePushNotifications(
 
   async function watchNotifications() {
     const epoch = registrationEpoch;
+    let failed = false;
     try {
       if (deviceType === 'android' && !hasLoginCookie())
         await configureRecipient(null, epoch);
@@ -343,6 +361,7 @@ function usePushNotifications(
       });
       if (disposed) await api.unwatch();
     } catch (error) {
+      failed = true;
       notificationWatch = undefined;
       console.error('failed to watch push notifications', error);
       if (!disposed) {
@@ -351,6 +370,9 @@ function usePushNotifications(
           1000
         );
       }
+    } finally {
+      clearTimeout(launchTimeout);
+      if (!disposed) releaseLaunch(failed ? 'failed' : 'ready');
     }
   }
 
@@ -361,7 +383,7 @@ function usePushNotifications(
         await syncPushRegistrations('resume');
         return;
       }
-      onPushNotification?.(event);
+      onPushNotification?.(event, !launchReady());
       if (event.deliveryId) await api.acknowledge(event.deliveryId);
     } catch (error) {
       console.error('push event handling failed', error);
@@ -369,6 +391,7 @@ function usePushNotifications(
   }
 
   return {
+    launchReady,
     permission,
     requestNotificationRegistration,
     registrationResult,
@@ -401,18 +424,7 @@ export function MaybePushNotificationRegistration(props: {
     );
   }
 
-  const push = usePushNotifications(os, (event) => {
-    const notificationId = getNotificationId(event.payload);
-
-    const tapped =
-      event.type === 'BACKGROUND_TAP' || event.type === 'FOREGROUND_TAP';
-
-    // Only navigate on explicit user interaction.
-    if (!tapped) return;
-    if (!notificationId) return;
-
-    triggerNotificationNavigation(notificationId);
-  });
+  const push = usePushNotifications(os, openPushNotification);
 
   // now we compose the standard tauri notif plugin with the push notification plugin
   function curriedTauriPushNotification(
@@ -463,7 +475,7 @@ export function MaybePushNotificationRegistration(props: {
       <PlatformNotificationProvider
         overrideDefault={curriedTauriPushNotification}
       >
-        {props.children}
+        <Show when={push.launchReady()}>{props.children}</Show>
       </PlatformNotificationProvider>
     </PushNotificationContext.Provider>
   );

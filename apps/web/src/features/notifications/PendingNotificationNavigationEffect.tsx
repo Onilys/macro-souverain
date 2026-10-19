@@ -12,6 +12,7 @@ import {
   setPendingNotificationNavigationId,
 } from '@notifications';
 import { createEffect, createSignal, onCleanup } from 'solid-js';
+import { pendingNotificationChannelTarget } from './notification-navigation-intent';
 
 type NavigationAttempt = {
   notificationId: string;
@@ -36,6 +37,7 @@ export function usePendingNotificationNavigationEffect(
   createEffect(() => {
     retryRevision();
     const notificationId = pendingNotificationNavigationId();
+    const channelTarget = pendingNotificationChannelTarget();
     const layoutManager = globalSplitManager();
     const navigationReady = layoutManager?.contentNavigationReady() ?? false;
     const navigationVersion = layoutManager?.contentNavigationVersion() ?? 0;
@@ -89,7 +91,7 @@ export function usePendingNotificationNavigationEffect(
         notificationId,
         layoutManager,
         notificationSource,
-        { canOpen: isCurrentAttempt, onApplied }
+        { canOpen: isCurrentAttempt, onApplied, channelTarget }
       ).match(
         () => {
           if (!isCurrentAttempt()) return;

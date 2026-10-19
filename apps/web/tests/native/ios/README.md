@@ -91,7 +91,8 @@ ID, and reply ID. Choose a reply outside the collapsed thread preview. A made-up
 notification ID can check bridge delivery but cannot verify message navigation.
 
 To inject the push without depending on APNs transport, save this payload to a
-temporary `.apns` file, replacing `<notification-id>` with the real ID:
+temporary `.apns` file, replacing the IDs with a real readable channel, thread root, and reply. Keep
+the notification ID for the old-payload comparison:
 
 ```json
 {
@@ -102,15 +103,23 @@ temporary `.apns` file, replacing `<notification-id>` with the real ID:
     },
     "sound": "default"
   },
-  "notificationId": "<notification-id>"
+  "notificationId": "<notification-id>",
+  "channelId": "<channel-id>",
+  "messageId": "<reply-id>",
+  "threadId": "<parent-message-id>"
 }
 ```
 
 Send it with `xcrun simctl push <udid> com.macro.app.prod <payload.apns>`.
 Grant notification permission, background the app, open Notification Center,
-and tap the notification. Verify the correct channel opens, the parent thread
+and tap the notification. Record the launch to check that Home/the previous
+page does not render before the destination. The native listener drains buffered
+taps before the iOS router mounts; on resume, the current webview stays alive.
+Verify the correct channel opens, the parent thread
 expands, and the specific reply is visible. Repeat after terminating the app and
-with an in-app foreground banner. Simulator injection tests OS presentation,
+with an in-app foreground banner. Repeat without the three destination fields
+to verify older pushes still resolve through notification-ID lookup. Verify a
+delivered-but-untapped push never changes the route. Simulator injection tests OS presentation,
 delegate delivery, and app navigation; separately verify real APNs delivery on
 a physical device.
 
