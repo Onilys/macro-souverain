@@ -1,5 +1,6 @@
 import { ComposerSurface, cn } from '@ui';
 import type { JSX } from 'solid-js';
+import { createMessageResizeMotion } from './message-resize-motion';
 
 interface MessageCardProps {
   messageId: string | null | undefined;
@@ -29,10 +30,12 @@ interface MessageCardProps {
  * Touch devices retain their existing card and selection treatment.
  */
 export function MessageCard(props: MessageCardProps) {
+  const motion = createMessageResizeMotion();
   return (
     <div class="shrink-0 flex justify-center w-full">
       <div class="@container/message macro-message-width macro-message-padding mobile:px-0 w-full">
         <ComposerSurface
+          ref={motion.setCard}
           as="div"
           class={cn(
             'relative p-4 outline-none',
@@ -76,7 +79,9 @@ export function MessageCard(props: MessageCardProps) {
             props.onSelect?.();
           }}
         >
-          {props.children}
+          <div ref={motion.setContent} class="flow-root">
+            {props.children}
+          </div>
         </ComposerSurface>
       </div>
     </div>

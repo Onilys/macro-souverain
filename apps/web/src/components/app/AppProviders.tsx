@@ -12,9 +12,10 @@ import { useReactiveFavicon } from '@components/app/useReactiveFavicon';
 import { useGlobalAttachableHistory } from '@core/component/AI/signal/globalAttachments';
 import { toast } from '@core/component/Toast/Toast';
 import { TeamContextProvider } from '@core/context/team';
-import { useUserId } from '@core/context/user';
+import { useIsAuthenticated, useUserId } from '@core/context/user';
 import { isNativeMobilePlatform } from '@core/mobile/isNativeMobilePlatform';
 import { createBlockOrchestrator } from '@core/orchestrator';
+import { fireAndForget } from '@core/util/fireAndForget';
 import {
   createNotificationSource,
   type UnifiedNotification,
@@ -34,6 +35,7 @@ import { ImperativeDialogHost } from '@ui';
 import type { ParentProps } from 'solid-js';
 
 function ConfiguredGlobalAppStateProvider(props: ParentProps) {
+  const authenticated = useIsAuthenticated();
   // Initialize global notification helpers
   const notifInterface = usePlatformNotificationState();
   useChatRenameWebsocketSync();
@@ -68,7 +70,9 @@ function ConfiguredGlobalAppStateProvider(props: ParentProps) {
   }
   const notificationSource = createNotificationSource(
     connectionGatewayWebsocket,
-    (notification) => void deliverNotification(notification)
+    (notification) =>
+      fireAndForget(deliverNotification(notification), 'notifications'),
+    () => authenticated() === true
   );
   useNotificationUpdates(notificationSource);
   useAccessRequestInvalidations();

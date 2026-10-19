@@ -565,6 +565,7 @@ impl messages::domain::api::MessageCommands for TestChannelPoster {
                 parent: messages::domain::models::MessageParent::Channel(channel_id),
                 thread_id: input.thread_id,
                 sender_id: actor,
+                guest_name: None,
                 imported_author: None,
                 bot_profile: None,
                 mentions: Vec::new(),

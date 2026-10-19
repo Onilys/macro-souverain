@@ -10,6 +10,7 @@ import {
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import { MenuItem, MenuSeparator } from '@core/component/ContextMenu';
 import { TOKENS } from '@core/hotkey/tokens';
+import { fireAndForget } from '@core/util/fireAndForget';
 import PhoneCallIcon from '@phosphor-fill/phone-call-fill.svg';
 import { Button, cn } from '@ui';
 import { Show } from 'solid-js';
@@ -77,7 +78,7 @@ export const ListNav = (props: ListNavProps) => {
       const pane = router.panes().find((pane) => pane.toString() === split?.id);
       // A later ordinary press also supersedes a pending Shift-open from this
       // pane. Cancelling preserves the current entry and split-owned state.
-      if (pane) void router.cancelNavigation(pane);
+      if (pane) fireAndForget(router.cancelNavigation(pane), 'sidebar-nav');
     }
     if (!selected || event.shiftKey) {
       navigateToSidebarView({
