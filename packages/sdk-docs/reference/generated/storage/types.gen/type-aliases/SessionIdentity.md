@@ -1,6 +1,6 @@
 # Type Alias: SessionIdentity
 
-> **SessionIdentity** = \{ `audience?`: [`MacroUserIdStr`](MacroUserIdStr.md)[]; `bot_id`: [`BotId`](BotId.md); `bot_name`: `string`; `origin?`: `null` \| [`ThreadOrigin`](ThreadOrigin.md); `owner_id`: [`MacroUserIdStr`](MacroUserIdStr.md); `session_id`: `string`; `session_name`: `string`; \}
+> **SessionIdentity** = \{ `audience?`: [`MacroUserIdStr`](MacroUserIdStr.md)[]; `bot_id`: [`BotId`](BotId.md); `bot_name`: `string`; `origin?`: `null` \| [`ThreadOrigin`](ThreadOrigin.md); `owner_id`: [`MacroUserIdStr`](MacroUserIdStr.md); `routine_id?`: `string` \| `null`; `session_id`: `string`; `session_name`: `string`; \}
 
 Who and what a session is; carried by every lifecycle event so a
 consumer never has to look the session up.
@@ -14,5 +14,6 @@ consumer never has to look the session up.
 | <a id="property-bot_name"></a> `bot_name` | `string` | The bot's display name at the time of the event. |
 | <a id="property-origin"></a> `origin?` | `null` \| [`ThreadOrigin`](ThreadOrigin.md) | - |
 | <a id="property-owner_id"></a> `owner_id` | [`MacroUserIdStr`](MacroUserIdStr.md) | User who owns the session. |
+| <a id="property-routine_id"></a> `routine_id?` | `string` \| `null` | The routine whose unattended run the session is, when it is one. |
 | <a id="property-session_id"></a> `session_id` | `string` | The session. |
 | <a id="property-session_name"></a> `session_name` | `string` | User-facing session name at the time of the event. |
