@@ -8,9 +8,13 @@ test.beforeEach(async ({ page }) => {
 
 for (const { code } of LANGUAGES) {
   test(`menus fit their labels in ${code}`, async ({ page }) => {
-    await page.goto(`/src/lib/i18n/browser-test/menus.html?lang=${code}`);
+    // A cold dev server compiles the app on first load, which can outlast the
+    // page load event; wait for the fixture's own ready marker instead.
+    await page.goto(`/src/lib/i18n/browser-test/menus.html?lang=${code}`, {
+      waitUntil: 'commit',
+    });
     await expect(page.locator('[data-translation-ready]')).toBeAttached({
-      timeout: 30_000,
+      timeout: 150_000,
     });
     await expect(page.getByRole('menuitem').first()).toBeVisible();
 

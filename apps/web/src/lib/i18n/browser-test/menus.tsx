@@ -17,6 +17,7 @@ import { teamKeys } from '../../queries/team/keys';
 import type { TranslationKey } from '../dictionary';
 import { setInterfaceLanguage, t } from '../i18n';
 import { isLanguage } from '../languages';
+import en from '../locales/en';
 
 /**
  * Menus rendered with the production primitives and content widths, in the
@@ -96,6 +97,28 @@ const MENUS: {
   },
 ];
 
+// Every label in the namespaces that render in context and dropdown menus, at
+// the narrowest menu width, so a new or changed translation is checked without
+// listing it above. Sentences (toasts, descriptions, placeholders) wrap or show
+// elsewhere and are left out; the command menu and sidebars are wider.
+const LABEL_NAMESPACES = [
+  'channelLabels',
+  'entityActions',
+  'splitMenu',
+  'viewMenus',
+] as const satisfies (keyof typeof en)[];
+const NOT_A_LABEL =
+  /toast|description|tagline|placeholder|example|hint|tooltip|aria|error|failed/i;
+const LABEL_MENUS: (typeof MENUS)[number][] = LABEL_NAMESPACES.map(
+  (namespace) => ({
+    title: `All ${namespace}`,
+    contentClass: 'min-w-56 max-w-[22rem] text-xs text-ink-muted',
+    keys: Object.keys(en[namespace])
+      .filter((message) => !NOT_A_LABEL.test(message))
+      .map((message) => `${namespace}.${message}` as TranslationKey),
+  })
+);
+
 function Menu(props: (typeof MENUS)[number]) {
   return (
     <div
@@ -138,7 +161,7 @@ function Fixture() {
   return (
     <QueryClientProvider client={queryClient}>
       <UserContextProvider>
-        <div class="flex min-h-screen gap-6 bg-panel p-6 text-ink">
+        <div class="flex gap-6 bg-panel p-6 text-ink">
           <div class="w-60 shrink-0" data-surface="settings-sidebar">
             <SettingsSidebar
               groups={groups}
@@ -161,6 +184,9 @@ function Fixture() {
               </div>
             </div>
           </div>
+        </div>
+        <div class="flex flex-wrap items-start gap-4 bg-panel p-6">
+          <For each={LABEL_MENUS}>{(menu) => <Menu {...menu} />}</For>
         </div>
         <Show
           when={
