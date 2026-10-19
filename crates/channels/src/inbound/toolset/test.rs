@@ -93,6 +93,7 @@ impl RecordingMessages {
             deleted_at: None,
             attachments: vec![],
             reactions,
+            broadcast_from_thread: None,
         }
     }
 
@@ -159,6 +160,7 @@ impl messages::domain::api::MessageCommands for RecordingMessages {
             deleted_at: None,
             attachments: vec![],
             reactions: vec![],
+            broadcast_from_thread: None,
         };
         self.posts.lock().unwrap().push((access, input));
         Ok(message)

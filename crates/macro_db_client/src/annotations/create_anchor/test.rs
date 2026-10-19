@@ -44,6 +44,7 @@ async fn standalone_highlight_remains_unthreaded_until_a_message_attaches_it(poo
                 mentions: vec![],
                 attachments: vec![],
                 nonce: None,
+                broadcast_to_channel: false,
             },
         })
         .await

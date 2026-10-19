@@ -226,6 +226,15 @@ impl MessageRepository for Repo {
     ) -> Result<Option<Uuid>, MessageError> {
         unimplemented!()
     }
+    async fn create_broadcast(
+        &self,
+        command: CreateMessage,
+        broadcast_from_thread: Uuid,
+    ) -> Result<Message, MessageError> {
+        let mut message = self.create(command).await?;
+        message.broadcast_from_thread = Some(broadcast_from_thread);
+        Ok(message)
+    }
 }
 
 #[derive(Clone, Default)]
@@ -259,6 +268,7 @@ fn fixture() -> Repo {
             deleted_at: None,
             attachments: vec![],
             reactions: vec![],
+            broadcast_from_thread: None,
         },
         state: ThreadState {
             root_id: id,
@@ -635,6 +645,7 @@ fn only_root_document_messages_can_have_anchors() {
         mentions: vec![],
         attachments: vec![],
         nonce: None,
+        broadcast_to_channel: false,
     };
     assert!(validate_post(&MessageParent::Channel(Uuid::from_u128(2)), &input).is_err());
     let doc = MessageParent::parse("document", "doc").unwrap();
@@ -662,6 +673,7 @@ async fn inaccessible_references_are_rejected_before_persistence() {
         mentions: vec![],
         attachments: vec![attachment.clone()],
         nonce: None,
+        broadcast_to_channel: false,
     };
     // Repo::create is deliberately unimplemented: a rejected request must never reach it.
     assert!(matches!(
@@ -734,6 +746,7 @@ fn post_input() -> PostMessage {
         mentions: vec![],
         attachments: vec![],
         nonce: Some("client-nonce".into()),
+        broadcast_to_channel: false,
     }
 }
 
@@ -1376,6 +1389,15 @@ impl MessageRepository for StrictRepo {
         is_thread: bool,
     ) -> Result<Option<Uuid>, MessageError> {
         self.inner.resolve_legacy(parent, id, is_thread).await
+    }
+    async fn create_broadcast(
+        &self,
+        command: CreateMessage,
+        broadcast_from_thread: Uuid,
+    ) -> Result<Message, MessageError> {
+        self.inner
+            .create_broadcast(command, broadcast_from_thread)
+            .await
     }
 }
 

@@ -46,6 +46,7 @@ fn command(document: &str, root: Option<Uuid>, content: &str) -> CreateMessage {
             mentions: vec![],
             attachments: vec![],
             nonce: None,
+            broadcast_to_channel: false,
         },
     }
 }

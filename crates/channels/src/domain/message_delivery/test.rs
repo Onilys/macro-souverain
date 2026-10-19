@@ -129,6 +129,7 @@ fn message() -> Message {
             height: None,
             created_at: Utc::now(),
         }],
+        broadcast_from_thread: None,
     }
 }
 

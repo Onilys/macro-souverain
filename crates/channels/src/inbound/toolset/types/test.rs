@@ -21,6 +21,7 @@ fn reply(seconds: i64) -> Message {
         deleted_at: None,
         reactions: vec![],
         attachments: vec![],
+        broadcast_from_thread: None,
     }
 }
 fn message_with_thread(reply_count: i64, preview: Vec<Message>) -> MessageListItem {

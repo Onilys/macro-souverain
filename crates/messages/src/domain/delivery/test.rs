@@ -86,6 +86,7 @@ fn event() -> MessageEvent {
         deleted_at: None,
         attachments: vec![],
         reactions: vec![],
+        broadcast_from_thread: None,
     };
     MessageEvent {
         parent,

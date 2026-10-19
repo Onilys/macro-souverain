@@ -31,6 +31,7 @@ fn message(id: u128) -> MessageListItem {
             deleted_at: None,
             attachments: vec![],
             reactions: vec![],
+            broadcast_from_thread: None,
         },
         state: ThreadState {
             root_id: id,
