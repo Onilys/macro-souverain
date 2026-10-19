@@ -11,10 +11,11 @@ mode="$1"
 cd "$(dirname "$0")/.."
 
 # The public build-time env for this mode (build-env.json), which the generated
-# web build workflow reads too. Secrets such as VITE_POSTHOG_API_KEY still come
-# from the caller's environment.
+# web build workflow reads too. A value already in the environment wins, so a
+# build can point telemetry elsewhere. Secrets such as VITE_POSTHOG_API_KEY
+# still come from the caller's environment.
 while IFS='=' read -r name value; do
-  export "$name=$value"
+  export "$name=${!name:-$value}"
 done < <(MODE="$mode" bun -e '
   for (const [name, value] of Object.entries(require("./build-env.json")[process.env.MODE])) {
     console.log(`${name}=${value}`);

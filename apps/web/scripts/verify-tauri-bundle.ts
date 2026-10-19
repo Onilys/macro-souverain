@@ -6,7 +6,8 @@
  *   in the app.
  * - The version must name the commit the bundle was built from, not `unknown`.
  * - Vite must have inlined the build-time env: build-env.json's values for the
- *   mode, and VITE_POSTHOG_API_KEY when the build was given one. Without them
+ *   mode (or the environment's, where set), and VITE_POSTHOG_API_KEY when the
+ *   build was given one. Without them
  *   the app silently sends no telemetry or has every feature flag off.
  *
  * usage: bun scripts/verify-tauri-bundle.ts --dist <directory> --mode <mode>
@@ -59,7 +60,8 @@ export function bundleProblems(
     }
   }
 
-  for (const [name, value] of Object.entries(buildEnv[mode])) {
+  for (const [name, fallback] of Object.entries(buildEnv[mode])) {
+    const value = env[name] || fallback;
     if (!inlines(value)) {
       problems.push(`no script inlines ${name} ${JSON.stringify(value)}`);
     }

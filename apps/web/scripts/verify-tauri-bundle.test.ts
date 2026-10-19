@@ -64,6 +64,16 @@ it('rejects a bundle built without the telemetry exporter URL, as Nix built it',
   ).toEqual([`no script inlines VITE_OTEL_EXPORTER_URL "${otelUrl}"`]);
 });
 
+it('expects an exporter URL from the environment in place of the default', () => {
+  expect(
+    bundleProblems(dist({ commit: '170584f' }), 'production', {
+      VITE_OTEL_EXPORTER_URL: 'https://otel.example/v1/traces',
+    })
+  ).toEqual([
+    'no script inlines VITE_OTEL_EXPORTER_URL "https://otel.example/v1/traces"',
+  ]);
+});
+
 it('rejects a supplied PostHog key that did not reach the bundle', () => {
   expect(
     bundleProblems(dist({ commit: '170584f' }), 'production', {
