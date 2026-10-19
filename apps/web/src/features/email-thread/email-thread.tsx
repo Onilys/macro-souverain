@@ -6,6 +6,7 @@ import { createEffectOnEntityTypeNotification } from '@notifications';
 import { InlineFetchedEntityTagsPill } from '@property/tags';
 import { clearSavedDraftThreadCache } from '@queries/email/draft-cache';
 import type { ThreadQueryTransport } from '@queries/email/thread';
+import { getGraphqlSoupClient } from '@service-storage/graphql-soup';
 import {
   type Accessor,
   createEffect,
@@ -123,7 +124,8 @@ export function EmailThread(props: EmailThreadProps) {
   const rendering = createEmailRenderingContext({
     preparedBody: createPreparedBodiesQuery(
       source.id,
-      () => props.threadTransport() === 'graphql'
+      () => props.threadTransport() === 'graphql',
+      getGraphqlSoupClient
     ),
   });
   createEffectOnEntityTypeNotification(

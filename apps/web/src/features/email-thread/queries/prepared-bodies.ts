@@ -5,7 +5,7 @@ import {
   EmailThreadPreparedBodiesDocument,
   type EmailThreadPreparedBodiesQuery,
 } from '@service-storage/graphql/generated/graphql';
-import { getGraphqlSoupClient } from '@service-storage/graphql-soup';
+import type { Client } from '@urql/core';
 import type { Accessor } from 'solid-js';
 
 /** The server preparation version this client can mount. */
@@ -38,7 +38,8 @@ export function preparedBodiesById(
  */
 export function createPreparedBodiesQuery(
   threadId: Accessor<string>,
-  enabled: Accessor<boolean>
+  enabled: Accessor<boolean>,
+  client: Accessor<Client>
 ): (messageId: string) => ServerPreparedBody | undefined {
   const query = createLiveQuery(
     EmailThreadPreparedBodiesDocument,
@@ -49,7 +50,7 @@ export function createPreparedBodiesQuery(
       version: SERVER_PREPARE_VERSION,
     }),
     () => ({
-      client: getGraphqlSoupClient(),
+      client: client(),
       enabled: enabled(),
       requestPolicy: 'cache-and-network' as const,
       select: preparedBodiesById,

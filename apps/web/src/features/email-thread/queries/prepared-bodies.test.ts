@@ -1,9 +1,6 @@
 import type { EmailThreadPreparedBodiesQuery } from '@service-storage/graphql/generated/graphql';
 import { expect, it, vi } from 'vitest';
 
-vi.mock('@service-storage/graphql-soup', () => ({
-  getGraphqlSoupClient: vi.fn(),
-}));
 vi.mock('@graphql-cache/solid/create-live-query', () => ({
   createLiveQuery: vi.fn(),
 }));
