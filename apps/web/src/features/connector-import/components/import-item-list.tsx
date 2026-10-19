@@ -33,7 +33,7 @@ export function ImportItemList(props: {
   href(entity: NonNullable<ImportItem['entity']>): string;
 }) {
   return (
-    <ul class="divide-y divide-edge-muted" aria-label="Items to import">
+    <ul class="rounded-2xl bg-ink/3 px-3 py-1" aria-label="Items to import">
       <For each={props.items}>
         {(item) => (
           <li class="flex items-start gap-3 py-2.5 text-sm">

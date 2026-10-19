@@ -126,7 +126,11 @@ export function NativeImportPane(props: {
   }
 
   return (
-    <ActionDialogShell class="max-h-[85dvh]">
+    // Inside the dialog's `contents` wrapper, out of reach of its surface reset.
+    <ActionDialogShell
+      hideBorder
+      class="max-h-[85dvh] rounded-[24px] bg-transparent"
+    >
       <ActionDialogShell.Body class="space-y-4">
         <ActionDialogShell.Header>
           <div class="flex items-center gap-2">
@@ -151,7 +155,7 @@ export function NativeImportPane(props: {
         <Switch>
           <Match when={run()?.status === 'failed' && !searching()}>
             <div
-              class="flex items-start gap-2 rounded-lg border border-edge-muted p-3 text-sm text-ink-muted"
+              class="flex items-start gap-2 rounded-2xl bg-ink/3 p-3 text-sm text-ink-muted"
               role="alert"
             >
               <WarningIcon
@@ -230,7 +234,7 @@ export function NativeImportPane(props: {
         </Show>
         <SecurityNote />
       </ActionDialogShell.Body>
-      <ActionDialogShell.Footer>
+      <ActionDialogShell.Footer class="border-t-0">
         <Button
           variant="ghost"
           depth={2}

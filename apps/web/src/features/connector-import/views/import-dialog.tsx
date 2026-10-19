@@ -133,7 +133,11 @@ function ImportDialogBody(props: {
       <Show
         when={picking()}
         fallback={
-          <ActionDialogShell class="max-h-[85dvh]">
+          // The `contents` wrapper hides this shell from Dialog's surface reset.
+          <ActionDialogShell
+            hideBorder
+            class="max-h-[85dvh] rounded-[24px] bg-transparent"
+          >
             <ActionDialogShell.Body class="space-y-4">
               <ActionDialogShell.Header>
                 <LogoStack
@@ -149,7 +153,7 @@ function ImportDialogBody(props: {
                 </ActionDialogShell.Description>
               </ActionDialogShell.Header>
               <ul
-                class="divide-y divide-edge-muted"
+                class="rounded-2xl bg-ink/3 px-3 py-1"
                 aria-label={`Apps to ${props.config.action.toLowerCase()} from`}
               >
                 <For each={props.config.providers}>
@@ -184,7 +188,7 @@ function ImportDialogBody(props: {
                     {(alternative) => (
                       <button
                         type="button"
-                        class="flex w-full items-center gap-3 rounded-lg border border-edge-muted p-3 text-left hover:bg-ink/4 focus-visible:outline-accent"
+                        class="flex w-full items-center gap-3 rounded-2xl bg-ink/3 px-3 py-3 text-left hover:bg-ink/5 focus-visible:outline-accent"
                         onClick={() => {
                           props.onClose();
                           alternative.onSelect();

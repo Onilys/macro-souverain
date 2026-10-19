@@ -21,7 +21,7 @@ export function ProviderRow(props: {
   const native = () => props.provider.native !== undefined;
   return (
     <li class="flex items-center gap-3 py-2.5">
-      <span class="flex size-9 shrink-0 items-center justify-center rounded-full border border-edge-muted bg-surface">
+      <span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-dialog">
         <Dynamic
           component={props.provider.icon}
           class="size-5 text-ink"
