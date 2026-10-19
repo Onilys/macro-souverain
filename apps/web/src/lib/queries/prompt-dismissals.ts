@@ -11,7 +11,7 @@ import {
   promptDismissalsClient,
 } from '@service-cognition/prompt-dismissals';
 import { useQuery } from '@tanstack/solid-query';
-import type { Accessor } from 'solid-js';
+import { type Accessor, createEffect, on } from 'solid-js';
 
 const KEY = ['promptDismissals'] as const;
 
@@ -19,12 +19,11 @@ function fetchDismissedPrompts() {
   return throwOnErr(() => promptDismissalsClient.list());
 }
 
-function promptDismissalsQueryOptions(enabled = true) {
+function promptDismissalsQueryOptions() {
   return {
     queryKey: KEY,
     queryFn: fetchDismissedPrompts,
     staleTime: 5 * 60 * 1000,
-    enabled,
     // Cards fall back to what the browser remembers when the list is
     // unavailable, so a retry would only hold them back.
     retry: false,
@@ -49,7 +48,12 @@ export function usePromptDismissalsQuery() {
  * so a sidebar card never waits on it when its view opens.
  */
 export function useWarmPromptDismissals(userId: Accessor<string | undefined>) {
-  useQuery(() => promptDismissalsQueryOptions(userId() !== undefined));
+  // The shared cache is the external system here; nothing renders from it.
+  createEffect(
+    on(userId, (id) => {
+      if (id) queryClient.prefetchQuery(promptDismissalsQueryOptions());
+    })
+  );
 }
 
 /** Dismiss `promptId` on every device. */

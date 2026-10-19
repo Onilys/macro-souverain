@@ -1,5 +1,6 @@
+import { queryClient } from '@queries/client';
 import { cleanup, render, waitFor } from '@solidjs/testing-library';
-import { QueryClient, QueryClientProvider } from '@tanstack/solid-query';
+import { QueryClientProvider } from '@tanstack/solid-query';
 import { errAsync, okAsync } from 'neverthrow';
 import { createSignal, type JSX } from 'solid-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -19,17 +20,17 @@ vi.mock('@service-cognition/prompt-dismissals', () => ({
 
 afterEach(() => {
   cleanup();
+  queryClient.clear();
   server.list.mockReset();
 });
 
 function app(children: () => JSX.Element) {
-  const client = new QueryClient();
   function Warm() {
     useWarmPromptDismissals(() => 'user');
     return null;
   }
   return render(() => (
-    <QueryClientProvider client={client}>
+    <QueryClientProvider client={queryClient}>
       <Warm />
       {children()}
     </QueryClientProvider>
