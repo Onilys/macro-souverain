@@ -101,6 +101,8 @@ ownership. Cancel, logout, and the ten-minute timeout retire pending callbacks.
   caches on save and the active cache on thread exit. Revalidate GraphQL thread
   pages only when a save cannot patch the message list (missing snapshot or a
   move between inboxes).
+- Keep email card resize motion on its content wrapper so message and inline
+  reply transitions preserve the card's focus target and return to natural height.
 - Shared server-state queries and mutations live in `src/lib/queries`; keep
   feature-specific query orchestration with its owning feature.
 - Preserve loaded block content on initial access confirmation when its loader

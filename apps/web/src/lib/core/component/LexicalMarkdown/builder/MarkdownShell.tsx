@@ -24,6 +24,7 @@ import { NodeAccessoryRenderer } from '../component/core/NodeAccessoryRenderer';
 import { ActionMenu } from '../component/menu/ActionsMenu';
 import { EmojiMenu } from '../component/menu/EmojiMenu';
 import { FloatingFormatMenu } from '../component/menu/FloatingFormatMenu';
+import { FloatingGifMenu } from '../component/menu/FloatingGifMenu';
 import { FloatingLinkMenu } from '../component/menu/FloatingLinkMenu';
 import { MentionsMenu } from '../component/menu/MentionsMenu';
 import { SkillsMenu } from '../component/menu/SkillsMenu';
@@ -367,11 +368,12 @@ export const MarkdownShell: Component<MarkdownShellProps> = (props) => {
           )}
         </Show>
 
-        {/* Floating Link & Selection Format Menus */}
+        {/* Floating Link, Format, and GIF Menus */}
         <Show
           when={
             builderConfig.links?.floatingMenu ||
-            builderConfig.floatingFormatMenu
+            builderConfig.floatingFormatMenu ||
+            state.actionsMenuOps
           }
         >
           <FloatingMenuGroup>
@@ -388,6 +390,12 @@ export const MarkdownShell: Component<MarkdownShellProps> = (props) => {
                   typeof builderConfig.floatingFormatMenu === 'object' &&
                   builderConfig.floatingFormatMenu.extendedInlineFormats
                 }
+              />
+            </Show>
+            <Show when={state.actionsMenuOps}>
+              <FloatingGifMenu
+                canEdit={() => !props.disabled}
+                portalScope={props.portalScope}
               />
             </Show>
           </FloatingMenuGroup>

@@ -12,6 +12,7 @@ import { SignaturePreview } from '@app/features/email-compose/components/signatu
 import { ComposeProvider } from '@app/features/email-compose/context/compose-context';
 import { decodeBase64Utf8 } from '@app/features/email-compose/core/decode-base64';
 import type { EmailRecipient } from '@app/features/email-compose/core/email-recipient';
+import { fromInboxOptions } from '@app/features/email-compose/core/email-sender';
 import { convertContactInfoToEmailRecipient } from '@app/features/email-compose/core/recipient-conversion';
 import { createComposeBodyActions } from '@app/features/email-compose/editor-adapter';
 import type {
@@ -25,18 +26,25 @@ import { EmailComposeToolbar } from '@app/features/email-compose/views/compose-t
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { toast } from '@core/component/Toast/Toast';
 import { enableEmailSignatures } from '@core/constant/featureFlags';
+import { useUserId } from '@core/context/user';
 import { isMobile } from '@core/mobile/isMobile';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { interceptMailtoLinks } from '@core/util/interceptMailtoLinks';
 import { forceDssRuleset, uploadFile } from '@core/util/upload';
-import { useEmailLinksQuery, useEmailSignature } from '@queries/email/link';
+import {
+  findPrimaryEmailLinkId,
+  useEmailLinksQuery,
+  useEmailSignature,
+  useMessageInboxQuery,
+} from '@queries/email/link';
+import { queryReadyGate } from '@queries/gate';
 import { fetchDocumentMetadata } from '@queries/storage/document-metadata';
 import { entityKeys } from '@queries/storage/keys';
 import type { SendEmail } from '@service-cognition/generated/tools/types';
 import { FileTypeMap } from '@service-storage/fileTypeMap';
 import { debounce } from '@solid-primitives/scheduled';
 import { useQueryClient } from '@tanstack/solid-query';
-import { ComposerSurface, cn } from '@ui';
+import { Button, ComposerSurface, cn } from '@ui';
 import type { LexicalEditor } from 'lexical';
 import {
   type ComponentProps,
@@ -52,6 +60,7 @@ import {
   type DocumentDescription,
   documentAttachmentFileName,
 } from './draft-attachments';
+import { resolveSendingInbox } from './sending-inbox';
 
 export type EmailDraftComposerProps = {
   /** The draft as the agent wrote it, or as the user last saved it. */
@@ -115,14 +124,62 @@ async function uploadAttachmentDocument(
 
 export function EmailDraftComposer(props: EmailDraftComposerProps) {
   const uiDisabled = () => !props.sink.canAct() || props.readOnly === true;
+  const userId = useUserId();
   const emailLinksQuery = useEmailLinksQuery();
-  // The inbox this card sends from — always the first linked inbox (shown as
-  // "from"); the backend resolves the same default at send time.
+  const inboxes = createMemo(() =>
+    queryReadyGate(emailLinksQuery) ? (emailLinksQuery.data.links ?? []) : []
+  );
+  // Keep the selected address even if its inbox is later disconnected, so
+  // edits cannot silently replace an explicit sender.
+  const [chosenInbox, setChosenInbox] = createSignal<{
+    id: string;
+    address: string;
+  }>();
+  const explicitFrom = () =>
+    chosenInbox()?.address || props.initialData.from?.trim() || undefined;
+  const replyInboxQuery = useMessageInboxQuery(() =>
+    explicitFrom() ? undefined : (props.initialData.replyingToId ?? undefined)
+  );
   const sendingLink = createMemo(() => {
-    if (!emailLinksQuery.isSuccess && !emailLinksQuery.isError) return;
-    return emailLinksQuery.data?.links?.[0];
+    const list = inboxes();
+    return resolveSendingInbox(list, {
+      chosenInboxId: chosenInbox()?.id,
+      draftFrom: props.initialData.from,
+      isReply: Boolean(props.initialData.replyingToId),
+      replyTargetInboxId: queryReadyGate(replyInboxQuery)
+        ? (replyInboxQuery.data ?? undefined)
+        : undefined,
+      primaryInboxId:
+        findPrimaryEmailLinkId(list, userId()) ??
+        list.find((link) => link.macro_id === userId())?.id,
+    });
   });
-  const fromAddress = () => sendingLink()?.email_address;
+  const fromAddress = () => explicitFrom() ?? sendingLink()?.email_address;
+  const senderNotice = () => {
+    if (sendingLink()) return undefined;
+    if (emailLinksQuery.isPending) return 'Resolving sender...';
+    if (!queryReadyGate(emailLinksQuery)) {
+      return 'Could not load your inboxes. Try again.';
+    }
+    if (explicitFrom()) {
+      return `${explicitFrom()} is unavailable. Choose a connected sending inbox.`;
+    }
+    if (props.initialData.replyingToId) {
+      if (replyInboxQuery.isPending || replyInboxQuery.isFetching) {
+        return 'Resolving sender...';
+      }
+      return 'Could not resolve the reply sender. Try again or choose a sending inbox.';
+    }
+    return 'Connect an inbox to send email.';
+  };
+  const canRetrySender = () =>
+    !sendingLink() &&
+    (emailLinksQuery.isError || (!explicitFrom() && replyInboxQuery.isError));
+  const retrySender = async () => {
+    if (emailLinksQuery.isError) await emailLinksQuery.refetch();
+    if (!explicitFrom() && replyInboxQuery.isError)
+      await replyInboxQuery.refetch();
+  };
   const signature = useEmailSignature(() => sendingLink()?.id);
   const emailSignaturesFlag = useFeatureFlag(enableEmailSignatures);
   // Whether this email includes the signature. Defaults on; the preview's ✕
@@ -208,6 +265,8 @@ export function EmailDraftComposer(props: EmailDraftComposerProps) {
         ? (prepareEmailBody(editor())?.bodyHtml ?? props.initialData.body)
         : props.initialData.body,
       replyingToId: props.initialData.replyingToId,
+      // Preserve explicit choices; the backend resolves implicit senders.
+      from: explicitFrom(),
       // Omit to use the backend default policy; false only when dismissed.
       includeSignature: includeSignature() ? undefined : false,
       attachments: attachments.toToolArgs(),
@@ -221,6 +280,7 @@ export function EmailDraftComposer(props: EmailDraftComposerProps) {
     if (
       !bodyInitialized() ||
       !(await attachments.waitForUploads()) ||
+      !sendingLink() ||
       !validate()
     )
       return;
@@ -262,7 +322,13 @@ export function EmailDraftComposer(props: EmailDraftComposerProps) {
   });
 
   async function handleSend() {
-    if (finalized || uiDisabled() || isSending() || attachments.uploading())
+    if (
+      finalized ||
+      uiDisabled() ||
+      isSending() ||
+      attachments.uploading() ||
+      !sendingLink()
+    )
       return;
     if (!validate()) return;
     debouncedEdit.clear();
@@ -332,7 +398,7 @@ export function EmailDraftComposer(props: EmailDraftComposerProps) {
     disabled: () => isSending() || uiDisabled(),
     // Send waits for files the user just added to finish becoming documents.
     primaryActionDisabled: () =>
-      isSending() || uiDisabled() || attachments.uploading(),
+      isSending() || uiDisabled() || attachments.uploading() || !sendingLink(),
     isSending,
     isSavingDraft: () => false,
     hasDraft: () => false,
@@ -348,6 +414,15 @@ export function EmailDraftComposer(props: EmailDraftComposerProps) {
     ],
     validationError: (type) => validationErrors().find((e) => e.type === type),
     fromAddress,
+    fromInboxes: () => fromInboxOptions(inboxes()),
+    selectedInboxId: () => sendingLink()?.id,
+    onSelectInbox: (inboxId) => {
+      if (uiDisabled() || isSending()) return;
+      const inbox = inboxes().find((link) => link.id === inboxId);
+      if (!inbox) return;
+      setChosenInbox({ id: inbox.id, address: inbox.email_address });
+      scheduleUpdate();
+    },
     recipients,
     // Read-only preview of the signature the backend appends on send, with a ✕
     // to drop it for this one email (persisted through the sink's edit).
@@ -390,6 +465,28 @@ export function EmailDraftComposer(props: EmailDraftComposerProps) {
               '[&_button:disabled]:opacity-50 [&_button:disabled]:text-ink-disabled [&_input:disabled]:text-ink-muted'
           )}
           header={header()}
+          notice={
+            <Show when={!props.readOnly && senderNotice()}>
+              {(notice) => (
+                <div
+                  role="status"
+                  class="flex flex-wrap items-center gap-2 text-sm text-ink-muted"
+                >
+                  <span>{notice()}</span>
+                  <Show when={canRetrySender()}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={uiDisabled()}
+                      onClick={retrySender}
+                    >
+                      Retry
+                    </Button>
+                  </Show>
+                </div>
+              )}
+            </Show>
+          }
           toolbar={
             props.readOnly === true ? undefined : (
               <EmailComposeToolbar editor={editor} inline />

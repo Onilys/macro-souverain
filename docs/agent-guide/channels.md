@@ -1,5 +1,14 @@
 # Channels and Messaging
 
+## Channel list previews
+
+Message text in channel rows and Home cards is display-only, including quoted
+thread previews. Clicking a link or mention in that text opens the surrounding
+channel or thread, and Tab skips embedded controls. Screen readers still announce
+the message text, including link labels and mention names, once per preview.
+Verify wide and narrow rows and channel/thread cards; links and mentions remain
+interactive inside the opened conversation.
+
 ## Create a channel
 
 1. `Create` → `Channel G`. Dialog `Create a channel` opens on step 1 of 3 with the `Name` textbox focused.

@@ -1,5 +1,19 @@
 # Email
 
+## Thread motion
+
+Message cards animate their height when expanding or collapsing a message or
+its inline reply draft. Hidden messages unfold with the shared collapse
+transition. Check repeated toggles during motion: the card should continue from
+its visible height and settle to natural sizing, with no clipped editor or
+attachments. Resizing the viewport and enabling reduced motion should settle
+immediately. Touch replies keep their existing drawer behavior.
+
+For an isolated check without account data, open
+`/src/features/email-message/browser-test/motion.html` on the Vite server. It
+uses the real message card and collapse transition with local sample content;
+it does not exercise draft persistence or delivery.
+
 ## Email reminder delivery
 
 An email snooze returns its original conversation to the inbox and adds a
@@ -394,6 +408,15 @@ Ordinary queued saves must not request another `EmailThreadPage`; a missing
 thread snapshot or a move between inboxes still requires reconciliation.
 AI email tool drafts persist body-only edits; changing recipients or the subject
 is not required to save the body.
+For an AI-drafted reply with no explicit sender, the backend selects the inbox
+that received the original message. Delay the reply-inbox lookup: the composer
+shows `Resolving sender...`, hides the signature, and disables Send (including
+the keyboard shortcut and batch submission). Fail the lookup and check Retry; choosing a From inbox
+also enables sending immediately. A late lookup must not overwrite that choice.
+Implicit senders omit `from` on edits and sends. An explicit sender is preserved
+even while inboxes load or after disconnection; an unavailable sender blocks Send
+until another connected inbox is selected. New emails default to the primary
+inbox after inboxes load. Repeat on mobile using the expanded `Cc/Bcc, From:` row.
 
 With GraphQL draft queuing enabled, working copies and pending attachment bytes
 are saved on this device independently of the mutation queue. A failed server
@@ -700,7 +723,9 @@ Trashing a thread may cancel unsubmitted scheduled drafts, but must preserve
 submitted and delivery-unconfirmed claims. It must not make either send appear
 cancelled or allow a second delivery while the original outcome is unresolved.
 Resizing media must stop immediately when an editor
-locks, including an active drag and a pending debounced resize.
+locks, including an active drag and a pending debounced resize. Open the GIF
+picker before the lock arrives: it must close, and a pending selection or
+deferred opening must not insert content into the locked draft.
 
 With GraphQL Mail enabled, discarding the last draft in a thread must remove the
 thread from every local Mail view, including after queued replay. Discarding a
