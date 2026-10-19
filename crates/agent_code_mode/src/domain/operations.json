@@ -315,6 +315,8 @@
   "storage.listTeamCalendar": "List Team Calendar",
   "storage.listTeamOutOfOffice": "List Team Out Of Office",
   "storage.getActiveCalls": "Get Active Calls",
+  "storage.guestCallChatRead": "Guest Call Chat Read",
+  "storage.guestCallChatPost": "Guest Call Chat Post",
   "storage.meetingLookup": "Meeting Lookup",
   "storage.meetingGuestJoin": "Meeting Guest Join",
   "storage.meetingLeave": "Meeting Leave",

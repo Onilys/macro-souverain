@@ -12,7 +12,9 @@ or TypeScript compilation happen during a run. SDK local portmap discovery is
 removed from the bundle because service hosts are supplied by the harness.
 
 The harness mints a normal user token lasting 60 seconds after the session's
-execution approval policy permits the run.
+execution approval policy permits the run. Its signed agent identity comes from
+the authenticated session. SDK messages use that agent as sender and record the
+owner as `triggered_by`; other SDK endpoints retain normal user authentication.
 Deno permits network access only to configured Macro service hosts and denies
 filesystem writes, arbitrary imports, subprocesses, environment access and FFI.
 User API authorization and metering apply. Tokens expire; process exit does not

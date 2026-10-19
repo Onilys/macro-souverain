@@ -1296,6 +1296,12 @@ pub async fn run() -> anyhow::Result<()> {
         ),
     );
     let message_commands: Arc<dyn messages::domain::api::MessageCommands> = message_service.clone();
+    let guest_chat_service = Arc::new(
+        messages::domain::service::guest_chat::GuestChatService::new(
+            message_service.clone(),
+            call_service.clone(),
+        ),
+    );
     let messages_state = messages::inbound::axum_router::MessagesRouterState {
         service: message_service.clone(),
         access: entity_access_service.clone(),
@@ -2104,7 +2110,7 @@ pub async fn run() -> anyhow::Result<()> {
                 entity_access_service.as_ref().clone(),
             ),
         ),
-        graphql_soup_update_hydration_loader: graphql_soup::SoupUpdateHydrationLoader(
+        graphql_primary_soup_item_loader: graphql_soup::PrimarySoupItemLoader(
             graphql_soup::soup_item_loader_with_team_access(
                 primary_entity_soup,
                 Arc::new(email_service.clone()),
@@ -2112,8 +2118,8 @@ pub async fn run() -> anyhow::Result<()> {
             ),
         ),
         // Ordinary single-entity GraphQL reads use the replica-backed Soup
-        // and email readers. Subscription hydration and mutation replies
-        // above read the primary.
+        // and email readers. Subscription hydration, `soupEntity`, and
+        // mutation replies above read the primary.
         graphql_soup_item_loader: graphql_soup::soup_item_loader_with_team_access(
             soup_service.clone(),
             Arc::new(readonly_email_service),
@@ -2237,6 +2243,7 @@ pub async fn run() -> anyhow::Result<()> {
             authorization_state.clone(),
         ),
         messages_state,
+        guest_chat_service,
         annotation_service,
         bots_state: bots::inbound::axum_router::BotsRouterState::new(
             bots_service.clone(),

@@ -1,5 +1,14 @@
 # Channels and Messaging
 
+## Channel list previews
+
+Message text in channel rows and Home cards is display-only, including quoted
+thread previews. Clicking a link or mention in that text opens the surrounding
+channel or thread, and Tab skips embedded controls. Screen readers still announce
+the message text, including link labels and mention names, once per preview.
+Verify wide and narrow rows and channel/thread cards; links and mentions remain
+interactive inside the opened conversation.
+
 ## Create a channel
 
 1. `Create` → `Channel G`. Dialog `Create a channel` opens on step 1 of 3 with the `Name` textbox focused.
@@ -1033,8 +1042,15 @@ and returns focus to the chat button; reopening preserves the draft and scroll
 position. The call continues while chat is open or closed.
 
 Signed-in participants in channel, quick, and scheduled calls use the same chat
-panel. Guest meeting participants do not see chat because shared messages require
-a Macro account. Each call session has one persistent message thread, using the
+panel. Guests in quick and scheduled calls can also open chat and read and send
+text without signing in. Guest authors appear as **Name (Guest)**. Their composer
+uses Enter to send on desktop and the Send button on touch devices, preserves drafts on close, and
+keeps failed messages available to retry. Guest chat refreshes while open and is
+available only while that guest is connected to the call. Check a signed-in
+participant and a guest exchanging messages in both directions, then verify the
+guest loses access after leaving or after the call ends. Guest messages remain
+in the saved call discussion. Each call session has one persistent message thread;
+signed-in participants use the
 shared message composer, attachments, reactions, and message actions. The `@`
 menu offers Macro and available owned and team agents. Mention an agent and send
 to invoke it in the call thread; follow-up mentions use the same thread. Reply
@@ -1131,14 +1147,17 @@ In the Chat workspace — and wherever a channel opens inline inside another
 view's detail stack (a channel mention followed from the email view, say) — the
 conversation renders an inline detail whose top bar holds the channel avatar
 and name, the same inset tab strip, live viewer avatars, and the `Call` and
-`Ask Macro` buttons. In Chat an ellipsis follows the name and opens the same
-entity actions as right-clicking the conversation's rail row — `Open in new
-split`, `Rename`, `Set channel picture`, `Remove channel picture` (only when the
-channel has one), `Favorite`/`Unfavorite`, `Remind me`, `Snooze notifications…`, `Mute
-notifications`, `Copy Link`, `Copy ID` — so a channel can be favorited or given
-a picture without finding its row. A channel inlined in
-another view's detail stack has no such menu. The split's own title `...` menu
-offers the same picture actions.
+`Ask Macro` buttons. An ellipsis follows the name — after the breadcrumb where
+the host supplies one, as in Home — and opens the same entity actions as
+right-clicking the conversation's rail row: `Rename`, `Set channel picture`,
+`Remove channel picture` (only when the channel has one),
+`Favorite`/`Unfavorite`, `Snooze notifications…`, `Mute notifications`,
+`Remind me`, `Copy Link`, `Copy ID`. A channel can therefore be favorited or
+given a picture without finding its row, from Chat and from every view that
+opens one inline. The menu appears once the conversation itself has loaded,
+reusing a cached conversation without another activation fetch. Opening the
+conversation still refreshes its unread notifications. The split's own title
+`...` menu offers the same picture actions.
 
 `Calls` tab: recordings, transcriptions, and summaries for this channel. Click a
 row to open the call. The search field above the list matches call names and

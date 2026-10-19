@@ -37,6 +37,7 @@ import type {
   ListLabelsResponse,
   ListLinksResponse,
   MailboxSettingsOperation,
+  ParsedMessage,
   PatchSettingsRequest,
   PatchSettingsResponse,
   ResolveMessageOperationRequest,
@@ -233,6 +234,13 @@ export const emailClient = {
           method: 'GET',
         }
       )
+    ).map((result) => result);
+  },
+  async getMessage(args: { message_id: string }) {
+    return (
+      await emailFetch<ParsedMessage>(`/email/messages/${args.message_id}`, {
+        method: 'GET',
+      })
     ).map((result) => result);
   },
   async getUserLabels() {

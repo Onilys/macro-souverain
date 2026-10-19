@@ -102,6 +102,7 @@ import {
 import { createEmailInboxSource } from './queries/inbox-source';
 import { queuedDraftSaveArgs } from './queries/queued-draft';
 import { restoreDraftBodyAfterUndo, runUndoSend } from './undo-send';
+import { uploadAttachmentDocuments } from './upload-documents';
 
 export type EmailComposeContextOptions = {
   /** Transport of the thread read this surface sits under; a compose surface has none. */
@@ -248,6 +249,7 @@ export function createEmailComposeContext(
     editorFiles: {
       readDroppedFiles: readDroppedEmailFiles,
       makePublic: makeAttachmentPublic,
+      uploadDocuments: uploadAttachmentDocuments,
       uploadEditorFiles(input) {
         if (!input.editor) return;
         handleFileFolderDrop(
@@ -297,6 +299,7 @@ export function createEmailComposeContext(
           { owner: dialogOwner }
         );
       },
+      confirm: (input) => confirmDialog(input, { owner: dialogOwner }),
       reportError,
     },
     drafts: {

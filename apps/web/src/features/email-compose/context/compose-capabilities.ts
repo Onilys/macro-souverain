@@ -267,6 +267,12 @@ export interface EmailComposeFeedback {
   };
   /** A modal notice with a single acknowledgement; resolves when dismissed. */
   blockingNotice(input: { title: string; body: string }): Promise<void>;
+  /** A modal choice; resolves true only when the user confirms. */
+  confirm(input: {
+    title: string;
+    body: string;
+    confirmLabel: string;
+  }): Promise<boolean>;
   reportError(error: unknown): void;
 }
 
@@ -293,9 +299,18 @@ export interface EmailComposePresentation {
   signaturesEnabled: Accessor<boolean>;
 }
 
+/** A file stored as a Macro document, as a body link names it. */
+export interface UploadedDocument {
+  documentId: string;
+  name: string;
+  blockName: string;
+}
+
 export interface EmailEditorFiles {
   readDroppedFiles: import('./editor-capabilities').ComposeBodyActions['readDroppedFiles'];
   makePublic(id: string): void;
+  /** Stores files as documents; resolves with the ones that succeeded after reporting the rest. */
+  uploadDocuments(files: File[]): Promise<UploadedDocument[]>;
   uploadEditorFiles(input: {
     editor: LexicalEditor | undefined;
     sourceId?: string;

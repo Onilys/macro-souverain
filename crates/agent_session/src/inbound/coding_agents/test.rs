@@ -19,6 +19,7 @@ struct UserCredentials;
 impl JwtValidator for UserCredentials {
     fn validate(&self, _: &str) -> Result<ValidatedIdentity, Report<MacroAuthorizationError>> {
         Ok(ValidatedIdentity {
+            agent_id: None,
             user_id: USER.into(),
             fusion_user_id: "fusion-owner".into(),
             organization_id: None,

@@ -94,7 +94,8 @@ For local verification, set `VITE_ENABLE_QUICK_CALLS=true` or `false` explicitly
 During a quick or scheduled call, signed-in participants can open **Call chat**
 from its separate button at the far right of the bottom toolbar. Messages persist
 with that call session and are visible in its recording page after it ends.
-Guests do not see chat. The `@` menu includes Macro and available agents;
+Guests can open the same call discussion and read and send text while connected;
+their messages show their name with **(Guest)**. The signed-in composer’s `@` menu includes Macro and available agents;
 mentioning one invokes it in the call thread. Reply on any live message, including
 your own, quotes it in the bottom composer. Verify the reply preserves a draft,
 an agent reply appears, and messages remain in the saved history; starting a
@@ -153,8 +154,10 @@ Uncertain calendar writes retain the booking and show its private receipt while 
 After a network response cannot be verified, `Check booking status` retries the original request;
 do not create a replacement booking. Receipt pages poll while the calendar update is pending. The private
 `/app/booking/:id#token` receipt supports cancellation and rescheduling; preserve
-that private link. Rescheduling dates are labelled in the availability schedule's
-time zone. Calendar provider failures show an error; they never report a
+that private link. Rescheduling defaults to the browser's time zone; `Your time
+zone` controls both the selected calendar date and the displayed times. Changing
+the zone clears the date and times and discards outstanding availability results.
+Calendar provider failures show an error; they never report a
 confirmed booking. Current integrations check hosts' connected calendars and
 write invitations/Google Meet through the existing calendar service.
 

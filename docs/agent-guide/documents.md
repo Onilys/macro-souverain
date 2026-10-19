@@ -2662,6 +2662,22 @@ highlight; deleting a placeable's discussion removes the placeable. An anchor bo
 to a legacy annotation thread that was never imported stays hidden rather than
 shown as a bare highlight.
 
+## PDF signatures
+
+Choose **Signature** in the PDF toolbar, then click the page where it should go.
+The **Draw signature** dialog opens over the active PDF. Drag across the canvas
+with a mouse, pen, or finger; **Use signature** becomes available after drawing.
+Confirm to place the signature, then drag it to adjust its position. **Cancel
+signature**, Escape, or clicking outside discards the unfinished placement.
+Signatures are saved into that PDF through its normal save flow; reusable saved
+signatures are not available yet.
+
+When verifying this flow, draw near the right and bottom edges as well as the
+center. Check at desktop and phone widths and at 2x pixel density; strokes should
+stay under the pointer, survive resizing, and appear on the PDF after confirming.
+Reopen the dialog and verify it stays centered during its opening animation and
+starts with an empty canvas. Cancelling must leave no empty signature box.
+
 ## Word (DOCX) editor
 
 When `enable-docx-editor` is on, uploaded `.docx` files open at

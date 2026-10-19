@@ -999,6 +999,80 @@
         }
       }
     },
+    "/call/guest-chat/{call_id}": {
+      "get": {
+        "tags": ["messages::inbound::guest_chat"],
+        "summary": "Read the live call discussion as a verified guest.",
+        "operationId": "guest_call_chat_read",
+        "parameters": [
+          {
+            "name": "call_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuestChatPage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": ""
+          }
+        }
+      },
+      "post": {
+        "tags": ["messages::inbound::guest_chat"],
+        "summary": "Append text to the same saved discussion used by account participants.",
+        "operationId": "guest_call_chat_post",
+        "parameters": [
+          {
+            "name": "call_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuestChatPost"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuestChatMessage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/call/join/{token}": {
       "get": {
         "tags": ["call::inbound::axum_router::meetings"],
@@ -30648,6 +30722,70 @@
         "description": "Sort method for grouped queries (frecency not supported).",
         "enum": ["viewed_at", "created_at", "updated_at", "viewed_updated"]
       },
+      "GuestChatMessage": {
+        "type": "object",
+        "description": "Guest-safe message projection: no account identities, attachments, or entity grants.",
+        "required": ["id", "name", "guest", "is_you", "content", "created_at"],
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "Message body."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation time."
+          },
+          "guest": {
+            "type": "boolean",
+            "description": "Whether the author is a guest."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Persisted message identity."
+          },
+          "is_you": {
+            "type": "boolean",
+            "description": "Whether this session authored the message."
+          },
+          "name": {
+            "type": "string",
+            "description": "Display-only author name."
+          }
+        }
+      },
+      "GuestChatPage": {
+        "type": "object",
+        "description": "Messages in the call's one discussion, oldest first.",
+        "required": ["messages"],
+        "properties": {
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GuestChatMessage"
+            },
+            "description": "Visible, nondeleted messages."
+          }
+        }
+      },
+      "GuestChatPost": {
+        "type": "object",
+        "description": "Guests may send text only; attribution and parent are server-owned.",
+        "required": ["id", "content"],
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "Text to append to the call discussion."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUIDv7 used to deduplicate retries, including the first message."
+          }
+        },
+        "additionalProperties": false
+      },
       "GuestId": {
         "type": "string",
         "format": "uuid",
@@ -32040,7 +32178,7 @@
       },
       "MeetingToken": {
         "type": "string",
-        "description": "A bearer capability that grants access only to a meeting's RTC room."
+        "description": "An invitation capability for joining a meeting's RTC room. Chat additionally\nrequires the resulting participant credential and current guest membership."
       },
       "MeetingsResponse": {
         "type": "object",
@@ -32107,6 +32245,10 @@
             "type": ["string", "null"],
             "format": "date-time",
             "description": "Last content edit, if any."
+          },
+          "guest_name": {
+            "type": ["string", "null"],
+            "description": "Display name of a verified call guest, retained after the call ends."
           },
           "id": {
             "type": "string",

@@ -66,6 +66,7 @@ describe('meeting session ownership', () => {
     });
     await session.join(undefined, preferences);
     const leaving = session.leave();
+    expect(session.credentials()).toBeUndefined();
     expect(capabilities.release).toHaveBeenCalledExactlyOnceWith(
       token.shareToken,
       token.token
@@ -257,6 +258,7 @@ describe('meeting session ownership', () => {
 
   it('validates guest names before requesting a token and respects media preferences', async () => {
     const { session, capabilities, dispose } = setup();
+    expect(session.credentials()).toBeUndefined();
     await session.join('  ', preferences);
     expect(capabilities.join).not.toHaveBeenCalled();
     expect(session.error()).toContain('Enter your name');
@@ -264,7 +266,9 @@ describe('meeting session ownership', () => {
     expect(capabilities.join).toHaveBeenCalledWith('Taylor');
     expect(capabilities.connect).toHaveBeenCalledWith(token, preferences);
     expect(session.joinedCallId()).toBe(token.callId);
+    expect(session.credentials()).toEqual(token);
     dispose();
+    expect(session.credentials()).toBeUndefined();
   });
 
   it('releases a late token after the page is closed without opening media', async () => {
@@ -307,6 +311,7 @@ describe('meeting session ownership', () => {
     expect(session.joining()).toBe(false);
     expect(session.error()).toContain('Could not join');
     expect(session.joinedCallId()).toBeUndefined();
+    expect(session.credentials()).toBeUndefined();
     dispose();
   });
 

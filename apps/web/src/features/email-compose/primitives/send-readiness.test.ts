@@ -105,8 +105,6 @@ describe('refuseSend', () => {
           alert: vi.fn(),
           dismiss: vi.fn(),
         },
-        blockingNotice: vi.fn(),
-        reportError: vi.fn(),
       },
       'attachment-not-uploaded'
     );

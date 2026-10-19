@@ -145,12 +145,14 @@ vi.mock('../components/crm-sidebar', () => ({
   CrmSidebar: (props: {
     pipelines?: JSX.Element;
     onNavigate: (id: string) => void;
-    onCollapse: () => void;
+    onCollapse?: () => void;
   }) => (
     <nav aria-label="CRM sidebar">
-      <button type="button" onClick={props.onCollapse}>
-        Collapse CRM sidebar
-      </button>
+      <Show when={props.onCollapse}>
+        <button type="button" onClick={props.onCollapse}>
+          Collapse CRM sidebar
+        </button>
+      </Show>
       <button type="button" onClick={() => props.onNavigate('active')}>
         Companies
       </button>
@@ -345,16 +347,21 @@ it('shows a pipeline another view asks for, in place of an open record', () => {
   expect(screen.queryByText('Sales record company:acme')).toBeNull();
 });
 
-it('closes the narrow navigation menu on collapse without saving the preference', () => {
+it('keeps the split close in the header and offers no collapse in the narrow navigation menu', () => {
   fixture.touch = false;
   fixture.narrow = true;
   setup('pipeline:sales');
-  const collapses = () =>
-    screen.getAllByRole('button', { name: 'Collapse CRM sidebar' });
-  fireEvent.click(screen.getByRole('button', { name: 'Show CRM navigation' }));
-  expect(collapses()).toHaveLength(2);
-  fireEvent.click(collapses()[1]!);
-  expect(collapses()).toHaveLength(1);
+  const trigger = screen.getByRole('button', { name: 'Show CRM navigation' });
+  expect(
+    screen.getByRole('button', { name: 'Close split' }).nextElementSibling
+  ).toBe(trigger.parentElement);
+  fireEvent.click(trigger);
+  expect(
+    screen.getAllByRole('navigation', { name: 'CRM sidebar' })
+  ).toHaveLength(2);
+  expect(
+    screen.getAllByRole('button', { name: 'Collapse CRM sidebar' })
+  ).toHaveLength(1);
   expect(fixture.setCollapsed).not.toHaveBeenCalled();
 });
 

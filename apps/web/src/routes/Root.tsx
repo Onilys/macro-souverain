@@ -52,6 +52,7 @@ import {
 } from '@theme/utils/themeUtils';
 import { detect } from 'detect-browser';
 import { createEffect, type JSX, on, onCleanup, onMount } from 'solid-js';
+import { perfMark } from '../observability/perf-marks';
 import { AppRouterView } from './app-router-view';
 
 import { useSyncLoginCookie } from './use-sync-login-cookie';
@@ -196,6 +197,7 @@ export function Root() {
   });
 
   onMount(() => {
+    perfMark('boot.root-mounted');
     applyTheme(resolveActiveThemeId());
     ensureMinimalThemeContrast();
   });
