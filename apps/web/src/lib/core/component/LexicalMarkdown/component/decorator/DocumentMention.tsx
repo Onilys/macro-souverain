@@ -49,7 +49,6 @@ import {
   type PreviewCalendarEventAccess,
   type PreviewItemNoAccess,
 } from '@queries/preview';
-import { useDatabaseDetailQuery } from '@queries/storage/databases';
 import { useFormDetailQuery } from '@queries/storage/forms';
 import { useSystemSkillsQuery } from '@queries/storage/system-skills';
 import { blockNameToItemType } from '@service-storage/client';
@@ -413,7 +412,7 @@ export function DocumentMention(props: DocumentMentionDecoratorProps) {
   );
 }
 
-/** Databases have their own permission-checked metadata, not a document preview. */
+/** Databases keep an expand-to-card control; access uses the shared preview. */
 function DatabaseMention(props: DocumentMentionDecoratorProps) {
   const wrapper = useContext(LexicalWrapperContext);
   const [editable, setEditable] = createSignal(
@@ -426,13 +425,18 @@ function DatabaseMention(props: DocumentMentionDecoratorProps) {
       })
     );
   const enabled = useFeatureFlag(enableDatabases);
-  const detail = useDatabaseDetailQuery(() =>
-    enabled().enabled ? props.documentId : undefined
-  );
-  const name = () =>
-    detail.isSuccess ? detail.data.database.name : props.documentName;
+  const previewData = useItemPreviewData(() => ({
+    id: props.documentId,
+    type: 'database',
+  }));
+  const { item } = previewData;
+  const accessible = createMemo(() => isAccessiblePreviewItem(item()));
+  const isRecentMention = createMemo(() => {
+    if (!props.createdAt) return false;
+    return Date.now() - props.createdAt < RECENT_MENTION_THRESHOLD_MS;
+  });
   const open = (event: MouseEvent | KeyboardEvent) => {
-    if (detail.isError) return;
+    if (!accessible()) return;
     event.preventDefault();
     event.stopPropagation();
     openDocument(
@@ -463,19 +467,15 @@ function DatabaseMention(props: DocumentMentionDecoratorProps) {
           if (event.key === 'Enter') open(event);
         }}
       >
-        <MentionContainer
-          icon={<EntityIcon targetType="database" size="fill" />}
+        <InlinePreview
+          previewData={previewData}
+          entity={{ id: props.documentId, type: 'database' }}
+          blockName="database"
+          blockParams={props.blockParams ?? {}}
           collapsed={props.collapsed}
-          text={
-            <span
-              data-document-mention="true"
-              data-document-id={props.documentId}
-              data-block-name="database"
-              data-document-name={name()}
-            >
-              {detail.isError ? 'Database unavailable' : name() || 'Database'}
-            </span>
-          }
+          documentName={props.documentName}
+          createdAt={props.createdAt}
+          isRecentMention={isRecentMention}
         />
       </span>
       <Show
@@ -483,7 +483,7 @@ function DatabaseMention(props: DocumentMentionDecoratorProps) {
           enabled().enabled &&
           editable() &&
           wrapper?.isInteractable() &&
-          !detail.isError
+          accessible()
         }
       >
         <Button
