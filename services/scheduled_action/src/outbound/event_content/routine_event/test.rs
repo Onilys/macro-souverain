@@ -443,6 +443,7 @@ fn a_channel_reply_carries_its_thread_through_the_message() {
         deleted_at: None,
         attachments: Vec::new(),
         reactions: Vec::new(),
+        broadcast_from_thread: None,
     };
     let content = EventContent::Channel {
         channel: ChannelMetadata {
@@ -477,6 +478,7 @@ fn a_channel_reply_carries_its_thread_through_the_message() {
                     deleted_at: None,
                     attachments: Vec::new(),
                     reactions: Vec::new(),
+                    broadcast_from_thread: None,
                 },
                 replies: vec![
                     Message {
@@ -495,6 +497,7 @@ fn a_channel_reply_carries_its_thread_through_the_message() {
                         deleted_at: None,
                         attachments: Vec::new(),
                         reactions: Vec::new(),
+                        broadcast_from_thread: None,
                     },
                     Message {
                         id: deleted_id,
@@ -512,6 +515,7 @@ fn a_channel_reply_carries_its_thread_through_the_message() {
                         deleted_at: Some(at(3)),
                         attachments: Vec::new(),
                         reactions: Vec::new(),
+                        broadcast_from_thread: None,
                     },
                     prompt,
                     Message {
@@ -530,6 +534,7 @@ fn a_channel_reply_carries_its_thread_through_the_message() {
                         deleted_at: None,
                         attachments: Vec::new(),
                         reactions: Vec::new(),
+                        broadcast_from_thread: None,
                     },
                 ],
             }),

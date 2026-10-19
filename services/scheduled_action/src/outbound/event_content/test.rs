@@ -128,6 +128,7 @@ fn message(content: &str) -> Message {
         deleted_at: None,
         attachments: Vec::new(),
         reactions: Vec::new(),
+        broadcast_from_thread: None,
     }
 }
 
