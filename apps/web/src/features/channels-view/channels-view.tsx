@@ -23,7 +23,10 @@ import {
 } from 'solid-js';
 import { ChannelsViewProvider, useChannelsView } from './channels-view-context';
 import { ChannelDetailView } from './components/ChannelDetailView';
-import { ChannelsMobileView } from './components/ChannelsMobileView';
+import {
+  ChannelsMobileHeader,
+  ChannelsMobileView,
+} from './components/ChannelsMobileView';
 import { ChannelThreadsView } from './components/ChannelThreadsView';
 import { ChannelsRail } from './components/rail/ChannelsRail';
 import { createChannelDetail } from './primitives/create-channel-detail';
@@ -220,6 +223,7 @@ function ChannelsViewRoot() {
               }
             >
               <MaybeSoupEntityActionDrawerManager>
+                <ChannelsMobileHeader />
                 <DebugSuspense
                   name="ChannelsView.mobile"
                   fallback={

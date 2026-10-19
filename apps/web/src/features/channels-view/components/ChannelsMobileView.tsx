@@ -5,6 +5,8 @@ import { SoupEntityContextMenu } from '@app/features/soup';
 import { DEBUG_SETTING_KEYS, useDebugSetting } from '@app/lib/debugSettings';
 import { useGlobalNotificationSource } from '@components/app/GlobalAppState';
 import { PullToRefresh } from '@components/app/mobile/PullToRefresh';
+import { HeaderIsland } from '@components/app/split-layout/components/HeaderIsland';
+import { SplitHeaderLeft } from '@components/app/split-layout/components/SplitHeader';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
 import { toast } from '@core/component/Toast/Toast';
 import { useUserId } from '@core/context/user';
@@ -40,6 +42,17 @@ import { useChannelRailActivity } from './rail/hooks/useChannelRailActivity';
 
 const MOBILE_CHANNEL_BUFFER_SIZE = CONVERSATION_CARD_HEIGHT * 6;
 const LOAD_MORE_THRESHOLD = 300;
+
+/** Mobile header showing the "Chat" title in a floating island. */
+export function ChannelsMobileHeader() {
+  return (
+    <SplitHeaderLeft>
+      <HeaderIsland class="min-w-0 shrink px-3">
+        <span class="truncate text-sm font-semibold text-ink">Chat</span>
+      </HeaderIsland>
+    </SplitHeaderLeft>
+  );
+}
 
 export function ChannelsMobileView(props: {
   source: ChannelsDataSource;
