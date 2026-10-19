@@ -2,6 +2,7 @@ export type { TranslationKey } from './dictionary';
 export {
   inEnglish,
   interfaceLanguage,
+  interfaceLanguageReady,
   setInterfaceLanguage,
   t,
 } from './i18n';

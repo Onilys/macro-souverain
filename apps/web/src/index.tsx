@@ -15,6 +15,7 @@ import { Telemetry } from '@macro-inc/observability';
 import { initMonochromeIcons } from '@ui/utils/monochromeIcons';
 import { ErrorBoundary, render } from 'solid-js/web';
 import { FatalError } from './components/app/FatalError';
+import { interfaceLanguageReady } from './lib/i18n';
 import { Root } from './routes/Root';
 
 // Override global fetch with platformFetch for Tauri compatibility
@@ -99,7 +100,12 @@ const renderApp = () => {
 };
 
 async function main() {
-  await initializeBrowserObservability();
+  // A translated interface waits for its messages (already loading, cached
+  // after the first visit) so the first screen isn't English for a moment.
+  await Promise.all([
+    initializeBrowserObservability(),
+    interfaceLanguageReady(1000),
+  ]);
 
   console.log('App Version ', import.meta.env.__APP_VERSION__);
 

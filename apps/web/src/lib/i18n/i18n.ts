@@ -78,6 +78,9 @@ const [translation, setTranslation] = createSignal<PartialDictionary>({});
 /** The language the interface is currently shown in. */
 export const interfaceLanguage = language;
 
+/** Settles when the current language's messages are in place. */
+let loading: Promise<void> = Promise.resolve();
+
 /**
  * Switches the interface language. Messages stay in the previous language
  * until the new translation has loaded, then every `t` call updates.
@@ -87,9 +90,24 @@ export function setInterfaceLanguage(next: Language): void {
   document.documentElement.lang = next;
   if (next === 'en') {
     setTranslation({});
+    loading = Promise.resolve();
     return;
   }
-  fireAndForget(loadTranslation(next), 'i18n');
+  loading = loadTranslation(next);
+  fireAndForget(loading, 'i18n');
+}
+
+/**
+ * Settles once the interface language's messages have loaded, or after
+ * `timeoutMs`. The first render waits on it so the app doesn't paint in
+ * English and then switch; the timeout keeps a slow network from holding
+ * back the first screen.
+ */
+export function interfaceLanguageReady(timeoutMs: number): Promise<void> {
+  return Promise.race([
+    loading,
+    new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
+  ]);
 }
 
 async function loadTranslation(next: Exclude<Language, 'en'>) {
@@ -99,8 +117,16 @@ async function loadTranslation(next: Exclude<Language, 'en'>) {
   );
   if (loaded.isErr()) {
     Telemetry.error(loaded.error, { surface: 'i18n', language: next });
-    // Fall back to English rather than keep showing the previous language.
+    // Fall back to English rather than keep showing the previous language,
+    // and try again once the connection is back.
     if (language() === next) setTranslation({});
+    window.addEventListener(
+      'online',
+      () => {
+        if (language() === next) setInterfaceLanguage(next);
+      },
+      { once: true }
+    );
     return;
   }
   // A later switch may have finished first; only the current one applies.
