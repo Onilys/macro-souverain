@@ -6,6 +6,7 @@ import { useSplitLayout } from '@components/app/split-layout/layout';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
 import { StaticMarkdownContext } from '@core/component/LexicalMarkdown/component/core/StaticMarkdown';
 import { toast } from '@core/component/Toast/Toast';
+import { isNativeMobilePlatform } from '@core/mobile/isNativeMobilePlatform';
 import {
   type EntityData,
   ListEntity,
@@ -64,12 +65,18 @@ function MobileNameResults() {
     await Telemetry.span('mobile.search.open', async (span) => {
       span.setAttr('entity.id', item.id);
       span.setAttr('entity.type', item.bucket);
+      // On native mobile, replace the search view in the stack so swiping back
+      // returns to the view before search, not to an empty search screen.
+      const mergeHistory = isNativeMobilePlatform();
       if (item.kind === 'initiative') {
         SearchState.close();
-        openWithSplit({
-          type: 'component',
-          id: projectRouteId({ id: item.id, section: 'overview' }),
-        });
+        openWithSplit(
+          {
+            type: 'component',
+            id: projectRouteId({ id: item.id, section: 'overview' }),
+          },
+          { mergeHistory }
+        );
       } else if (item.kind === 'user') {
         const result = await directMessage.mutateAsync({
           recipient_id: item.id,
@@ -77,12 +84,13 @@ function MobileNameResults() {
         SearchState.close();
         openWithSplit(
           { type: 'channel', id: result.channel_id },
-          { reopen: 'latest' }
+          { reopen: 'latest', mergeHistory }
         );
       } else {
         SearchState.close();
         await openEntityInSplitFromUnifiedList(item.data, {
           splitHandle: panel.handle,
+          mergeHistory,
         });
       }
     });
@@ -192,9 +200,12 @@ function MobileFullTextResults() {
         span.setAttr('entity.type', entity.type);
         span.setAttr('search.content_hit', !!location);
         SearchState.close();
+        // On native mobile, replace the search view in the stack so swiping back
+        // returns to the view before search, not to an empty search screen.
         await openEntityInSplitFromUnifiedList(entity, {
           splitHandle: panel.handle,
           location,
+          mergeHistory: isNativeMobilePlatform(),
         });
       });
     } catch {

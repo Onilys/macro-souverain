@@ -257,7 +257,7 @@ it('preserves the search after a failed person lookup and closes after a success
   await waitFor(() =>
     expect(mocks.open).toHaveBeenCalledWith(
       { type: 'channel', id: 'direct-message' },
-      { reopen: 'latest' }
+      { reopen: 'latest', mergeHistory: false }
     )
   );
   expect(SearchState.isOpen()).toBe(false);
@@ -289,6 +289,7 @@ it('opens the selected full-text message and resets the session', () => {
   expect(mocks.open).toHaveBeenCalledWith(email, {
     splitHandle: {},
     location: { type: 'email', messageId: 'matching-message' },
+    mergeHistory: false,
   });
   expect(SearchState.isOpen()).toBe(false);
   expect(SearchState.query()).toBe('');
