@@ -12,6 +12,7 @@ fn reply(seconds: i64) -> Message {
         sender_id: "macro|reply@example.com".to_owned().try_into().unwrap(),
         triggered_by: None,
         bot_profile: None,
+        guest_name: None,
         imported_author: None,
         mentions: vec![],
         content: "reply".into(),

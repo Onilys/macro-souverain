@@ -1,4 +1,5 @@
 import { toast } from '@core/component/Toast/Toast';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { SYSTEM_PROPERTY_IDS } from '@property/identifiers';
 import { hasValue } from '@property/utils/typeGuards';
 import { Button } from '@ui/components/Button';
@@ -117,7 +118,7 @@ export function TaskBoardView(props: {
     on(
       () => board.columns().length === 0 && canLoadGlobalPage(),
       (ready) => {
-        if (ready) void pagination.load();
+        if (ready) fireAndForget(pagination.load(), 'tasks-view');
       }
     )
   );
@@ -130,13 +131,13 @@ export function TaskBoardView(props: {
         !pagination.error(column.id)
       )
         return () => {
-          void pagination.load(column.id);
+          fireAndForget(pagination.load(column.id), 'tasks-view');
         };
       return;
     }
     if (canLoadGlobalPage())
       return () => {
-        void pagination.load();
+        fireAndForget(pagination.load(), 'tasks-view');
       };
   };
 
@@ -231,7 +232,10 @@ export function TaskBoardView(props: {
           class="flex items-center gap-2 px-4 py-2 text-sm text-failure"
         >
           Could not load all tasks.
-          <Button size="sm" onClick={() => void read(source.refresh)}>
+          <Button
+            size="sm"
+            onClick={() => fireAndForget(read(source.refresh), 'tasks-view')}
+          >
             Retry
           </Button>
         </div>
@@ -241,7 +245,9 @@ export function TaskBoardView(props: {
           Could not load task properties. Moving tasks is unavailable.
           <Button
             size="sm"
-            onClick={() => void read(props.data.retryDefinitions)}
+            onClick={() =>
+              fireAndForget(read(props.data.retryDefinitions), 'tasks-view')
+            }
           >
             Retry
           </Button>
@@ -309,7 +315,10 @@ export function TaskBoardView(props: {
                           size="sm"
                           disabled={pagination.isLoading(column().id)}
                           onClick={() =>
-                            void pagination.load(column().id, true)
+                            fireAndForget(
+                              pagination.load(column().id, true),
+                              'tasks-view'
+                            )
                           }
                         >
                           Retry
@@ -350,7 +359,9 @@ export function TaskBoardView(props: {
             <Button
               size="sm"
               disabled={pagination.isLoading()}
-              onClick={() => void pagination.load(undefined, true)}
+              onClick={() =>
+                fireAndForget(pagination.load(undefined, true), 'tasks-view')
+              }
             >
               Retry
             </Button>

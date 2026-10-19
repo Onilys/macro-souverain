@@ -595,7 +595,7 @@ it('starts groups in order, skips collapsed groups, and retains revealed groups 
 
 it.each(['list', 'board', 'gantt', 'loadAll', 'date'] as const)(
   'shares lazy group pages while keeping board columns independent (%s)',
-  (layout) => {
+  async (layout) => {
     fixture.calls = [];
     fixture.query = {
       transport: 'graphql',
@@ -628,7 +628,7 @@ it.each(['list', 'board', 'gantt', 'loadAll', 'date'] as const)(
       ])
     );
     fixture.groupQueries = groupQueries;
-    createRoot((dispose) => {
+    await createRoot(async (dispose) => {
       try {
         const source = useTasksDataSource(
           {
@@ -668,7 +668,7 @@ it.each(['list', 'board', 'gantt', 'loadAll', 'date'] as const)(
           const second = groupQueries.get('b');
           expect(first?.fetchNextPage).not.toHaveBeenCalled();
           expect(second?.fetchNextPage).not.toHaveBeenCalled();
-          void source.loadMoreGroup('b');
+          await source.loadMoreGroup('b');
           expect(second?.fetchNextPage).toHaveBeenCalledOnce();
           expect(first?.fetchNextPage).not.toHaveBeenCalled();
         }

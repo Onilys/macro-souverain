@@ -345,7 +345,7 @@ describe('createGraphqlGroupedSoupQueries', () => {
       groupedSoupInputKey(initialInput)
     );
     let firstASettled = false;
-    void firstA.then(() => {
+    const firstASettledFlag = firstA.then(() => {
       firstASettled = true;
     });
     fake.executions[1]?.next(
@@ -361,6 +361,7 @@ describe('createGraphqlGroupedSoupQueries', () => {
       page([group('a', ['a-2'], 'a-cursor-2')], [item('a-2')])
     );
     await firstA;
+    await firstASettledFlag;
     expect(a.isFetchingNextPage()).toBe(false);
     expect(entityIds(a)).toEqual(['a-1', 'a-2']);
 

@@ -13,6 +13,7 @@ import {
 import { useGlobalNotificationSource } from '@components/app/GlobalAppState';
 import { useSplitPanel } from '@components/app/split-layout/layoutUtils';
 import { toast } from '@core/component/Toast/Toast';
+import { fireAndForget } from '@core/util/fireAndForget';
 import type { EntityData } from '@entity';
 import { type Accessor, createSignal, onCleanup } from 'solid-js';
 
@@ -129,7 +130,8 @@ export function useEmailListNavigation(
           navigate: false,
           navigateBack:
             current && next
-              ? () => void open(current, referredFrom)
+              ? () =>
+                  fireAndForget(open(current, referredFrom), 'email-navigation')
               : undefined,
         })
       )
@@ -148,13 +150,13 @@ export function useEmailListNavigation(
     canPrevious: () => !navigating() && !!target(-1),
     canNext: () => !navigating() && (!!target(1) || canLoadNext()),
     previous: () => {
-      void navigate(-1);
+      fireAndForget(navigate(-1), 'email-navigation');
     },
     next: () => {
-      void navigate(1);
+      fireAndForget(navigate(1), 'email-navigation');
     },
     markDone: (archiveThread) => {
-      void navigate(1, archiveThread);
+      fireAndForget(navigate(1, archiveThread), 'email-navigation');
     },
   };
 }

@@ -4,6 +4,7 @@ import { deriveGanttRange } from '@app/components/gantt/gantt-date';
 import type { GanttRowViewport } from '@app/components/gantt/gantt-row-viewport';
 import { createGroupPaginationViewport } from '@app/features/next-soup/primitives/group-pagination-viewport';
 import { UserIcon } from '@core/component/UserIcon';
+import { fireAndForget } from '@core/util/fireAndForget';
 import {
   getPropertyOptionLabel,
   getTaskStatusOptionId,
@@ -132,7 +133,7 @@ export function TaskGanttView(props: {
           row.kind === 'load-more' && boundaryKey(row) === key && row.isLoading
       ),
     error: (key) => (pageError(key) ? new Error('Could not load tasks') : null),
-    load: (key) => void load(key),
+    load: (key) => fireAndForget(load(key), 'tasks-view'),
   });
   createEffect(() => {
     const element = viewport()?.element();
@@ -154,7 +155,11 @@ export function TaskGanttView(props: {
         class="inline-flex items-center gap-2 text-xs text-ink-muted"
       >
         Couldn’t load tasks.
-        <Button size="sm" variant="ghost" onClick={() => void load(key, true)}>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => fireAndForget(load(key, true), 'tasks-view')}
+        >
           Retry
         </Button>
       </span>
@@ -178,7 +183,11 @@ export function TaskGanttView(props: {
             class="flex flex-1 flex-col items-center justify-center gap-3 text-sm text-ink-muted"
           >
             Tasks couldn’t be loaded.
-            <Button onClick={() => void props.source.refresh?.()}>
+            <Button
+              onClick={() =>
+                fireAndForget(props.source.refresh?.(), 'tasks-view')
+              }
+            >
               Try again
             </Button>
           </div>

@@ -118,7 +118,7 @@ in the background, so the next call does not wait for that room to be deleted.
 It keeps its label and shows a checkmark for a few seconds after copying, then
 restores the copy icon.
 
-Guest access is limited to the call room; joining does not expose the channel or grant
+Guest access is limited to the call room and its live text discussion; joining does not expose the channel or grant
 anonymous access to saved transcripts and recordings. Guest names are preserved in
 the host's call history. Signed-in attendees receive access to that session's saved
 call without gaining access to the channel.

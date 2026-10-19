@@ -44,7 +44,6 @@ import {
   createMemo,
   createSignal,
   Match,
-  onCleanup,
   type Setter,
   Show,
   Switch,
@@ -55,6 +54,7 @@ import {
   DEFAULT_TASKS_LIST_STATE,
   type TasksListStateSnapshot,
 } from '../../persistence';
+import { createTaskBoundaryNavigation } from '../../primitives/create-task-boundary-navigation';
 import type { TasksDataSourceItem } from '../../queries/use-tasks-query';
 import {
   type TasksListActivationMetadata,
@@ -66,6 +66,7 @@ import { TaskListHeader } from './TaskListHeader';
 import { taskGridColumnCount } from './task-grid-template';
 import './task-list.css';
 import { ProjectAssignmentDialog } from '@app/features/projects/projects';
+import { fireAndForget } from '@core/util/fireAndForget';
 
 function ResponsiveTaskListHeader() {
   const layout = useListLayout();
@@ -131,11 +132,14 @@ export function TaskList(props: TaskListProps) {
       mergeHistory?: boolean;
     } = {}
   ) {
-    void openEntityInSplitFromUnifiedList(entity, {
-      splitHandle: panel.handle,
-      referredFrom: 'tasks',
-      ...options,
-    });
+    fireAndForget(
+      openEntityInSplitFromUnifiedList(entity, {
+        splitHandle: panel.handle,
+        referredFrom: 'tasks',
+        ...options,
+      }),
+      'open-entity-in-split'
+    );
   }
 
   function onActivate({
@@ -149,16 +153,20 @@ export function TaskList(props: TaskListProps) {
     }
 
     if (item.kind === 'load-more' && item.groupId !== undefined) {
+      if (source.paginationReady?.() === false) return;
       const focusIndex = list.items.indexOf(item.id);
-      void source.loadMoreGroup(item.groupId).then(() => {
-        if (list.focus.requestedKey() !== item.id) return;
+      fireAndForget(
+        source.loadMoreGroup(item.groupId).then(() => {
+          if (list.focus.requestedKey() !== item.id) return;
 
-        list.focus.restore(item.id, {
-          fallback: 'nearest',
-          nearestIndex: focusIndex,
-          retainUnavailable: false,
-        });
-      });
+          list.focus.restore(item.id, {
+            fallback: 'nearest',
+            nearestIndex: focusIndex,
+            retainUnavailable: false,
+          });
+        }),
+        'tasks-view'
+      );
 
       return;
     }
@@ -288,51 +296,21 @@ export function TaskList(props: TaskListProps) {
     },
   });
 
-  let pendingBoundaryMove = false;
-  let disposed = false;
-  onCleanup(() => {
-    disposed = true;
-  });
-  const beforeMove = (direction: -1 | 1, extendSelection = false) => {
-    if (!source.orderedGroups?.enabled() || direction !== 1) return true;
-    if (pendingBoundaryMove) return false;
-    const current = list.focus.result();
-    const rows = visibleRows();
-    const next = rows
-      .slice((current?.index ?? -1) + 1)
-      .find((row) =>
-        extendSelection
-          ? row.kind === 'entity' || row.kind === 'load-more'
-          : row.kind !== 'section-header'
-      );
-    if (next?.kind !== 'load-more' || next.groupId === undefined) return true;
-    const key = current?.key;
-    const identity = source.orderedGroups.identity();
-    const groupId = next.groupId;
-    if (source.orderedGroups.error(groupId)) return false;
-    pendingBoundaryMove = true;
-    const resume = async () => {
-      try {
-        await source.loadMoreGroup(groupId);
-        if (
-          disposed ||
-          key !== list.focus.key() ||
-          identity !== source.orderedGroups?.identity() ||
-          !isGroupExpanded(groupId)
-        )
-          return;
-      } catch {
-        // The group boundary exposes Retry.
-        return;
-      } finally {
-        pendingBoundaryMove = false;
-      }
+  const beforeMove = createTaskBoundaryNavigation({
+    enabled: () => source.orderedGroups?.enabled() ?? false,
+    ready: () => source.paginationReady?.() ?? true,
+    identity: () => source.orderedGroups?.identity(),
+    rows: visibleRows,
+    focus: list.focus.result,
+    focusKey: list.focus.key,
+    expanded: isGroupExpanded,
+    error: (key) => source.orderedGroups?.error(key),
+    load: source.loadMoreGroup,
+    move: (direction, extendSelection) => {
       if (extendSelection) listInteractions.selection.extend(direction);
       else listInteractions.navigation.move(direction);
-    };
-    void resume();
-    return false;
-  };
+    },
+  });
 
   const listInteractions = useListInteractions({
     controller: list,
@@ -348,7 +326,12 @@ export function TaskList(props: TaskListProps) {
       onBeforeMove: ({ direction }) => beforeMove(direction),
       onBeforeExtendSelection: ({ direction }) => beforeMove(direction, true),
       onNavigate: (event) => {
-        if (event.kind !== 'move' || event.direction !== 1) return;
+        if (
+          event.kind !== 'move' ||
+          event.direction !== 1 ||
+          source.paginationReady?.() === false
+        )
+          return;
         if (source.isLoadingMore() || !source.hasMore()) {
           return;
         }
@@ -358,7 +341,7 @@ export function TaskList(props: TaskListProps) {
           : 0;
         if (distanceFromEnd > 3) return;
 
-        void source.loadMore();
+        fireAndForget(source.loadMore(), 'tasks-view');
       },
     },
     activation: {
@@ -441,7 +424,9 @@ export function TaskList(props: TaskListProps) {
   });
 
   const groupViewport = createGroupPaginationViewport({
-    enabled: () => source.orderedGroups?.enabled() ?? false,
+    enabled: () =>
+      (source.orderedGroups?.enabled() ?? false) &&
+      (source.paginationReady?.() ?? true),
     identity: source.orderedGroups?.identity,
     rows: visibleRows,
     handle: virtualizer,
@@ -457,10 +442,11 @@ export function TaskList(props: TaskListProps) {
       ),
     error: (key) => source.orderedGroups?.error(key) ?? null,
     load: (key) => {
-      void loadGroup(key);
+      fireAndForget(loadGroup(key), 'tasks-view');
     },
   });
   async function loadGroup(key: string, retry = false) {
+    if (source.paginationReady?.() === false) return;
     try {
       await source.orderedGroups?.load(key, retry);
     } catch {
@@ -472,6 +458,7 @@ export function TaskList(props: TaskListProps) {
       groupViewport.onScroll();
       return;
     }
+    if (source.paginationReady?.() === false) return;
     const handle = virtualizer();
     if (!handle) return;
 
@@ -481,7 +468,7 @@ export function TaskList(props: TaskListProps) {
       handle.scrollSize - handle.scrollOffset - handle.viewportSize;
     if (distance >= 300 || source.isLoadingMore()) return;
 
-    void source.loadMore();
+    fireAndForget(source.loadMore(), 'tasks-view');
   }
 
   const emptyMessage = () => {
@@ -526,7 +513,9 @@ export function TaskList(props: TaskListProps) {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => void source.refresh()}
+                    onClick={() =>
+                      fireAndForget(source.refresh(), 'tasks-view')
+                    }
                   >
                     Try again
                   </Button>
@@ -541,7 +530,9 @@ export function TaskList(props: TaskListProps) {
                       variant="outline"
                       size="sm"
                       disabled={source.isLoadingMore()}
-                      onClick={() => void source.loadMore()}
+                      onClick={() =>
+                        fireAndForget(source.loadMore(), 'tasks-view')
+                      }
                     >
                       <Show
                         when={source.isLoadingMore()}
@@ -763,9 +754,9 @@ export function TaskList(props: TaskListProps) {
                                       size="sm"
                                       variant="outline"
                                       onClick={() =>
-                                        void loadGroup(
-                                          loadMore().groupId!,
-                                          true
+                                        fireAndForget(
+                                          loadGroup(loadMore().groupId!, true),
+                                          'tasks-view'
                                         )
                                       }
                                     >

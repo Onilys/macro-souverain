@@ -115,6 +115,34 @@ describe('active GraphQL Soup queries', () => {
     expect(list).toHaveBeenCalledTimes(2);
   });
 
+  it('coalesces refreshes requested while one is in flight into one follow-up', async () => {
+    const settle: Array<() => void> = [];
+    const followUpStarted = Promise.withResolvers<void>();
+    const refresh = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          settle.push(resolve);
+          if (settle.length === 2) followUpStarted.resolve();
+        })
+    );
+    register({ isEnabled: () => true, refresh });
+    const first = refreshActiveGraphqlSoupQueries();
+    const second = refreshActiveGraphqlSoupQueries();
+    const third = refreshActiveGraphqlSoupQueries();
+    expect(refresh).toHaveBeenCalledOnce();
+    settle[0]!();
+    await first;
+    await followUpStarted.promise;
+    expect(refresh).toHaveBeenCalledTimes(2);
+    settle[1]!();
+    await Promise.all([second, third]);
+    expect(refresh).toHaveBeenCalledTimes(2);
+    const fourth = refreshActiveGraphqlSoupQueries();
+    expect(refresh).toHaveBeenCalledTimes(3);
+    settle[2]!();
+    await fourth;
+  });
+
   it('strict revalidation fails until every enabled reader succeeds', async () => {
     const consoleError = vi
       .spyOn(console, 'error')
@@ -136,6 +164,46 @@ describe('active GraphQL Soup queries', () => {
     ).resolves.toBeUndefined();
     expect(success).toHaveBeenCalledTimes(2);
   });
+
+  it('retries a reader after its refresh throws synchronously', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    onTestFinished(() => consoleError.mockRestore());
+    const refresh = vi
+      .fn<() => Promise<void>>()
+      .mockImplementationOnce(() => {
+        throw new Error('synchronous failure');
+      })
+      .mockResolvedValue(undefined);
+    register({ isEnabled: () => true, refresh });
+    await expect(
+      refreshActiveGraphqlSoupQueries({ throwOnError: true })
+    ).rejects.toThrow('every active query');
+    const retry = refreshActiveGraphqlSoupQueries({ throwOnError: true });
+    expect(refresh).toHaveBeenCalledTimes(2);
+    await expect(retry).resolves.toBeUndefined();
+  });
+
+  it.each(['disabled', 'unregistered'] as const)(
+    'drops a queued follow-up when its reader becomes %s',
+    async (change) => {
+      const pending = Promise.withResolvers<void>();
+      const refresh = vi
+        .fn<() => Promise<void>>()
+        .mockReturnValueOnce(pending.promise)
+        .mockResolvedValue(undefined);
+      let enabled = true;
+      const unregister = register({ isEnabled: () => enabled, refresh });
+      const first = refreshActiveGraphqlSoupQueries({ throwOnError: true });
+      const followUp = refreshActiveGraphqlSoupQueries({ throwOnError: true });
+      if (change === 'disabled') enabled = false;
+      else unregister();
+      pending.resolve();
+      await Promise.all([first, followUp]);
+      expect(refresh).toHaveBeenCalledOnce();
+    }
+  );
 
   it('strict revalidation ignores disabled readers', async () => {
     const disabled = vi.fn(async () => {

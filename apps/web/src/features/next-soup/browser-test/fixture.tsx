@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { render } from 'solid-js/web';
 import { SoupList } from '../components/soup-list';
@@ -127,7 +128,7 @@ function Fixture() {
           rows={rows()}
           itemSize={40}
           onGroupBoundary={(key) => {
-            void pagination.load(key);
+            fireAndForget(pagination.load(key), 'pagination-browser-fixture');
           }}
           groupIsLoading={pagination.isLoading}
           groupError={pagination.error}
@@ -141,7 +142,10 @@ function Fixture() {
                 >
                   <button
                     onClick={() => {
-                      void pagination.load(row.group!.key, true);
+                      fireAndForget(
+                        pagination.load(row.group!.key, true),
+                        'pagination-browser-fixture'
+                      );
                     }}
                   >
                     Retry

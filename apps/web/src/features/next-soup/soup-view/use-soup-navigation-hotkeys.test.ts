@@ -23,6 +23,10 @@ vi.mock('@app/features/next-soup/utils', () => ({
   openEntityInSplitFromUnifiedList: vi.fn(),
 }));
 
+vi.mock('@macro-inc/observability', () => ({
+  Telemetry: { error: vi.fn() },
+}));
+
 vi.mock('@app/signal/splitLayout', () => ({
   globalSplitManager: () => undefined,
 }));
@@ -65,6 +69,7 @@ vi.mock('@core/hotkey/tokens', () => ({
   },
 }));
 
+import { openEntityInSplitFromUnifiedList } from '@app/features/next-soup/utils';
 import {
   getListNavigationSource,
   ListNavigationCancelled,
@@ -77,6 +82,7 @@ import { createOwnedSlots } from '@components/app/split-layout/utils/createOwned
 import { registerHotkey } from '@core/hotkey/hotkeys';
 import type { ValidHotkey } from '@core/hotkey/types';
 import type { EntityData } from '@entity';
+import { Telemetry } from '@macro-inc/observability';
 import {
   createSoupState,
   type GroupMeta,
@@ -165,6 +171,8 @@ const setupHotkeys = (orderedGroups = false) =>
 describe('useSoupNavigationHotkeys', () => {
   beforeEach(() => {
     vi.mocked(registerHotkey).mockClear();
+    vi.mocked(openEntityInSplitFromUnifiedList).mockReset();
+    vi.mocked(Telemetry.error).mockReset();
     vi.mocked(withSplitPanelOwner).mockImplementation((_name, factory) =>
       factory()
     );
@@ -211,6 +219,40 @@ describe('useSoupNavigationHotkeys', () => {
       }
     }
   );
+
+  it('reports failures opening a detail after ordered keyboard navigation', async () => {
+    const error = new Error('Detail route failed');
+    vi.mocked(openEntityInSplitFromUnifiedList).mockRejectedValueOnce(error);
+    const reported = new Promise<void>((resolve) => {
+      vi.mocked(Telemetry.error).mockImplementationOnce(() => resolve());
+    });
+    const { soup, dispose } = createRoot((dispose) => {
+      const soup = createSoupState();
+      setGroupedRows(soup);
+      const splitHandle = createSplitHandleStub();
+      splitHandle.content = () => ({ type: 'md', id: 'a1' });
+      useSoupNavigationHotkeys({
+        scopeId: 'test-scope',
+        soup,
+        splitHandle,
+        orderedGroups: () => true,
+        virtualizerHandle: () => undefined,
+      });
+      return { soup, dispose };
+    });
+    try {
+      soup.focus.set('a1');
+      handlerFor('j')();
+      await reported;
+      expect(soup.focus.item()?.id).toBe('a2');
+      expect(openEntityInSplitFromUnifiedList).toHaveBeenCalledOnce();
+      expect(Telemetry.error).toHaveBeenCalledWith(error, {
+        surface: 'soup-view',
+      });
+    } finally {
+      dispose();
+    }
+  });
 
   it('collapses task groups with H without consuming H on emails', () => {
     const { soup, dispose } = setupHotkeys();

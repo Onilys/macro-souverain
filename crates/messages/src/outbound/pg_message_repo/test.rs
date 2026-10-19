@@ -32,6 +32,7 @@ async fn setup(pool: &PgPool) {
 
 fn command(document: &str, root: Option<Uuid>, content: &str) -> CreateMessage {
     CreateMessage {
+        guest_name: None,
         canonical_root_id: None,
         parent: MessageParent::parse("document", document).unwrap(),
         actor: USER.to_owned().try_into().unwrap(),
@@ -1535,6 +1536,37 @@ async fn concurrent_first_call_messages_share_one_thread(pool: PgPool) {
             .unwrap()
             .deleted_at
             .is_none()
+    );
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn guests_and_members_share_the_persisted_call_discussion(pool: PgPool) {
+    let call_id = setup_call_chat(&pool).await;
+    let repo = PgMessageRepository::new(pool);
+    let mut guest = call_message(call_id, "Hello from the guest");
+    let sender = ChannelSender::new_from_guest(Uuid::now_v7());
+    guest.actor = sender.clone();
+    guest.guest_name = Some("Visitor".into());
+    let root = repo.create(guest).await.unwrap();
+    let reply = repo
+        .create(call_message(call_id, "Hello from the member"))
+        .await
+        .unwrap();
+    assert_eq!(root.id, call_id);
+    assert_eq!(reply.thread_id, Some(call_id));
+    let stored = repo
+        .get(&MessageParent::Call(call_id), call_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(stored.sender_id, sender);
+    assert_eq!(stored.guest_name.as_deref(), Some("Visitor"));
+    assert_eq!(
+        repo.replies(&MessageParent::Call(call_id), call_id)
+            .await
+            .unwrap()
+            .len(),
+        1
     );
 }
 

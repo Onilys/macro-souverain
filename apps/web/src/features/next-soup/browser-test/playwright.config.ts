@@ -5,7 +5,9 @@ export default defineConfig({
   testMatch: '*.browser.e2e.ts',
   outputDir: '/tmp/macro-group-pagination-results',
   workers: 1,
-  timeout: 30_000,
+  // Real Task views import the app graph, including asynchronous collaboration WASM.
+  timeout: 60_000,
+  expect: { timeout: 15_000 },
   projects: [
     { name: 'desktop', use: { viewport: { width: 800, height: 700 } } },
     {

@@ -76,6 +76,7 @@ import { registerHotkey, useHotkeyDOMScope } from '@core/hotkey/hotkeys';
 import { TOKENS } from '@core/hotkey/tokens';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import type { DateValue } from '@core/util/date';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { openExternalUrl } from '@core/util/url';
 import { useIsKeyPressActive } from '@core/util/useIsKeyPressActive';
 import {
@@ -88,6 +89,7 @@ import {
   type SearchLocation,
 } from '@entity';
 import type { SoupRowFamily } from '@entity/composed/list-entity/row-geometry';
+import { Telemetry } from '@macro-inc/observability';
 import CaretDownIcon from '@phosphor/caret-down.svg';
 import ChevronRightIcon from '@phosphor/caret-right.svg';
 import CheckIcon from '@phosphor/check.svg';
@@ -168,6 +170,10 @@ const MobileTabLoadingBar = () => (
 );
 
 const SOUP_LIST_STATE_ENTRY_KEY = 'soup.listState';
+
+const reportSoupViewError = (error: unknown) =>
+  Telemetry.error(error, { surface: 'soup-view' });
+
 /** The row components a soup view can render. */
 type SoupRowComponent =
   | typeof ListEntity
@@ -831,7 +837,7 @@ const SoupViewListContent = (props: SoupViewListProps) => {
     )
       return;
 
-    source.fetchNextPage();
+    source.fetchNextPage().catch(reportSoupViewError);
   }, 15);
 
   type EntityClickArgs = {
@@ -1015,7 +1021,7 @@ const SoupViewListContent = (props: SoupViewListProps) => {
     });
 
   const retryLoad = () => {
-    void source.refresh().catch(() => undefined);
+    fireAndForget(source.refresh(), 'soup-view');
   };
 
   const entityById = createMemo(
@@ -1234,7 +1240,9 @@ const SoupViewListContent = (props: SoupViewListProps) => {
                       onSwipeLeft={(entityId) => {
                         const entity = entityById().get(entityId);
                         if (entity?.kind !== 'entity') return;
-                        markDoneAction.executeWithSoup([entity.original], soup);
+                        markDoneAction
+                          .executeWithSoup([entity.original], soup)
+                          .catch(reportSoupViewError);
                       }}
                       setCollapseEntity={soup.collapseEntity.set}
                     >
@@ -1255,7 +1263,10 @@ const SoupViewListContent = (props: SoupViewListProps) => {
                         onGroupBoundary={
                           orderedGroups()
                             ? (key) => {
-                                void loadOrderedGroup(key);
+                                fireAndForget(
+                                  loadOrderedGroup(key),
+                                  'soup-view'
+                                );
                               }
                             : undefined
                         }
@@ -1354,9 +1365,12 @@ const SoupViewListContent = (props: SoupViewListProps) => {
                                           variant="outline"
                                           size="sm"
                                           onClick={() => {
-                                            void loadOrderedGroup(
-                                              group().key,
-                                              true
+                                            fireAndForget(
+                                              loadOrderedGroup(
+                                                group().key,
+                                                true
+                                              ),
+                                              'soup-view'
                                             );
                                           }}
                                         >
@@ -1417,7 +1431,9 @@ const SoupViewListContent = (props: SoupViewListProps) => {
                                                 highlighted(),
                                             })}
                                             onClick={() => {
-                                              fetchNextGroupPage(group().key);
+                                              fetchNextGroupPage(
+                                                group().key
+                                              ).catch(reportSoupViewError);
                                             }}
                                           >
                                             <CaretDownIcon class="size-2.5" />
@@ -1489,7 +1505,7 @@ const SoupViewListContent = (props: SoupViewListProps) => {
                                               event,
                                               location: undefined,
                                               rowIndex: row.index,
-                                            });
+                                            }).catch(reportSoupViewError);
                                           }}
                                           onProjectClick={(
                                             projectEntity,
@@ -1502,7 +1518,7 @@ const SoupViewListContent = (props: SoupViewListProps) => {
                                               event,
                                               location: undefined,
                                               rowIndex: row.index,
-                                            });
+                                            }).catch(reportSoupViewError);
                                           }}
                                           onContentHitClick={(
                                             e: PointerEvent | MouseEvent,
@@ -1514,7 +1530,7 @@ const SoupViewListContent = (props: SoupViewListProps) => {
                                               event: e,
                                               location,
                                               rowIndex: row.index,
-                                            });
+                                            }).catch(reportSoupViewError);
                                           }}
                                           entityRowConfig={{
                                             swipeLeftColor: 'bg-success',

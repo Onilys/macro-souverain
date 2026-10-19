@@ -15,3 +15,12 @@ entities. Its entries are embedded metadata, so they have `key`, never synthetic
 `id` fields. `groupSoup(startGroup: ...)` starts one group's pages; subsequent
 pages use the existing continuation cursor. Keep directory and page filters on
 the same domain policy path, including favorites and CRM scope resolution.
+
+## Gotchas
+
+- `SoupItemLoader` (single-entity lookups, `soupUpdates` hydration) resolves
+  email threads through entity-access view receipts, the rule the REST thread
+  route applies, not through the viewer's inbox scope; Soup's email leg only
+  serves lists. A thread shared through a team's CRM, a project, or a share
+  therefore opens through `emailThread` even though it lives in a teammate's
+  inbox.

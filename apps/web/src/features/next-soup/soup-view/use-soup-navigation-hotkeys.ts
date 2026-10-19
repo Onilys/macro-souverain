@@ -12,10 +12,14 @@ import { entityIdSelector } from '@core/dom-selectors';
 import { createHotkeyGroup, registerHotkey } from '@core/hotkey/hotkeys';
 import { TOKENS } from '@core/hotkey/tokens';
 import { type EntityData, isTaskEntity } from '@entity/types/entity';
+import { Telemetry } from '@macro-inc/observability';
 import { type Accessor, createMemo, onCleanup } from 'solid-js';
 import type { VirtualizerHandle } from 'virtua/solid';
 import type { SoupState } from '../create-soup-state';
 import { resolveGroupedNeighbor } from '../primitives/resolve-grouped-neighbor';
+
+const reportSoupNavigationError = (error: unknown) =>
+  Telemetry.error(error, { surface: 'soup-view' });
 
 type UseSoupNavigationHotkeysOptions = {
   scopeId: string;
@@ -141,12 +145,12 @@ export const useSoupNavigationHotkeys = (
     });
   }
 
-  const openEntity = (entity: EntityData) => {
+  const openEntity = async (entity: EntityData) => {
     const handleContent = splitHandle.content().type;
 
     if (handleContent === 'component' || handleContent === 'project') return;
 
-    openEntityInSplitFromUnifiedList(entity, {
+    await openEntityInSplitFromUnifiedList(entity, {
       splitHandle,
       mergeHistory: true,
       referredFrom: navigationReferredFrom(),
@@ -238,7 +242,7 @@ export const useSoupNavigationHotkeys = (
 
   const fetchNextPageIfNeeded = () => {
     if (!hasNextPage?.() || isFetching?.() || isFetchingNextPage?.()) return;
-    fetchNextPage?.();
+    fetchNextPage?.().catch(reportSoupNavigationError);
   };
 
   const navigateOrdered = (direction: -1 | 1) => {
@@ -251,10 +255,13 @@ export const useSoupNavigationHotkeys = (
         );
         if (entity) {
           scrollTo(soup.focus.index());
-          openEntity(entity);
+          await openEntity(entity);
         }
-      } catch {
-        // The boundary renders the error and exposes a keyboard-accessible Retry.
+      } catch (error) {
+        if (!(error instanceof ListNavigationCancelled)) {
+          reportSoupNavigationError(error);
+        }
+        // Query failures also remain on the boundary with a keyboard-accessible Retry.
       } finally {
         pendingNavigation = undefined;
       }
@@ -274,7 +281,8 @@ export const useSoupNavigationHotkeys = (
     }
 
     scrollTo(next.index);
-    if (next.row.kind === 'entity') openEntity(next.row.original);
+    if (next.row.kind === 'entity')
+      openEntity(next.row.original).catch(reportSoupNavigationError);
 
     if (next.index >= rowCount - 1 - LOAD_MORE_DISTANCE_FROM_END) {
       fetchNextPageIfNeeded();
@@ -290,7 +298,8 @@ export const useSoupNavigationHotkeys = (
     if (!next) return true;
 
     scrollTo(next.index);
-    if (next.row.kind === 'entity') openEntity(next.row.original);
+    if (next.row.kind === 'entity')
+      openEntity(next.row.original).catch(reportSoupNavigationError);
 
     return true;
   };

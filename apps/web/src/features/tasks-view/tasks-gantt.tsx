@@ -8,6 +8,7 @@ import { openEntityInSplitFromUnifiedList } from '@app/features/next-soup/utils'
 import { SoupEntityContextMenu } from '@app/features/soup';
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { getTaskStatusOptionId, type TaskEntityWithProperties } from '@entity';
 import { PropertyValueIcon } from '@property/component/propertyValue';
 import { usePropertyUserDisplay } from '@property/hooks/usePropertyUserDisplay';
@@ -51,12 +52,15 @@ export function TasksGantt(props: { ref?: (element: HTMLDivElement) => void }) {
 
     if (opened) return;
 
-    void openEntityInSplitFromUnifiedList(task, {
-      splitHandle: panel.handle,
-      referredFrom: 'tasks',
-      openInNewSplit:
-        event.shiftKey || event.metaKey || event.ctrlKey || event.altKey,
-    });
+    fireAndForget(
+      openEntityInSplitFromUnifiedList(task, {
+        splitHandle: panel.handle,
+        referredFrom: 'tasks',
+        openInNewSplit:
+          event.shiftKey || event.metaKey || event.ctrlKey || event.altKey,
+      }),
+      'open-entity-in-split'
+    );
   };
   const renderEntity = (
     task: Accessor<TaskEntityWithProperties>,

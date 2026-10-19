@@ -34,6 +34,7 @@ import {
   useBlockDocumentDownloadName,
   useBlockDocumentName,
 } from '@core/util/currentBlockDocumentName';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { downloadFile } from '@filesystem/download';
 import IconShared from '@icon/share.svg';
 import DownloadSimple from '@phosphor/download-simple.svg';
@@ -82,7 +83,7 @@ function download(bytes: Uint8Array | Blob, name: string, mimeType?: string) {
     bytes instanceof Blob
       ? bytes
       : new Blob([bytes as BlobPart], { type: mimeType ?? PPTX_MIME });
-  void downloadFile(blob, name);
+  fireAndForget(downloadFile(blob, name), 'pptx-download');
 }
 
 /** Opens a presentation engine and mounts the editor once ready. */
@@ -323,7 +324,7 @@ export default function PptxBlock(props: { share?: string }) {
               group: 'file',
               label: 'Download',
               icon: DownloadSimple,
-              action: () => void downloadCurrent(),
+              action: () => fireAndForget(downloadCurrent(), 'pptx-download'),
             },
             { op: 'delete' },
           ]}
@@ -344,7 +345,11 @@ export default function PptxBlock(props: { share?: string }) {
               <Show
                 when={d.bytes}
                 fallback={
-                  <DownloadOnly onDownload={() => void downloadCurrent()} />
+                  <DownloadOnly
+                    onDownload={() =>
+                      fireAndForget(downloadCurrent(), 'pptx-download')
+                    }
+                  />
                 }
               >
                 {(bytes) => (
