@@ -109,3 +109,43 @@ fn hundred_uncertain_actions_produce_one_bounded_context_summary() {
     assert!(!context.contains("Hi #1"));
     assert!(context.len() < 1024);
 }
+
+#[test]
+fn an_import_review_carries_one_notion_draft_and_its_left_out_rows() {
+    let tools = ai_tools::code_mode_tools();
+    assert!(validate_draft(&tools, ReviewKind::Import, &json!({"source": "notion"})).is_ok());
+    assert!(
+        validate_draft(
+            &tools,
+            ReviewKind::Import,
+            &json!({"source": "notion", "excluded": ["01a15623-f76d-7ea0-955d-a9ecb91a520e"]})
+        )
+        .is_ok()
+    );
+    for draft in [
+        json!({"source": "linear"}),
+        json!({"source": "notion", "excluded": ["not a uuid"]}),
+        json!({"source": "notion", "write": "everything"}),
+        json!({}),
+    ] {
+        assert!(
+            validate_draft(&tools, ReviewKind::Import, &draft).is_err(),
+            "{draft}"
+        );
+    }
+}
+
+#[test]
+fn an_approved_import_tells_the_agent_to_follow_progress_not_to_import_again() {
+    let record = notification_fixture(ReviewKind::Import, json!({"source": "notion"}));
+    let summary = notification_summary(&record);
+    assert!(summary.contains("1 completed"), "{summary}");
+    assert!(
+        summary.contains("report progress with ImportFromNotion (action `status`) rather than importing anything yourself"),
+        "{summary}"
+    );
+    assert!(
+        !summary.contains("no further sending or scheduling"),
+        "{summary}"
+    );
+}

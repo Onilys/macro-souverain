@@ -129,6 +129,7 @@ impl ReviewActions for Actions {
     async fn execute(
         &self,
         owner: &MacroUserIdStr<'static>,
+        _: ReviewId,
         _: ReviewKind,
         draft: Value,
     ) -> Result<Value, CodeModeError> {

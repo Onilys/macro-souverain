@@ -6,12 +6,30 @@ use agent_session::domain::{
 };
 use ai_toolset::RequestContext;
 use async_trait::async_trait;
+use import::domain::service::NotionWorkspaceImporter;
 use macro_user_id::user_id::MacroUserIdStr;
+use serde::Deserialize;
 use serde_json::Value;
 use std::sync::Arc;
 
 #[cfg(test)]
 mod test;
+
+/// The one draft an import review carries: which source's staged plan it
+/// presents, and the plan rows the user took out of it.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ImportDraft {
+    source: ImportReviewSource,
+    #[serde(default)]
+    excluded: Vec<macro_uuid::Uuid>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum ImportReviewSource {
+    Notion,
+}
 
 pub struct Actions<S, H> {
     pub sessions: S,
@@ -41,12 +59,14 @@ impl<S: AgentSessionRepo, H: AgentSessionNotificationRecipient> ReviewActions fo
     async fn execute(
         &self,
         owner: &MacroUserIdStr<'static>,
+        review: ReviewId,
         kind: ReviewKind,
         draft: Value,
     ) -> Result<Value, CodeModeError> {
         let name = match kind {
             ReviewKind::Email => "SendEmail",
             ReviewKind::Calendar => "CreateCalendarEvent",
+            ReviewKind::Import => return self.start_import(owner, review, draft).await,
         };
         let mut context = self.context.clone();
         context.usage_context =
@@ -73,6 +93,20 @@ impl<S: AgentSessionRepo, H: AgentSessionNotificationRecipient> ReviewActions fo
         owner: &MacroUserIdStr<'static>,
         record: &ReviewRecord,
     ) -> Result<(), CodeModeError> {
+        if record.kind == ReviewKind::Import {
+            // The plan is tied to the review before the card appears, so the
+            // card never shows a plan it cannot approve.
+            self.import_service()?
+                .attach_notion_review(owner, record.id.0)
+                .await
+                .map_err(|error| {
+                    tracing::warn!(error = ?error, review = %record.id.0, "could not tie the import plan to its review");
+                    CodeModeError::Invalid(format!(
+                        "Review {} was saved, but its import plan could not be attached. Read this review to retry.",
+                        record.id.0
+                    ))
+                })?;
+        }
         self.harness.present_tool(
             record.session_id,
             owner.clone(),
@@ -113,6 +147,37 @@ impl<S: AgentSessionRepo, H: AgentSessionNotificationRecipient> ReviewActions fo
     }
 }
 
+impl<S, H> Actions<S, H> {
+    fn import_service(&self) -> Result<&ai_tools::ToolImportService, CodeModeError> {
+        self.context
+            .import_tool_context
+            .service
+            .as_deref()
+            .ok_or_else(|| CodeModeError::Invalid("Imports are not available here.".into()))
+    }
+
+    /// Start writing the approved plan; the write runs in the background and
+    /// reports progress through the import state.
+    async fn start_import(
+        &self,
+        owner: &MacroUserIdStr<'static>,
+        review: ReviewId,
+        draft: Value,
+    ) -> Result<Value, CodeModeError> {
+        let draft: ImportDraft = serde_json::from_value(draft)
+            .map_err(|_| CodeModeError::Invalid("Import draft is malformed.".into()))?;
+        let ImportReviewSource::Notion = draft.source;
+        let report = self
+            .import_service()?
+            .start_notion_write(owner, review.0, draft.excluded)
+            .await
+            .map_err(|error| CodeModeError::Invalid(error.to_string()))?;
+        serde_json::to_value(report).map_err(|_| {
+            CodeModeError::Invalid("The import started, but its report could not be read.".into())
+        })
+    }
+}
+
 fn validate_draft(
     tools: &ai_tools::AiToolSet,
     kind: ReviewKind,
@@ -128,6 +193,11 @@ fn validate_draft(
         }
         ReviewKind::Calendar => {
             if !tools.is_valid_tool("CreateCalendarEvent", draft) {
+                return Err(invalid());
+            }
+        }
+        ReviewKind::Import => {
+            if serde_json::from_value::<ImportDraft>(draft.clone()).is_err() {
                 return Err(invalid());
             }
         }
@@ -158,7 +228,11 @@ fn notification_summary(record: &ReviewRecord) -> String {
         }
     }
     summary.push('\n');
-    summary.push_str(&format!("\nSaved review: {}. Completed actions are already recorded; no further sending or scheduling is requested.", record.id.0));
+    if record.kind == ReviewKind::Import {
+        summary.push_str(&format!("\nSaved review: {}. An approved import is being written in the background; report progress with ImportFromNotion (action `status`) rather than importing anything yourself. A dismissed import wrote nothing.", record.id.0));
+    } else {
+        summary.push_str(&format!("\nSaved review: {}. Completed actions are already recorded; no further sending or scheduling is requested.", record.id.0));
+    }
     summary
 }
 

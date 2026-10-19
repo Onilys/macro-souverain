@@ -29,7 +29,7 @@ pub fn toolset() -> AsyncToolCollection<ReviewToolContext> {
 #[serde(transparent)]
 #[schemars(
     title = "PresentReview",
-    description = "Present an editable email stack or calendar event stack to the user without pausing the conversation. Returns immediately after the saved review is displayed; it does not send email, create an event, or wait for approval. User decisions later deliver their recorded outcomes through private session context. Use the existing ACP question tool for questions. Supply kind (email, calendar), title, and 1–100 drafts. Email drafts use SendEmail arguments (Markdown body); calendar drafts use CreateCalendarEvent arguments. executionId is optional and should be omitted outside ExecuteCode. Do not automatically submit these drafts or duplicate completed actions."
+    description = "Present an editable email stack, calendar event stack, or import plan to the user without pausing the conversation. Returns immediately after the saved review is displayed; it does not send email, create an event, import anything, or wait for approval. User decisions later deliver their recorded outcomes through private session context. Use the existing ACP question tool for questions. Supply kind (email, calendar, import), title, and 1–100 drafts. Email drafts use SendEmail arguments (Markdown body); calendar drafts use CreateCalendarEvent arguments; an import review has exactly one draft {\"source\":\"notion\"} and presents the plan ImportFromNotion staged. executionId is optional and should be omitted outside ExecuteCode. Do not automatically submit these drafts or duplicate completed actions."
 )]
 pub struct PresentReview(CreateReview);
 

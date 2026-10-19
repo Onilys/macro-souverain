@@ -115,6 +115,7 @@ doppler-config = { workspace = true }
 macro_entrypoint = { path = "../../crates/macro_entrypoint" }
 macro_env = { path = "../../crates/macro_env" }
 macro_env_var = { path = "../../crates/macro_env_var" }
+import = { path = "../../crates/import" }
 macro_uuid = { path = "../../crates/macro_uuid" }
 serde = { workspace = true }
 serde_json = { workspace = true }

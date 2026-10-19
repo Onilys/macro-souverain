@@ -39,6 +39,8 @@ pub enum ReviewKind {
     Email,
     /// Editable calendar event stack.
     Calendar,
+    /// A staged workspace import plan, approved as one item.
+    Import,
 }
 
 /// A reference returned by generated code; it confers no authorization.
@@ -67,7 +69,8 @@ pub struct CreateReview {
     /// time: {kind: "timed", startsAt: ISO datetime, endsAt: ISO datetime,
     /// timeZone?: IANA zone} or {kind: "allDay", startDate: ISO date,
     /// endDate: exclusive ISO date}, description?, location?, attendees?:
-    /// [{email, isOptional?}]}.
+    /// [{email, isOptional?}]}. Import: exactly one draft {source: "notion"},
+    /// presenting the plan ImportFromNotion staged.
     /// Creating any review only presents these drafts; the user acts separately.
     pub drafts: Vec<Value>,
 }
@@ -206,10 +209,11 @@ pub trait ReviewActions: Send + Sync + 'static {
     async fn session(&self, session: AgentSessionId) -> Result<ReviewSession, CodeModeError>;
     /// Validate draft structure without performing the action.
     fn validate(&self, kind: ReviewKind, draft: &Value) -> Result<(), CodeModeError>;
-    /// Execute the reviewed draft as its authenticated owner.
+    /// Execute the reviewed draft of `review` as its authenticated owner.
     async fn execute(
         &self,
         owner: &MacroUserIdStr<'static>,
+        review: ReviewId,
         kind: ReviewKind,
         draft: Value,
     ) -> Result<Value, CodeModeError>;
@@ -573,7 +577,12 @@ impl ReviewService {
                         }
                         service
                             .actions
-                            .execute(&actor, record.kind, record.items[index].draft.clone())
+                            .execute(
+                                &actor,
+                                record.id,
+                                record.kind,
+                                record.items[index].draft.clone(),
+                            )
                             .await
                     })
                     .await;
