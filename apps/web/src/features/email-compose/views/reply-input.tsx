@@ -19,6 +19,7 @@ import { Button, cn, SendButton, Surface, Tooltip } from '@ui';
 import type { LexicalEditor } from 'lexical';
 import { $getRoot } from 'lexical';
 import { createResource, createSignal, For, onMount, Show } from 'solid-js';
+import { MessageOperationRecovery } from '../../email-message/views/message-operation-recovery';
 import { createAttachmentViewer } from '../components/attachment-viewer';
 import { DraftSyncStatus } from '../components/draft-sync-status';
 import { EmailDateSelector } from '../components/email-date-selector';
@@ -41,6 +42,7 @@ import { ReplyEnvelope } from './reply-envelope';
 false && fileFolderDrop;
 false && fileSelector;
 
+import { fireAndForget } from '@core/util/fireAndForget';
 import {
   createReplyComposer,
   type ReplyComposerOptions,
@@ -61,6 +63,7 @@ type ReplyInputViewProps = Omit<
   | 'focusAfterReplyRequest'
 > & {
   context: EmailComposeContext;
+  onReloadDraft?: () => void;
   markdownDomRef?: (ref: HTMLDivElement) => void | HTMLDivElement;
   unframed?: boolean;
   mobileDrawer?: { onClose: () => void };
@@ -89,7 +92,9 @@ export function ReplyInputView(props: ReplyInputViewProps) {
         fallback={
           <div role="alert">
             Unable to load local draft.{' '}
-            <button onClick={() => void refetch()}>Retry</button>
+            <button onClick={() => fireAndForget(refetch(), 'email-compose')}>
+              Retry
+            </button>
           </div>
         }
       >
@@ -115,6 +120,7 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
   const state = createReplyComposer(
     {
       drafts: composeContext.drafts,
+      operations: composeContext.operations,
       attachmentStorage: composeContext.attachmentStorage,
       delivery: composeContext.delivery,
       draftLifecycle: composeContext.draftLifecycle,
@@ -260,7 +266,7 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
         scopeId: composeHotkeyScope,
         description: 'Send email',
         keyDownHandler: () => {
-          sendEmail();
+          sendEmail().catch(composeContext.notices.reportError);
           return true;
         },
         runWithInputFocused: true,
@@ -273,7 +279,7 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
         scopeId: composeHotkeyScope,
         description: 'Send and mark done',
         keyDownHandler: () => {
-          sendEmail(true);
+          sendEmail(true).catch(composeContext.notices.reportError);
           return true;
         },
         runWithInputFocused: true,
@@ -332,7 +338,7 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
 
           if (isEmpty) {
             // Delete draft and close reply
-            deleteDraftAndReset();
+            deleteDraftAndReset().catch(() => {});
           } else {
             // Move focus back to the message
             ctx.exitToThread('selected');
@@ -364,7 +370,9 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
                 fileName:
                   attachment.type === 'local'
                     ? attachment.file.name
-                    : attachment.fileName,
+                    : attachment.type === 'remote' && attachment.uploadPending
+                      ? `${attachment.fileName} — upload unfinished`
+                      : attachment.fileName,
                 mimeType:
                   attachment.type === 'local'
                     ? attachment.file.type
@@ -374,7 +382,11 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
               }}
               removable={!editingDisabled()}
               onRemove={() => {
-                if (!editingDisabled()) handleRemoveAttachment(attachment);
+                if (!editingDisabled())
+                  fireAndForget(
+                    handleRemoveAttachment(attachment),
+                    'email-compose'
+                  );
               }}
               onClick={attachmentViewer.onClickFor(attachment)}
             />
@@ -429,6 +441,41 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
         depth={2}
         solid
       >
+        <Show when={state.operationSource}>
+          {(source) => (
+            <MessageOperationRecovery
+              source={source()}
+              onReloadDraft={props.onReloadDraft}
+            />
+          )}
+        </Show>
+        <Show
+          when={
+            state.replyType() === 'forward' &&
+            props
+              .replyingTo()
+              ?.attachments.some((attachment) => attachment.reference_url)
+          }
+        >
+          <p class="px-3 py-2 text-sm text-ink-muted" role="status">
+            Linked cloud attachments are available in the original Outlook
+            message. Share their links from Outlook to include them in this
+            forward.{' '}
+            <a
+              href={
+                props
+                  .replyingTo()
+                  ?.attachments.find((attachment) => attachment.reference_url)
+                  ?.reference_url ?? undefined
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+              class="underline"
+            >
+              Open in Outlook
+            </a>
+          </p>
+        </Show>
         <Show when={isMobileDrawer()}>
           <MobileReplyToolbar
             status={<SyncStatus />}

@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import type {
   CacheHost,
   SearchCursor,
@@ -80,7 +81,7 @@ export function createProjectedList<T extends { id: string }>(options: {
     if (request.refreshPending) {
       // Publish the completed window before replaying changes received during
       // search/materialization (or a load-more operation).
-      void fetchPages(request, request.pages, false);
+      fireAndForget(fetchPages(request, request.pages, false), 'quick-access');
     } else {
       setLoading('idle');
     }
@@ -188,7 +189,11 @@ export function createProjectedList<T extends { id: string }>(options: {
       // A cache revision is not a new search. Replacing an in-flight request
       // here starves results when hydration is faster than cache reads.
       if (previous.busy) previous.refreshPending = true;
-      else void fetchPages(previous, previous.pages, false);
+      else
+        fireAndForget(
+          fetchPages(previous, previous.pages, false),
+          'quick-access'
+        );
       return;
     }
 
@@ -218,7 +223,7 @@ export function createProjectedList<T extends { id: string }>(options: {
       refreshPending: false,
     };
     current = request;
-    void fetchPages(request, request.pages, false);
+    fireAndForget(fetchPages(request, request.pages, false), 'quick-access');
   });
 
   return {

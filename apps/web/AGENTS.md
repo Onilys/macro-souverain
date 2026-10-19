@@ -5,6 +5,7 @@
 - `bun run lint`: lint with biome 
 - `bun run format`: format changes with biome 
 - `bun run knip`: to check for dead code
+- `bun run lint:oxlint` (repository root): type-aware oxlint. `typescript/no-floating-promises` is an error with no suppressions and `ignoreVoid: false` (FE-13), enforced in `just check` and CI; start detached work with `fireAndForget` from `@core/util/fireAndForget`, not `void`. Plain `oxlint` without `--type-aware` skips that rule silently. The ast-grep rule `ts-no-expression-void` covers `() => void p()`, which the lint can't see.
 - Email rendering is isolated in `packages/email-renderer` at the repository root. Run `just test-email-rendering` for its Node and Chromium suites. Add fixtures under `packages/email-renderer/tests/fixtures`, run `just test-email-rendering-update`, and review changed images. These are renderer tests, not inbox e2e.
 - The app does not register a service worker. Keep `public/sw.js` as a retirement
   endpoint for existing installations; see the [startup bundle rule](../../.agents/rules/web/startup-bundle.md).
@@ -22,7 +23,7 @@ cd apps/web && PORT=3003 bun run dev   # any free port in 3000-3009
 
 `import.meta.env.MODE === 'development'` resolves the service clients to `https://dev.macro.com` through Vite’s same-origin development proxy. Sign in on the development hostname; existing `.macro.com` cookies are separate. Vite prints `https://<hostname>:<port>/app/`; `https://localhost:<port>/app/` also works. Trust `infra/local/certs/ca.pem` once in the visiting browser (see `infra/local/certs/README.md`). `MACRO_DEV_HTTPS=false` restores HTTP for workflows that require it. Notes:
 
-- On a remote devbox, open the app through Tailscale Serve rather than `https://<hostname>:<port>`. Vite drops to HTTP/1.1 while its development proxy is on, so the browser fetches the ~7k dev modules six at a time and pays a round trip for each (about 45 s at 30 ms). Run `sudo tailscale serve --bg --https=443 https+insecure://localhost:<port>` on the devbox and open `https://<devbox>.<tailnet>.ts.net/app/`, which serves HTTP/2 with a trusted certificate. Sign in again there. Serve offers HTTPS ports 443, 8443, and 10000.
+- On a remote devbox, open `https://<hostname>:<port>/app/` directly. The dev server serves HTTP/2, gzips modules and links source maps instead of inlining them, so a cold load of the ~7k dev modules moves ~13 MB instead of ~100 MB. Trust the CA on the visiting machine: Chrome caches nothing from a site whose certificate warning was clicked through, so every reload re-downloads every module. Tailscale Serve is an alternative that needs no CA: `sudo tailscale serve --bg --https=443 https+insecure://localhost:<port>`, then open `https://<devbox>.<tailnet>.ts.net/app/` and sign in again there (Serve offers HTTPS ports 443, 8443, and 10000). `MACRO_DEV_COMPRESSION=false` and `MACRO_DEV_INLINE_SOURCEMAPS=true` restore Vite's defaults.
 - Never assume port 3000 or 3002 is yours. Check with `lsof -nP -iTCP:<port> -sTCP:LISTEN -t` and confirm the owner's worktree via `lsof -p <pid> | awk '$4=="cwd"'`. Take a free port instead of killing another session's server, and reuse one only if its cwd is this worktree.
 - The `.cursor/*.sh` scripts and the `run-app` skill are **Cursor Cloud** entry points. On a local machine they prompt for sudo and are the wrong tool. Only backend (Rust) changes need the local stack.
 
@@ -65,7 +66,24 @@ Then trigger the interaction and read `window.__inst.log`. `'1,2,3' → '' → '
 
 ## Development Patterns
 
+### Pipedream native authorization
+
+Keep native Pipedream consent in the system browser: the desktop navigation
+plugin redirects external popups and breaks the embedded iframe's return path.
+`pipedream-connect.html` is a separate Vite entry, served at
+`/app/pipedream-connect.html`, without a Macro browser login. The Connect token
+and one-time state travel only in its URL fragment, which the page removes on
+load. Its **Return to Macro** link is consumed by the Tauri navigation bridge
+without changing the active route. Backend registration still verifies account
+ownership. Cancel, logout, and the ten-minute timeout retire pending callbacks.
+
 ### General
+- Keep signed-out Drive document routes on the shared detail viewer without
+  mounting private list/sidebar sources; let document access checks decide visibility.
+- Gate account-only queries, comment readers, and account WebSockets on confirmed
+  authentication; keep public document loading independent of those services.
+- Disable GraphQL cache sessions and clear login hints on confirmed auth 401s,
+  even with retained user data; preserve session state on transient failures.
 - Mobile dock search owns transient category/mode state in `features/command/mobile`; reuse the shared entity source and explicit full-text adapter rather than overlaying the dock query on view tabs or saved facets. See `docs/agent-guide/search.md` at the repository root.
 - Keep Quick Access cache availability reactive to the GraphQL rollout flag; it can arrive after the provider mounts, and email has no legacy source fallback.
 - Virtualize mobile name results like desktop Command Menu; local Quick Access sources are unbounded, and mounting them all stalls iOS keyboard focus during layout. Load additional search pages near the scroll end instead of reserving a paging bar.
@@ -77,10 +95,14 @@ Then trigger the interaction and read `window.__inst.log`. `'1,2,3' → '' → '
 - Reconcile global focus when focused DOM subtrees are removed; iOS can omit blur events, otherwise floating creation actions stay hidden after search or editor teardown.
 - Mount the floating mobile AI composer only on the Agents view; other views keep their New action or their own reply/comment composer.
 - All API/network calls live in service-clients.
+- Keep desktop Gmail and Outlook inbox consent in the system browser with a
+  `macro:///inbox-link-callback` return; webview origins are not desktop callbacks.
 - Draft autosaves preserve active email thread messages; evict inactive legacy
   caches on save and the active cache on thread exit. Revalidate GraphQL thread
   pages only when a save cannot patch the message list (missing snapshot or a
   move between inboxes).
+- Keep email card resize motion on its content wrapper so message and inline
+  reply transitions preserve the card's focus target and return to natural height.
 - Shared server-state queries and mutations live in `src/lib/queries`; keep
   feature-specific query orchestration with its owning feature.
 - Preserve loaded block content on initial access confirmation when its loader
@@ -110,8 +132,33 @@ the startup bundle, and Lexical nodes.
 - `src/features/block-channel`
 - `src/features/block-pdf`
 
+## PDF markup
+
+Keep the signature canvas backing bitmap aligned with its CSS size and device
+pixel ratio; keep dialog centering separate from animated transforms. Verify the
+[signature walkthrough](../../docs/agent-guide/documents.md#pdf-signatures) after
+changing this editor.
+
 ## Notes
 - Don't shy away from pulling good examples into context. In the case of solid-primtiives/kobalte try reading documentation, or just temp clone into /tmp to reference
+
+## iOS release signing
+
+Follow [`docs/ios-releases.md`](docs/ios-releases.md) for App Store signing and
+provisioning, including both extensions. The release script temporarily selects
+manual export when a distribution certificate path is supplied.
+
+## Desktop file drops
+
+Keep `app.windows[].dragDropEnabled` false in `tauri/src-tauri/tauri.macos.conf.json`.
+Markdown editors and attachment inputs use browser events through `fileFolderDrop`
+and `fileDrop`; Tauri's native handler intercepts Finder drops before those handlers
+receive them. This config change requires a rebuilt macOS app; a frontend bundle
+update alone does not apply it.
+
+Tauri replaces arrays when merging platform configuration. Keep the other macOS
+window settings aligned with `tauri/src-tauri/tauri.conf.json` when changing the
+shared window. Verify with the [Finder-drop walkthrough](../../docs/agent-guide/documents.md#desktop-file-drops).
 
 ## Subscription offers
 

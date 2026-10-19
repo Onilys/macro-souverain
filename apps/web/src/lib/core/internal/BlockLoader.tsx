@@ -1,7 +1,9 @@
 import { useSharedAccessUpdates } from '@app/features/access-requests/access-requests';
 import { shareEntity } from '@app/features/access-requests/core/types';
 import { useAnalytics } from '@app/lib/analytics/analytics-context';
+import { useIsAuthenticated } from '@core/context/user';
 import type { OwnedBlockHandle } from '@core/orchestrator';
+import { Telemetry } from '@macro-inc/observability';
 import { useQueryClient } from '@queries/client';
 import { blockNameToItemType } from '@service-storage/client';
 import type { AccessLevel as UserAccessLevel } from '@service-storage/generated/schemas/accessLevel';
@@ -54,6 +56,7 @@ export function BlockLoader<
   L extends LoadFunction<D, P>,
   T extends BlockDefinition<D, BlockName, P, L>,
 >(props: BlockLoaderProps<D, P, L, T>): JSX.Element {
+  const authenticated = useIsAuthenticated();
   const setData = blockDataSignal.set;
   const setError = blockErrorSignal.set;
   const setLiveTrackingEnabled = blockLiveTrackingEnabledSignal.set;
@@ -198,13 +201,21 @@ Check that the load function does not return a preload source when the intent is
     if (!isNested && data && props.definition.openTrackingEnabled !== false) {
       const trackOpened = () => {
         // we need to pass in a client accessor since the mutation is dynamically imported outside a query context provider
-        import('./trackBlockOpened').then(({ track }) => {
-          track({
-            itemId: props.id,
-            blockName: data.__block,
-            client: useQueryClient,
-          });
-        });
+        import('./trackBlockOpened')
+          .then(({ track }) => {
+            if (authenticated() !== true) return;
+            track({
+              itemId: props.id,
+              blockName: data.__block,
+              client: useQueryClient,
+            });
+          })
+          .catch((error) =>
+            Telemetry.error(error, {
+              surface: 'track-block-opened',
+              blockName: data.__block,
+            })
+          );
 
         analytics.pageView(data.__block);
         analytics.track('open_entity', {

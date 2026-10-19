@@ -4,6 +4,7 @@ import type {
   EmailThreadListNavigation,
 } from '@app/features/email-thread/context/email-thread-context';
 import { toast } from '@core/component/Toast/Toast';
+import { fireAndForget } from '@core/util/fireAndForget';
 import type { EntityData } from '@entity';
 import { type Accessor, createMemo, onCleanup } from 'solid-js';
 import { useEmailView } from './email-view-context';
@@ -109,20 +110,23 @@ export function useEmailDetailListNavigation(
       }
     },
     markDone: (archiveThread: EmailThreadCommands['archiveThread']) => {
-      void navigation.navigate(1, {
-        fallbackDirection: -1,
-        beforeOpen: (next, current) =>
-          archiveThread({
-            navigate: false,
-            nextEntityId: next?.id,
-            navigateBack:
-              current && next
-                ? () => {
-                    navigation.open(current);
-                  }
-                : undefined,
-          }),
-      });
+      fireAndForget(
+        navigation.navigate(1, {
+          fallbackDirection: -1,
+          beforeOpen: (next, current) =>
+            archiveThread({
+              navigate: false,
+              nextEntityId: next?.id,
+              navigateBack:
+                current && next
+                  ? () => {
+                      navigation.open(current);
+                    }
+                  : undefined,
+            }),
+        }),
+        'email-view'
+      );
     },
   };
 }

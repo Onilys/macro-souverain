@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import { ThrownResultError } from '@core/util/result';
 import EnvelopeIcon from '@phosphor/envelope.svg';
 import GlobeIcon from '@phosphor/globe.svg';
@@ -87,7 +88,7 @@ export function CreateCompanyModal(props: {
             aria-label="New company"
             onSubmit={(event) => {
               event.preventDefault();
-              void submit();
+              fireAndForget(submit(), 'crm');
             }}
             onKeyDown={(event) => {
               if (
@@ -97,7 +98,7 @@ export function CreateCompanyModal(props: {
               ) {
                 event.preventDefault();
                 event.stopPropagation();
-                void submit();
+                fireAndForget(submit(), 'crm');
               }
             }}
           >

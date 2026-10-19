@@ -108,9 +108,10 @@ export interface LayoutProps {
 }
 
 /**
- * How rows render once the list is too narrow for columns. `inbox` stacks
- * email rows (sender, subject, snippet) as touch devices do, for lists that
- * sit beside a reading pane.
+ * How rows render once the list is too narrow for columns. `inbox` gives
+ * email rows the compact stacked layout (sender, subject, snippet) on desktop,
+ * for lists that sit beside a reading pane; touch devices keep their own email
+ * rows, with the sender's picture.
  */
 export type NarrowLayoutVariant =
   | 'standard'

@@ -18,6 +18,7 @@ import { usePreference } from '@app/preferences/use-preference';
 import { SplitPanel } from '@components/app/split-panel';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { debounce } from '@core/util/debounce';
+import { fireAndForget } from '@core/util/fireAndForget';
 import {
   type EntityData,
   isCrmCompanyEntity,
@@ -380,7 +381,7 @@ export function CrmWorkspaceView(props: {
             canCreate={canCreatePipeline()}
             onCreate={() => setCreatingPipeline(true)}
             onSelect={selectPipeline}
-            onRetry={() => void pipelines.refresh()}
+            onRetry={() => fireAndForget(pipelines.refresh(), 'crm')}
           />
         </Show>
       }

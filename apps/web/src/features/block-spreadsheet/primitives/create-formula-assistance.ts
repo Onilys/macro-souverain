@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import type { CompletionContext } from '@ironcalc/wasm';
 import { createSignal, onCleanup } from 'solid-js';
 import {
@@ -87,7 +88,7 @@ export function createFormulaAssistance(
     latest = { text, cursor };
     shown = undefined;
     setCompletion(undefined);
-    void drain();
+    fireAndForget(drain(), 'spreadsheet-editor');
   }
 
   function accept(index = selected()) {

@@ -1,6 +1,8 @@
 import { StaticMarkdownContext } from '@core/component/LexicalMarkdown/component/core/StaticMarkdown';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { Key } from '@solid-primitives/keyed';
 import { cn, Layer } from '@ui';
+import { CollapseTransition } from '@ui/components/CollapseTransition';
 import {
   createEffect,
   createMemo,
@@ -73,7 +75,10 @@ export function MessageList(props: MessageListProps) {
       ) {
         return;
       }
-      void fetchOlderMessages(list, context.query.fetchNextPage);
+      fireAndForget(
+        fetchOlderMessages(list, context.query.fetchNextPage),
+        'email-thread'
+      );
     };
 
     applyHeight();
@@ -108,7 +113,10 @@ export function MessageList(props: MessageListProps) {
           !context.query.isFetching() &&
           context.query.hasMore()
         ) {
-          void fetchOlderMessages(list, context.query.fetchNextPage);
+          fireAndForget(
+            fetchOlderMessages(list, context.query.fetchNextPage),
+            'email-thread'
+          );
         }
       }}
     >
@@ -197,21 +205,23 @@ export function MessageList(props: MessageListProps) {
 
               return (
                 <>
-                  <Show when={!hideMiddle()}>
-                    <MessageContainer
-                      isFirstMessage={normalizedIndex() === 0}
-                      isLastMessage={isLastMessage()}
-                      isSelected={isSelectedSelector(
-                        message().db_id ?? undefined
-                      )}
-                      allowHover={props.allowRowHover}
-                      message={message()}
-                      isExpanded={isExpanded()}
-                      markdownDomRef={
-                        isLastMessage() ? props.markdownDomRef : undefined
-                      }
-                    />
-                  </Show>
+                  <CollapseTransition open={!hideMiddle()}>
+                    <div class="w-full shrink-0">
+                      <MessageContainer
+                        isFirstMessage={normalizedIndex() === 0}
+                        isLastMessage={isLastMessage()}
+                        isSelected={isSelectedSelector(
+                          message().db_id ?? undefined
+                        )}
+                        allowHover={props.allowRowHover}
+                        message={message()}
+                        isExpanded={isExpanded()}
+                        markdownDomRef={
+                          isLastMessage() ? props.markdownDomRef : undefined
+                        }
+                      />
+                    </div>
+                  </CollapseTransition>
                   <Show
                     when={
                       chronologicalIndex() === 0 &&

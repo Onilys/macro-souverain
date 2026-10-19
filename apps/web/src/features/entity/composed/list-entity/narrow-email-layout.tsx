@@ -9,10 +9,11 @@ import { RowEnd } from './row-end';
 import { InboxDivider, type LayoutProps } from './shared';
 
 /**
- * An email row stacked for narrow lists (phones, the reading pane's list):
+ * An email row stacked for narrow desktop lists (the reading pane's list):
  * senders and date, then subject, then one line of preview. The unread dot
  * sits in a slim gutter instead of a per-type icon, which is the same on
- * every email row, so the text keeps the width.
+ * every email row, so the text keeps the width. Narrow lists on touch devices
+ * (phones) use `NarrowInboxLayout`, with the sender's picture.
  */
 export function NarrowEmailLayout(
   props: LayoutProps & { entity: EmailEntity }

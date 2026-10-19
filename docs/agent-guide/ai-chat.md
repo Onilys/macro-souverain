@@ -22,7 +22,10 @@ tool list. Expand the discovery row to see the results. An app name alone does
 not establish that the requested action is supported.
 
 For a suitable unconnected app, the assistant offers **Connect <app>**. Clicking
-it opens the hosted authorization flow over the agent transcript. After the
+it opens the hosted authorization flow over the agent transcript on web. In
+native apps, consent opens in the system browser; choose **Return to Macro**
+after authorization. The waiting dialog also offers **Cancel**, and callbacks
+from canceled or expired attempts cannot resume the agent. After the
 backend verifies and registers the connection, the agent session sends a visible
 continuation message in the same conversation. Before that message reaches the
 agent, the harness hands the live session its permitted connector servers again
@@ -1093,7 +1096,8 @@ delete controls. **New skill** creates a skill and inserts its mention. Type `@`
 used in chat and channels; they serialize as mention-chip tags in the prompt
 the agent sees (`<m-document-mention>` for docs/channels/chats/tasks/emails/calendar
 events/skills, `<m-date-mention>` for a day or time, `<m-agent-session-mention>`
-for an agent session, `<m-user-mention>` for a person, and the other chip tags).
+for an agent session, `<m-user-mention>` for a person, `<m-theme-mention>` for a
+clickable color theme, and the other chip tags).
 Clicking a chip while it still sits in the composer (Home, the Agents page, or
 an agent session) opens the mentioned item in a new split and leaves the draft
 and caret untouched; it does not send anything.

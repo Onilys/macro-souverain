@@ -30,11 +30,17 @@ const context: EmailComposeContext = {
       threadId: 'thread',
       inboxId: 'inbox',
     }),
+    transferDraft: async () => ({
+      draftId: 'transferred-draft',
+      threadId: 'transferred-thread',
+      attachments: [],
+    }),
     deleteDraft: async () => {},
     restoreDraft: async () => {},
   },
   attachmentStorage: {
     uploadAttachments: async () => {},
+    completeAttachment: async () => {},
     addForwardedAttachments: async () => {},
     removeAttachment: async () => {},
     removeForwardedAttachment: async () => {},

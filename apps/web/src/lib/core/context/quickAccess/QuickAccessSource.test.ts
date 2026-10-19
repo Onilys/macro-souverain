@@ -71,6 +71,11 @@ const mocks = vi.hoisted(() => ({
     >
   >,
 }));
+vi.mock('@core/context/user', () => ({
+  useIsAuthenticated: () => () => true,
+  useUserId: () => () => 'viewer',
+}));
+
 vi.mock('@core/constant/featureFlags', () => ({
   enableCrm: {},
   enableDatabases: {},

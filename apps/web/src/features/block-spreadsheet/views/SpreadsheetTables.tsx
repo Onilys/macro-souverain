@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import { tableBounds } from '@macro-inc/spreadsheet/sheet-tables';
 import type { TableGridUi } from '../components/SpreadsheetGrid';
 import {
@@ -36,7 +37,10 @@ export function tableGridUi(options: {
           choices={() => actions.columnChoices(name(), column)}
           canChangeStructure={options.canChangeStructure()}
           onSort={(descending) => {
-            void actions.sortColumn(name(), column, descending);
+            fireAndForget(
+              actions.sortColumn(name(), column, descending),
+              'spreadsheet-editor'
+            );
           }}
           onFilter={(filter) => actions.filterColumn(name(), column, filter)}
           onType={(type) => actions.setColumnType(name(), column, type)}

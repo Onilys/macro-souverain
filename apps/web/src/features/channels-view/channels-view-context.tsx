@@ -17,6 +17,7 @@ import { enableChannelThreadsPreview } from '@core/constant/featureFlags';
 import { createAssertedContextProvider } from '@core/context/createContext';
 import { useUserId } from '@core/context/user';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
+import { fireAndForget } from '@core/util/fireAndForget';
 import type { ContextProviderProps } from '@solid-primitives/context';
 import { type Accessor, createEffect, createMemo, on } from 'solid-js';
 import { createStore, type Store } from 'solid-js/store';
@@ -159,24 +160,30 @@ export const [ChannelsViewProvider, useChannelsView] =
         channel: ChannelPreviewSelection,
         replace = false
       ) => {
-        navigate(
-          {
-            route: channelDetailRoute,
-            params: { channelId: channelIdForPreviewNavigation(channel) },
-          },
-          {
-            replace,
-            search: { [channelsSearch.namespace]: routeSearch(channel) },
-          }
+        fireAndForget(
+          navigate(
+            {
+              route: channelDetailRoute,
+              params: { channelId: channelIdForPreviewNavigation(channel) },
+            },
+            {
+              replace,
+              search: { [channelsSearch.namespace]: routeSearch(channel) },
+            }
+          ),
+          'channels-view'
         );
       };
       const setSelectedChannel = (
         channel: ChannelPreviewSelection | undefined
       ) => {
         if (!channel) {
-          navigate(
-            { route: channelsSplitRoute, params: {} },
-            { search: { [channelsSearch.namespace]: routeSearch() } }
+          fireAndForget(
+            navigate(
+              { route: channelsSplitRoute, params: {} },
+              { search: { [channelsSearch.namespace]: routeSearch() } }
+            ),
+            'channels-view'
           );
           return true;
         }
@@ -190,12 +197,15 @@ export const [ChannelsViewProvider, useChannelsView] =
           if (!selectPreview(channel)) {
             if (previous) navigateToChannel(previous, true);
             else
-              navigate(
-                { route: channelsSplitRoute, params: {} },
-                {
-                  replace: true,
-                  search: { [channelsSearch.namespace]: routeSearch() },
-                }
+              fireAndForget(
+                navigate(
+                  { route: channelsSplitRoute, params: {} },
+                  {
+                    replace: true,
+                    search: { [channelsSearch.namespace]: routeSearch() },
+                  }
+                ),
+                'channels-view'
               );
           }
         })
