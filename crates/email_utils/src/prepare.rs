@@ -45,6 +45,18 @@ const DROPPED_ATTRIBUTES: &[&str] = &[
     "contenteditable",
     "is",
     "slot",
+    // A shown popover sits in the top layer, above the app and outside the
+    // body's containment; its declarative triggers open it without script.
+    "popover",
+    "popovertarget",
+    "popovertargetaction",
+    "interestfor",
+    "interesttarget",
+    "commandfor",
+    "command",
+    // Requests the sender's server directly, outside the image policy.
+    "attributionsrc",
+    "referrerpolicy",
     // The editor interprets this legacy attribute as unsanitized HTML.
     "data-html",
 ];

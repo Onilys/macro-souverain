@@ -79,9 +79,10 @@ export function prepareCss(
           return walk.skip;
         }
         if (node.type === 'Declaration') {
-          let unsafe = /^(?:behavior|-moz-binding|animation|transition)/i.test(
-            ident.decode(node.property)
-          );
+          let unsafe =
+            /^(?:behavior|-moz-binding|(?:-[a-z]+-)?(?:animation|transition))/i.test(
+              ident.decode(node.property)
+            );
           walk(node.value, (value) => {
             if (value.type === 'Raw') unsafe = true;
             if (

@@ -11,7 +11,9 @@ function cleanUrl(value: string): string {
     .filter((char) => char.charCodeAt(0) >= 0x20 && char.charCodeAt(0) !== 0x7f)
     .join('')
     .trim();
-  return url.startsWith('//') ? `https:${url}` : url;
+  // Browsers read `\` as `/` here, so `\\host` and `/\host` are
+  // protocol-relative too, and any run of them introduces the host.
+  return /^[/\\]{2}/.test(url) ? `https://${url.replace(/^[/\\]+/, '')}` : url;
 }
 
 const hasScheme = (url: string) => /^[a-z][a-z\d+.-]*:/i.test(url);

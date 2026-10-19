@@ -482,3 +482,57 @@ fn parses_into_a_tree_whose_parents_match_their_children() {
         assert_eq!(node.parent().map(|parent| parent.id()), parent);
     }
 }
+
+#[test]
+fn proxies_backslash_protocol_relative_images() {
+    for src in [
+        r"\\evil.test/a.png",
+        r"/\evil.test/b.png",
+        r"\/evil.test/c.png",
+    ] {
+        let html = format!(r#"<img src="{src}">"#);
+        let proxied = prepare_with(
+            &html,
+            images(RemoteImages::Allow, Some("https://proxy.test/image")),
+        )
+        .html;
+        assert!(
+            proxied.contains("https://proxy.test/image?url=https%3A%2F%2Fevil.test%2F"),
+            "{proxied}"
+        );
+        let blocked = prepare_with(&html, images(RemoteImages::Block, None)).html;
+        assert!(!blocked.contains("evil.test"), "{blocked}");
+    }
+}
+
+#[test]
+fn drops_attributes_that_reach_outside_the_body() {
+    let body = prepare(
+        r#"<a href="https://example.com" interestfor="p" interesttarget="p">x</a><div id="p" popover popovertarget="p" commandfor="p" command="show-popover" style="position:fixed;inset:0">Sign in</div><img src="https://example.com/a.png" attributionsrc="https://evil.test/a" referrerpolicy="unsafe-url">"#,
+    )
+    .html;
+    for needle in [
+        "interestfor",
+        "interesttarget",
+        "popover",
+        "commandfor",
+        "command=",
+        "attributionsrc",
+        "referrerpolicy",
+        "evil.test",
+    ] {
+        assert!(!body.contains(needle), "{needle} in {body}");
+    }
+    assert!(body.contains("Sign in"));
+}
+
+#[test]
+fn drops_vendor_prefixed_animations_and_transitions() {
+    let body = prepare(
+        r#"<p style="-webkit-animation:k 1s;-webkit-transition:color 1s;-moz-animation:k 1s;color:red">Text</p>"#,
+    )
+    .html;
+    assert!(!body.contains("animation"), "{body}");
+    assert!(!body.contains("transition"), "{body}");
+    assert!(body.contains("color:red"), "{body}");
+}

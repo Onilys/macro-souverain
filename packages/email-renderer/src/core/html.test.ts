@@ -346,3 +346,52 @@ describe('content and resource policy', () => {
     expect(result).not.toContain('content:"<');
   });
 });
+
+describe('content that reaches outside the body', () => {
+  it('proxies or blocks backslash protocol-relative images', () => {
+    for (const src of [
+      '\\\\evil.test/a.png',
+      '/\\evil.test/b.png',
+      '\\/evil.test/c.png',
+    ]) {
+      const html = `<img src="${src}">`;
+      const proxied = prepareEmailBody(
+        { html },
+        { images: { remote: 'allow', proxyUrl: 'https://proxy.test/image' } }
+      ).html;
+      expect(proxied).toContain(
+        'https://proxy.test/image?url=https%3A%2F%2Fevil.test%2F'
+      );
+      const blocked = prepareEmailBody(
+        { html },
+        { images: { remote: 'block' } }
+      ).html;
+      expect(blocked).not.toContain('evil.test');
+    }
+  });
+  it('drops popovers, their triggers and direct attribution requests', () => {
+    const { html } = prepareEmailBody({
+      html: '<a href="https://example.com" interestfor="p" interesttarget="p">x</a><div id="p" popover popovertarget="p" commandfor="p" command="show-popover" style="position:fixed;inset:0">Sign in</div><img src="https://example.com/a.png" attributionsrc="https://evil.test/a" referrerpolicy="unsafe-url">',
+    });
+    for (const attribute of [
+      'interestfor',
+      'interesttarget',
+      'popover',
+      'commandfor',
+      'command=',
+      'attributionsrc',
+      'referrerpolicy',
+      'evil.test',
+    ])
+      expect(html).not.toContain(attribute);
+    expect(html).toContain('Sign in');
+  });
+  it('drops vendor-prefixed animations and transitions', () => {
+    const { html } = prepareEmailBody({
+      html: '<p style="-webkit-animation:k 1s;-webkit-transition:color 1s;-moz-animation:k 1s;color:red">Text</p>',
+    });
+    expect(html).not.toContain('animation');
+    expect(html).not.toContain('transition');
+    expect(html).toContain('color:red');
+  });
+});

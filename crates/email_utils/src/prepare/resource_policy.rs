@@ -77,9 +77,14 @@ fn clean_url(value: &str) -> String {
         .filter(|&c| c >= '\u{20}' && c != '\u{7F}')
         .collect();
     let url = url.trim_matches(is_js_whitespace);
-    match url.strip_prefix("//") {
-        Some(rest) => format!("https://{rest}"),
-        None => url.to_string(),
+    // Browsers read `\` as `/` here, so `\\host` and `/\host` are
+    // protocol-relative too, and any run of them introduces the host.
+    let mut leading = url.chars();
+    match (leading.next(), leading.next()) {
+        (Some('/' | '\\'), Some('/' | '\\')) => {
+            format!("https://{}", url.trim_start_matches(['/', '\\']))
+        }
+        _ => url.to_string(),
     }
 }
 

@@ -19,7 +19,8 @@ use super::resource_policy::{ImagePolicy, RemoteImages, image_url};
 static HOST_SELECTOR: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i):host|::slotted|:global").expect("valid regex"));
 static UNSAFE_PROPERTY: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)^(?:behavior|-moz-binding|animation|transition)").expect("valid regex")
+    Regex::new(r"(?i)^(?:behavior|-moz-binding|(?:-[a-z]+-)?(?:animation|transition))")
+        .expect("valid regex")
 });
 static COLOR_SCHEME: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)prefers-color-scheme").expect("valid regex"));
