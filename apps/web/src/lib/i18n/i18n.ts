@@ -118,19 +118,19 @@ async function loadTranslation(next: Exclude<Language, 'en'>) {
   if (loaded.isErr()) {
     Telemetry.error(loaded.error, { surface: 'i18n', language: next });
     // Fall back to English rather than keep showing the previous language,
-    // and try again once the connection is back.
+    // and try again once the connection is back. Adding the same handler
+    // again is a no-op, so repeated failures share one retry.
     if (language() === next) setTranslation({});
-    window.addEventListener(
-      'online',
-      () => {
-        if (language() === next) setInterfaceLanguage(next);
-      },
-      { once: true }
-    );
+    window.addEventListener('online', retryInterfaceLanguage, { once: true });
     return;
   }
   // A later switch may have finished first; only the current one applies.
   if (language() === next) setTranslation(loaded.value.default);
+}
+
+function retryInterfaceLanguage() {
+  const current = language();
+  if (current !== 'en') setInterfaceLanguage(current);
 }
 
 let englishOnly = false;
