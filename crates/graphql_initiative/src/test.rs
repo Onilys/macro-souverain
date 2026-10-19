@@ -340,6 +340,17 @@ impl InitiativeApi for RecordingApi {
     fn delete(&self, user: MacroUserIdStr<'static>, _id: Uuid) -> ApiFuture<'_, ()> {
         Box::pin(async move { self.record(&user, "delete") })
     }
+    fn convert_task(
+        &self,
+        user: MacroUserIdStr<'static>,
+        task_id: String,
+    ) -> ApiFuture<'_, InitiativeDetail> {
+        Box::pin(async move {
+            self.record(&user, &format!("convert_task:{task_id}"))?;
+            *self.name.lock().unwrap() = Some("Converted task".to_string());
+            Ok(self.current_detail())
+        })
+    }
 }
 
 fn schema(
@@ -380,11 +391,40 @@ async fn anonymous_queries_and_mutations_never_call_domain() {
         "{ user { id initiative(initiativeId: \"00000000-0000-4000-8000-000000000001\") { id } } }",
         "mutation { createInitiative(input: { name: \"Launch\" }) { id } }",
         "mutation { ensureInitiativeDescriptionSurface(initiativeId: \"00000000-0000-4000-8000-000000000001\") }",
+        "mutation { convertTaskToInitiative(taskId: \"task-1\") { id } }",
     ] {
         let response = schema.execute(query).await;
         assert_eq!(response.errors[0].message, "authentication required");
     }
     assert!(api.calls.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn converting_a_task_returns_the_project_that_replaces_it() {
+    let api = Arc::new(RecordingApi::default());
+    let response = schema(api.clone())
+        .execute(
+            Request::new(
+                "mutation { convertTaskToInitiative(taskId: \"task-1\") { __typename id displayName } }",
+            )
+            .data(user()),
+        )
+        .await;
+    assert!(response.errors.is_empty(), "{:?}", response.errors);
+    let data = response.data.into_json().unwrap();
+    assert_eq!(
+        data["convertTaskToInitiative"]["__typename"],
+        "GraphqlSoupInitiative"
+    );
+    assert_eq!(data["convertTaskToInitiative"]["id"], PROJECT_ID);
+    assert_eq!(
+        data["convertTaskToInitiative"]["displayName"],
+        "Converted task"
+    );
+    assert_eq!(
+        *api.calls.lock().unwrap(),
+        vec!["convert_task:task-1".to_string()]
+    );
 }
 
 #[tokio::test]

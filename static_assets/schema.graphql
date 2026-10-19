@@ -315,6 +315,12 @@ type CompleteMutationRoot {
 	"""
 	ensureInitiativeDescriptionSurface(initiativeId: ID!): ID!
 	"""
+	Turn a task the viewer owns into a project in place: its title, body, properties
+	and comments carry over, its subtasks join the project, and the task moves to the
+	trash. There is no way back to a task.
+	"""
+	convertTaskToInitiative(taskId: ID!): GraphqlSoupInitiative!
+	"""
 	Delete an initiative after its owner capability has been verified.
 	"""
 	deleteInitiative(initiativeId: ID!): Boolean!

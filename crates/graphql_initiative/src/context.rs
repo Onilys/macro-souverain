@@ -48,6 +48,11 @@ pub(crate) trait InitiativeApi: Send + Sync {
         input: UpdateInitiativeRequest,
     ) -> ApiFuture<'_, InitiativeDetail>;
     fn delete(&self, user: MacroUserIdStr<'static>, id: Uuid) -> ApiFuture<'_, ()>;
+    fn convert_task(
+        &self,
+        user: MacroUserIdStr<'static>,
+        task_id: String,
+    ) -> ApiFuture<'_, InitiativeDetail>;
 }
 
 /// Request-scoped initiative capability, shared by viewer reads and mutations.
@@ -175,6 +180,25 @@ impl<S: InitiativeService, A: InitiativeAuthorizer> InitiativeApi for Initiative
                 .authorize::<OwnerAccessLevel>(&user, &id.to_string(), EntityType::Initiative)
                 .await?;
             self.service.delete(receipt).await
+        })
+    }
+
+    fn convert_task(
+        &self,
+        user: MacroUserIdStr<'static>,
+        task_id: String,
+    ) -> ApiFuture<'_, InitiativeDetail> {
+        Box::pin(async move {
+            let receipt = self
+                .access
+                .authorize::<OwnerAccessLevel>(&user, &task_id, EntityType::Document)
+                .await?;
+            self.service
+                .convert_task(
+                    receipt,
+                    activity::Attribution::direct(activity::Actor::new_from_user(user)),
+                )
+                .await
         })
     }
 }

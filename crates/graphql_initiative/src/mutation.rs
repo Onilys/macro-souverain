@@ -93,6 +93,30 @@ impl<E: SoupEntityEdges> InitiativeMutationRoot<E> {
         Ok(ID(id.to_string()))
     }
 
+    /// Turn a task the viewer owns into a project in place: its title, body, properties
+    /// and comments carry over, its subtasks join the project, and the task moves to the
+    /// trash. There is no way back to a task.
+    async fn convert_task_to_initiative(
+        &self,
+        ctx: &Context<'_>,
+        task_id: ID,
+    ) -> async_graphql::Result<GraphqlSoupInitiative<E>> {
+        let user = require_authenticated_user(ctx)?;
+        let detail = ctx
+            .data::<InitiativeGraphqlContext>()?
+            .0
+            .convert_task(user.clone(), task_id.0)
+            .await
+            .map_err(graphql_error)?;
+        load_from_soup(
+            &ctx.data::<InitiativeEntityLoader>()?.0,
+            user,
+            detail.id.as_uuid(),
+        )
+        .await?
+        .ok_or_else(|| graphql_error(initiative::domain::models::InitiativeError::NotFound))
+    }
+
     /// Delete an initiative after its owner capability has been verified.
     async fn delete_initiative(
         &self,
