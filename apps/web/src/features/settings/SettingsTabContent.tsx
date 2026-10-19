@@ -20,7 +20,10 @@ import { MobileApp } from './MobileApp';
 import { Notifications } from './Notifications';
 import { Shortcuts } from './Shortcuts';
 import { Tags } from './Tags';
-import { Team } from './Team';
+import { TeamPage } from './Team';
+import { TeamConnections } from './TeamConnections';
+import { TeamGeneral } from './TeamGeneral';
+import { TeamMembers } from './TeamMembers';
 
 /** Shared forms for desktop panels and mobile sheet detail pages. */
 export function SettingsTabContent(props: { tab: SettingsTab }) {
@@ -63,7 +66,13 @@ export function SettingsTabContent(props: { tab: SettingsTab }) {
         <Shortcuts />
       </Show>
       <Show when={isCurrentTab('Team')}>
-        <Team />
+        <TeamPage>{(team) => <TeamGeneral team={team} />}</TeamPage>
+      </Show>
+      <Show when={isCurrentTab('Team Members')}>
+        <TeamPage>{(team) => <TeamMembers team={team} />}</TeamPage>
+      </Show>
+      <Show when={isCurrentTab('Team Connections')}>
+        <TeamPage>{(team) => <TeamConnections team={team} />}</TeamPage>
       </Show>
       <Show when={isCurrentTab('Tags')}>
         <Tags />

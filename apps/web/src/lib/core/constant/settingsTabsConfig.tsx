@@ -19,6 +19,7 @@ import AgentIcon from '@phosphor/sparkle.svg';
 import SwatchesIcon from '@phosphor/swatches.svg';
 import TagIcon from '@phosphor/tag-simple.svg';
 import UserIconPhosphor from '@phosphor/user.svg';
+import UsersIcon from '@phosphor/users.svg';
 import UsersThreeIcon from '@phosphor/users-three.svg';
 import { type Component, createMemo } from 'solid-js';
 import { useHasPermission } from '../context/user';
@@ -52,6 +53,12 @@ export type SettingsTabItem = {
   searchOnly?: boolean;
 };
 
+/**
+ * The team group's static label. The settings nav appends the team's name
+ * (`Team · Macro`); search and tests match on this label.
+ */
+export const TEAM_SETTINGS_GROUP_LABEL = 'Team';
+
 export type SettingsTabGroup = {
   label: string;
   items: SettingsTabItem[];
@@ -68,6 +75,37 @@ export type SettingsTabGroup = {
  * one definition.
  */
 export const SETTINGS_TAB_GROUPS: SettingsTabGroup[] = [
+  {
+    label: TEAM_SETTINGS_GROUP_LABEL,
+    items: [
+      {
+        tab: 'Team',
+        label: 'General',
+        icon: UsersThreeIcon,
+        keywords: ['team', 'workspace', 'organization', 'name', 'slug'],
+      },
+      {
+        tab: 'Team Members',
+        label: 'Members',
+        icon: UsersIcon,
+        keywords: [
+          'team',
+          'invite',
+          'people',
+          'users',
+          'teammates',
+          'roles',
+          'seats',
+        ],
+      },
+      {
+        tab: 'Team Connections',
+        label: 'Connections',
+        icon: PlugIcon,
+        keywords: ['team', 'slack', 'github', 'import', 'app'],
+      },
+    ],
+  },
   {
     label: 'Blocks',
     items: [
@@ -154,12 +192,6 @@ export const SETTINGS_TAB_GROUPS: SettingsTabGroup[] = [
     label: 'Workspace',
     items: [
       {
-        tab: 'Team',
-        label: 'Team',
-        icon: UsersThreeIcon,
-        keywords: ['members', 'users', 'workspace'],
-      },
-      {
         tab: 'Tags',
         label: 'Tags',
         icon: TagIcon,
@@ -240,6 +272,8 @@ const SETTINGS_TAB_SLUGS: Record<SettingsTab, string> = {
   Harness: 'runtimes',
   Bots: 'bots',
   Team: 'team',
+  'Team Members': 'team-members',
+  'Team Connections': 'team-connections',
   Calendar: 'calendar',
   Tags: 'tags',
   CRM: 'crm',
@@ -301,6 +335,8 @@ export const useSettingsTabAvailable = () => {
       case 'API Keys':
         return !isMobile();
       case 'Team':
+      case 'Team Members':
+      case 'Team Connections':
       case 'Tags':
         return true;
       // CRM is still rolling out (Macro-internal only); keep the settings tab

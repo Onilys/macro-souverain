@@ -39,6 +39,7 @@ import {
 } from './core/settings-search';
 import { SettingsTabContent } from './SettingsTabContent';
 import { TeamSidebarAction } from './TeamSidebarAction';
+import { useTeamSettingsGroups } from './teamSettingsGroups';
 
 export function SettingsPanelComponentWrapper() {
   const params = useParams<{ tab?: string }>();
@@ -85,6 +86,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
   const { closeSettings, activeTabId, selectTab } = useSettingsState();
   const splitNavigate = useSplitNavigate();
   const { groups, searchGroups, flatTabs } = useSettingsTabs();
+  const navGroups = useTeamSettingsGroups(groups);
   const signatures = useFeatureFlag(enableEmailSignatures);
 
   const activeNavigationTab = activeTabId;
@@ -241,7 +243,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
             >
               <ViewShell.Aside>
                 <SettingsSidebar
-                  groups={groups()}
+                  groups={navGroups()}
                   results={searchResults()}
                   selectedResultId={
                     searchSelection()?.tab === activeTabId()

@@ -127,8 +127,9 @@ enterprise teams retain their billing bypass.
 On a local stack started with `--no-doppler`, verify free-team creation from a
 fresh passwordless signup. It must work without Stripe credentials.
 
-Under **Team**, owners/admins can turn **Auto-join on domain** off and can restrict
-invitations to admins with **Members can invite**. These controls still apply.
+Under **Team → Members** (**Invite settings**), owners/admins can turn
+**Auto-join on domain** off and can restrict invitations to admins with
+**Members can invite**. These controls still apply.
 To verify the membership flow, use a local free team with five members: invite
 and accept a sixth member, then sign up another user on its enabled auto-join
 domain. Both should appear in the team's member list and configured auto-join
@@ -138,7 +139,7 @@ same-domain signup is not added automatically.
 ### Navigation
 
 On phones, **More views → Settings** opens an inset glass sheet over the current
-page. The main page has a profile shortcut and the same grouped Blocks, Personal, Workspace,
+page. The main page has a profile shortcut and the same grouped Team, Blocks, Personal, Workspace,
 and Developer sections as desktop, plus enabled admin settings. Search finds
 individual settings; selecting a result opens its page and reveals the section. Tap a row to open that settings
 page inside the sheet; **Back to settings** returns to the grouped list at its
@@ -205,9 +206,16 @@ seconds (pointer, or Space/Enter); releasing early cancels.
 
 Left nav (feature and platform gates still apply):
 
+- **Team · <team name>** (just **Team** without a team): General (name, slug,
+  GitHub autolink, default link sharing, Delete Team), Members (member list,
+  roles and seat plans, **Invite people**, pending invites, auto-join and
+  members-can-invite), Connections (Slack import, GitHub App). Without a team
+  only General shows, with pending invitations or **Create Team**. Search
+  finds these by `invite`, `members`, `teammates`, `slack`, and similar terms;
+  results name their group, e.g. **Team · Members**.
 - **Blocks**: Email, Calendar, Agents, CRM.
 - **Personal**: Account, Appearance, Notifications, Keyboard shortcuts, Usage, Billing, Desktop App, Mobile App.
-- **Workspace**: Team, Tags, Integrations (personal Gmail/GitHub accounts).
+- **Workspace**: Tags, Integrations (personal Gmail/GitHub accounts).
 - **Developer**: Agent connections, Runtimes, MCP server, API Keys, Bots.
 
 **Desktop App** (`/app/settings/desktop-app`) shows a compact version and
@@ -418,7 +426,7 @@ Max stays active until renewal; **Keep Max plan** cancels a pending downgrade
 without resetting usage. Failed renewal-detail reads offer **Try again**.
 Team members who cannot manage billing see the notice without its action.
 
-`Team` (members list; on a paid team each row shows the seat's plan,
+`Team → Members` (`/app/settings/team-members`; on a paid team each row shows the seat's plan,
 and admins/owners can move a seat between Pro and Max with the `Seat plan`
 menu; Max upgrades are immediate and prorated, Pro downgrades start at renewal.
 **Keep Max** appears only for a confirmed pending downgrade and cancels it;

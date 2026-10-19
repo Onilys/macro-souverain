@@ -32,6 +32,8 @@ export type SettingsTab =
   | 'Harness'
   | 'Bots'
   | 'Team'
+  | 'Team Members'
+  | 'Team Connections'
   | 'Tags'
   | 'CRM'
   | 'Connected'

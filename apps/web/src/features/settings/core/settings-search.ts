@@ -15,6 +15,8 @@ type Setting = {
 export type SettingsSearchResult = Setting & {
   id: string;
   page: SettingsTabItem;
+  /** The nav group holding the page, so `General` reads as `Team · General`. */
+  group: string;
 };
 
 // Targets are the visible SettingsSection/SettingsRow labels, not DOM selectors.
@@ -174,25 +176,29 @@ const SETTINGS: Setting[] = [
     keywords: 'workspace slug rename',
   },
   {
-    tab: 'Team',
-    title: 'Members',
-    target: 'Members',
-    keywords: 'invite users role permissions remove workspace team',
+    tab: 'Team Members',
+    title: 'Invite people',
+    keywords: 'invite add teammates coworkers colleagues email join team',
   },
   {
-    tab: 'Team',
+    tab: 'Team Members',
+    title: 'Member roles',
+    keywords: 'admin owner permissions remove users team',
+  },
+  {
+    tab: 'Team Members',
     title: 'Pending invites',
     target: 'Pending invites',
-    keywords: 'invitations cancel resend',
+    keywords: 'invitations cancel resend copy link team',
   },
   {
-    tab: 'Team',
+    tab: 'Team Members',
     title: 'Auto-join on domain',
     target: 'Auto-join on domain',
     keywords: 'email workspace membership automatic',
   },
   {
-    tab: 'Team',
+    tab: 'Team Members',
     title: 'Members can invite',
     target: 'Members can invite',
     keywords: 'permissions invitation',
@@ -204,10 +210,16 @@ const SETTINGS: Setting[] = [
     keywords: 'access public private permission',
   },
   {
-    tab: 'Team',
+    tab: 'Team Connections',
     title: 'Team GitHub connection',
     target: 'Connections',
     keywords: 'repository app install integration',
+  },
+  {
+    tab: 'Team Connections',
+    title: 'Import from Slack',
+    target: 'Connections',
+    keywords: 'slack export channels messages history team',
   },
   {
     tab: 'Tags',
@@ -301,14 +313,17 @@ export function searchSettings(
 ): SettingsSearchResult[] {
   const tokens = words(query);
   if (!tokens.length) return [];
-  const pages = groups.flatMap((group) => group.items);
-  const entries = pages.flatMap((page) => [
+  const pages = groups.flatMap((group) =>
+    group.items.map((page) => ({ page, group: group.label }))
+  );
+  const entries = pages.flatMap(({ page, group }) => [
     {
       id: page.tab,
       tab: page.tab,
       title: page.label,
       keywords: page.keywords.join(' '),
       page,
+      group,
     },
     ...SETTINGS.filter(
       (setting) =>
@@ -320,6 +335,7 @@ export function searchSettings(
       target: settingsTarget(setting.target),
       id: `${page.tab}:${setting.title}`,
       page,
+      group,
     })),
   ]);
   return entries

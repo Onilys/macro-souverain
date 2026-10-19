@@ -60,6 +60,22 @@ describe('individual settings search', () => {
       }).some((result) => result.title === 'Email signatures')
     ).toBe(false);
   });
+  it('finds the team members page for inviting people', () => {
+    for (const query of ['invite', 'members', 'team members', 'teammates']) {
+      expect(search(query)[0]).toMatchObject({
+        tab: 'Team Members',
+        group: 'Team',
+      });
+    }
+    expect(search('pending invites')[0]).toMatchObject({
+      tab: 'Team Members',
+      target: 'pending-invites',
+    });
+  });
+  it('finds team connections apart from personal integrations', () => {
+    expect(search('slack import')[0].tab).toBe('Team Connections');
+    expect(search('team github')[0].tab).toBe('Team Connections');
+  });
   it('has no results for empty or unrelated queries', () => {
     expect(search('  ')).toEqual([]);
     expect(search('xyz123')).toEqual([]);
