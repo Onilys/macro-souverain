@@ -120,8 +120,10 @@ function CollapsibleSectionRoot(props: {
       <section
         ref={sectionRef}
         class={cn(
-          'group/sidebar-section flex min-h-0 flex-col gap-(--sidebar-section-content-gap)',
+          'group/sidebar-section flex min-h-0 flex-col',
           !props.open && 'shrink-0',
+          !props.open && 'gap-0',
+          props.open && 'gap-(--sidebar-section-content-gap)',
           props.open && sizing() === 'fill' && 'flex-1',
           props.open &&
             sizing() === 'half' &&
