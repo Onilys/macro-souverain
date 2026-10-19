@@ -1,6 +1,6 @@
 # Linked-device verification evidence
 
-This is synthetic/local verification, not a real-account delivery claim. The
+This records automated fixtures and local runtime verification, not a real-account delivery claim. The
 companion is stacked on #7981, head `f683155efe6d35d62f67b5106f5a65fc4443ca4c`,
 whose base is `ebc82ec40cb0bd6dba66b8c9aece371b81ee6ddc`. Both remained unchanged
 and #7981 remained open when rechecked. Upstream whatsmeow HEAD was rechecked as
@@ -10,8 +10,10 @@ and #7981 remained open when rechecked. Upstream whatsmeow HEAD was rechecked as
 The work used an isolated `codex/whatsapp-linked-device` checkout and a task-owned
 PostgreSQL instance on port 5549 with fresh disposable databases. The final
 consolidated additive migration was applied to `macro_whatsapp_linked_v3`; no
-shared database was reset. Runtime/browser fixtures use synthetic users and block
-nonlocal destinations. Real WhatsApp, KMS and authenticator devices were not used.
+shared database was reset. Automated runtime/browser fixtures use synthetic users
+and block nonlocal destinations. The subsequent localhost smoke check reached a
+real WhatsApp pairing QR without scanning it. Production AWS KMS and physical
+authenticator devices were not used.
 
 ## Executed checks
 
@@ -44,6 +46,8 @@ Commands used the repository Nix environment unless they are `go.sh` commands.
 | Root `cargo deny check` | Passed with existing warnings |
 | Additional Tauri-wide `cargo deny … check` | Failed on pre-existing native graph findings; see below |
 | Required auditor review | No remaining concrete source blocker; verified the recorded checks, generated-contract scope, browser screenshots and external prerequisites |
+| Local runtime smoke check | Linux backend services built and started; macOS desktop built with Apple's linker; authenticated local UI showed an enabled personal Connect action and reached a real WhatsApp pairing QR |
+| Local service wiring | Frontend HTTP/HTTPS returned 200; DSS-to-session mTLS succeeded, a client without a certificate was rejected, and LocalStack KMS encryption/decryption plus wrong-context rejection passed |
 
 The companion PR uses the repository's `[no preview]` title marker. Its initially
 automatic preview run was canceled during the build; AWS credential setup, preview
@@ -54,6 +58,15 @@ The app bundle was built to exercise the actual native UI in the browser harness
 Unchanged compiled browser prerequisites were reused where possible. One harness
 startup collided with a Rust build lock and timed out; the warm rerun completed
 all seven journeys. This is recorded separately from a functional failure.
+
+The localhost check used the named `whatsapp-linked` instance, seven synthetic
+Macro personas and a local workspace. It preserved the earlier instance's data.
+Stalled automatic Colima database/KMS forwards were replaced with dedicated
+loopback forwards, and the already-built frontend bundle was reused for a lighter
+preview. Pairing was exercised only up to the QR; account approval, remote group
+adoption and real message delivery remain user-run checks.
+
+![Local runtime connection controls before pairing](verification/whatsapp-linked/localhost-settings.png)
 
 ## What the regressions prove
 
@@ -125,8 +138,8 @@ The exact pinned Go graph includes GPL-3.0 libsignal; the copied notices and has
 are an inventory, not legal approval. The companion review must decide the combined
 artifact's corresponding-source and distribution obligations before rollout.
 
-No real accounts were linked; no real messages, group mutations, remote receipts,
-production changes or deployment were performed. Connected traces in Tempo and
+The agent did not link a real account, send real messages, mutate remote groups,
+change production or deploy. Connected traces in Tempo and
 production KMS/mTLS wiring were not verified. Actual QR/passkey/OS/Bluetooth
 qualification, seven real accounts in one existing group of at least nine people,
 external-phone sender inspection, media and failure/recovery checks remain the

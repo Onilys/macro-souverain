@@ -148,6 +148,46 @@ Bluetooth permission is declared. Actual passkeys, OS prompts, Bluetooth/tunnel
 behavior and Windows/Linux packaging still require the real-device qualification
 below; compiling an implementation is not proof of a working physical authenticator.
 
+## Live testing on localhost
+
+The linked-device service can run beside a named Macro local stack. It does not
+require a cloud deployment or public webhook: the WhatsApp worker establishes an
+outbound connection. LocalStack can provide the KMS API, with dummy AWS credentials,
+so a paid AWS account is not required for local testing.
+
+Use the existing [local-stack workflow](development/running-locally.md), a separate
+instance and the current branch's server binaries. Supply the linked switches,
+client certificate and CA through `--env-file`; enable the frontend with
+`VITE_ENABLE_WHATSAPP_LINKED=true`. Preserve any existing instance's databases and
+volumes. An old instance whose checkout was removed needs its binaries and generated
+configuration rebuilt before it can serve the app again.
+Restart an existing preview through its saved Compose configuration; rerunning
+`run_local` reinitializes its instance. An existing development bundle can be served
+with `vite preview --mode development` to avoid hot-reload overhead.
+
+Run the session executable on the host with `AWS_ENDPOINT_URL_KMS` set to that
+instance's exposed LocalStack endpoint, `AWS_ACCESS_KEY_ID=test`,
+`AWS_SECRET_ACCESS_KEY=test`, and `AWS_REGION=us-east-1`. Create a dedicated local
+KMS alias and use the restricted database role below against the local MacroDB.
+Keep its SQLCipher state in a private persistent directory. The default local
+stack does not persist the emulator's KMS key material across recreation/restart:
+preserve or restore that state separately, or explicitly re-pair after losing it.
+Creating the same alias again does not recover existing encrypted session keys.
+Generate local TLS certificates; when DSS runs in Docker and the session executable runs on the host,
+use `https://host.docker.internal:<session-port>/` as the service override and
+include `host.docker.internal` in the server certificate's SANs. Both sides still
+authenticate with mTLS.
+
+Once the local app and session service are running, sign into the local Macro
+account and use Settings → WhatsApp → Connect. The user scans the QR. Any required
+passkey step needs a desktop build from this branch pointed at the same local
+backend and signed into the same local user. The regular production desktop cannot
+resume a localhost pairing: the handoff carries the flow ID, not a backend override.
+The desktop navigation allowlist accepts `http://localhost:3000` through
+`http://localhost:3009`; use one of those origins for its frontend and proxy to the
+same named backend instance. Live pairing and messages require that explicit user
+action; a running local stack alone does not establish real WhatsApp delivery.
+
 ## Operator setup and rollout
 
 No real account, remote message, group mutation or deployment is part of automated
