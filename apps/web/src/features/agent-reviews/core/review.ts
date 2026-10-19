@@ -3,7 +3,7 @@ export type Review = {
   id: string;
   sessionId: string;
   executionId?: string | null;
-  kind: 'email' | 'calendar';
+  kind: 'email' | 'calendar' | 'import';
   title: string;
   revision: number;
   updatedAt: number;

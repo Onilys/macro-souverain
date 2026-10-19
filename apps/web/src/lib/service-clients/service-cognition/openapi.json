@@ -1159,6 +1159,50 @@
         }
       }
     },
+    "/import/notion": {
+      "get": {
+        "tags": ["import"],
+        "summary": "Where the user's Notion workspace import stands.",
+        "operationId": "notion_report_handler",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotionImportReport"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/import/notion/cancel": {
+      "post": {
+        "tags": ["import"],
+        "summary": "Stop planning or writing the user's Notion import. Objects already\nimported stay.",
+        "operationId": "cancel_notion_handler",
+        "responses": {
+          "200": {
+            "description": "Where the import stands after cancelling",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotionImportReport"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
     "/import/run": {
       "post": {
         "tags": ["import"],
@@ -4166,11 +4210,27 @@
           }
         }
       },
+      "NotionDecision": {
+        "type": "string",
+        "description": "What a workspace import does with one Notion object.",
+        "enum": ["copy", "tasks", "skip", "hand"]
+      },
       "NotionDocMeta": {
         "type": "object",
         "description": "Metadata for one staged Notion page. Deliberately has NO content field:\npage bodies are fetched at import time, for accepted pages only.",
         "required": ["title"],
         "properties": {
+          "plan": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NotionPlanItem",
+                "description": "Where this object sits in a workspace import plan; absent for pages\nstaged one at a time. Written by the workspace import, never by a\nmodel, so it is left out of the tool schema."
+              }
+            ]
+          },
           "summary": {
             "type": ["string", "null"],
             "description": "One-line summary of what the page contains."
@@ -4182,6 +4242,204 @@
           "url": {
             "type": ["string", "null"],
             "description": "Deep link back to the page in Notion."
+          }
+        }
+      },
+      "NotionImportReport": {
+        "type": "object",
+        "description": "Where a Notion workspace import stands.",
+        "required": [
+          "pages",
+          "dataSources",
+          "copy",
+          "tasks",
+          "skip",
+          "hand",
+          "imported",
+          "waiting",
+          "writing"
+        ],
+        "properties": {
+          "copy": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Objects to copy as they are.",
+            "minimum": 0
+          },
+          "dataSources": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Data sources (database tables) in the plan.",
+            "minimum": 0
+          },
+          "error": {
+            "type": ["string", "null"],
+            "description": "Why the run failed, when it did."
+          },
+          "failures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotionReportItem"
+            },
+            "description": "Objects that failed to import, with the failure."
+          },
+          "hand": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Objects that need handling by hand.",
+            "minimum": 0
+          },
+          "handItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotionReportItem"
+            },
+            "description": "Objects that need handling by hand, with reasons."
+          },
+          "imported": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Plan objects already imported.",
+            "minimum": 0
+          },
+          "pages": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Pages in the plan.",
+            "minimum": 0
+          },
+          "reviewId": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "The review the plan is tied to, once presented."
+          },
+          "skip": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Objects left in Notion.",
+            "minimum": 0
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RunStatus",
+                "description": "The run's state: `running` while planning, `ready` once a plan is\nstaged, `importing` while writing, `completed`, `failed`, or\n`dismissed` when cancelled. Absent before the first run."
+              }
+            ]
+          },
+          "tasks": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Data sources whose rows become tasks.",
+            "minimum": 0
+          },
+          "waiting": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Plan objects still waiting to be written.",
+            "minimum": 0
+          },
+          "writing": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Plan objects being written now.",
+            "minimum": 0
+          }
+        }
+      },
+      "NotionPlanItem": {
+        "type": "object",
+        "description": "One object's place in a workspace import plan.",
+        "required": ["decision"],
+        "properties": {
+          "decision": {
+            "$ref": "#/components/schemas/NotionDecision",
+            "description": "What the import does with it."
+          },
+          "moreRows": {
+            "type": "boolean",
+            "description": "For a data source: whether it has more rows than `rows`."
+          },
+          "path": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Titles of the pages above it, outermost first."
+          },
+          "reason": {
+            "type": ["string", "null"],
+            "description": "Why, in a short sentence, when the decision model gave one."
+          },
+          "rows": {
+            "type": ["integer", "null"],
+            "format": "int32",
+            "description": "For a data source: rows counted while planning.",
+            "minimum": 0
+          },
+          "taskFields": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NotionTaskFields",
+                "description": "For a task list: which columns hold the task fields."
+              }
+            ]
+          }
+        }
+      },
+      "NotionReportItem": {
+        "type": "object",
+        "description": "One object a workspace import report calls out.",
+        "required": ["importId", "title", "kind"],
+        "properties": {
+          "importId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The ledger row."
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ImportKind",
+            "description": "What the object is."
+          },
+          "reason": {
+            "type": ["string", "null"],
+            "description": "Why it is called out: the decision model's reason, or the failure."
+          },
+          "title": {
+            "type": "string",
+            "description": "The object's title."
+          },
+          "url": {
+            "type": ["string", "null"],
+            "description": "Its Notion URL."
+          }
+        }
+      },
+      "NotionTaskFields": {
+        "type": "object",
+        "description": "Which Notion columns hold a task list's task fields, by property name.",
+        "properties": {
+          "assignee": {
+            "type": ["string", "null"],
+            "description": "The assignee column."
+          },
+          "due": {
+            "type": ["string", "null"],
+            "description": "The due date column."
+          },
+          "priority": {
+            "type": ["string", "null"],
+            "description": "The priority column."
+          },
+          "status": {
+            "type": ["string", "null"],
+            "description": "The status column."
           }
         }
       },

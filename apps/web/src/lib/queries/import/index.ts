@@ -14,6 +14,7 @@ import {
   type ImportSource,
   type ImportState,
   importClient,
+  type NotionImportReport,
   type SlackChannelMeta,
 } from '@service-cognition/import';
 import { createConnectionWebsocketEffect } from '@service-connection/websocket';
@@ -23,6 +24,7 @@ import {
   useMutation,
   useQuery,
 } from '@tanstack/solid-query';
+import { importKeys } from './keys';
 
 export type {
   ImportEntity,
@@ -32,12 +34,9 @@ export type {
   ImportRunStatus,
   ImportSource,
   ImportState,
+  NotionImportReport,
   SlackChannelMeta,
 } from '@service-cognition/import';
-
-const KEYS = {
-  state: ['import', 'state'] as const,
-};
 
 /** Gateway push sent when an import row or discovery run changes server-side. */
 const IMPORT_UPDATED_MESSAGE_TYPE = 'import_updated';
@@ -65,7 +64,7 @@ function fetchImportStateFromServer() {
 // Cached on the query past unmount; module scope keeps hook state out of it.
 function importStateQueryOptions() {
   return queryOptions({
-    queryKey: KEYS.state,
+    queryKey: importKeys.state.queryKey,
     queryFn: fetchImportStateFromServer,
     refetchInterval: (query) =>
       anythingInFlight(query.state.data) ? 3_000 : 15_000,
@@ -84,7 +83,9 @@ export function useImportQuery() {
 }
 
 function invalidateImportState() {
-  return queryClient.invalidateQueries({ queryKey: KEYS.state });
+  return queryClient.invalidateQueries({
+    queryKey: importKeys.state.queryKey,
+  });
 }
 
 /**
@@ -124,4 +125,50 @@ export function slackChannelMeta(
 ): SlackChannelMeta | null {
   if (entity.source !== 'slack') return null;
   return entity.metadata as SlackChannelMeta;
+}
+
+function notionImportInFlight(report: NotionImportReport | undefined) {
+  return report?.status === 'running' || report?.status === 'importing';
+}
+
+function fetchNotionReportFromServer() {
+  return throwOnErr(() => importClient.getNotionReport());
+}
+
+// Cached on the query past unmount; module scope keeps hook state out of it.
+function notionImportReportQueryOptions() {
+  return queryOptions({
+    queryKey: importKeys.notion.queryKey,
+    queryFn: fetchNotionReportFromServer,
+    // `import_updated` pushes drive refreshes; polling covers missed pushes
+    // while the run is moving.
+    refetchInterval: (query) =>
+      notionImportInFlight(query.state.data) ? 2_000 : false,
+  });
+}
+
+/** The Notion workspace import report, refreshed on `import_updated`. */
+export function useNotionImportReportQuery() {
+  createConnectionWebsocketEffect((message) => {
+    if (message.type !== IMPORT_UPDATED_MESSAGE_TYPE) return;
+    void queryClient.invalidateQueries({
+      queryKey: importKeys.notion.queryKey,
+    });
+  });
+
+  return useQuery(() => notionImportReportQueryOptions());
+}
+
+/**
+ * Stop the Notion workspace import. Objects already imported stay; the
+ * returned report replaces the cached one.
+ */
+export function useCancelNotionImportMutation() {
+  return useMutation(() => ({
+    mutationFn: () => throwOnErr(() => importClient.cancelNotion()),
+    onSuccess: (report: NotionImportReport) => {
+      queryClient.setQueryData(importKeys.notion.queryKey, report);
+      void invalidateImportState();
+    },
+  }));
 }

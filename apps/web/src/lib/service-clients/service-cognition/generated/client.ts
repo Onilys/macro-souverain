@@ -31,6 +31,7 @@ import type {
   McpAuthCallbackParams,
   MemoryErrorBody,
   MemoryResponse,
+  NotionImportReport,
   OnboardingRow,
   OnboardingState,
   PatchChatRequest,
@@ -1310,6 +1311,107 @@ export const healthHandler = async (
     status: res.status,
     headers: res.headers,
   } as healthHandlerResponse;
+};
+
+/**
+ * @summary Where the user's Notion workspace import stands.
+ */
+export type notionReportHandlerResponse200 = {
+  data: NotionImportReport;
+  status: 200;
+};
+
+export type notionReportHandlerResponse500 = {
+  data: void;
+  status: 500;
+};
+
+export type notionReportHandlerResponseSuccess =
+  notionReportHandlerResponse200 & {
+    headers: Headers;
+  };
+export type notionReportHandlerResponseError =
+  notionReportHandlerResponse500 & {
+    headers: Headers;
+  };
+
+export type notionReportHandlerResponse =
+  | notionReportHandlerResponseSuccess
+  | notionReportHandlerResponseError;
+
+export const getNotionReportHandlerUrl = () => {
+  return `/import/notion`;
+};
+
+export const notionReportHandler = async (
+  options?: RequestInit
+): Promise<notionReportHandlerResponse> => {
+  const res = await fetch(getNotionReportHandlerUrl(), {
+    ...options,
+    method: 'GET',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: notionReportHandlerResponse['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as notionReportHandlerResponse;
+};
+
+/**
+ * @summary Stop planning or writing the user's Notion import. Objects already
+imported stay.
+ */
+export type cancelNotionHandlerResponse200 = {
+  data: NotionImportReport;
+  status: 200;
+};
+
+export type cancelNotionHandlerResponse500 = {
+  data: void;
+  status: 500;
+};
+
+export type cancelNotionHandlerResponseSuccess =
+  cancelNotionHandlerResponse200 & {
+    headers: Headers;
+  };
+export type cancelNotionHandlerResponseError =
+  cancelNotionHandlerResponse500 & {
+    headers: Headers;
+  };
+
+export type cancelNotionHandlerResponse =
+  | cancelNotionHandlerResponseSuccess
+  | cancelNotionHandlerResponseError;
+
+export const getCancelNotionHandlerUrl = () => {
+  return `/import/notion/cancel`;
+};
+
+export const cancelNotionHandler = async (
+  options?: RequestInit
+): Promise<cancelNotionHandlerResponse> => {
+  const res = await fetch(getCancelNotionHandlerUrl(), {
+    ...options,
+    method: 'POST',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: cancelNotionHandlerResponse['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as cancelNotionHandlerResponse;
 };
 
 /**

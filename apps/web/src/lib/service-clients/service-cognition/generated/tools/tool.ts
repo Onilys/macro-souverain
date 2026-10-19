@@ -224,6 +224,10 @@ type ToolParserMap = {
     call: types.ImportCompaniesCsv;
     response: types.ImportCompaniesCsvResponse;
   };
+  ImportFromNotion: {
+    call: types.ImportFromNotion;
+    response: types.ImportFromNotionResponse;
+  };
   ImportNotionPage: {
     call: types.ImportNotionPage;
     response: types.ImportNotionPageResponse;
@@ -727,6 +731,10 @@ const toolParserMap = {
   ImportCompaniesCsv: {
     call: schemas.ImportCompaniesCsv,
     response: schemas.ImportCompaniesCsvResponse,
+  },
+  ImportFromNotion: {
+    call: schemas.ImportFromNotion,
+    response: schemas.ImportFromNotionResponse,
   },
   ImportNotionPage: {
     call: schemas.ImportNotionPage,
@@ -1272,6 +1280,10 @@ type ToolDataMap = {
   ImportCompaniesCsv: {
     call: types.ImportCompaniesCsv;
     response: types.ImportCompaniesCsvResponse;
+  };
+  ImportFromNotion: {
+    call: types.ImportFromNotion;
+    response: types.ImportFromNotionResponse;
   };
   ImportNotionPage: {
     call: types.ImportNotionPage;

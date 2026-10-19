@@ -17,6 +17,9 @@ import {
   type AI_USAGE_LIMIT_ERROR,
   aiUsageErrorResponseHandler,
 } from '../ai-usage-limit';
+import type { NotionImportReport } from './generated/schemas';
+
+export type { NotionImportReport } from './generated/schemas';
 
 const dcsHost: string = SERVER_HOSTS['cognition-service'];
 
@@ -164,6 +167,20 @@ export const importClient = {
   /** Discover candidates for manual selection. */
   async discover(source: ImportSource) {
     return await importFetch(`/import/runs/${source}/discover`, {
+      method: 'POST',
+    });
+  },
+
+  /** Where the Notion workspace import stands. */
+  async getNotionReport() {
+    return await importFetch<NotionImportReport>('/import/notion', {
+      method: 'GET',
+    });
+  },
+
+  /** Stop planning or writing the Notion workspace import. */
+  async cancelNotion() {
+    return await importFetch<NotionImportReport>('/import/notion/cancel', {
       method: 'POST',
     });
   },

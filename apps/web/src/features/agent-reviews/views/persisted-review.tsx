@@ -1,5 +1,7 @@
 import { Show, Suspense } from 'solid-js';
+import { match } from 'ts-pattern';
 import { useReview, useReviewActions } from '../queries/reviews';
+import { ImportReview } from './import-review';
 import { ReviewStack } from './review-stack';
 
 /** Every agent's ACP chain references the same authenticated, persisted review. */
@@ -31,13 +33,25 @@ export function PersistedReview(props: {
         </p>
       </Show>
       <Show when={query.isSuccess ? query.data : undefined}>
-        {(record) => (
-          <ReviewStack
-            review={record()}
-            canAct={props.canAct}
-            actions={actions}
-          />
-        )}
+        {(record) =>
+          // A review's kind is fixed when it is saved.
+          match(record().kind)
+            .with('import', () => (
+              <ImportReview
+                review={record()}
+                canAct={props.canAct}
+                actions={actions}
+              />
+            ))
+            .with('email', 'calendar', () => (
+              <ReviewStack
+                review={record()}
+                canAct={props.canAct}
+                actions={actions}
+              />
+            ))
+            .exhaustive()
+        }
       </Show>
     </Suspense>
   );

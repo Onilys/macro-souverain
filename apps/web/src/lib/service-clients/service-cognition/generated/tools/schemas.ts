@@ -8818,6 +8818,155 @@ export const ImportCompaniesCsvResponse = z.object({
   summary: z.string(),
 });
 
+export const ImportFromNotion = z.object({
+  action: z.any().superRefine((x, ctx) => {
+    const schemas = [
+      z.literal('plan'),
+      z.literal('status'),
+      z.literal('cancel'),
+    ];
+    const errors = schemas.reduce<z.ZodError[]>(
+      (errors, schema) =>
+        ((result) => (result.error ? [...errors, result.error] : errors))(
+          schema.safeParse(x)
+        ),
+      []
+    );
+    if (schemas.length - errors.length !== 1) {
+      ctx.addIssue({
+        path: ctx.path,
+        code: 'invalid_union',
+        unionErrors: errors,
+        message: 'Invalid input: Should pass single schema',
+      });
+    }
+  }),
+  roots: z.array(z.string()).optional(),
+});
+
+export const ImportFromNotionResponse = z.object({
+  report: z.object({
+    status: z
+      .union([
+        z.any().superRefine((x, ctx) => {
+          const schemas = [
+            z.literal('running'),
+            z.literal('ready'),
+            z.literal('importing'),
+            z.literal('completed'),
+            z.literal('failed'),
+            z.literal('dismissed'),
+          ];
+          const errors = schemas.reduce<z.ZodError[]>(
+            (errors, schema) =>
+              ((result) => (result.error ? [...errors, result.error] : errors))(
+                schema.safeParse(x)
+              ),
+            []
+          );
+          if (schemas.length - errors.length !== 1) {
+            ctx.addIssue({
+              path: ctx.path,
+              code: 'invalid_union',
+              unionErrors: errors,
+              message: 'Invalid input: Should pass single schema',
+            });
+          }
+        }),
+        z.null(),
+      ])
+      .optional(),
+    error: z.union([z.string(), z.null()]).optional(),
+    pages: z.number().int().gte(0),
+    dataSources: z.number().int().gte(0),
+    copy: z.number().int().gte(0),
+    tasks: z.number().int().gte(0),
+    skip: z.number().int().gte(0),
+    hand: z.number().int().gte(0),
+    imported: z.number().int().gte(0),
+    waiting: z.number().int().gte(0),
+    writing: z.number().int().gte(0),
+    reviewId: z.union([z.string().uuid(), z.null()]).optional(),
+    handItems: z
+      .array(
+        z.object({
+          importId: z.string().uuid(),
+          title: z.string(),
+          kind: z.any().superRefine((x, ctx) => {
+            const schemas = [
+              z.literal('issue'),
+              z.literal('project'),
+              z.literal('document'),
+              z.literal('page'),
+              z.literal('database'),
+              z.literal('data_source'),
+              z.literal('row'),
+              z.literal('channel'),
+            ];
+            const errors = schemas.reduce<z.ZodError[]>(
+              (errors, schema) =>
+                ((result) =>
+                  result.error ? [...errors, result.error] : errors)(
+                  schema.safeParse(x)
+                ),
+              []
+            );
+            if (schemas.length - errors.length !== 1) {
+              ctx.addIssue({
+                path: ctx.path,
+                code: 'invalid_union',
+                unionErrors: errors,
+                message: 'Invalid input: Should pass single schema',
+              });
+            }
+          }),
+          url: z.union([z.string(), z.null()]).optional(),
+          reason: z.union([z.string(), z.null()]).optional(),
+        })
+      )
+      .optional(),
+    failures: z
+      .array(
+        z.object({
+          importId: z.string().uuid(),
+          title: z.string(),
+          kind: z.any().superRefine((x, ctx) => {
+            const schemas = [
+              z.literal('issue'),
+              z.literal('project'),
+              z.literal('document'),
+              z.literal('page'),
+              z.literal('database'),
+              z.literal('data_source'),
+              z.literal('row'),
+              z.literal('channel'),
+            ];
+            const errors = schemas.reduce<z.ZodError[]>(
+              (errors, schema) =>
+                ((result) =>
+                  result.error ? [...errors, result.error] : errors)(
+                  schema.safeParse(x)
+                ),
+              []
+            );
+            if (schemas.length - errors.length !== 1) {
+              ctx.addIssue({
+                path: ctx.path,
+                code: 'invalid_union',
+                unionErrors: errors,
+                message: 'Invalid input: Should pass single schema',
+              });
+            }
+          }),
+          url: z.union([z.string(), z.null()]).optional(),
+          reason: z.union([z.string(), z.null()]).optional(),
+        })
+      )
+      .optional(),
+  }),
+  message: z.string(),
+});
+
 export const ImportNotionPage = z.object({ pageUrl: z.string() });
 
 export const ImportNotionPageResponse = z.object({

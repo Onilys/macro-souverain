@@ -7,8 +7,8 @@ import { createToolRenderer } from './ToolRenderer';
 
 /*
  * Renderers for the import-ledger tools the chat agent can call
- * (CreateImportEntity / ImportNotionPage / DeleteImportEntity /
- * ListImportEntities).
+ * (CreateImportEntity / ImportNotionPage / ImportFromNotion /
+ * DeleteImportEntity / ListImportEntities).
  */
 
 /** Human label for the item a call is about, from its source metadata. */
@@ -78,6 +78,43 @@ export const importNotionPageHandler = createToolRenderer({
             onToggle={() => setIsExpanded((expanded) => !expanded)}
             showToggle={hasResponse()}
             status={status()}
+          />
+        </div>
+      </BaseTool>
+    );
+  },
+});
+
+export const importFromNotionHandler = createToolRenderer({
+  name: 'ImportFromNotion',
+  render: (ctx) => {
+    const [isExpanded, setIsExpanded] = createSignal(false);
+    const hasResponse = () => ctx.response !== undefined;
+    const label = () =>
+      match(ctx.tool.data.action)
+        .with('plan', () => 'Plan a Notion import')
+        .with('status', () => 'Check the Notion import')
+        .with('cancel', () => 'Stop the Notion import')
+        .exhaustive();
+    return (
+      <BaseTool
+        icon={TrayArrowDown}
+        renderContext={ctx.renderContext}
+        type="call"
+        response={
+          hasResponse() && isExpanded() ? (
+            <div class="rounded-md bg-panel px-3 py-2 text-xs text-ink-muted">
+              {ctx.response?.data.message}
+            </div>
+          ) : undefined
+        }
+      >
+        <div class="flex min-w-0 flex-1 items-center justify-between gap-3 overflow-hidden">
+          <div class="min-w-0 flex-1 truncate">{label()}</div>
+          <Tool.ResultToggle
+            expanded={isExpanded()}
+            onToggle={() => setIsExpanded((expanded) => !expanded)}
+            showToggle={hasResponse()}
           />
         </div>
       </BaseTool>
