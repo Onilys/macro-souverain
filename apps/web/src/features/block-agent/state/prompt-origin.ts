@@ -63,6 +63,16 @@ export function agentContextText(markdown: string): string | undefined {
   return undefined;
 }
 
+/**
+ * Whether a prompt is nothing but the harness's private context: a turn the
+ * harness started on its own, such as continuing once an app is connected.
+ * Nobody typed it, so it has no bubble.
+ */
+export function isContextOnlyPrompt(markdown: string): boolean {
+  if (agentContextText(markdown) === undefined) return false;
+  return markdown.slice(markdown.indexOf(CLOSE) + CLOSE.length).trim() === '';
+}
+
 function children(element: Element, tag: string): Element[] {
   return [...element.children].filter((child) => child.tagName === tag);
 }

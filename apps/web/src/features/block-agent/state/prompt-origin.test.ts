@@ -3,7 +3,11 @@ import {
   composeAgentContextPrompt,
 } from '@macro-inc/lexical-core/utils/agent-context';
 import { describe, expect, it } from 'vitest';
-import { agentContextText, promptOrigin } from './prompt-origin';
+import {
+  agentContextText,
+  isContextOnlyPrompt,
+  promptOrigin,
+} from './prompt-origin';
 
 const julia = {
   id: 'macro|julia@example.com',
@@ -510,5 +514,24 @@ describe('promptOrigin', () => {
       )
     ).toBeUndefined();
     expect(promptOrigin('Prior message 1: <unclosed')).toBeUndefined();
+  });
+});
+
+describe('isContextOnlyPrompt', () => {
+  const context =
+    '<m-agent-context>{"version":1,"text":"The user just connected Notion."}</m-agent-context>';
+
+  it('is true for a prompt that is only the harness context', () => {
+    expect(isContextOnlyPrompt(context)).toBe(true);
+    expect(isContextOnlyPrompt(`${context}\n\n`)).toBe(true);
+  });
+
+  it('is false once a person typed something after the context', () => {
+    expect(isContextOnlyPrompt(`${context}\n\nimport my roadmap`)).toBe(false);
+  });
+
+  it('is false for a prompt without context', () => {
+    expect(isContextOnlyPrompt('import my roadmap')).toBe(false);
+    expect(isContextOnlyPrompt('')).toBe(false);
   });
 });
