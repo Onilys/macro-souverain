@@ -76,8 +76,11 @@ function Fixture() {
   );
 }
 
-if (new URLSearchParams(location.search).get('theme') === 'light') {
-  applyTheme('Macro Light');
-}
+// Apply dark explicitly too: `dark-mode:` styles key off the theme attribute.
+applyTheme(
+  new URLSearchParams(location.search).get('theme') === 'light'
+    ? 'Macro Light'
+    : 'Macro Dark'
+);
 const root = document.getElementById('root');
 if (root) render(() => <Fixture />, root);

@@ -43,7 +43,9 @@ backend.
 ## Sidebar setup cards
 
 The same flag puts a dismissible card (`src/features/sidebar-promotion`) at
-the bottom of three more sidebars.
+the bottom of three more sidebars. On desktop every card, import cards
+included, uses the email message card's surface (`ComposerSurface`). Calendar's
+card sits above **Settings**, outside the scrolling list.
 
 - **Home** (desktop): "Make Macro your home base". **Connect tools** opens
   Settings → Connections; **Invite team** opens Settings → Team. **Invite

@@ -1,5 +1,6 @@
+import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import XIcon from '@phosphor/x.svg';
-import { Button } from '@ui';
+import { Button, ComposerSurface, cn } from '@ui';
 import { Show } from 'solid-js';
 import { LogoStack, type PromotionLogo } from './logo-stack';
 
@@ -8,7 +9,11 @@ export type PromoAction = {
   onClick(trigger: HTMLButtonElement): void;
 };
 
-/** A dismissible sidebar prompt: logos, a headline, a pitch, and actions. */
+/**
+ * A dismissible sidebar prompt: logos, a headline, a pitch, and actions.
+ * Desktop shares the email message card's surface (rounding, soft shadow,
+ * dark rim); touch keeps a plain bordered card.
+ */
 export function PromoCard(props: {
   logos: readonly PromotionLogo[];
   headline: string;
@@ -21,8 +26,13 @@ export function PromoCard(props: {
   onDismiss(): void;
 }) {
   return (
-    <section
-      class="w-full rounded-xl border border-edge-muted bg-control p-2.5"
+    <ComposerSurface
+      as="div"
+      role="region"
+      class={cn(
+        'w-full p-4',
+        isTouchDevice() && 'rounded-xl border border-edge-muted bg-control'
+      )}
       aria-label={props.headline}
     >
       {/* Same-height row: the logos and the close glyph share one inset. */}
@@ -61,6 +71,6 @@ export function PromoCard(props: {
           )}
         </Show>
       </div>
-    </section>
+    </ComposerSurface>
   );
 }

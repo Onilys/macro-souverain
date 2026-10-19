@@ -45,7 +45,7 @@ export const CALENDAR_ACCOUNTS_PROMOTION = {
   logos: [logo('Google Calendar', IconGoogleCalendar)],
   headline: 'Connect more calendars',
   pitch:
-    'Add another Google account to see work and personal calendars side by side.',
+    'Add another Google account to see work and personal calendars together.',
   action: 'Connect a calendar',
   /** Shown instead while one of your accounts lacks calendar access. */
   enableAction: 'Turn on calendar',

@@ -29,7 +29,7 @@ export const IMPORT_CATEGORIES: Record<ImportCategory, ImportCategoryConfig> = {
     category: 'files',
     headline: 'Bring your files to Macro',
     pitch:
-      'Import docs and files from Notion, Google Drive, Dropbox, OneDrive, and more.',
+      'Import docs and files from Notion, Google Drive, Dropbox, and more.',
     action: 'Import files',
     dialogDescription:
       'Connect an app, then pick what to bring into your Drive.',
@@ -79,7 +79,7 @@ export const IMPORT_CATEGORIES: Record<ImportCategory, ImportCategoryConfig> = {
     category: 'tasks',
     headline: 'Bring your tasks to Macro',
     pitch:
-      'Import your issues and tasks from Linear, Jira, Asana, GitHub, Trello, and more.',
+      'Import issues and tasks from Linear, Jira, Asana, GitHub, and more.',
     action: 'Import tasks',
     dialogDescription: 'Connect an app, then pick which tasks to bring over.',
     items: 'issues and tasks',
@@ -127,8 +127,7 @@ export const IMPORT_CATEGORIES: Record<ImportCategory, ImportCategoryConfig> = {
   crm: {
     category: 'crm',
     headline: 'Bring your customers to Macro',
-    pitch:
-      'Import your companies and contacts from HubSpot, Salesforce, Close, and more.',
+    pitch: 'Import companies and contacts from HubSpot, Salesforce, and more.',
     action: 'Import customers',
     dialogDescription:
       'Connect an app, then bring its companies and contacts into your CRM.',
@@ -165,7 +164,7 @@ export const IMPORT_CATEGORIES: Record<ImportCategory, ImportCategoryConfig> = {
     category: 'channels',
     headline: 'Bring Slack to Macro',
     pitch:
-      'Import Slack channels and members, with or without your full message history.',
+      'Import Slack channels and members, with or without message history.',
     action: 'Import from Slack',
     dialogDescription:
       'Connect Slack to pick channels, or upload an export to bring history.',

@@ -28,7 +28,7 @@ test('keeps every pitch to two lines at the default sidebar width', async ({
   page,
 }) => {
   const lines = await page
-    .locator('section p')
+    .locator('[role=region] p')
     .evaluateAll((pitches) =>
       pitches.map((pitch) =>
         Math.round(
