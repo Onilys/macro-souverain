@@ -131,6 +131,7 @@ vi.mock('./components/ChannelsMobileView', () => ({
       </For>
     </div>
   ),
+  ChannelsMobileHeader: () => null,
 }));
 vi.mock('./components/rail/ChannelsRail', () => ({ ChannelsRail: () => null }));
 vi.mock('@core/mobile/isTouchDevice', () => ({
