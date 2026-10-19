@@ -25,6 +25,7 @@ import ArrowsOutIcon from '@icon/system/regular/arrows-out.svg';
 import SplitIcon from '@icon/system/regular/square-half.svg';
 import XIcon from '@icon/system/regular/x.svg';
 import { mergeRegister } from '@lexical/utils';
+import { Telemetry } from '@macro-inc/observability';
 import { onElementConnect } from '@solid-primitives/lifecycle';
 import { Button, Hotkey, Scroll } from '@ui';
 import {
@@ -303,7 +304,7 @@ export function ComposeSkill(props: ComposeSkillProps) {
 
     const documentId = await submitSkill();
     if (documentId && !props.onSuccess) {
-      showSkillCreatedToast(documentId);
+      await showSkillCreatedToast(documentId);
     }
   };
 
@@ -338,7 +339,9 @@ export function ComposeSkill(props: ComposeSkillProps) {
     scopeId: composeHotkeyScope,
     description: 'Create skill',
     keyDownHandler: () => {
-      handleCreateSkill();
+      handleCreateSkill().catch((error) =>
+        Telemetry.error(error, { surface: 'compose-skill' })
+      );
       return true;
     },
     runWithInputFocused: true,

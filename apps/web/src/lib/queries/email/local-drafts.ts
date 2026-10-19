@@ -8,6 +8,7 @@ import type { DraftFormAttachment } from '@app/features/email-compose/primitives
 import type { EmailMessage } from '@app/features/email-message/core/email-message';
 import { analytics } from '@app/lib/analytics';
 import { getNativeStagedUpload } from '@core/mobile/nativeStagedUpload';
+import { fireAndForget } from '@core/util/fireAndForget';
 import type { NormalizedCacheExchangeOptions } from '@graphql-cache/exchange/normalized-cache-exchange';
 import type { CacheHost } from '@graphql-cache/host/types';
 import type {
@@ -215,7 +216,7 @@ export type LocalDraftInput = SaveEmailDraft & {
 export function saveLocalDraft(input: LocalDraftInput): Promise<LocalDraft> {
   const write = persistLocalDraft(input);
   pendingWrites.add(write);
-  void finishLocalWrite(write);
+  fireAndForget(finishLocalWrite(write), 'email-local-drafts');
   return write;
 }
 

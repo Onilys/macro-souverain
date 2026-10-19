@@ -1,3 +1,5 @@
+import DatabaseIcon from '@icon/system/regular/database.svg';
+import TableIcon from '@icon/system/regular/table.svg';
 /**
  * Tool renderers for the Macro Databases toolsets: QueryDatabase and
  * SaveDatabaseQuery from `crates/databases_sql/src/toolset`, the rest from
@@ -14,8 +16,7 @@ import {
   StaticMarkdownContext,
 } from '@core/component/LexicalMarkdown/component/core/StaticMarkdown';
 import { isFeatureEnabled, showDatabaseSql } from '@core/constant/featureFlags';
-import DatabaseIcon from '@icon/system/regular/database.svg';
-import TableIcon from '@icon/system/regular/table.svg';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { decodeHtmlEntities } from '@macro-inc/lexical-core/utils/html-entities';
 import {
   invalidateDatabase,
@@ -293,7 +294,7 @@ const saveDatabaseViewHandler = createToolRenderer({
             <button
               type="button"
               class="shrink-0 rounded px-2 py-1 text-xs text-ink hover:bg-hover"
-              onClick={() => void openView()}
+              onClick={() => fireAndForget(openView(), 'ai-database-tool')}
             >
               Open view
             </button>

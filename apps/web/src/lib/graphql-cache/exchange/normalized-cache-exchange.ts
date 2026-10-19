@@ -35,6 +35,7 @@
  * forwarding could duplicate a side effect already durable in the old scope.
  */
 
+import { fireAndForget } from '@core/util/fireAndForget';
 import {
   type Client,
   CombinedError,
@@ -614,22 +615,25 @@ export function normalizedCacheExchange(
         }
       })().catch(() => undefined);
       retained.recoveryPromise = recovery;
-      void recovery.then(() => {
-        if (retained.recoveryPromise === recovery) {
-          retained.recoveryPromise = undefined;
-        }
-        if (
-          queryStates.get(key) !== state ||
-          state.retainedReplacementFallback !== retained
-        )
-          return;
-        retained.recovering = false;
-        if (retained.invalidated) {
-          state.retainedReplacementFallback = undefined;
-        } else if (retained.readyPending) {
-          recoverRetainedReplacementFallback(key);
-        }
-      });
+      fireAndForget(
+        recovery.then(() => {
+          if (retained.recoveryPromise === recovery) {
+            retained.recoveryPromise = undefined;
+          }
+          if (
+            queryStates.get(key) !== state ||
+            state.retainedReplacementFallback !== retained
+          )
+            return;
+          retained.recovering = false;
+          if (retained.invalidated) {
+            state.retainedReplacementFallback = undefined;
+          } else if (retained.readyPending) {
+            recoverRetainedReplacementFallback(key);
+          }
+        }),
+        'graphql-cache-exchange'
+      );
     };
 
     const pendingAffectedReads = new Set<Promise<void>>();

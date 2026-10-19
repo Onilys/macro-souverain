@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import ArrowLeftIcon from '@icon/system/regular/arrow-left.svg';
 import ArrowRightIcon from '@icon/system/regular/arrow-right.svg';
 import TableIcon from '@icon/system/regular/table.svg';
@@ -330,7 +331,7 @@ export function TableNavigation(props: {
                           }
                           onBlur={(event) => {
                             event.stopPropagation();
-                            void tableRename.save(false);
+                            fireAndForget(tableRename.save(false), 'database');
                           }}
                           onKeyDown={(event) => {
                             event.stopPropagation();
@@ -338,7 +339,7 @@ export function TableNavigation(props: {
                               return;
                             if (event.key === 'Enter') {
                               event.preventDefault();
-                              void tableRename.save(true);
+                              fireAndForget(tableRename.save(true), 'database');
                             } else if (event.key === 'Escape') {
                               event.preventDefault();
                               tableRename.cancel(true);

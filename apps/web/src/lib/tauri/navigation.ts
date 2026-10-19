@@ -1,5 +1,6 @@
 import { getNativeMobilePlatform } from '@core/util/platform';
 import { setPostLoginRedirect } from '@core/util/postLoginRedirect';
+import { Telemetry } from '@macro-inc/observability';
 import { useNavigate } from '@solidjs/router';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
@@ -50,7 +51,9 @@ export function useTauriNavigationEffect() {
         console.error('failed to flush launch deep link', e);
       });
     }
-    inner();
+    inner().catch((error) =>
+      Telemetry.error(error, { surface: 'tauri-navigation' })
+    );
 
     return onCleanup(() => {
       unregisterInterceptor();

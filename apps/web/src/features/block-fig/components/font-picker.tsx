@@ -1,3 +1,5 @@
+import CaretDown from '@icon/system/regular/caret-down.svg';
+import WarningCircle from '@icon/system/regular/warning-circle.svg';
 /**
  * The font family picker of the Type section, as Figma's: a search over
  * the document's fonts and Google Fonts, each family previewed in its own
@@ -5,8 +7,7 @@
  * `preview`, which resolves to a CSS family to draw the name in.
  */
 
-import CaretDown from '@icon/system/regular/caret-down.svg';
-import WarningCircle from '@icon/system/regular/warning-circle.svg';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { Popover } from '@kobalte/core/popover';
 import { Layer } from '@ui';
 import {
@@ -39,13 +40,16 @@ function Row(props: {
     const observer = new IntersectionObserver((entries) => {
       if (!entries.some((e) => e.isIntersecting)) return;
       observer.disconnect();
-      void (async () => {
-        try {
-          setFace(await preview(props.family));
-        } catch {
-          // No preview: the name shows in the panel's font.
-        }
-      })();
+      fireAndForget(
+        (async () => {
+          try {
+            setFace(await preview(props.family));
+          } catch {
+            // No preview: the name shows in the panel's font.
+          }
+        })(),
+        'fig-fonts'
+      );
     });
     observer.observe(el);
     onCleanup(() => observer.disconnect());

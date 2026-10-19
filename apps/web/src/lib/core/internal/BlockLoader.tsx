@@ -2,6 +2,7 @@ import { useSharedAccessUpdates } from '@app/features/access-requests/access-req
 import { shareEntity } from '@app/features/access-requests/core/types';
 import { useAnalytics } from '@app/lib/analytics/analytics-context';
 import type { OwnedBlockHandle } from '@core/orchestrator';
+import { Telemetry } from '@macro-inc/observability';
 import { useQueryClient } from '@queries/client';
 import { blockNameToItemType } from '@service-storage/client';
 import type { AccessLevel as UserAccessLevel } from '@service-storage/generated/schemas/accessLevel';
@@ -198,13 +199,20 @@ Check that the load function does not return a preload source when the intent is
     if (!isNested && data && props.definition.openTrackingEnabled !== false) {
       const trackOpened = () => {
         // we need to pass in a client accessor since the mutation is dynamically imported outside a query context provider
-        import('./trackBlockOpened').then(({ track }) => {
-          track({
-            itemId: props.id,
-            blockName: data.__block,
-            client: useQueryClient,
-          });
-        });
+        import('./trackBlockOpened')
+          .then(({ track }) => {
+            track({
+              itemId: props.id,
+              blockName: data.__block,
+              client: useQueryClient,
+            });
+          })
+          .catch((error) =>
+            Telemetry.error(error, {
+              surface: 'track-block-opened',
+              blockName: data.__block,
+            })
+          );
 
         analytics.pageView(data.__block);
         analytics.track('open_entity', {

@@ -13,6 +13,7 @@ import { SidePanel } from '@components/app/side-panel';
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import { useSplitPanel } from '@components/app/split-layout/layoutUtils';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { buildMentionMarkdownString } from '@macro-inc/lexical-core';
 import { ButtonGroup } from '@ui';
 import type { Accessor, JSX } from 'solid-js';
@@ -70,7 +71,7 @@ export function EmailThreadHostView(props: EmailThreadHostViewProps) {
       threadTransport={props.threadTransport}
       host={props.host}
       openCalendar={(target) => {
-        void openCalendarEventSplit(target);
+        fireAndForget(openCalendarEventSplit(target), 'email-thread');
       }}
       header={props.topBar?.({ createTask })}
       actions={

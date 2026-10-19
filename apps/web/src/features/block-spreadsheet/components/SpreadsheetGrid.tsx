@@ -1,4 +1,5 @@
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
+import { fireAndForget } from '@core/util/fireAndForget';
 import CaretDown from '@icon/system/regular/caret-down.svg';
 import CheckSquare from '@icon/system/regular/check-square.svg';
 import Square from '@icon/system/regular/square.svg';
@@ -852,9 +853,12 @@ export function SpreadsheetGrid(props: {
     if (source && target && !props.readonly) {
       const generation = ++fillGeneration;
       // Keep the preview until formula relocation has committed the new cells.
-      void Promise.resolve(props.onFill?.(source, target)).finally(() => {
-        if (generation === fillGeneration) setFillTarget(undefined);
-      });
+      fireAndForget(
+        Promise.resolve(props.onFill?.(source, target)).finally(() => {
+          if (generation === fillGeneration) setFillTarget(undefined);
+        }),
+        'spreadsheet-editor'
+      );
     }
     const resize = resizing();
     if (resize && !props.readonly)

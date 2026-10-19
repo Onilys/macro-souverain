@@ -78,6 +78,14 @@ Signed universal links and share-sheet flows still need end-to-end verification;
 see the [Tauri guide](../../apps/web/tauri/src-tauri/README.md#ios-27-scene-lifecycle)
 and [repeatable iOS smoke test](../../apps/web/tests/native/ios/README.md).
 
+## Signed-out GraphQL regression
+
+Open a public sharing link with stale login hints and an expired session. Once
+user-info returns 401, GraphQL must use the plain network client, dispose any
+normalized cache and live-update session, and clear the login hints. Repeat with
+retained user-info data from an earlier successful request. A network failure or
+5xx must not end the session; successful sign-in must re-enable eligible caching.
+
 ## Native Android
 
 If a signed-out page shows the bottom `Login` / `Sign Up` banner, both buttons

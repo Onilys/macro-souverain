@@ -2,6 +2,7 @@ import { channelWebhookUrl } from '@channel/Bots/webhook';
 import { LoadingSpinner } from '@core/component/LoadingSpinner';
 import { toast } from '@core/component/Toast/Toast';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
+import { fireAndForget } from '@core/util/fireAndForget';
 import PlusIcon from '@icon/system/regular/plus.svg';
 import RobotIcon from '@icon/system/regular/robot.svg';
 import UserPlusIcon from '@icon/system/regular/user-plus.svg';
@@ -109,7 +110,9 @@ export function ChannelBotsPanel(props: {
                 editable={props.editable}
                 removing={removeBotMutation.isPending}
                 onOpen={() => props.onOpenBot(bot.id)}
-                onCopyWebhook={() => void copyWebhook()}
+                onCopyWebhook={() =>
+                  fireAndForget(copyWebhook(), 'channel-bots')
+                }
                 onRemove={() => removeBot(bot.id, bot.name)}
               />
             )}

@@ -1,5 +1,6 @@
 import { toast } from '@core/component/Toast/Toast';
 import { writeClipboardData } from '@core/util/dataTransfer';
+import { fireAndForget } from '@core/util/fireAndForget';
 import CaretDownIcon from '@icon/system/regular/caret-down.svg';
 import CheckIcon from '@icon/system/regular/check.svg';
 import CopyIcon from '@icon/system/regular/copy.svg';
@@ -240,7 +241,12 @@ export function CopyAvailabilityDialog(props: ManagedDialogProps) {
                     }
                     aria-busy={isCopying()}
                     disabled={disabled()}
-                    onClick={() => void copyRange(option.key)}
+                    onClick={() =>
+                      fireAndForget(
+                        copyRange(option.key),
+                        'calendar-availability'
+                      )
+                    }
                   >
                     <span aria-hidden="true" class="grid place-items-center">
                       <span

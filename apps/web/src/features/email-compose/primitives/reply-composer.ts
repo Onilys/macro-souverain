@@ -6,6 +6,7 @@ import type { EmailMessage } from '@app/features/email-message/core/email-messag
 import type { UserMentionRecord } from '@core/component/LexicalMarkdown/utils/mentionsUtils';
 import { setEditorStateFromHtml } from '@core/component/LexicalMarkdown/utils/setEditorStateFromHtml';
 import { getUploadFileSize } from '@core/mobile/nativeStagedUpload';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { plural } from '@core/util/string';
 import { $generateHtmlFromNodes } from '@lexical/html';
 import {
@@ -593,10 +594,13 @@ export function createReplyComposer(
   function handleAlreadySent() {
     identityVersion += 1;
     props.notices.feedback.alert('This reply was already sent');
-    void withDeletionGuard(() => {
-      resetState();
-      clearDraftState();
-    });
+    fireAndForget(
+      withDeletionGuard(() => {
+        resetState();
+        clearDraftState();
+      }),
+      'email-compose'
+    );
   }
 
   const persistence = createDraftPersistence({
@@ -726,7 +730,7 @@ export function createReplyComposer(
     inboxId: string,
     senderEmail?: string
   ) => {
-    void saveSelectedInbox(inboxId, senderEmail);
+    fireAndForget(saveSelectedInbox(inboxId, senderEmail), 'email-compose');
   };
 
   const saveForSchedule = async () => {

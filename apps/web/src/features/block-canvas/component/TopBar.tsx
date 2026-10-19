@@ -27,6 +27,7 @@ import {
   useBlockDocumentDownloadName,
   useBlockDocumentName,
 } from '@core/util/currentBlockDocumentName';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { buildSimpleEntityUrl } from '@core/util/url';
 import { useCopyLink } from '@core/util/useCopyLink';
 import { downloadFile } from '@filesystem/download';
@@ -59,7 +60,7 @@ export function TopBar(props: { state: CanvasDocumentChrome }) {
     const file = props.state.savedFile() ?? canvasFile();
     if (!file) return;
 
-    downloadFile(file, downloadName());
+    fireAndForget(downloadFile(file, downloadName()), 'canvas-top-bar');
     analytics.track('download', { blockType: 'canvas' });
   });
 
@@ -70,8 +71,11 @@ export function TopBar(props: { state: CanvasDocumentChrome }) {
       [URL_PARAMS.y]: location.y.toString(),
       [URL_PARAMS.s]: location.s.toString(),
     };
-    copyEntityLink(
-      buildSimpleEntityUrl({ type: 'canvas', id: documentId }, params)
+    fireAndForget(
+      copyEntityLink(
+        buildSimpleEntityUrl({ type: 'canvas', id: documentId }, params)
+      ),
+      'canvas-top-bar'
     );
     analytics.track('copy_share_link', { blockType: 'canvas' });
   };

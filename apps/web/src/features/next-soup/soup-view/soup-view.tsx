@@ -97,6 +97,7 @@ import CheckIcon from '@icon/system/regular/check.svg';
 import InfoIcon from '@icon/system/regular/info.svg';
 import SearchIcon from '@icon/system/regular/magnifying-glass.svg';
 import Spinner from '@icon/system/regular/spinner.svg';
+import { Telemetry } from '@macro-inc/observability';
 import { createElementSize } from '@solid-primitives/resize-observer';
 import { debounce } from '@solid-primitives/scheduled';
 import { Button, cn, Layer, Tooltip } from '@ui';
@@ -171,6 +172,10 @@ const MobileTabLoadingBar = () => (
 );
 
 const SOUP_LIST_STATE_ENTRY_KEY = 'soup.listState';
+
+const reportSoupViewError = (error: unknown) =>
+  Telemetry.error(error, { surface: 'soup-view' });
+
 /** The row components a soup view can render. */
 type SoupRowComponent =
   | typeof ListEntity
@@ -826,7 +831,7 @@ const SoupViewListContent = (props: SoupViewListProps) => {
     )
       return;
 
-    source.fetchNextPage();
+    source.fetchNextPage().catch(reportSoupViewError);
   }, 15);
 
   type EntityClickArgs = {
@@ -1229,7 +1234,9 @@ const SoupViewListContent = (props: SoupViewListProps) => {
                       onSwipeLeft={(entityId) => {
                         const entity = entityById().get(entityId);
                         if (!entity) return;
-                        markDoneAction.executeWithSoup([entity.original], soup);
+                        markDoneAction
+                          .executeWithSoup([entity.original], soup)
+                          .catch(reportSoupViewError);
                       }}
                       setCollapseEntity={soup.collapseEntity.set}
                     >
@@ -1361,7 +1368,9 @@ const SoupViewListContent = (props: SoupViewListProps) => {
                                                 highlighted(),
                                             })}
                                             onClick={() => {
-                                              fetchNextGroupPage(group().key);
+                                              fetchNextGroupPage(
+                                                group().key
+                                              ).catch(reportSoupViewError);
                                             }}
                                           >
                                             <CaretDownIcon class="size-2.5" />
@@ -1423,7 +1432,7 @@ const SoupViewListContent = (props: SoupViewListProps) => {
                                           event,
                                           location: undefined,
                                           rowIndex: row.index,
-                                        });
+                                        }).catch(reportSoupViewError);
                                       }}
                                       onProjectClick={(
                                         projectEntity,
@@ -1436,7 +1445,7 @@ const SoupViewListContent = (props: SoupViewListProps) => {
                                           event,
                                           location: undefined,
                                           rowIndex: row.index,
-                                        });
+                                        }).catch(reportSoupViewError);
                                       }}
                                       onContentHitClick={(
                                         e: PointerEvent | MouseEvent,
@@ -1448,7 +1457,7 @@ const SoupViewListContent = (props: SoupViewListProps) => {
                                           event: e,
                                           location,
                                           rowIndex: row.index,
-                                        });
+                                        }).catch(reportSoupViewError);
                                       }}
                                       entityRowConfig={{
                                         swipeLeftColor: 'bg-success',

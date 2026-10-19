@@ -28,6 +28,7 @@ import { UserIcon } from '@core/component/UserIcon';
 import { enableMultiInbox } from '@core/constant/featureFlags';
 import { useUserId } from '@core/context/user';
 import { useAddInboxFlow } from '@core/email-link';
+import { fireAndForget } from '@core/util/fireAndForget';
 import CircleDashedIcon from '@icon/system/regular/circle-dashed.svg';
 import SearchIcon from '@icon/system/regular/magnifying-glass.svg';
 import PlusIcon from '@icon/system/regular/plus.svg';
@@ -394,7 +395,7 @@ export const MobileFilterDrawer = (props: {
               <Show when={multiInboxFlag().enabled}>
                 <MobileDrawer.Item
                   type="button"
-                  onClick={() => void addInbox()}
+                  onClick={() => fireAndForget(addInbox(), 'add-inbox')}
                 >
                   <span class="size-4 flex items-center justify-center shrink-0">
                     <PlusIcon class="size-4 text-ink-muted" />

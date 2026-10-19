@@ -5,6 +5,7 @@
  */
 
 import type { MergeMode, ShapeOutline } from '@core/pptx-engine/types';
+import { fireAndForget } from '@core/util/fireAndForget';
 import PencilSimple from '@icon/system/regular/pencil-simple.svg';
 import ShapesIcon from '@icon/system/regular/shapes.svg';
 import { createSignal, For, type JSX, Show } from 'solid-js';
@@ -158,7 +159,7 @@ export function EditShapeMenu() {
               ]}
               onPick={(preset) => {
                 close();
-                void env.commands.setGeometry(preset);
+                fireAndForget(env.commands.setGeometry(preset), 'pptx-editor');
               }}
             />
           </Show>

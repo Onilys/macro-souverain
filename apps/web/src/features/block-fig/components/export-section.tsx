@@ -7,6 +7,7 @@
  */
 
 import type { ExportSetting } from '@core/fig-engine/handoff-types';
+import { fireAndForget } from '@core/util/fireAndForget';
 import CaretDown from '@icon/system/regular/caret-down.svg';
 import Copy from '@icon/system/regular/copy.svg';
 import DotsThree from '@icon/system/regular/dots-three.svg';
@@ -306,7 +307,7 @@ export function ExportSection(props: {
             class="flex items-center gap-1 self-start text-ink-muted hover:text-ink"
             aria-expanded={previewOpen()}
             data-testid="fig-export-preview-toggle"
-            onClick={() => void togglePreview()}
+            onClick={() => fireAndForget(togglePreview(), 'fig-handoff')}
           >
             <CaretDown
               class="size-3 transition-transform"

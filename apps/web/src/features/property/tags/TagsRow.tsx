@@ -1,6 +1,7 @@
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import { useSplitPanel } from '@components/app/split-layout/layoutUtils';
 import { ContextMenuContent, MenuItem } from '@core/component/ContextMenu';
+import { fireAndForget } from '@core/util/fireAndForget';
 import FunnelIcon from '@icon/system/regular/funnel-simple.svg';
 import PencilIcon from '@icon/system/regular/pencil-simple.svg';
 import PlusIcon from '@icon/system/regular/plus.svg';
@@ -41,7 +42,10 @@ function TagChip(props: {
   };
 
   const removeTag = () => {
-    void props.docTags.removeTag(props.tag.scope, props.tag.optionId);
+    fireAndForget(
+      props.docTags.removeTag(props.tag.scope, props.tag.optionId),
+      'property-tags'
+    );
   };
 
   return (

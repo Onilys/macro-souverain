@@ -5,6 +5,7 @@ import { editorStateAsMarkdown } from '@core/component/LexicalMarkdown/utils';
 import { toast } from '@core/component/Toast/Toast';
 import { macroIdToEmail, tryMacroId } from '@core/user';
 import { copyBranchNameToClipboard } from '@core/util/branchName';
+import { fireAndForget } from '@core/util/fireAndForget';
 import CopyIcon from '@icon/system/regular/copy.svg';
 import GitBranch from '@icon/system/regular/git-branch.svg';
 import PlugIcon from '@icon/system/regular/plug.svg';
@@ -294,7 +295,7 @@ export function useDispatchAgentSplitFileActions(): {
     label: COPY_ACTION.name,
     icon: COPY_ACTION.icon,
     action: () => {
-      void executeAction(COPY_ACTION);
+      fireAndForget(executeAction(COPY_ACTION), 'dispatch-agent');
     },
   };
 
@@ -306,7 +307,7 @@ export function useDispatchAgentSplitFileActions(): {
         label: action.name,
         icon: action.icon,
         action: () => {
-          void executeAction(action);
+          fireAndForget(executeAction(action), 'dispatch-agent');
         },
       })),
       {
@@ -336,7 +337,7 @@ export function DispatchAgentButton() {
         <Dropdown.Group>
           <Dropdown.Item
             onSelect={() => {
-              executeAction(COPY_ACTION);
+              fireAndForget(executeAction(COPY_ACTION), 'dispatch-agent');
               setOpen(false);
             }}
           >
@@ -346,7 +347,10 @@ export function DispatchAgentButton() {
           <Show when={isTask()}>
             <Dropdown.Item
               onSelect={() => {
-                copyBranchNameToClipboard(blockId);
+                fireAndForget(
+                  copyBranchNameToClipboard(blockId),
+                  'dispatch-agent'
+                );
                 setOpen(false);
               }}
             >
@@ -370,7 +374,7 @@ export function DispatchAgentButton() {
             {(action) => (
               <Dropdown.Item
                 onSelect={() => {
-                  executeAction(action);
+                  fireAndForget(executeAction(action), 'dispatch-agent');
                   setOpen(false);
                 }}
               >

@@ -6,6 +6,7 @@ import { useUserId } from '@core/context/user';
 import { PipedreamConnectorIcon } from '@core/pipedream/ConnectorIcon';
 import { AppConnectionContext } from '@core/pipedream/connection-context';
 import { requestConnectApp } from '@core/pipedream/pendingConnect';
+import { fireAndForget } from '@core/util/fireAndForget';
 import ArrowUpRightIcon from '@icon/system/regular/arrow-up-right.svg';
 import type { ConnectAppDecoratorProps } from '@macro-inc/lexical-core';
 import { useHarnessConnectionStatus } from '@queries/harnesses/connections';
@@ -43,7 +44,10 @@ function ConnectPipedreamApp(props: ConnectAppDecoratorProps) {
       disabled={inChat?.disabled}
       onConnect={() => {
         if (inChat) {
-          void inChat.connect({ appSlug: props.appSlug, name: props.name });
+          fireAndForget(
+            inChat.connect({ appSlug: props.appSlug, name: props.name }),
+            'connect-app'
+          );
           return;
         }
         // Connections picks this up and starts the Connect flow.

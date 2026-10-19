@@ -24,6 +24,7 @@ import {
   SKIP_SCROLL_INTO_VIEW_TAG,
 } from '@macro-inc/lexical-core';
 import { useGithubLinkStatusQuery } from '@queries/auth/github-link';
+import { queryReadyGate } from '@queries/gate';
 import {
   usePrMentionQuery,
   usePullRequestByGithubKeyQuery,
@@ -554,7 +555,6 @@ export function PullRequestMention(props: PullRequestMentionDecoratorProps) {
   const githubLinkQuery = useGithubLinkStatusQuery({
     enabled: () => !lexicalWrapper?.skipPreviewFetch,
   });
-  const isGithubLinked = () => githubLinkQuery.data?.status === 'linked';
 
   const isSelectedAsNode = () => {
     const sel = selection();
@@ -571,7 +571,13 @@ export function PullRequestMention(props: PullRequestMentionDecoratorProps) {
   // When GitHub is not linked, render as a plain link instead of the fancy mention UI
   const shouldRenderAsPlainLink = () => {
     if (lexicalWrapper?.skipPreviewFetch) return false;
-    return !!(githubLinkQuery.isFetched && !isGithubLinked() && props.url);
+    // A failed query is still "fetched" while its next mount retries it.
+    // Reading its pending data would suspend the surrounding composer/message.
+    return !!(
+      props.url &&
+      queryReadyGate(githubLinkQuery) &&
+      githubLinkQuery.data.status !== 'linked'
+    );
   };
 
   const open = (e: MouseEvent | KeyboardEvent | null) => {

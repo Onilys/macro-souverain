@@ -264,10 +264,11 @@ replace the list's, and while it has the keyboard the list's keys stand down,
 so `x`, `Cmd+A`, `End` or `Shift+Enter` in the reader never act on the list.
 j/k in the reader step threads and move the list cursor with them, replacing
 history. Escape in the reader, once there is nothing to unwind, hands the
-keyboard back to the list without closing the thread. Narrow email rows, here
-and on phones, stack senders and date, subject, and one preview line beside a
-slim unread-dot gutter (no per-type icon); unread rows are bold, hovering swaps
-the date for the row actions, and hovering the gutter shows the select checkbox.
+keyboard back to the list without closing the thread. Narrow email rows here
+stack senders and date, subject, and one preview line beside a slim unread-dot
+gutter (no per-type icon); unread rows are bold, hovering swaps the date for the
+row actions, and hovering the gutter shows the select checkbox. Phones keep
+their own touch email rows, with the sender's picture on the left.
 Without room for both (narrow split, collapsed window) the pane folds away and
 a thread replaces the list as usual; the thread remounts, but a reply draft
 survives. The divider can be dragged; the list width is remembered. Verify that

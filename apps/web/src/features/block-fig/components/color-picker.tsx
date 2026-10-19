@@ -1,3 +1,4 @@
+import Eyedropper from '@icon/system/regular/eyedropper.svg';
 import { InspectorSelect } from './inspector-select';
 
 /**
@@ -8,7 +9,7 @@ import { InspectorSelect } from './inspector-select';
  * one drag is one undo step. Presentational.
  */
 
-import Eyedropper from '@icon/system/regular/eyedropper.svg';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { Slider } from '@kobalte/core/slider';
 import { createSignal, For, Index, Show } from 'solid-js';
 import {
@@ -200,7 +201,7 @@ export function ColorPicker(props: {
             title="Eyedropper"
             data-testid="fig-color-eyedropper"
             class="rounded p-1 text-ink-muted hover:bg-hover hover:text-ink"
-            onClick={() => void pickFromScreen()}
+            onClick={() => fireAndForget(pickFromScreen(), 'fig-editor')}
           >
             <Eyedropper class="size-4" />
           </button>

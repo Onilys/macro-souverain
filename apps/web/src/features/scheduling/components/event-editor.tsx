@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import ArrowCounterClockwise from '@icon/system/regular/arrow-counter-clockwise.svg';
 import PencilSimple from '@icon/system/regular/pencil-simple.svg';
 import Plus from '@icon/system/regular/plus.svg';
@@ -258,7 +259,8 @@ export function EventEditor(props: EventEditorProps) {
       onSubmit={(event) => {
         event.preventDefault();
         if (props.saving) return;
-        if (props.step === 'review') void props.onSave();
+        if (props.step === 'review')
+          fireAndForget(props.onSave(), 'scheduling');
         else props.onNext();
       }}
     >

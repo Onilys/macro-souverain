@@ -137,12 +137,17 @@ async function refresh(append = false) {
   }
 }
 
+const showFailure = (error: unknown): void => {
+  result.dataset.status = 'failed';
+  result.textContent = String(error);
+};
+
 for (const control of document.querySelectorAll('select'))
   control.addEventListener('change', () => {
-    void refresh();
+    refresh().catch(showFailure);
   });
 more.addEventListener('click', () => {
-  void refresh(true);
+  refresh(true).catch(showFailure);
 });
 
 document

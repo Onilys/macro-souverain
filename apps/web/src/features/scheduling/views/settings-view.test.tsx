@@ -29,6 +29,8 @@ import { refreshBookingLinkResult } from '../queries/agent-sync';
 import { schedulingKeys } from '../queries/keys';
 import { BookingWorkspaceView } from './booking-workspace-view';
 
+const editorSaves = vi.hoisted((): Promise<void>[] => []);
+
 vi.mock('./insights-view', () => ({ InsightsView: () => <div>Insights</div> }));
 vi.mock('./scheduling-mobile-header', () => ({
   SchedulingMobileHeader: () => null,
@@ -41,12 +43,14 @@ vi.mock('./event-editor-view', () => ({
   }) => (
     <div>
       <button
-        onClick={() =>
-          void props.onSave({
-            ...props.event,
-            title: `${props.event.title} edited`,
-          })
-        }
+        onClick={() => {
+          editorSaves.push(
+            props.onSave({
+              ...props.event,
+              title: `${props.event.title} edited`,
+            })
+          );
+        }}
       >
         Save test event
       </button>
@@ -102,7 +106,8 @@ beforeEach(() => {
     }
   );
 });
-afterEach(() => {
+afterEach(async () => {
+  await Promise.all(editorSaves.splice(0));
   cleanup();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();

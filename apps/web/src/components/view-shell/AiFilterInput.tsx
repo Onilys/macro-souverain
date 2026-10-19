@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import SparkleIcon from '@icon/system/regular/sparkle.svg';
 import SpinnerIcon from '@icon/system/regular/spinner-gap.svg';
 import { cn } from '@ui';
@@ -106,7 +107,7 @@ export function AiFilterInput(props: AiFilterInputProps) {
       case 'Enter':
         event.preventDefault();
         event.stopPropagation();
-        void submit();
+        fireAndForget(submit(), 'view-shell');
         return;
       case 'Escape':
       case 'ArrowDown':

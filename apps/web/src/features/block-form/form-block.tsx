@@ -27,6 +27,7 @@ import { ShareTrigger } from '@core/component/TopBar/ShareButton';
 import { useShareModal } from '@core/component/TopBar/shareModal';
 import { enableForms } from '@core/constant/featureFlags';
 import { isMobile } from '@core/mobile/isMobile';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { openExternalUrl } from '@core/util/url';
 import { useCopyLink } from '@core/util/useCopyLink';
 import { getWebOrigin } from '@core/util/webOrigin';
@@ -89,7 +90,8 @@ function FormBlockContent(props: {
   const link = () => respondLink(`${getWebOrigin()}/app/`, formId);
   // Sharing a form hands out its respond link; editors copy theirs apart.
   const copyEntityLink = useCopyLink();
-  const copyRespondLink = () => void copyEntityLink(link());
+  const copyRespondLink = () =>
+    fireAndForget(copyEntityLink(link()), 'form-share');
   const shareInput = createFormShareInput({
     formId: () => formId,
     detail: source.detail,
@@ -174,7 +176,7 @@ function FormBlockContent(props: {
                 variant="ghost"
                 size="sm"
                 disabled={preview.opening()}
-                onClick={() => void preview.open()}
+                onClick={() => fireAndForget(preview.open(), 'form-preview')}
               >
                 <Eye class="size-3.5" />
                 Preview

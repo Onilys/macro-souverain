@@ -16,6 +16,7 @@ import {
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
 import { toast } from '@core/component/Toast/Toast';
+import { fireAndForget } from '@core/util/fireAndForget';
 import CheckSquareIcon from '@icon/system/regular/check-square.svg';
 import ListChecksIcon from '@icon/system/regular/list-checks.svg';
 import NoteIcon from '@icon/system/regular/note-pencil.svg';
@@ -188,10 +189,13 @@ export function TasksSidebar(props: { onSearchEscape?: () => void }) {
                 openProject(layout, id, { newSplit: true });
                 return;
               }
-              navigate({
-                route: projectDetailRoute,
-                params: { projectId: id, section: 'overview' },
-              });
+              fireAndForget(
+                navigate({
+                  route: projectDetailRoute,
+                  params: { projectId: id, section: 'overview' },
+                }),
+                'tasks-view'
+              );
             }}
           />
         </Show>

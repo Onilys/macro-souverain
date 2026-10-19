@@ -24,6 +24,7 @@ import {
   useIsConnectedSecondaryInbox,
 } from '@core/user';
 import type { DateValue } from '@core/util/date';
+import { fireAndForget } from '@core/util/fireAndForget';
 import type {
   ChannelEntity,
   CrmCompanyEntity,
@@ -1315,17 +1316,19 @@ export function createQuickAccessValue(): QuickAccessContextValue {
   const refresh = () => {
     if (cacheHost()) {
       setManualRefreshRevision((revision) => revision + 1);
-      void cachedChannelsQuery.refetch();
+      fireAndForget(cachedChannelsQuery.refetch(), 'quick-access');
     }
-    historyQuery.refetch();
-    crmCompaniesQuery.refetch();
-    crmContactsQuery.refetch();
-    snippetsQuery.refetch();
-    skillsQuery.refetch();
-    void agentSessionsQuery.refetch();
-    if (databasesFlag().enabled) void databasesQuery.refetch();
-    if (formsFlag().enabled) void formsQuery.refetch();
-    initiativesQuery.refetch();
+    fireAndForget(historyQuery.refetch(), 'quick-access');
+    fireAndForget(crmCompaniesQuery.refetch(), 'quick-access');
+    fireAndForget(crmContactsQuery.refetch(), 'quick-access');
+    fireAndForget(snippetsQuery.refetch(), 'quick-access');
+    fireAndForget(skillsQuery.refetch(), 'quick-access');
+    fireAndForget(agentSessionsQuery.refetch(), 'quick-access');
+    if (databasesFlag().enabled)
+      fireAndForget(databasesQuery.refetch(), 'quick-access');
+    if (formsFlag().enabled)
+      fireAndForget(formsQuery.refetch(), 'quick-access');
+    fireAndForget(initiativesQuery.refetch(), 'quick-access');
   };
 
   return {

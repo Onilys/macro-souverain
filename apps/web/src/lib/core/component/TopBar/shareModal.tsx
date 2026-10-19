@@ -1,4 +1,5 @@
 import type { BlockAlias, BlockName } from '@core/block';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { queryReadyGate } from '@queries/gate';
 import {
   useDocumentAccessLevelQuery,
@@ -60,11 +61,14 @@ export function useShareModal(
 
   const openWith = (initial: ShareModalInput) => {
     setPending(false);
-    void notifyClosed(
-      openDialog(SuspendedShareModal, () => props() ?? initial, {
-        owner,
-        key: `share:${initial.itemType}:${initial.id}`,
-      })
+    fireAndForget(
+      notifyClosed(
+        openDialog(SuspendedShareModal, () => props() ?? initial, {
+          owner,
+          key: `share:${initial.itemType}:${initial.id}`,
+        })
+      ),
+      'share-modal'
     );
   };
 

@@ -7,6 +7,7 @@ import type {
   MessageActionHandler,
   MessageActions,
 } from '@core/messages/types';
+import { fireAndForget } from '@core/util/fireAndForget';
 import ReplyIcon from '@icon/system/regular/arrow-bend-up-left.svg';
 import CheckSquareIcon from '@icon/system/regular/check-square.svg';
 import CopyIcon from '@icon/system/regular/copy.svg';
@@ -164,7 +165,10 @@ export function ActionDrawer() {
   const handleReaction = (emoji: string, event?: MessageActionEvent) => {
     const msg = message();
     if (!msg) return;
-    void actions()?.onReact?.({ message: msg, event, emoji });
+    fireAndForget(
+      actions()?.onReact?.({ message: msg, event, emoji }),
+      'channel-message-actions'
+    );
     drawerState.close();
     setShowEmojiSearch(false);
   };
@@ -175,7 +179,10 @@ export function ActionDrawer() {
   ) => {
     const msg = message();
     if (!msg) return;
-    void handler?.({ message: msg, event });
+    fireAndForget(
+      handler?.({ message: msg, event }),
+      'channel-message-actions'
+    );
     drawerState.close();
   };
 

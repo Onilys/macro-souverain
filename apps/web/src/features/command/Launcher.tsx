@@ -50,11 +50,12 @@ import {
   createSnippet,
 } from '@core/util/create';
 import { createControlledOpenSignal } from '@core/util/createControlledOpenSignal';
+import { fireAndForget } from '@core/util/fireAndForget';
 import ChatIcon from '@icon/system/regular/chat.svg';
 import MagnifyingGlassIcon from '@icon/system/regular/magnifying-glass.svg';
 import PlusIcon from '@icon/system/regular/plus.svg';
 import { getMarkdownGoldenBytes } from '@macro-inc/lexical-core/markdown-golden';
-import type { Span } from '@macro-inc/observability';
+import { type Span, Telemetry } from '@macro-inc/observability';
 import { createDatabase } from '@queries/storage/databases';
 import { createForm } from '@queries/storage/forms';
 import { makePersisted } from '@solid-primitives/storage';
@@ -220,7 +221,10 @@ const createBlock = async (spec: {
   span?.event('doc.navigated');
 };
 
-const createComponent = async (spec: {
+const reportCreateBlockError = (error: unknown) =>
+  Telemetry.error(error, { surface: 'launcher' });
+
+const createComponent = (spec: {
   componentId: string;
   shouldInsert?: boolean;
   asPopover?: boolean;
@@ -273,7 +277,7 @@ export function runCreateAction(
       const span = startDocumentSpan('doc.create');
       span.setAttr('doc.type', 'md');
       span.setAttr('doc.source', source);
-      void span
+      span
         .run(() =>
           createBlock({
             blockName: 'md',
@@ -293,23 +297,26 @@ export function runCreateAction(
         .catch((error) => {
           span.error(error);
           endTrackedDocumentSpan(span);
-          throw error;
+          reportCreateBlockError(error);
         });
       return;
     }
     case 'spreadsheet':
       if (!isSpreadsheetEnabledForCurrentUser()) return;
-      void createBlock({
-        blockName: 'spreadsheet',
-        loading: true,
-        createFn: () =>
-          createSpreadsheetDocument({
-            projectId: options.projectId,
-            source,
-          }),
-        shouldInsert,
-        openCreated,
-      });
+      fireAndForget(
+        createBlock({
+          blockName: 'spreadsheet',
+          loading: true,
+          createFn: () =>
+            createSpreadsheetDocument({
+              projectId: options.projectId,
+              source,
+            }),
+          shouldInsert,
+          openCreated,
+        }),
+        'launcher'
+      );
       return;
     case 'psd':
       if (!isFeatureEnabled(enablePsdEditor)) return;
@@ -320,7 +327,7 @@ export function runCreateAction(
           createPsdDocument({ projectId: options.projectId, source }),
         shouldInsert,
         openCreated,
-      });
+      }).catch(reportCreateBlockError);
       return;
     case 'fig':
       if (!isFeatureEnabled(enableFigViewer)) return;
@@ -331,7 +338,7 @@ export function runCreateAction(
           createFigDocument({ projectId: options.projectId, source }),
         shouldInsert,
         openCreated,
-      });
+      }).catch(reportCreateBlockError);
       return;
     case 'ai':
       if (!isFeatureEnabled(enableAiEditor)) return;
@@ -342,7 +349,7 @@ export function runCreateAction(
           createAiDocument({ projectId: options.projectId, source }),
         shouldInsert,
         openCreated,
-      });
+      }).catch(reportCreateBlockError);
       return;
     case 'canvas':
       createBlock({
@@ -360,7 +367,7 @@ export function runCreateAction(
         },
         shouldInsert,
         openCreated,
-      });
+      }).catch(reportCreateBlockError);
       return;
     case 'task':
       createComponent({
@@ -388,7 +395,7 @@ export function runCreateAction(
           }),
         shouldInsert,
         openCreated,
-      });
+      }).catch(reportCreateBlockError);
       return;
     case 'email':
       // Focus the "To" field within this gesture so the iOS keyboard opens;
@@ -434,7 +441,7 @@ export function runCreateAction(
         },
         shouldInsert,
         openCreated,
-      });
+      }).catch(reportCreateBlockError);
       return;
     case 'project':
       createComponent({
@@ -465,7 +472,7 @@ export function runCreateAction(
         },
         shouldInsert,
         openCreated,
-      });
+      }).catch(reportCreateBlockError);
       return;
     case 'form':
       if (!isFeatureEnabled(enableForms)) return;
@@ -485,7 +492,7 @@ export function runCreateAction(
         },
         shouldInsert,
         openCreated,
-      });
+      }).catch(reportCreateBlockError);
       return;
     case 'code':
       createBlock({
@@ -504,7 +511,7 @@ export function runCreateAction(
         },
         shouldInsert,
         openCreated,
-      });
+      }).catch(reportCreateBlockError);
       return;
     case 'routine':
       createComponent({ componentId: 'routine-compose', asPopover: true });

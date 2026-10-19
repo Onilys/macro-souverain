@@ -8,6 +8,7 @@
  */
 
 import type { PaintInfo, StopInfo } from '@core/fig-engine/types';
+import { fireAndForget } from '@core/util/fireAndForget';
 import DotsSixVertical from '@icon/system/regular/dots-six-vertical.svg';
 import Eye from '@icon/system/regular/eye.svg';
 import EyeSlash from '@icon/system/regular/eye-slash.svg';
@@ -233,7 +234,9 @@ function PaintEditor(props: {
         accept="image/*"
         class="sr-only"
         tabIndex={-1}
-        onChange={(e) => void chooseImage(e.currentTarget.files?.[0])}
+        onChange={(e) =>
+          fireAndForget(chooseImage(e.currentTarget.files?.[0]), 'fig-editor')
+        }
       />
       <Show when={isGradient(p().type)}>
         <GradientBar

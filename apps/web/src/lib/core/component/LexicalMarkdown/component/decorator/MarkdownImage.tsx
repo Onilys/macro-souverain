@@ -1,12 +1,13 @@
 import { internalDrag } from '@core/directive/internalDragState';
+import ImageIcon from '@icon/system/regular/image-broken.svg';
+import LoadingSpinner from '@icon/system/regular/spinner.svg';
 
 false && internalDrag;
 
 import { Lightbox } from '@core/component/Lightbox';
 import { toast } from '@core/component/Toast/Toast';
 import { debouncedDependent } from '@core/util/debounce';
-import ImageIcon from '@icon/system/regular/image-broken.svg';
-import LoadingSpinner from '@icon/system/regular/spinner.svg';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { Dialog } from '@kobalte/core/dialog';
 import { mergeRegister } from '@lexical/utils';
 import {
@@ -107,39 +108,42 @@ export function MarkdownImage(props: ImageDecoratorProps) {
       setImageUrl(props.url);
       return;
     }
-    getMediaUrl({
-      type: props.srcType,
-      id: props.id,
-      url: props.url,
-    }).then((maybeUrl) => {
-      if (maybeUrl.isErr()) {
-        setState('error');
-        if (
-          maybeUrl.isErr() &&
-          maybeUrl.error.some((error) => error.code === 'UNAUTHORIZED')
-        )
-          setImageError('UNAUTHORIZED');
-        else if (maybeUrl.error.some((error) => error.code === 'NOT_FOUND'))
-          setImageError('MISSING');
-        else if (
-          maybeUrl.isErr() &&
-          maybeUrl.error.some((error) => error.code === 'GONE')
-        )
-          setImageError('GONE');
-        else setImageError('FALLBACK');
-        return;
-      }
-      const url = maybeUrl.value;
-      setImageUrl(url);
-      if (props.srcType === 'dss') {
-        editor()?.update(
-          () => {
-            $upgradeDSSMediaUrl(props.key, url, 'image');
-          },
-          { discrete: true, tag: 'historic' }
-        );
-      }
-    });
+    fireAndForget(
+      getMediaUrl({
+        type: props.srcType,
+        id: props.id,
+        url: props.url,
+      }).then((maybeUrl) => {
+        if (maybeUrl.isErr()) {
+          setState('error');
+          if (
+            maybeUrl.isErr() &&
+            maybeUrl.error.some((error) => error.code === 'UNAUTHORIZED')
+          )
+            setImageError('UNAUTHORIZED');
+          else if (maybeUrl.error.some((error) => error.code === 'NOT_FOUND'))
+            setImageError('MISSING');
+          else if (
+            maybeUrl.isErr() &&
+            maybeUrl.error.some((error) => error.code === 'GONE')
+          )
+            setImageError('GONE');
+          else setImageError('FALLBACK');
+          return;
+        }
+        const url = maybeUrl.value;
+        setImageUrl(url);
+        if (props.srcType === 'dss') {
+          editor()?.update(
+            () => {
+              $upgradeDSSMediaUrl(props.key, url, 'image');
+            },
+            { discrete: true, tag: 'historic' }
+          );
+        }
+      }),
+      'markdown-media'
+    );
   });
 
   const isSelectedAsNode = () => {

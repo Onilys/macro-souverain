@@ -8,6 +8,7 @@
  * tokens and Tailwind.
  */
 
+import { fireAndForget } from '@core/util/fireAndForget';
 import Check from '@icon/system/regular/check.svg';
 import Copy from '@icon/system/regular/copy.svg';
 import Prohibit from '@icon/system/regular/prohibit.svg';
@@ -111,7 +112,7 @@ export function ToolErrorCard(props: ToolErrorCardProps) {
           onMouseDown={(event) => event.preventDefault()}
           onClick={(event) => {
             event.stopPropagation();
-            void copy();
+            fireAndForget(copy(), 'agent-tool-error');
           }}
         >
           <Show when={copied()} fallback={<Copy class="size-3.5" />}>
