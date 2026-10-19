@@ -11,6 +11,8 @@ palette. `features/setup/cream-preview.css` owns the light palette; the shared
 router applies it across navigation, and each HTML entry applies it before
 first paint. Sample workspace styles read that HTML palette before route code
 runs. Check both palettes when changing a shared demo or surface.
+Cream slab typography adds 35 to the base font weight; utility-class slab text
+uses weight 350, and the Tasks founder heading uses 435.
 
 ## Ownership and dependency boundary
 

@@ -597,9 +597,9 @@ html[data-palette='cream'] .feature-flow {
 }
 
 /* Add weight to the existing slab styles without changing their type scale. */
-html[data-palette='cream'] { --cream-slab-weight-increase: 15; }
-html[data-palette='cream'] [class*='font-[Roboto_Slab'] { font-weight: 330; }
-html[data-palette='cream'] .tasks-founder-card h2 { font-weight: 415; }
+html[data-palette='cream'] { --cream-slab-weight-increase: 35; }
+html[data-palette='cream'] [class*='font-[Roboto_Slab'] { font-weight: 350; }
+html[data-palette='cream'] .tasks-founder-card h2 { font-weight: 435; }
 
 /* Product walkthroughs sit above the cream canvas, like the homepage composer. */
 html[data-palette='cream'] :is(.product-page, .feature-page) :is(
