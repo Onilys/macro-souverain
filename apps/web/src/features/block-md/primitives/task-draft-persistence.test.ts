@@ -16,7 +16,7 @@ it('flushes a manual clear and its ownership when dismissed before debounce', as
       },
       predictedPropertyIds: ['priority'],
     });
-    createTaskDraftPersistence({ draft, submitting: () => false, save });
+    createTaskDraftPersistence({ draft, save });
     return { dispose, setDraft };
   });
   await vi.advanceTimersByTimeAsync(300);
@@ -36,20 +36,60 @@ it('flushes a manual clear and its ownership when dismissed before debounce', as
   expect(save).toHaveBeenCalledTimes(2);
 });
 
-it('does not resurrect a submitted draft from autosave or cleanup', async () => {
+it('does not resurrect a submitted draft before or during delayed cleanup', async () => {
   vi.useFakeTimers();
   const save = vi.fn();
   const state = createRoot((dispose) => {
-    const [submitting, setSubmitting] = createSignal(false);
-    createTaskDraftPersistence({
-      draft: () => ({ title: 'Fix login', content: '', propertyValues: {} }),
-      submitting,
+    const [draft, setDraft] = createSignal({
+      title: 'Fix login',
+      content: '',
+      propertyValues: {},
+    });
+    const persistence = createTaskDraftPersistence({
+      draft,
       save,
     });
-    return { dispose, setSubmitting };
+    return { dispose, setDraft, ...persistence };
   });
-  state.setSubmitting(true);
+  state.beginSubmission();
+  state.setDraft({
+    title: 'Fix login',
+    content: 'Late update',
+    propertyValues: {},
+  });
+  await vi.advanceTimersByTimeAsync(300);
+  expect(save).not.toHaveBeenCalled();
+  expect(state.active()).toBe(false);
   state.dispose();
   await vi.advanceTimersByTimeAsync(300);
   expect(save).not.toHaveBeenCalled();
+});
+
+it('resumes saving only when Create More starts another draft', async () => {
+  vi.useFakeTimers();
+  const save = vi.fn();
+  const state = createRoot((dispose) => {
+    const [draft, setDraft] = createSignal({
+      title: 'First task',
+      content: '',
+      propertyValues: {},
+    });
+    return {
+      dispose,
+      setDraft,
+      ...createTaskDraftPersistence({ draft, save }),
+    };
+  });
+  state.beginSubmission();
+  state.setDraft({ title: '', content: '', propertyValues: {} });
+  state.startNewDraft();
+  state.setDraft({ title: 'Second task', content: '', propertyValues: {} });
+  await vi.advanceTimersByTimeAsync(300);
+  expect(state.active()).toBe(true);
+  expect(save).toHaveBeenCalledExactlyOnceWith({
+    title: 'Second task',
+    content: '',
+    propertyValues: {},
+  });
+  state.dispose();
 });

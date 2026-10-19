@@ -270,14 +270,6 @@ export function ComposeTask(props: ComposeTaskProps) {
     predictProject:
       projectsFlag().enabled && canPredict(SYSTEM_PROPERTY_IDS.PROJECT),
   }));
-  createTaskPredictions({
-    input: predictionInput,
-    userId: currentUserId,
-    enabled: () => !isCreating(),
-    predict: predictTaskProperties,
-    apply: applyPredictions,
-  });
-
   // History upsert mutation
   const upsertToHistoryMutation = useUpsertToHistoryMutation();
 
@@ -292,10 +284,16 @@ export function ComposeTask(props: ComposeTaskProps) {
       predictedPropertyIds: predictedPropertyIds(),
     };
   });
-  createTaskDraftPersistence({
+  const draftPersistence = createTaskDraftPersistence({
     draft: draftSnapshot,
-    submitting: isCreating,
     save: saveTaskComposerDraft,
+  });
+  createTaskPredictions({
+    input: predictionInput,
+    userId: currentUserId,
+    enabled: () => !isCreating() && draftPersistence.active(),
+    predict: predictTaskProperties,
+    apply: applyPredictions,
   });
 
   // A title-mode pill that ends a picker session with no tags left has nothing
@@ -381,6 +379,7 @@ export function ComposeTask(props: ComposeTaskProps) {
     setErrorMessage('');
 
     setIsCreating(true);
+    draftPersistence.beginSubmission();
 
     const properties = structuredClone(Object.entries(unwrap(propertyValues)));
     const resetTitleAndBody = () => {
@@ -452,6 +451,7 @@ export function ComposeTask(props: ComposeTaskProps) {
         shareWithTeam: sharesWithTeam(),
         onMutate: () => {
           resetTitleAndBody();
+          draftPersistence.startNewDraft();
           setIsCreating(false);
         },
       }
@@ -461,8 +461,7 @@ export function ComposeTask(props: ComposeTaskProps) {
       return;
     }
 
-    // Success: clear draft and notify
-    clearTaskComposerDraft();
+    // Create More already started a new draft; preserve edits made in flight.
     const { documentId, initialSnapshot } = createdTask;
     if (props.onSuccess) {
       props.onSuccess({ documentId, title: taskTitle, content: taskContent });
@@ -483,6 +482,7 @@ export function ComposeTask(props: ComposeTaskProps) {
 
     setErrorMessage('');
     setIsCreating(true);
+    draftPersistence.beginSubmission();
 
     const properties = structuredClone(Object.entries(unwrap(propertyValues)));
     const draftSnapshot = {

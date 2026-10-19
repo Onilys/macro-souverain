@@ -537,6 +537,8 @@ after closing and reopening the draft. A project prefilled by the project page i
 also protected. `Clear Draft` resets prediction ownership; `Create More` keeps
 manual selections and drops the previous task's AI suggestions. Late replies
 after edits, submission, clearing, closing, or an account change are ignored.
+Submission stops draft autosaves until Create More starts a new draft; completion
+of the preceding task preserves any text already entered for the next one.
 
 To verify, type an urgent task, then change its description before a delayed
 prediction returns. Only the latest text should affect the values. Select or
