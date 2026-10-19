@@ -121,6 +121,7 @@ If you have any feedback or find any bugs let us know here.",
                 mentions,
                 attachments: Vec::new(),
                 nonce: None,
+                broadcast_to_channel: false,
             },
         )
         .await?;

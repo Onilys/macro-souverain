@@ -419,6 +419,7 @@ impl<Access: EntityAccessService> SessionAnnouncer for MessageAnnouncer<Access> 
                     mentions: Vec::new(),
                     attachments: Vec::new(),
                     nonce: None,
+                    broadcast_to_channel: false,
                 },
             )
             .await
@@ -544,6 +545,7 @@ impl<Access: EntityAccessService> SessionAnnouncer for MessageAnnouncer<Access> 
                     // person who asked should hear it even if they have
                     // already looked away from the thread.
                     notification_policy: PostMessageNotificationPolicy::Default,
+                    broadcast_to_channel: false,
                 },
             )
             .await
@@ -603,6 +605,7 @@ impl<Access: EntityAccessService> SessionAnnouncer for MessageAnnouncer<Access> 
                     mentions: Vec::new(),
                     attachments: Vec::new(),
                     nonce: None,
+                    broadcast_to_channel: false,
                 },
             )
             .await

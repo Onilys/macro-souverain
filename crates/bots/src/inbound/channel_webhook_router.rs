@@ -294,6 +294,7 @@ where
                 mentions: Vec::new(),
                 attachments: Vec::new(),
                 nonce: None,
+                broadcast_to_channel: false,
             },
         )
         .await?;

@@ -87,6 +87,7 @@ where
                     mentions: vec![],
                     attachments: self.attachments.iter().map(NewAttachment::from).collect(),
                     nonce: None,
+                    broadcast_to_channel: false,
                 },
             )
             .await

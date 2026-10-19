@@ -128,6 +128,7 @@ where
                         mentions: vec![],
                         attachments: vec![],
                         nonce: None,
+                        broadcast_to_channel: false,
                     },
                 )
                 .await
@@ -233,6 +234,7 @@ where
                     mentions: vec![],
                     attachments: vec![],
                     nonce: None,
+                    broadcast_to_channel: false,
                 },
             )
             .await;
@@ -299,6 +301,7 @@ impl CommentOnDocument {
                     mentions: vec![],
                     attachments: vec![],
                     nonce: None,
+                    broadcast_to_channel: false,
                 },
             )
             .await
