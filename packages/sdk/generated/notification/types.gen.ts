@@ -1249,16 +1249,44 @@ export type NotificationState = 'unseen' | 'seen' | 'done';
  */
 export type NotificationTypeName = string;
 
+/**
+ * the value we send as the payload in the ios notification
+ * This data is accessible to the client
+ */
 export type PushNotificationData = {
+    navigation?: null | PushNotificationNavigation;
     /**
      * The id of the notification record (UserNotification.id)
      */
     notificationId: string;
     /**
+     * Account that owns the receiving device, set during per-recipient delivery.
+     */
+    recipientId?: string | null;
+    /**
      * The sender's profile picture URL, used by the Notification Service Extension
      * to download and attach as a rich notification image.
      */
     senderProfilePictureUrl?: string | null;
+};
+
+/**
+ * Open a channel at a specific message.
+ */
+export type PushNotificationNavigation = {
+    /**
+     * Channel containing the message.
+     */
+    channelId: string;
+    /**
+     * Message to highlight.
+     */
+    messageId: string;
+    /**
+     * Root of the message's thread; null identifies a top-level message.
+     */
+    threadId: string | null;
+    type: 'channel';
 };
 
 /**

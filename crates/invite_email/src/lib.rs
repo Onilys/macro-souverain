@@ -256,6 +256,8 @@ impl NotificationExtIos for ChannelInviteMetadata {
             push_notification_data: PushNotificationData {
                 notification_id,
                 sender_profile_picture_url: self.sender_profile_picture_url.clone(),
+                recipient_id: None,
+                navigation: None,
             },
         })
     }
