@@ -8,9 +8,12 @@ import {
   StaticSplitLabel,
 } from '@components/app/split-layout/components/SplitLabel';
 import { Permissions } from '@core/component/SharePermissions';
+import { toast } from '@core/component/Toast/Toast';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { openExternalUrl } from '@core/util/url';
 import GithubIcon from '@icon/mcp-github.svg';
+import Link from '@phosphor/link.svg';
 import type { GithubPullRequest } from '@service-storage/generated/schemas';
 
 import type { PrRef } from '../util/prKey';
@@ -30,7 +33,21 @@ export function PrSplitHeader(props: {
   const title = () => props.enrichment?.name ?? prDisplayName(props.prRef);
   const githubUrl = () => props.enrichment?.url ?? prHtmlUrl(props.prRef);
 
+  const copyLink = () => {
+    fireAndForget(
+      navigator.clipboard.writeText(githubUrl()).then(() => {
+        toast.success('Link copied to clipboard');
+      }),
+      'pr-copy-link'
+    );
+  };
+
   const ops: FileOperation[] = [
+    {
+      label: 'Copy link',
+      icon: Link,
+      action: copyLink,
+    },
     {
       label: 'Open on GitHub',
       icon: GithubIcon,
