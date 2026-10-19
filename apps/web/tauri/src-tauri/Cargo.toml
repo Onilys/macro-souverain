@@ -66,7 +66,7 @@ graphql_cache_plugin = { path = "../graphql_cache_plugin" }
 macro_bundle_updater_plugin = { path = "../macro_bundle_updater_plugin" }
 navigation_plugin = { path = "../navigation_plugin" }
 tauri-plugin-device-info = "1.0.1"
-tauri-plugin-notifications = { git = "https://github.com/macro-inc/tauri-plugins", rev = "6ddd6600e20436388f169e936b610fe93944b7b0" }
+tauri-plugin-notifications = { path = "../ios_push_plugin" }
 tauri-plugin-os = "2"
 
 

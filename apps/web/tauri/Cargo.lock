@@ -6981,12 +6981,11 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-notifications"
 version = "0.1.0"
-source = "git+https://github.com/macro-inc/tauri-plugins?rev=6ddd6600e20436388f169e936b610fe93944b7b0#6ddd6600e20436388f169e936b610fe93944b7b0"
 dependencies = [
  "serde",
+ "serde_json",
  "tauri",
  "tauri-plugin",
- "thiserror 1.0.69",
 ]
 
 [[package]]
