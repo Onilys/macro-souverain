@@ -212,7 +212,7 @@ final class NotificationsPlugin: Plugin, UNUserNotificationCenterDelegate {
             }
             do {
                 if let event = try self.store().pending(at: Self.nowMs) {
-                    self.showCover()
+                    if !self.suppressPendingCover { self.showCover() }
                     self.deliverTap(event)
                 }
                 invoke.resolve(WatchResult(success: true))
