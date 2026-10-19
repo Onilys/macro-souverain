@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod test;
 
+mod guest_chat;
 mod meeting_invites;
 mod meetings;
 mod reconcile;

@@ -3,6 +3,7 @@ import { useSplitLayout } from '@components/app/split-layout/layout';
 import { type BlockAlias, type BlockName, useMaybeBlockId } from '@core/block';
 import { fileTypeToBlockName } from '@core/constant/allBlocks';
 import { useSplitNavigationHandler } from '@core/util/useSplitNavigationHandler';
+import { Telemetry } from '@macro-inc/observability';
 import { createCallback } from '@solid-primitives/rootless';
 import type { ParentProps } from 'solid-js';
 
@@ -36,6 +37,16 @@ async function openLocation<T extends BlockNameWithLocations>(
   await blockHandle?.goToLocationFromParams(params ?? {});
 }
 
+function openLocationInBackground<T extends BlockNameWithLocations>(
+  blockName: T,
+  id: string,
+  params?: Record<string, string>
+) {
+  openLocation(blockName, id, params).catch((error) =>
+    Telemetry.error(error, { surface: 'block-link', blockName })
+  );
+}
+
 export function openDocument(
   blockOrFileType: string,
   id: string,
@@ -56,7 +67,7 @@ export function openDocument(
     isBlockNameWithLocation(targetBlock) &&
     !inNewSplit
   ) {
-    openLocation(targetBlock, id, params);
+    openLocationInBackground(targetBlock, id, params);
     return;
   }
 
@@ -69,7 +80,7 @@ export function openDocument(
   );
 
   if (isBlockNameWithLocation(targetBlock)) {
-    openLocation(targetBlock, id, params);
+    openLocationInBackground(targetBlock, id, params);
   }
   return result;
 }

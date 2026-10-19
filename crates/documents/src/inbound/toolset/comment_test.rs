@@ -71,6 +71,7 @@ impl FakeMessages {
                 .comment_author
                 .clone()
                 .expect("test configured a stored comment"),
+            guest_name: None,
             imported_author: None,
             bot_profile: None,
             mentions: vec![],
@@ -184,6 +185,7 @@ impl MessageCommands for FakeMessages {
                 bot_id::MACRO_AI_BOT_ID.into_storage_id().to_string(),
             )
             .unwrap(),
+            guest_name: None,
             imported_author: None,
             bot_profile: None,
             mentions: vec![],

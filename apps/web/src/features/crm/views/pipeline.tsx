@@ -1,5 +1,6 @@
 import { InlineTitleEditor } from '@core/component/InlineTitleEditor';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
+import { fireAndForget } from '@core/util/fireAndForget';
 import DotsThreeIcon from '@phosphor/dots-three.svg';
 import DownloadIcon from '@phosphor/download-simple.svg';
 import PencilIcon from '@phosphor/pencil-line.svg';
@@ -124,7 +125,10 @@ export function PipelineView(props: {
                 ariaLabel="Pipeline name"
                 class="text-sm"
                 onRename={(name) =>
-                  void save(() => props.source.rename(props.pipeline.id, name))
+                  fireAndForget(
+                    save(() => props.source.rename(props.pipeline.id, name)),
+                    'crm'
+                  )
                 }
               />
             </span>
@@ -150,7 +154,7 @@ export function PipelineView(props: {
                 <Show when={transfer}>
                   <Dropdown.Item
                     disabled={exporter?.pending()}
-                    onSelect={() => void exportCsv()}
+                    onSelect={() => fireAndForget(exportCsv(), 'crm')}
                   >
                     <DownloadIcon class="size-4" />
                     Export CSV
@@ -228,7 +232,7 @@ export function PipelineView(props: {
               >
                 <form
                   class="flex flex-col gap-3"
-                  onSubmit={(event) => void rename(event)}
+                  onSubmit={(event) => fireAndForget(rename(event), 'crm')}
                 >
                   <label class="flex flex-col gap-1.5 text-sm">
                     Pipeline name
@@ -260,7 +264,7 @@ export function PipelineView(props: {
                 variant="ghost"
                 class="w-full justify-start"
                 disabled={exporter?.pending()}
-                onClick={() => void exportCsv()}
+                onClick={() => fireAndForget(exportCsv(), 'crm')}
               >
                 <DownloadIcon class="size-4" />
                 Export CSV
@@ -337,10 +341,13 @@ export function PipelineView(props: {
           </p>
         }
         onDelete={() =>
-          void save(async () => {
-            await props.source.trash(props.pipeline.id);
-            props.onTrashed();
-          })
+          fireAndForget(
+            save(async () => {
+              await props.source.trash(props.pipeline.id);
+              props.onTrashed();
+            }),
+            'crm'
+          )
         }
       />
     </div>
