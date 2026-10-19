@@ -1,5 +1,6 @@
 import { AgentSessionProvider } from '@app/features/block-agent/agent-session-provider';
 import { AgentComposer } from '@app/features/block-agent/component/AgentComposer';
+import { AgentConnections } from '@app/features/block-agent/component/AgentConnections';
 import { AgentPreviewBanner } from '@app/features/block-agent/component/AgentPreviewBanner';
 import { AgentPullRequestChip } from '@app/features/block-agent/component/AgentPullRequestChip';
 import { AgentSessionReadMarker } from '@app/features/block-agent/component/AgentSessionReadMarker';
@@ -271,7 +272,9 @@ function SessionContent(props: {
               >
                 <AgentPreviewBanner />
                 <div class="transcript-host">
-                  <Transcript searchTarget={searchTarget()} />
+                  <AgentConnections>
+                    <Transcript searchTarget={searchTarget()} />
+                  </AgentConnections>
                 </div>
                 <div class="dock">
                   <div class="composer-anchor flex flex-col gap-2">
