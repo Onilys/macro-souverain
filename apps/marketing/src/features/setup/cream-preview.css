@@ -1,12 +1,12 @@
 /* Cream palette for the public website, /start, and the sample workspace.
    Applied when the OS or browser prefers light mode (see sitePalette.ts).
-   Palette sampled from the cream ad set: page #f5f1e8, with brighter, less saturated
+   Softened cream palette: page #f5f2ec, with brighter, less saturated
    raised surfaces; body #54524f, labels #72706c, near-black ink.
    Everything is scoped to html[data-palette=cream]; the dark site is unchanged. */
 
 html[data-palette='cream'] {
   /* Override every surface level: the frozen dark palette defines each one. */
-  --color-surface-0: #f5f1e8;
+  --color-surface-0: #f5f2ec;
   --color-surface-1: #faf8f3;
   --color-surface-2: #fcfbf8;
   --color-surface-3: #fdfcfb;
@@ -20,7 +20,7 @@ html[data-palette='cream'] {
   --color-edge: #d9d4ca;
   --color-edge-muted: #e6e1d7;
   --color-accent: oklch(0.2 0.004 70deg);
-  background: #f5f1e8;
+  background: #f5f2ec;
   color-scheme: light;
 }
 
@@ -29,7 +29,7 @@ html[data-palette='cream'] {
 html[data-palette='cream'],
 html[data-palette='cream'] :is(.homepage-sections, .feature-page) {
   --a0l: 0.2 !important; --a0c: 0.004 !important; --a0h: 70deg !important;
-  --b0l: 0.959 !important; --b0c: 0.011 !important; --b0h: 85deg !important;
+  --b0l: 0.961805 !important; --b0c: 0.008602 !important; --b0h: 84.573deg !important;
   --b1l: .981 !important; --b1c: .007 !important; --b1h: 85deg !important;
   --b2l: .988 !important; --b2c: .004 !important; --b2h: 85deg !important;
   --b3l: .992 !important; --b3c: .002 !important; --b3h: 85deg !important;
@@ -41,11 +41,11 @@ html[data-palette='cream'] :is(.homepage-sections, .feature-page) {
   --c4l: 0.54 !important;  --c4c: 0.006 !important; --c4h: 75deg !important;
 }
 
-html[data-palette='cream'] body { background: #f5f1e8; color: var(--color-ink); }
+html[data-palette='cream'] body { background: #f5f2ec; color: var(--color-ink); }
 
 /* OnboardingShell writes a black palette inline; override it for the hero. */
 html[data-palette='cream'] .onboarding-flow {
-  --color-surface: #f5f1e8 !important;
+  --color-surface: #f5f2ec !important;
   --color-ink: oklch(0.2 0.004 70deg) !important;
   --color-ink-muted: #54524f !important;
   --color-ink-extra-muted: #72706c !important;
@@ -54,9 +54,9 @@ html[data-palette='cream'] .onboarding-flow {
 }
 
 /* ---- Page chrome ---------------------------------------------------- */
-html[data-palette='cream'] .homepage-sections { background: #f5f1e8; }
-html[data-palette='cream'] .site-page-vignette::before { background: linear-gradient(to bottom, #f5f1e8 0%, #f5f1e8dd 25%, #f5f1e866 58%, transparent 100%); }
-html[data-palette='cream'] .site-page-vignette::after { background: linear-gradient(to top, #f5f1e8 0%, #f5f1e8dd 22%, #f5f1e866 55%, transparent 100%); }
+html[data-palette='cream'] .homepage-sections { background: #f5f2ec; }
+html[data-palette='cream'] .site-page-vignette::before { background: linear-gradient(to bottom, #f5f2ec 0%, #f5f2ecdd 25%, #f5f2ec66 58%, transparent 100%); }
+html[data-palette='cream'] .site-page-vignette::after { background: linear-gradient(to top, #f5f2ec 0%, #f5f2ecdd 22%, #f5f2ec66 55%, transparent 100%); }
 html[data-palette='cream'] .site-header {
   --nav-ink: #1d1c1a;
   --nav-muted: #72706c;
@@ -69,7 +69,7 @@ html[data-palette='cream'] .site-nav-demo { color: #1d1c1a; background: linear-g
 html[data-palette='cream'] .site-nav-demo::after { background: linear-gradient(135deg, #ffffff60 0%, #ffffff1c 24%, #00000005 60%, #0000001c 100%); }
 html[data-palette='cream'] .site-menu-panel a:hover { background: #1d1c1a0a; }
 html[data-palette='cream'] .site-header :focus-visible { outline-color: #1d1c1a; }
-html[data-palette='cream'] .site-header[data-menu-open=true]::before { background: #f5f1e8; }
+html[data-palette='cream'] .site-header[data-menu-open=true]::before { background: #f5f2ec; }
 /* The primary CTA stays raised; the secondary keeps a quieter cream finish. */
 html[data-palette='cream'] :is(.site-nav-start, .site-nav-demo) { box-shadow: inset 0 1px 0 #fff, inset 0 -2px 2px #0000000f, 0 0 0 1px #1d1c1a14, 0 10px 24px -14px #1d1c1a59; }
 html[data-palette='cream'] .site-nav-demo { box-shadow: inset 0 1px 0 #ffffff40, inset 0 -1px 1px #00000003, 0 0 0 1px #1d1c1a09, 0 3px 10px -6px #1d1c1a0a; }
@@ -80,14 +80,14 @@ html[data-palette='cream'] .homepage-email-surface::after { border-color: #1d1c1
 html[data-palette='cream'] .homepage-email-row { border-bottom-color: #1d1c1a12; }
 html[data-palette='cream'] .homepage-email-row input { color: #1d1c1a; }
 html[data-palette='cream'] .homepage-email-sender { background: #1d1c1a0d; color: #1d1c1a; }
-html[data-palette='cream'] .homepage-email-toolbar button.homepage-email-send { background: #1d1c1a; color: #f5f1e8; }
+html[data-palette='cream'] .homepage-email-toolbar button.homepage-email-send { background: #1d1c1a; color: #f5f2ec; }
 html[data-palette='cream'] .homepage-email-toolbar button.homepage-email-send:disabled { background: #1d1c1a0d; color: #a29f98; }
 html[data-palette='cream'] .homepage-email-format button { background: #1d1c1a0a; }
 
 /* ---- Collaborative document ------------------------------------------ */
 html[data-palette='cream'] .homepage-collaborative-doc .mds-card { background: var(--color-surface-1); box-shadow: 0 10px 40px -12px #1d1c1a26; }
 html[data-palette='cream'] .homepage-collaborative-doc .mds-card::before { background: linear-gradient(135deg, #ffffff80, transparent 45%) border-box; border-color: #1d1c1a0d; }
-html[data-palette='cream'] .homepage-history-caption { background: #f5f1e8; }
+html[data-palette='cream'] .homepage-history-caption { background: #f5f2ec; }
 
 /* ---- Spreadsheet ----------------------------------------------------- */
 html[data-palette='cream'] .homepage-spreadsheet { box-shadow: 0 10px 40px -12px #1d1c1a26; }
@@ -115,13 +115,13 @@ html[data-palette='cream'] .homepage-sheet-add-rows { background: #1d1c1a08; bor
 /* ---- GitHub / open source -------------------------------------------- */
 html[data-palette='cream'] .homepage-github-mark { background: var(--color-surface-3); box-shadow: 0 0 0 7px #1d1c1a05; color: #1d1c1a; }
 html[data-palette='cream'] .homepage-embedded-window { background: #faf8f3; border-color: #1d1c1a1a; box-shadow: 0 32px 70px -24px #1d1c1a40; }
-html[data-palette='cream'] .homepage-embedded-stage::after { background: linear-gradient(to bottom, transparent, #f5f1e855 35%, #f5f1e8bb 65%, #f5f1e8 96%); }
+html[data-palette='cream'] .homepage-embedded-stage::after { background: linear-gradient(to bottom, transparent, #f5f2ec55 35%, #f5f2ecbb 65%, #f5f2ec 96%); }
 html[data-palette='cream'] .homepage-demo-slide-copy h2 { color: #1d1c1a; }
 
 /* ---- Sample workspace (/demo, embedded on the homepage) ----------------
    Match the HTML bootstrap before RouteDemo's client code runs. */
 html[data-palette='cream'] .dummy-route {
-  --color-surface-0: #f5f1e8;
+  --color-surface-0: #f5f2ec;
   --color-surface-1: #faf8f3;
   --color-surface-2: #fcfbf8;
   --color-surface-3: #fdfcfb;
@@ -138,7 +138,7 @@ html[data-palette='cream'] .dummy-route {
   --glass-tint: white;
   --glass-shade-color: var(--color-content-0);
   --glass-shadow-alpha: 0.18;
-  background: #f5f1e8;
+  background: #f5f2ec;
   color-scheme: light;
 }
 
@@ -190,7 +190,7 @@ html[data-palette='cream'] [data-user-message-bubble]::after {
    selector outranks it. Pages also set OnboardingShell's palette inline on
    hero and heading wrappers, so those need !important. */
 html[data-palette='cream'] .feature-page {
-  --color-surface-0: #f5f1e8;
+  --color-surface-0: #f5f2ec;
   --color-surface-1: #faf8f3;
   --color-surface-2: #fcfbf8;
   --color-surface-3: #fdfcfb;
@@ -204,25 +204,25 @@ html[data-palette='cream'] .feature-page {
   --color-edge: #d9d4ca;
   --color-edge-muted: #e6e1d7;
   --color-accent: oklch(0.2 0.004 70deg);
-  background: #f5f1e8;
+  background: #f5f2ec;
   color: #1d1c1a;
 }
 html[data-palette='cream'] .feature-page :is(h1, h2, h3) { color: #1d1c1a; }
 html[data-palette='cream'] .tour-page :is(.tour-hero, .tour-constellation, .tour-heading) {
-  --color-surface: #f5f1e8 !important;
+  --color-surface: #f5f2ec !important;
   --color-ink: oklch(0.2 0.004 70deg) !important;
   --color-ink-muted: #54524f !important;
   --color-ink-extra-muted: #72706c !important;
   --color-edge: #d9d4ca !important;
   --color-edge-muted: #e6e1d7 !important;
 }
-html[data-palette='cream'] .sales-calc-check svg { color: #f5f1e8; }
-html[data-palette='cream'] .sales-calc-tools button[aria-pressed=true] .sales-calc-check { color: #f5f1e8; }
+html[data-palette='cream'] .sales-calc-check svg { color: #f5f2ec; }
+html[data-palette='cream'] .sales-calc-tools button[aria-pressed=true] .sales-calc-check { color: #f5f2ec; }
 
 /* The main site (App.tsx) runs applyTheme, which writes the b and c color inputs inline
    on <html>; only !important outranks inline declarations. */
 html[data-palette='cream'] {
-  --b0l: 0.959 !important; --b0c: 0.011 !important; --b0h: 85deg !important;
+  --b0l: 0.961805 !important; --b0c: 0.008602 !important; --b0h: 84.573deg !important;
   --b1l: .981 !important; --b1c: .007 !important; --b1h: 85deg !important;
   --b2l: .988 !important; --b2c: .004 !important; --b2h: 85deg !important;
   --b3l: .992 !important; --b3c: .002 !important; --b3h: 85deg !important;
@@ -233,7 +233,7 @@ html[data-palette='cream'] {
   --c3l: 0.45 !important;  --c3c: 0.005 !important; --c3h: 70deg !important;
   --c4l: 0.54 !important;  --c4c: 0.006 !important; --c4h: 75deg !important;
 }
-html[data-palette='cream'] :is(#root, #app-scroll-root) { background: #f5f1e8; }
+html[data-palette='cream'] :is(#root, #app-scroll-root) { background: #f5f2ec; }
 html[data-palette='cream'] .site-menu-trigger { color: #1d1c1a; }
 
 /* Shared product walkthroughs and public-page copy use the same light surfaces
@@ -539,7 +539,7 @@ html[data-palette='cream'] .homepage-sections .homepage-crm .mds-card::before {
 /* Toolbar label colors must not override the contrast of the send action. */
 html[data-palette='cream'] :is([data-send-button], .homepage-email-toolbar button.homepage-email-send):not(:disabled):not([data-disabled]) {
   background-color: var(--color-ink);
-  color: #f5f1e8;
+  color: #f5f2ec;
 }
 
 /* A colorful, warm field for cream, with a soft perimeter and a bright
@@ -586,11 +586,11 @@ html[data-palette='cream'] :is(.feature-flow-icon, .feature-flow-core) {
   --glass-shade-base: 3%;
   --glass-rim-shade-base: 3%;
   --glass-rim-soft-base: 18%;
-  background: linear-gradient(145deg, #fffdf5a6, #f5f1e833);
+  background: linear-gradient(145deg, #fffdf5a6, #f5f2ec33);
   backdrop-filter: none;
 }
 html[data-palette='cream'] .feature-flow-core {
-  background: linear-gradient(145deg, #fffdf5c2, #f5f1e859);
+  background: linear-gradient(145deg, #fffdf5c2, #f5f2ec59);
 }
 html[data-palette='cream'] .feature-flow {
   overflow: visible;

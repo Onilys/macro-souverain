@@ -14,7 +14,7 @@ export type SitePalette = 'cream' | 'dark';
 
 const LIGHT_SCHEME = '(prefers-color-scheme: light)';
 const THEME_COLOR: Record<SitePalette, string> = {
-  cream: '#f5f1e8',
+  cream: '#f5f2ec',
   dark: '#000000',
 };
 
