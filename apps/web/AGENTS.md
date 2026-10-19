@@ -94,6 +94,8 @@ ownership. Cancel, logout, and the ten-minute timeout retire pending callbacks.
 - Preserve focused chrome editors during deferred split insertion/removal autofocus; explicit return-focus commands may still focus the pane.
 - Reconcile global focus when focused DOM subtrees are removed; iOS can omit blur events, otherwise floating creation actions stay hidden after search or editor teardown.
 - Mount the floating mobile AI composer only on the Agents view; other views keep their New action or their own reply/comment composer.
+- Inline agent steps reuse the session code-execution query for live SDK operation
+  names; completed step snapshots come from the shared fold of the tool receipt.
 - All API/network calls live in service-clients.
 - Keep desktop Gmail and Outlook inbox consent in the system browser with a
   `macro:///inbox-link-callback` return; webview origins are not desktop callbacks.

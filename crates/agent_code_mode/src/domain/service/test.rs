@@ -383,7 +383,11 @@ async fn persists_live_activity_and_marks_unfinished_requests_unknown() {
     })
     .await
     .unwrap();
-    assert_eq!(running.await.unwrap().status, ExecutionStatus::Succeeded);
+    let receipt = running.await.unwrap();
+    assert_eq!(receipt.status, ExecutionStatus::Succeeded);
+    assert_eq!(receipt.activity.len(), 2);
+    assert_eq!(receipt.activity[0].status, RecordedCallStatus::Completed);
+    assert_eq!(receipt.activity[1].status, RecordedCallStatus::Unknown);
     let record = store.get(session_id, id).await.unwrap();
     assert_eq!(record.activity.len(), 2);
     assert_eq!(record.activity[0].status, RecordedCallStatus::Completed);

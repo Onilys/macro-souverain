@@ -82,7 +82,7 @@ pub struct RecordedToolCall {
 }
 
 /// A dispatch result; unfinished work is never reported as success.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum RecordedCallStatus {
     /// The dispatcher is still awaiting the tool.
@@ -128,6 +128,9 @@ pub struct ExecutionReceipt {
     pub execution_id: ExecutionId,
     /// Last recorded outcome; running may be stale after a process interruption.
     pub status: ExecutionStatus,
+    /// Observed SDK operations for conversation activity snapshots.
+    #[serde(default)]
+    pub activity: Vec<ExecutionActivity>,
     /// Only the value explicitly returned by the program.
     pub result: Option<Value>,
     /// Safe failure text, when execution did not succeed.
@@ -167,7 +170,7 @@ pub enum CodeModeError {
 }
 
 /// A bounded SDK operation observed during execution; not an authorization or write receipt.
-#[derive(Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionActivity {
     /// Request identity within the execution.

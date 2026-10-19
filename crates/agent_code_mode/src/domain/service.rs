@@ -366,6 +366,7 @@ fn receipt(record: &ExecutionRecord) -> ExecutionReceipt {
     ExecutionReceipt {
         execution_id: record.execution_id,
         status: record.status,
+        activity: record.activity.clone(),
         result: record.result.clone(),
         error: execution_error(record),
     }
