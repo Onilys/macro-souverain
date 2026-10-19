@@ -74,7 +74,10 @@ machine running the browser. See the [certificate README](../../infra/local/cert
 The visiting machine must resolve the hostname and reach that port. No Docker
 proxy or Tailscale is needed. Vite forwards hosted development API and WebSocket
 requests through `/__macro_dev/` on this same origin, so arbitrary machine
-hostnames do not need to be added to the deployed CORS allowlist. Authentication
+hostnames do not need to be added to the deployed CORS allowlist. File uploads
+are the exception: the browser PUTs to a presigned S3 URL directly, and the
+development bucket only allows `localhost` ports 3000–3009 and `dev.macro.com`.
+Uploads from any other origin fail with a CORS error. Authentication
 cookies are scoped to the visiting hostname; sign in with an email code on that
 hostname rather than relying on an existing `.macro.com` cookie. Google/SSO
 redirects still use the hosted authentication service’s redirect allowlist, which
