@@ -79,7 +79,10 @@ export function LanguageSettings() {
   };
 
   return (
-    <SettingsSection title={t('settingsLanguage.sectionTitle')}>
+    <SettingsSection
+      title={t('settingsLanguage.sectionTitle')}
+      target="Language"
+    >
       <SettingsCard>
         <Show when={team()}>
           {(currentTeam) => (

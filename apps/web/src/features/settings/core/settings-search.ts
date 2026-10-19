@@ -127,6 +127,15 @@ const SETTINGS: Setting[] = [
   },
   {
     tab: 'Appearance',
+    title: 'Interface language',
+    target: 'Language',
+    // The word for "language" in each interface language, so people can find
+    // it in their own.
+    keywords:
+      'translate translation locale team personal sprache langue idioma lingua taal språk sprog kieli język язык 言語 언어 语言 語言 भाषा bahasa ngôn ngữ ภาษา',
+  },
+  {
+    tab: 'Appearance',
     title: 'Show tooltips',
     target: 'Show tooltips',
     keywords: 'hover hints help',

@@ -23,6 +23,15 @@ describe('individual settings search', () => {
       target: 'signatures',
     });
   });
+  it('finds the interface language in English and in each language', () => {
+    for (const query of ['lang', 'language', 'Sprache', 'idioma', '言語']) {
+      expect(search(query)[0]).toMatchObject({
+        tab: 'Appearance',
+        title: 'Interface language',
+        target: 'language',
+      });
+    }
+  });
   it('tolerates transposed and wrong letters', () => {
     expect(search('singature')[0].title).toBe('Email signatures');
     expect(search('signoture')[0].title).toBe('Email signatures');
