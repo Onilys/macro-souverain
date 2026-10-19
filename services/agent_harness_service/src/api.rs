@@ -77,6 +77,7 @@ pub struct ApiStates<T, R, Opener, Bots, Requests, Access, Auth, Models, Changes
     conversations: Router,
     pull_requests: Router,
     tool_approvals: Router,
+    app_connections: Router,
     code_executions: Router,
     changes: AgentChangesRouterState<Changes, Access, Auth>,
 }
@@ -109,6 +110,7 @@ impl<T, R, Opener, Bots, Requests, Access, Auth, Models, Changes>
             conversations: Router::new(),
             pull_requests: Router::new(),
             tool_approvals: Router::new(),
+            app_connections: Router::new(),
             code_executions: Router::new(),
             changes,
         }
@@ -165,6 +167,12 @@ impl<T, R, Opener, Bots, Requests, Access, Auth, Models, Changes>
     /// Attach the routes answering tool calls held for the owner's approval.
     pub fn with_tool_approvals(mut self, router: Router) -> Self {
         self.tool_approvals = router;
+        self
+    }
+
+    /// Attach the route continuing a session once its owner connects an app.
+    pub fn with_app_connections(mut self, router: Router) -> Self {
+        self.app_connections = router;
         self
     }
 }
@@ -269,6 +277,7 @@ where
         .merge(states.sharing)
         .merge(states.pull_requests)
         .merge(states.tool_approvals)
+        .merge(states.app_connections)
         .merge(states.code_executions)
         .merge(agent_changes_router(states.changes));
     Router::new()

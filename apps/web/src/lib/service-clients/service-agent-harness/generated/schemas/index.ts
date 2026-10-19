@@ -95,6 +95,8 @@ export * from './agentSetModelAction';
 export * from './aiAdmissionErrorBody';
 export * from './answerToolApprovalRequest';
 export * from './answerToolApprovalResponse';
+export * from './appConnectedRequest';
+export * from './appConnectedRequestActionId';
 export * from './botId';
 export * from './capabilityHarnessDto';
 export * from './captureAttemptDto';
