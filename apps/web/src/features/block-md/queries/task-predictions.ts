@@ -9,13 +9,13 @@ import {
 
 const priorityQuestions = {
   [PROPERTY_OPTION_IDS.PRIORITY.LOW]:
-    'Is this task low priority, optional, or explicitly not time sensitive?',
+    'Does the author describe this task as low priority, optional, unimportant, or not important? Lack of an urgent deadline alone does not mean low priority. Respect negation.',
   [PROPERTY_OPTION_IDS.PRIORITY.MEDIUM]:
-    'Is this task explicitly normal or medium priority, routine work without urgency?',
+    'Does the author explicitly describe this task as normal or medium priority? Do not choose this when the task is marked important, high priority, urgent, or low priority.',
   [PROPERTY_OPTION_IDS.PRIORITY.HIGH]:
-    'Is this task high priority or important to complete soon, but not an immediate emergency?',
+    'Does the author mark this task important or high priority, including a parenthetical (important), without explicitly requesting urgent or immediate action or describing an emergency? Importance alone means high priority; no deadline is required. Respect negation such as not important.',
   [PROPERTY_OPTION_IDS.PRIORITY.URGENT]:
-    'Is this task urgent, requiring immediate action for an emergency, outage, critical blocker, or imminent deadline?',
+    'Does the author explicitly mark this task urgent, request immediate action, or describe an emergency, active outage, critical blocker, or imminent deadline? A parenthetical (urgent) is sufficient. Merely saying important or high priority does not mean urgent. Respect negation such as not urgent.',
 };
 
 export function taskPredictionRequest(

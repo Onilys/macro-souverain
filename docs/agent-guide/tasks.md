@@ -525,13 +525,23 @@ also show up in Files/`All` and in AI-chat document listings.
 While composing on desktop or mobile, pausing for 700 ms after editing the title
 or description asks Jev for priority and project predictions through the existing
 cognition service’s `POST /decisions` API. Confident suggestions fill the property controls with a
-soft accent fill and outline that fades out over 1.2 seconds, without dimming the
-text or moving the control. Manual edits and unchanged predictions do not animate;
+a background flash using the theme accent that fades out over 1.2 seconds on the
+existing pill, preserving its shape, border, text, and focus. Manual edits and unchanged predictions do not animate;
 reduced-motion users see the value change without animation. Project
 matching considers up to 28 recently updated projects with edit/owner access from
-the first loaded project page, and runs only while Projects is enabled. Ambiguous
+the first loaded project page, and runs only while Projects is enabled. Tied or low-confidence
 results leave a field unset or clear an earlier suggestion. Failures leave the
 draft editable and do not prevent creation.
+
+Priority questions distinguish importance from urgency: `(important)` means High
+without requiring a deadline; `(urgent)` means Urgent, while negated importance
+can indicate Low. Jev returns separate confidence scores, not a numeric importance
+rank. For both priority and project, choose the highest score at or above 0.8,
+without a minimum lead over the runner-up. Exact ties and invalid scores abstain.
+The live-provider regression is `tests/e2e/local-task-predictions.spec.ts` in the
+web app. Opt in with `LOCAL_JEV_E2E=true` against an authenticated local stack
+with `TYPESAFE_API_KEY` configured; it makes real provider calls. It checks editing
+`kill all ui` to add `(important)`, then changing to `(urgent)` and `(not important)`.
 
 Editing the text can replace an earlier AI suggestion. Choosing or clearing a
 property yourself protects that field from subsequent predictions, including

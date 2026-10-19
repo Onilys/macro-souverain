@@ -10,23 +10,29 @@ import {
 export function TaskPredictionHighlight(
   props: ParentProps<{ version: number }>
 ) {
-  let highlight: HTMLSpanElement | undefined;
+  let container: HTMLDivElement | undefined;
   // Property objects also change on manual edits; animate only a new AI version.
   const predictionVersion = createMemo(() => props.version);
   createEffect(
     on(predictionVersion, (version) => {
       if (
         !version ||
-        !highlight ||
+        !container ||
         window.matchMedia('(prefers-reduced-motion: reduce)').matches
       )
         return;
-      const animation = highlight.animate(
+      const pill = container.querySelector<HTMLElement>(
+        '[data-slot="property-pill"]'
+      );
+      if (!pill) return;
+      const backgroundColor = getComputedStyle(pill).backgroundColor;
+      const accent = `color-mix(in srgb, var(--color-accent) 20%, ${backgroundColor})`;
+      const animation = pill.animate(
         [
-          { opacity: 0 },
-          { opacity: 1, offset: 0.15 },
-          { opacity: 1, offset: 0.35 },
-          { opacity: 0 },
+          { backgroundColor },
+          { backgroundColor: accent, offset: 0.15 },
+          { backgroundColor: accent, offset: 0.35 },
+          { backgroundColor },
         ],
         { duration: 1200, easing: 'ease-out' }
       );
@@ -34,13 +40,8 @@ export function TaskPredictionHighlight(
     })
   );
   return (
-    <div class="relative flex min-w-0">
+    <div ref={container} class="flex min-w-0">
       {props.children}
-      <span
-        ref={highlight}
-        aria-hidden="true"
-        class="pointer-events-none absolute inset-0 rounded-md bg-accent/10 opacity-0 ring-1 ring-accent/30"
-      />
     </div>
   );
 }

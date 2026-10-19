@@ -12,7 +12,7 @@ export type TaskPredictions = {
   project?: string | null;
 };
 
-/** Abstain on ambiguous, missing, or invalid scores. */
+/** Pick the highest confident score; abstain on ties, missing, or invalid scores. */
 export function confidentPrediction(
   candidates: readonly string[],
   probabilities: Record<string, number>
@@ -30,7 +30,6 @@ export function confidentPrediction(
   const first = ranked[0];
   if (!first || probabilities[first] < 0.8) return null;
   const second = ranked[1];
-  if (second && probabilities[first] - probabilities[second] < 0.15)
-    return null;
+  if (second && probabilities[first] === probabilities[second]) return null;
   return first;
 }

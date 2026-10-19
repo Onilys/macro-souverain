@@ -41,6 +41,7 @@ it.each([false, true])(
           </button>
           <TaskPredictionHighlight version={property().version}>
             <button
+              data-slot="property-pill"
               onClick={() => setProperty((p) => ({ ...p, label: 'High' }))}
             >
               {property().label}
@@ -54,6 +55,7 @@ it.each([false, true])(
     fireEvent.click(rendered.getByRole('button', { name: 'Predict priority' }));
     expect(rendered.getByRole('button', { name: 'Urgent' })).toBe(control);
     expect(animate).toHaveBeenCalledTimes(reducedMotion ? 0 : 1);
+    if (!reducedMotion) expect(animate.mock.contexts[0]).toBe(control);
     control.focus();
     fireEvent.click(control);
     expect(rendered.getByRole('button', { name: 'High' })).toBe(control);
