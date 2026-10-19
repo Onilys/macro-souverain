@@ -56,6 +56,8 @@ export function getMentionItemName(item: MentionItem): string {
       ]
         .filter(Boolean)
         .join(' ');
+    case 'bookingLink':
+      return item.data.title;
     case 'entity':
       return item.data.name ?? (item.bucket === 'email' ? 'No Subject' : '');
   }

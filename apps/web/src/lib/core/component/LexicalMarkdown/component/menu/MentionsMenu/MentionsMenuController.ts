@@ -12,7 +12,8 @@ export type MentionBucketId =
   | 'companies'
   | 'emails'
   | 'dates'
-  | 'openTabs';
+  | 'openTabs'
+  | 'bookingLinks';
 
 export interface BucketConfig<T extends MentionItem = MentionItem> {
   id: MentionBucketId;
