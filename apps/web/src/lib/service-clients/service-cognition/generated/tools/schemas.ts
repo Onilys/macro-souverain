@@ -1859,6 +1859,25 @@ export const SearchToolResponse = z.object({
   ),
 });
 
+export const ConvertTaskToInitiative = z.object({ taskId: z.string() });
+
+export const ProjectDetails = z.object({
+  initiativeId: z.string().uuid(),
+  name: z.string(),
+  ownerId: z.string(),
+  memberIds: z.array(z.string()),
+  taskIds: z.array(z.string()),
+  taskCount: z.number().int().gte(0),
+  tasksTruncated: z.boolean(),
+  access: z.string(),
+  teamAccess: z.union([z.string(), z.null()]).optional(),
+  linkScope: z.union([z.string(), z.null()]).optional(),
+  linkAccess: z.union([z.string(), z.null()]).optional(),
+  channelShares: z.array(
+    z.object({ channelId: z.string(), access: z.string() })
+  ),
+});
+
 export const CreateBookingLink = z
   .object({
     teamId: z.union([z.string().uuid(), z.null()]).optional(),
@@ -3968,23 +3987,6 @@ export const CreateInitiative = z.object({
   description: z.union([z.string(), z.null()]).optional(),
   memberIds: z.union([z.array(z.string()), z.null()]).optional(),
   shareWithTeam: z.union([z.boolean(), z.null()]).optional(),
-});
-
-export const ProjectDetails = z.object({
-  initiativeId: z.string().uuid(),
-  name: z.string(),
-  ownerId: z.string(),
-  memberIds: z.array(z.string()),
-  taskIds: z.array(z.string()),
-  taskCount: z.number().int().gte(0),
-  tasksTruncated: z.boolean(),
-  access: z.string(),
-  teamAccess: z.union([z.string(), z.null()]).optional(),
-  linkScope: z.union([z.string(), z.null()]).optional(),
-  linkAccess: z.union([z.string(), z.null()]).optional(),
-  channelShares: z.array(
-    z.object({ channelId: z.string(), access: z.string() })
-  ),
 });
 
 export const CreatePipeline = z.object({

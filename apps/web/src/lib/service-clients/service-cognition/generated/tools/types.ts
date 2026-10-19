@@ -6358,6 +6358,81 @@ export interface SearchGotoAgentSession {
   author: AgentSessionAuthor;
 }
 /**
+ * Turn a task into a project (called an initiative in the API) when the user says a task should be a project. The project takes the task's title, its full body as the description, its status, priority, assignees, due date and other applicable properties, and all of its comments (inline comments become general project discussion). The task's subtasks join the project. The task itself moves to the trash. Requires ownership of the task. A project cannot be turned back into a task.
+ */
+export interface ConvertTaskToInitiative {
+  /**
+   * Task to convert.
+   */
+  taskId: string;
+}
+/**
+ * Current project state, including visibility-filtered task membership.
+ */
+export interface ProjectDetails {
+  /**
+   * Project id; use entity type `initiative` in property tools.
+   */
+  initiativeId: string;
+  /**
+   * Project name.
+   */
+  name: string;
+  /**
+   * Project owner.
+   */
+  ownerId: string;
+  /**
+   * Collaboration members, distinct from property assignees.
+   */
+  memberIds: string[];
+  /**
+   * Up to 200 associated tasks the caller can view.
+   */
+  taskIds: string[];
+  /**
+   * Total associated tasks the caller can view.
+   */
+  taskCount: number;
+  /**
+   * Whether the project contains additional visible tasks beyond taskIds.
+   */
+  tasksTruncated: boolean;
+  /**
+   * Caller's effective permission.
+   */
+  access: string;
+  /**
+   * Explicit owner-team access, or absent when off.
+   */
+  teamAccess?: string | null;
+  /**
+   * Link scope: PUBLIC or TEAM, or absent when off.
+   */
+  linkScope?: string | null;
+  /**
+   * Access granted by the link.
+   */
+  linkAccess?: string | null;
+  /**
+   * Explicit channel shares.
+   */
+  channelShares: ProjectChannelShare[];
+}
+/**
+ * One channel's explicit project grant.
+ */
+export interface ProjectChannelShare {
+  /**
+   * Shared channel identifier.
+   */
+  channelId: string;
+  /**
+   * Granted access level.
+   */
+  access: string;
+}
+/**
  * Create a reusable booking page, not a calendar meeting. First use ListBookingLinks to discover a suitable existing link or reuse availability. Supply a full draft with all seven weekdays (Sunday=0), IANA time zone, and real host IDs; personal links use the authenticated user and individual mode. For a team use a real team ID and collective or roundRobin mode. Set enabled only when the user wants to accept bookings. No invitations are sent by creating a link. Repeating an identical draft with the same slug reuses the saved link; a different draft at that slug conflicts. Create or edit booking links only after conversational confirmation, with no review card or interactive form. First explain all proposed details clearly in your reply: personal or team ownership, named hosts and who attends, meeting name, description, duration, location, Macro call, or Google Meet, time zone, weekly hours and date exceptions, link name, buffers, minimum notice, booking window, slot interval, daily limit, guest questions and whether bookings are enabled. Ask whether to proceed and stop. Only in a later turn after the user approves that specific proposal, call this tool with their approving reply quoted verbatim in userConfirmation. The original request is not confirmation; never invent or paraphrase approval. Never ask the user for teamId, host IDs, schedule IDs, revisions or JSON: discover IDs with ListBookingLinks and ListTeamMembers. Default to personal ownership unless a team is requested, and clarify ambiguous choices by name. After execution, share the saved URL with an <m-booking-link-mention> chip (profileId/slug/url from the result), not a bare URL. Returns actual saved IDs, revision, full draft and shareable URL. Manual approval must be false; guest booking requires a connected, synced writable calendar. For video, set macroCall (preferred) or googleMeet, never both. Booking a macroCall link creates the call and attaches its join link to the invitation.
  */
 export interface CreateBookingLink {
@@ -7484,72 +7559,6 @@ export interface CreateInitiative {
    * Defaults to true. False creates without an explicit team grant.
    */
   shareWithTeam?: boolean | null;
-}
-/**
- * Current project state, including visibility-filtered task membership.
- */
-export interface ProjectDetails {
-  /**
-   * Project id; use entity type `initiative` in property tools.
-   */
-  initiativeId: string;
-  /**
-   * Project name.
-   */
-  name: string;
-  /**
-   * Project owner.
-   */
-  ownerId: string;
-  /**
-   * Collaboration members, distinct from property assignees.
-   */
-  memberIds: string[];
-  /**
-   * Up to 200 associated tasks the caller can view.
-   */
-  taskIds: string[];
-  /**
-   * Total associated tasks the caller can view.
-   */
-  taskCount: number;
-  /**
-   * Whether the project contains additional visible tasks beyond taskIds.
-   */
-  tasksTruncated: boolean;
-  /**
-   * Caller's effective permission.
-   */
-  access: string;
-  /**
-   * Explicit owner-team access, or absent when off.
-   */
-  teamAccess?: string | null;
-  /**
-   * Link scope: PUBLIC or TEAM, or absent when off.
-   */
-  linkScope?: string | null;
-  /**
-   * Access granted by the link.
-   */
-  linkAccess?: string | null;
-  /**
-   * Explicit channel shares.
-   */
-  channelShares: ProjectChannelShare[];
-}
-/**
- * One channel's explicit project grant.
- */
-export interface ProjectChannelShare {
-  /**
-   * Shared channel identifier.
-   */
-  channelId: string;
-  /**
-   * Granted access level.
-   */
-  access: string;
 }
 /**
  * Create a CRM pipeline: a board of deals that move through stages, such as a sales, renewals, fundraising, hiring or partnership pipeline. Each entry tracks either a company or a contact. Every pipeline starts with the tracked record, Stage, Owner and Revenue fields; Stage starts with the team's default stages unless `stages` gives others. Only when the user asked for a new pipeline: check ListPipelines first so you do not create a duplicate. Returns the pipeline with its id and fields.

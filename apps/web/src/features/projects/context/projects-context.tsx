@@ -63,6 +63,11 @@ export type ProjectsContext = {
     pending: Accessor<boolean>;
     /** One request creates the project with its property values. */
     create(input: ProjectCreationInput): Promise<ProjectDetail>;
+    /**
+     * Turns a task into a project in place: its body, properties and comments
+     * carry over, and the task moves to the trash.
+     */
+    convertTask(taskId: string): Promise<ProjectDetail>;
     rename(id: string, name: string): Promise<void>;
     setMembers(id: string, memberIds: string[]): Promise<void>;
     /** Sets or, without a project, clears each task's Project property. */

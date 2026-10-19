@@ -2,6 +2,10 @@
 
 export const entityResolverSchema = {
   CompleteMutationRoot: {
+    convertTaskToInitiative: {
+      targets: ['GraphqlSoupInitiative'],
+      argumentPaths: [['taskId']],
+    },
     markEmailThreadSeen: {
       targets: ['GraphqlSoupEmailThread'],
       argumentPaths: [['input', 'threadId']],
@@ -69,4 +73,5 @@ export type GeneratedEntityResolverArgumentPath =
   | readonly ['input', 'threadId']
   | readonly ['input', 'value', 'entityReference', 'specificMessageId']
   | readonly ['input', 'value', 'selectOption']
-  | readonly ['sessionId'];
+  | readonly ['sessionId']
+  | readonly ['taskId'];

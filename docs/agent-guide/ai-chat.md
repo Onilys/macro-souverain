@@ -997,7 +997,9 @@ refused with no highlight left behind. The comment is posted as the agent with a
 **from <user>** pill, and needs the user's comment access to the document.
 
 Project rows include **Find projects**, **Read project**, **Create project <name>**,
-**Update project**, **Add N tasks to project**, and **Remove N tasks from project**.
+**Update project**, **Convert task to project**, **Add N tasks to project**, and
+**Remove N tasks from project**. **Convert task to project** reads **Converted** and
+expands to the new project; the task itself moves to the trash.
 The assignment and removal rows show a task count; the caret expands each task id
 and its outcome, with the full response available under **Result data**. Assignment
 outcomes are **assigned**, **moved**, **not a task**, **not found**, or

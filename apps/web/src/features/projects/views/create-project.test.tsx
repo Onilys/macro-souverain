@@ -113,6 +113,7 @@ function commands() {
     createTask: vi.fn(async () => null),
     pending: () => false,
     create: vi.fn(async () => project),
+    convertTask: vi.fn(),
     saveProperty: vi.fn(async () => {}),
     rename: vi.fn(async () => {}),
     setMembers: vi.fn(async () => {}),

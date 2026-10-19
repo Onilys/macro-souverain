@@ -11,40 +11,26 @@ export function ConvertToProject(props: {
   taskName: string;
   onClose(): void;
 }) {
-  const context = useProjectsContext();
-  const commands = context.createCommands();
+  const commands = useProjectsContext().createCommands();
   const { replaceOrInsertSplit } = useSplitLayout();
   const [error, setError] = createSignal<string>();
-  const [pending, setPending] = createSignal(false);
 
   const convert = async () => {
-    if (pending()) return;
-    setPending(true);
+    if (commands.pending()) return;
     setError(undefined);
-
     try {
-      const project = await commands.create({
-        name: props.taskName || 'Untitled project',
-        description: '',
-        shareWithTeam: true,
-        properties: [],
-      });
-
-      await commands.assignTasks(project.id, [props.taskId]);
-
+      const project = await commands.convertTask(props.taskId);
       toast.success('Converted to project');
       props.onClose();
-
       replaceOrInsertSplit(
         {
           type: 'component',
-          id: projectRouteId({ id: project.id, section: 'tasks' }),
+          id: projectRouteId({ id: project.id, section: 'overview' }),
         },
         'entity-actions-menu'
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not convert to project');
-      setPending(false);
     }
   };
 
@@ -52,15 +38,17 @@ export function ConvertToProject(props: {
     <Dialog
       open
       onOpenChange={(open) => {
-        if (!open && !pending()) props.onClose();
+        if (!open && !commands.pending()) props.onClose();
       }}
       class="max-w-md"
     >
       <div class="flex flex-col gap-4 p-4">
         <Dialog.Title>Convert to project</Dialog.Title>
         <p class="text-sm text-ink-muted">
-          This will create a new project named "{props.taskName || 'Untitled'}"
-          and add this task to it.
+          "{props.taskName || 'Untitled'}" becomes a project. Its description,
+          properties and comments move to the project, its subtasks join it, and
+          the task moves to the trash. A project can't be turned back into a
+          task.
         </p>
         <Show when={error()}>
           {(err) => (
@@ -70,15 +58,19 @@ export function ConvertToProject(props: {
           )}
         </Show>
         <div class="flex justify-end gap-2">
-          <Button variant="ghost" disabled={pending()} onClick={props.onClose}>
+          <Button
+            variant="ghost"
+            disabled={commands.pending()}
+            onClick={props.onClose}
+          >
             Cancel
           </Button>
           <Button
             variant="cta"
-            disabled={pending()}
+            disabled={commands.pending()}
             onClick={() => fireAndForget(convert(), 'projects')}
           >
-            {pending() ? 'Converting…' : 'Convert'}
+            {commands.pending() ? 'Converting…' : 'Convert'}
           </Button>
         </div>
       </div>

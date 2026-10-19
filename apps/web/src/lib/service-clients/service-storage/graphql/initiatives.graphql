@@ -55,6 +55,12 @@ mutation UpdateInitiative($initiativeId: ID!, $input: UpdateInitiativeInput!) {
   }
 }
 
+mutation ConvertTaskToInitiative($taskId: ID!) {
+  convertTaskToInitiative(taskId: $taskId) {
+    ...InitiativeDetailFields
+  }
+}
+
 mutation EnsureInitiativeDescriptionSurface($initiativeId: ID!) {
   ensureInitiativeDescriptionSurface(initiativeId: $initiativeId)
 }

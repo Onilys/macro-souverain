@@ -81,6 +81,7 @@ function launch(source: {
       createTask: vi.fn(),
       pending: () => false,
       create: vi.fn(),
+      convertTask: vi.fn(),
       rename: vi.fn(),
       setMembers: vi.fn(),
       assignTasks: vi.fn(),

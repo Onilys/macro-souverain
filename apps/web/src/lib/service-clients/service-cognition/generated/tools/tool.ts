@@ -42,6 +42,10 @@ type ToolParserMap = {
     call: types.ContentSearch;
     response: types.SearchToolResponse;
   };
+  ConvertTaskToInitiative: {
+    call: types.ConvertTaskToInitiative;
+    response: types.ProjectDetails;
+  };
   CreateBookingLink: {
     call: types.CreateBookingLink;
     response: types.BookingLinkResult;
@@ -533,6 +537,10 @@ const toolParserMap = {
   ContentSearch: {
     call: schemas.ContentSearch,
     response: schemas.SearchToolResponse,
+  },
+  ConvertTaskToInitiative: {
+    call: schemas.ConvertTaskToInitiative,
+    response: schemas.ProjectDetails,
   },
   CreateBookingLink: {
     call: schemas.CreateBookingLink,
@@ -1090,6 +1098,10 @@ type ToolDataMap = {
   ContentSearch: {
     call: types.ContentSearch;
     response: types.SearchToolResponse;
+  };
+  ConvertTaskToInitiative: {
+    call: types.ConvertTaskToInitiative;
+    response: types.ProjectDetails;
   };
   CreateBookingLink: {
     call: types.CreateBookingLink;

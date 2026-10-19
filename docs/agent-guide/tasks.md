@@ -702,6 +702,16 @@ value there to remove the task from its project. `Add to project…` in the
 title's actions menu does the same. Tasks show Project even before it's set,
 and the `Add property` picker doesn't list it.
 
+`Convert to project` in the title's actions menu turns the task into a project
+in place, after a confirmation dialog. It is listed for editors but only the
+task's owner can convert. The project takes the task's title, its full body as
+the Overview description, and its applicable properties (Status, Priority,
+Assignees, Due Date, tags and custom properties). The task's comments move to
+the project's Discussion, inline comments as regular discussion comments. Its
+subtasks join the project, and the task moves to the trash. The project's
+Overview opens in the task's place. There is no way back to a task. Agents use
+the `ConvertTaskToInitiative` tool.
+
 Discussion at the bottom of Overview uses the new discussions system. Comments
 appear from oldest to newest, with the comment input below them. The Discussion
 heading collapses the section, and `Load earlier comments` loads older comments

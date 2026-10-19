@@ -115,6 +115,19 @@ describe('initiative GraphQL transport', () => {
       { code: 'FORBIDDEN', message: 'Forbidden' },
     ]);
   });
+  it('converts a task into the project that replaces it', async () => {
+    const { client, requests } = clientWith(() => ({
+      data: { convertTaskToInitiative: project },
+    }));
+    const result = await client.convertTask('task-1');
+    expect(requests[0].kind).toBe('mutation');
+    expect(requests[0].variables).toEqual({ taskId: 'task-1' });
+    expect(result.isOk() && result.value).toMatchObject({
+      id: 'project-1',
+      name: 'Launch',
+    });
+  });
+
   it('preserves project identity and sharing levels on detail reads', async () => {
     const { client, requests } = clientWith(() => ({
       data: { user: { initiative: project } },

@@ -15,7 +15,7 @@ import { type Client, CombinedError } from '@urql/core';
 import type { Accessor } from 'solid-js';
 import type { ProjectsContext } from '../context/projects-context';
 import { assignProjectTasks } from '../core/assignment';
-import { createProjectMutation } from './create-project';
+import { convertTaskMutation, createProjectMutation } from './create-project';
 import { createProjectDetailQuery } from './project-identity';
 import { projectDefinitionProperties } from './project-properties';
 import { refreshProjectQueries } from './project-revalidation';
@@ -122,6 +122,17 @@ export function createProjectSources(
         cache,
         userId,
         soup.cacheHost
+      );
+      const convert = convertTaskMutation(
+        client,
+        cache,
+        userId,
+        soup.cacheHost,
+        () =>
+          Promise.all([
+            refresh(),
+            cache.invalidateQueries({ queryKey: soupKeys._def }),
+          ])
       );
       const update = useMutation(
         () => ({
@@ -238,11 +249,13 @@ export function createProjectSources(
         createTask,
         pending: () =>
           create.isPending ||
+          convert.isPending ||
           update.isPending ||
           remove.isPending ||
           property.isPending ||
           assign.isPending,
         create: (input) => create.mutateAsync(input),
+        convertTask: (taskId) => convert.mutateAsync(taskId),
         rename: async (id, name) => {
           await update.mutateAsync({ id, name });
         },

@@ -23,7 +23,10 @@ vi.mock('@queries/properties/definitions', () => ({}));
 vi.mock('@queries/soup/graphql/active-queries', () => ({
   refreshActiveGraphqlSoupQueries: vi.fn(async () => {}),
 }));
-vi.mock('./create-project', () => ({ createProjectMutation: () => ({}) }));
+vi.mock('./create-project', () => ({
+  createProjectMutation: () => ({}),
+  convertTaskMutation: () => ({}),
+}));
 vi.mock('./project-soup', () => ({}));
 vi.mock('./project-identity', () => ({}));
 

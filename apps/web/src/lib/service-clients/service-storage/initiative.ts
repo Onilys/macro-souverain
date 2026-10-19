@@ -7,6 +7,7 @@ import type {
   OperationResult,
 } from '@urql/core';
 import {
+  ConvertTaskToInitiativeDocument,
   CreateInitiativeDocument,
   type CreateInitiativeInput,
   DeleteInitiativeDocument,
@@ -184,6 +185,14 @@ export function createInitiativeClient(client: () => Client) {
       catchToResult(async () =>
         mapInitiativeDetail(
           (await mutation(CreateInitiativeDocument, { input })).createInitiative
+        )
+      ),
+    /** Turn a task into a project in place; the task moves to the trash. */
+    convertTask: (taskId: string) =>
+      catchToResult(async () =>
+        mapInitiativeDetail(
+          (await mutation(ConvertTaskToInitiativeDocument, { taskId }))
+            .convertTaskToInitiative
         )
       ),
     update: (id: string, input: InitiativeUpdate) =>

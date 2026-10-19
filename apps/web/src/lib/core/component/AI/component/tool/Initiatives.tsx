@@ -197,6 +197,23 @@ export const initiativeToolHandlers = {
       </ProjectToolCard>
     ),
   }),
+  ConvertTaskToInitiative: createToolRenderer({
+    name: 'ConvertTaskToInitiative',
+    handleResponse: refreshProjectsAfterMutation,
+    render: (ctx) => (
+      <ProjectToolCard
+        label="Convert task to project"
+        renderContext={ctx.renderContext}
+        hasResult={!!ctx.response}
+        result={ctx.response?.data}
+        status={ctx.response ? 'Converted' : undefined}
+      >
+        <Show when={ctx.response?.data}>
+          {(project) => <ProjectDetailsResult project={project()} />}
+        </Show>
+      </ProjectToolCard>
+    ),
+  }),
   UpdateInitiative: createToolRenderer({
     name: 'UpdateInitiative',
     handleResponse: refreshProjectsAfterMutation,

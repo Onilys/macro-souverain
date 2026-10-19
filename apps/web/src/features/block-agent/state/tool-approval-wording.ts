@@ -27,6 +27,7 @@ const MACRO_TOOLS: Record<MacroToolName, Wording | null> = {
   CreateBot: (whose) => `create a bot in ${whose} workspace`,
   CreateCalendarEvent: (whose) => `add an event to ${whose} calendar`,
   CreateChannel: (whose) => `create a channel from ${whose} account`,
+  ConvertTaskToInitiative: (whose) => `turn ${whose} tasks into projects`,
   CreateCompany: (whose) => `add a company to ${whose} CRM`,
   CreateConfirmedCalendarEvent: (whose) => `add an event to ${whose} calendar`,
   CreateContact: (whose) => `add a contact to ${whose} CRM`,
