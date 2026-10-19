@@ -73,6 +73,7 @@ export type {
 } from './components/ConfirmDialog';
 export { ConfirmDialog, confirmDialog } from './components/ConfirmDialog';
 export { CopyButton, type CopyButtonProps } from './components/CopyButton';
+export { DatePicker, type DatePickerProps } from './components/DatePicker';
 export type { DeleteDialogProps } from './components/DeleteDialog';
 export { DeleteDialog } from './components/DeleteDialog';
 export type { DialogProps } from './components/Dialog';
@@ -86,6 +87,7 @@ export { EmptyStatePanel } from './components/EmptyStatePanel';
 export { EntityComposer } from './components/EntityComposer';
 export type { FilteredHiddenBannerProps } from './components/FilteredHiddenBanner';
 export { FilteredHiddenBanner } from './components/FilteredHiddenBanner';
+export { HoldButton, type HoldButtonProps } from './components/HoldButton';
 export { Hotkey } from './components/Hotkey';
 export { HoverCard } from './components/HoverCard';
 export type {
@@ -132,6 +134,14 @@ export { Layer } from './components/Layer';
 export { LogoProgress } from './components/LogoProgress';
 export type { NavRowProps } from './components/NavRow';
 export { NavRow } from './components/NavRow';
+export type {
+  NumberUnitInputDecrementProps,
+  NumberUnitInputIncrementProps,
+  NumberUnitInputInputProps,
+  NumberUnitInputProps,
+  NumberUnitInputUnitProps,
+} from './components/NumberUnitInput';
+export { NumberUnitInput } from './components/NumberUnitInput';
 export { Panel } from './components/Panel';
 export type { PillButtonProps, PillButtonTone } from './components/PillButton';
 export { PillButton } from './components/PillButton';
@@ -150,10 +160,17 @@ export type {
   SelectTriggerProps,
   SelectValueProps,
 } from './components/Select';
-export { Select } from './components/Select';
+export { Select, selectTriggerClasses } from './components/Select';
 export type { SendButtonProps } from './components/SendButton';
 export { SendButton } from './components/SendButton';
 export { SideNav } from './components/SideNav';
+export type {
+  SliderFillProps,
+  SliderRootProps,
+  SliderThumbProps,
+  SliderTrackProps,
+} from './components/Slider';
+export { Slider } from './components/Slider';
 export { Surface } from './components/Surface';
 export { TabbedControl } from './components/TabbedControl';
 export { TabSelector } from './components/TabSelector';

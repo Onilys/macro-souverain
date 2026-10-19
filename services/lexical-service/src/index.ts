@@ -23,7 +23,6 @@ type Bindings = {
   INTERNAL_AUTH_KEY: string;
   SYNC_SERVICE_AUTH_KEY: string;
   SYNC_SERVICE_URL: string;
-  SYNC_SERVICE: Fetcher;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();

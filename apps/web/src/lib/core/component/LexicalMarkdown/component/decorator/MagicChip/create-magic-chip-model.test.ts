@@ -111,6 +111,7 @@ const prompt: FoldedMessage = {
   pending: false,
   segments: [],
   phase: null,
+  postedAt: null,
 };
 
 const response: FoldedMessage = {
@@ -123,6 +124,7 @@ const response: FoldedMessage = {
   pending: false,
   segments: [],
   phase: null,
+  postedAt: null,
 };
 
 const openResponse: FoldedMessage = {

@@ -26,6 +26,7 @@ use channels::outbound::{
 use chat::domain::service::ChatServiceImpl;
 use chat::inbound::toolset::ChatToolContext;
 use chat::outbound::postgres::PgChatRepo;
+pub use cognition::inbound::toolset::CognitionToolContext as ToolCognitionToolContext;
 use connection::domain::ports::ConnectionService;
 use connection_gateway_client::ConnectionGatewayClient;
 use contacts::domain::service::{ContactsDomainService, SqsContactsIngress};
@@ -647,6 +648,42 @@ pub fn build_pipeline_tool_context(
             ),
         ),
         actor: databases.actor,
+    }
+}
+
+/// CRM CSV imports and exports over the pipeline workflows, the CRM's
+/// records and Macro documents.
+pub type ToolCrmTransferService = crm::domain::crm_transfer::CrmTransferServiceImpl<
+    ToolPipelineWorkflows,
+    crm::domain::crm_transfer::CrmTransferRecords<ToolCrmService, ToolEntityAccessService>,
+    crate::crm_csv_files::DocumentCsvFiles<ToolDocumentService, ToolEntityAccessService>,
+>;
+
+/// Type alias for the CRM CSV AI tool context.
+pub type ToolCrmTransferToolContext =
+    crm::inbound::toolset::transfer::CrmTransferToolContext<ToolCrmTransferService>;
+
+/// Build the CRM CSV tools over the pipeline tools' workflows, the CRM
+/// tools' records, and the document tools' files.
+pub fn build_crm_transfer_tool_context(
+    pipelines: &ToolPipelineToolContext,
+    crm: &ToolCrmToolContext,
+    documents: &ToolDocumentToolContext,
+) -> ToolCrmTransferToolContext {
+    crm::inbound::toolset::transfer::CrmTransferToolContext {
+        service: Arc::new(crm::domain::crm_transfer::CrmTransferServiceImpl::new(
+            pipelines.service.clone(),
+            crm::domain::crm_transfer::CrmTransferRecords::new(
+                crm.service.clone(),
+                crm.entity_access_service.clone(),
+            ),
+            crate::crm_csv_files::DocumentCsvFiles::new(
+                documents.service.clone(),
+                documents.creator.clone(),
+                documents.entity_access_service.clone(),
+            ),
+        )),
+        actor: pipelines.actor,
     }
 }
 
@@ -1763,6 +1800,8 @@ pub struct ToolServiceContext {
     #[from_ref(skip)]
     pub document_tool_context: ToolDocumentToolContext,
     pub image_generation_tool_context: ToolImageGenerationToolContext,
+    /// Shared cognition-backed generation and decisions, attributed per request.
+    pub cognition_tool_context: ToolCognitionToolContext,
     pub properties_tool_context: ToolPropertiesToolContext,
     pub email_tool_context: ToolEmailToolContext,
     pub call_tool_context: ToolCallToolContext,
@@ -1799,6 +1838,8 @@ pub struct ToolServiceContext {
     pub crm_tool_context: ToolCrmToolContext,
     /// CRM pipelines: deals by record, fields by name.
     pub pipeline_tool_context: ToolPipelineToolContext,
+    /// CRM CSV imports and exports.
+    pub crm_transfer_tool_context: ToolCrmTransferToolContext,
     pub skill_tool_context: ToolSkillToolContext,
     pub schedule_tool_context: RoutineToolContext,
     #[from_ref(skip)]
@@ -1869,6 +1910,7 @@ impl ToolServiceContext {
         self.databases_tool_context = self.databases_tool_context.with_actor(actor);
         self.forms_tool_context.actor = actor;
         self.pipeline_tool_context.actor = actor;
+        self.crm_transfer_tool_context.actor = actor;
         self.databases_sql_tool_context = self.databases_sql_tool_context.with_actor(actor);
         self
     }

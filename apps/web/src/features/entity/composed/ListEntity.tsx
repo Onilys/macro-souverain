@@ -48,6 +48,7 @@ import {
 } from '../utils/notification';
 import { useIsShared } from '../utils/shared';
 import { NarrowCondensedLayout } from './list-entity/narrow-condensed-layout';
+import { NarrowEmailLayout } from './list-entity/narrow-email-layout';
 import { NarrowInboxLayout } from './list-entity/narrow-inbox-layout';
 import { NarrowLayout } from './list-entity/narrow-layout';
 import { NarrowSingleLineLayout } from './list-entity/narrow-single-line-layout';
@@ -196,6 +197,13 @@ export function ListEntity(props: ListEntityProps) {
   const usesCondensedNarrowLayout = () => !isWide() && isCondensedVariant();
   const isSingleLineVariant = () =>
     listLayout?.narrowLayout() === 'single-line';
+  // Compact email rows (a narrow Email list, beside the reading pane) span the
+  // list edge to edge like a mail client's, so the highlight is a full-bleed
+  // band and the open row's accent bar runs its whole height.
+  const isNarrowEmail = () =>
+    !isWide() &&
+    listLayout?.narrowLayout() === 'inbox' &&
+    isEmailEntity(props.entity);
 
   const mobileStacks = createMemo(() => {
     if (!isTouchDevice()) return [];
@@ -228,15 +236,18 @@ export function ListEntity(props: ListEntityProps) {
         // that the layouts below and the soup group headers both read, so it has
         // to track which layout the Switch actually renders.
         isWide() ? SOUP_ROW_CLASS.wide : SOUP_ROW_CLASS.narrow,
-        'soup-list-entity rounded-xl @container/entity w-[calc(100%-0.5rem)] mr-1 relative group/narrow flex flex-col py-0.5',
+        'soup-list-entity @container/entity relative group/narrow flex flex-col py-0.5',
+        isNarrowEmail()
+          ? // The gutter moves inside, so text still lines up with the headers.
+            'w-full px-(--soup-row-gutter)'
+          : 'rounded-xl w-[calc(100%-0.5rem)] mr-1',
         // Keep avatar-group separators in sync with the row background so they
         // blend into it instead of creating visible rings.
         '[--avatar-group-separator:var(--color-panel)]',
         {
-          'min-h-10 mx-(--soup-row-gutter)':
-            !isMobile() && !usesCondensedNarrowLayout(),
-          'min-h-9 mx-(--soup-row-gutter)':
-            !isMobile() && usesCondensedNarrowLayout(),
+          'min-h-10': !isMobile() && !usesCondensedNarrowLayout(),
+          'min-h-9': !isMobile() && usesCondensedNarrowLayout(),
+          'mx-(--soup-row-gutter)': !isMobile() && !isNarrowEmail(),
           'bg-list-selected [--avatar-group-separator:var(--color-list-selected)]':
             props.checked,
           'bg-list-selected-highlighted [--avatar-group-separator:var(--color-list-selected-highlighted)]':
@@ -247,8 +258,14 @@ export function ListEntity(props: ListEntityProps) {
             !props.highlighted && !props.checked && !isTouchDevice(),
           'focus-within:bg-list-hover focus-within:[--avatar-group-separator:var(--color-list-hover)]':
             !!rowActions() && !props.highlighted && !props.checked,
+          'before:absolute before:left-0 before:w-0.5 before:bg-accent':
+            props.current,
+          'before:inset-y-2 before:rounded-full':
+            props.current && !isNarrowEmail(),
+          'before:inset-y-0': props.current && isNarrowEmail(),
         }
       )}
+      aria-current={props.current ? 'true' : undefined}
       onMouseMove={props.onMouseMove}
     >
       <Switch>
@@ -270,6 +287,24 @@ export function ListEntity(props: ListEntityProps) {
             <NarrowSingleLineLayout {...layoutProps()} />
           </MaybeEntityRow>
         </Match>
+        {/* Email lists stack their rows compactly; mixed lists keep the
+            per-type icon that tells their rows apart. */}
+        <Match
+          when={
+            listLayout?.narrowLayout() === 'inbox' &&
+            isEmailEntity(props.entity) &&
+            props.entity
+          }
+        >
+          {(entity) => (
+            <MaybeEntityRow
+              entityId={props.entity.id}
+              config={props.entityRowConfig}
+            >
+              <NarrowEmailLayout {...layoutProps()} entity={entity()} />
+            </MaybeEntityRow>
+          )}
+        </Match>
         <Match when={isTouchDevice() && mobileStacks().length > 0}>
           <Entity.Notification.MobileStackRows
             stacks={mobileStacks()}
@@ -282,8 +317,8 @@ export function ListEntity(props: ListEntityProps) {
           when={
             isTouchDevice() &&
             ((isChannelEntity(props.entity) && !isCondensedVariant()) ||
-              isEmailEntity(props.entity) ||
-              props.showUnrollNotifications)
+              props.showUnrollNotifications ||
+              isEmailEntity(props.entity))
           }
         >
           <MaybeEntityRow

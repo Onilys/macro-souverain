@@ -1,21 +1,23 @@
+import { ViewSidebar } from '@app/components/view-shell';
 import { ShowFeatureFlag } from '@app/lib/analytics/posthog';
+import { useNavigate } from '@app/lib/split-router';
+import { bookingLinksRoute } from '@app/routes/routes';
 import { toast } from '@core/component/Toast/Toast';
 import { enableCalendarScheduling } from '@core/constant/featureFlags';
-import { useSettingsState } from '@core/constant/SettingsState';
 import { useUserId } from '@core/context/user';
 import { writeClipboardData } from '@core/util/dataTransfer';
 import { getWebOrigin } from '@core/util/webOrigin';
+import ArrowSquareOutIcon from '@icon/system/regular/arrow-square-out.svg';
 import CaretDownIcon from '@icon/system/regular/caret-down.svg';
-import GearIcon from '@icon/system/regular/gear.svg';
 import LinkIcon from '@icon/system/regular/link.svg';
-import { cn, Dropdown } from '@ui';
+import { Dropdown } from '@ui';
 import { For, Show, Suspense } from 'solid-js';
 import type { EventType } from './core/types';
 import { useSchedulingProfileWithAutoSetupQuery } from './queries/source';
 
 function Actions(props: { sidebar?: boolean }) {
   const user = useUserId();
-  const settings = useSettingsState();
+  const navigate = useNavigate();
   const source = useSchedulingProfileWithAutoSetupQuery(
     () => ({
       id: user() ?? 'me',
@@ -35,7 +37,7 @@ function Actions(props: { sidebar?: boolean }) {
   const copyLink = async (event?: EventType) => {
     const profile = source.isSuccess ? source.data : undefined;
     if (!profile?.revision) {
-      settings.openSettings('Booking links');
+      navigate({ route: bookingLinksRoute });
       return;
     }
 
@@ -50,42 +52,65 @@ function Actions(props: { sidebar?: boolean }) {
   };
 
   return (
-    <Dropdown placement={props.sidebar ? 'top-start' : 'bottom-end'}>
+    <Dropdown placement={props.sidebar ? 'bottom-start' : 'bottom-end'}>
       <Dropdown.Trigger
         variant="ghost"
-        size="md"
+        size={props.sidebar ? 'md' : 'lg'}
+        class={
+          props.sidebar
+            ? 'h-(--sidebar-row-height) w-full justify-start gap-(--sidebar-label-gap) rounded-lg px-(--sidebar-item-inset) text-left font-normal touch:h-11'
+            : 'shrink-0 px-2 text-sm lg:px-3'
+        }
         label="Booking links"
-        class={cn(
-          'h-8 shrink-0 rounded-lg text-sm',
-          props.sidebar ? 'w-full justify-start gap-2 px-2' : 'w-8 px-0'
-        )}
       >
-        <LinkIcon class="size-4 shrink-0" />
-        <Show when={props.sidebar}>
-          <span class="min-w-0 flex-1 text-left">Booking links</span>
-          <CaretDownIcon class="size-3.5 shrink-0 text-ink-extra-muted" />
+        <Show
+          when={props.sidebar}
+          fallback={<LinkIcon class="size-5 mobile:size-6 lg:size-4" />}
+        >
+          <ViewSidebar.Icon>
+            <LinkIcon />
+          </ViewSidebar.Icon>
         </Show>
+        <span
+          class={props.sidebar ? 'min-w-0 flex-1 truncate' : 'hidden lg:inline'}
+        >
+          Booking links
+        </span>
+        <CaretDownIcon class="size-4 shrink-0" />
       </Dropdown.Trigger>
-      <Dropdown.Content class="min-w-56">
-        <Show when={enabledLinks().length > 0}>
-          <Dropdown.Group>
-            <Dropdown.GroupLabel>Copy a booking link</Dropdown.GroupLabel>
+      <Dropdown.Content
+        class={
+          props.sidebar
+            ? 'w-[var(--kb-popper-anchor-width)] max-w-[calc(100vw-1rem)]'
+            : 'min-w-48 max-w-[calc(100vw-1rem)]'
+        }
+      >
+        <Dropdown.Group class="max-h-64 overflow-y-auto">
+          <Show
+            when={enabledLinks().length > 0}
+            fallback={
+              <p class="px-2 py-1.5 text-ink-muted">
+                {source.isPending
+                  ? 'Loading booking links…'
+                  : 'No active booking links'}
+              </p>
+            }
+          >
             <For each={enabledLinks()}>
               {(event) => (
                 <Dropdown.Item onSelect={() => void copyLink(event)}>
-                  <LinkIcon class="size-4 shrink-0 text-ink-muted" />
-                  <span class="min-w-0 flex-1 truncate">{event.title}</span>
+                  <span class="min-w-0 truncate">{event.title}</span>
                 </Dropdown.Item>
               )}
             </For>
-          </Dropdown.Group>
-        </Show>
+          </Show>
+        </Dropdown.Group>
         <Dropdown.Group>
           <Dropdown.Item
-            onSelect={() => settings.openSettings('Booking links')}
+            onSelect={() => navigate({ route: bookingLinksRoute })}
           >
-            <GearIcon class="size-4 shrink-0 text-ink-muted" />
-            <span>Manage booking links</span>
+            <ArrowSquareOutIcon class="size-4 shrink-0" />
+            Manage booking links
           </Dropdown.Item>
         </Dropdown.Group>
       </Dropdown.Content>

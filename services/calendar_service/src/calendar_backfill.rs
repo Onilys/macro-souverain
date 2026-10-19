@@ -323,6 +323,7 @@ async fn run_coordinator(
             link.macro_id.as_ref(),
             link.id,
             ctx.team_sharing_enabled,
+            report.team_ooo_changed || run_result.is_err(),
         )
         .await;
     }

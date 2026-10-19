@@ -12,6 +12,7 @@ macro_rules! secret {
 }
 
 secret!(APPETIZE_API_TOKEN);
+secret!(ANDROID_RELEASE_DOPPLER_TOKEN);
 secret!(AWS_ACCESS_KEY);
 secret!(AWS_SECRET_ACCESS_KEY);
 secret!(CLOUDFLARE_API_TOKEN);
@@ -29,8 +30,7 @@ secret!(PULUMI_ACCESS_TOKEN);
 secret!(SEGMENT_WRITE_KEY);
 secret!(SEGMENT_WRITE_KEY_PRODUCTION);
 
-/// Cloudflare account id. A repo *variable* (not a secret), matching the
-/// hand-written `deploy-lexical-service.yml`.
+/// Cloudflare account id. A repo *variable* (not a secret).
 pub const CLOUDFLARE_ACCOUNT_ID: &str = "${{ vars.CLOUDFLARE_ACCOUNT_ID }}";
 
 /// S3 nix binary cache store URL, a repo *variable* — e.g.

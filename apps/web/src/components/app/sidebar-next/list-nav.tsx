@@ -146,7 +146,11 @@ export const ListNav = (props: ListNavProps) => {
         tooltipPlacement="right"
         tooltipOpenDelay={2000}
         tooltipContentClass="motion-safe:animate-dialog-overlay-open"
-        hotkey={[TOKENS.sidebar.goToLeader, props.item.hotkeyToken]}
+        hotkey={
+          props.item.hotkeyToken
+            ? [TOKENS.sidebar.goToLeader, props.item.hotkeyToken]
+            : undefined
+        }
         draggable={false}
         aria-current={isActive() ? 'page' : undefined}
         // An attribute rather than a class-only state, so the styling can be

@@ -748,6 +748,7 @@ where
                 .upsert_google_calendar(key, lease_token, account_id, provider_calendar)
                 .await?;
             let calendar_id = stored_calendar.id;
+            report.team_ooo_changed |= stored_calendar.team_ooo_changed;
             calendar_ids.push(calendar_id);
             if super::models::is_system_calendar(&provider_calendar_id)
                 && stored_calendar.synced_at.is_some_and(|synced_at| {
@@ -813,6 +814,7 @@ where
                         "isolating a failed Google Calendar and continuing the account sync"
                     );
                     isolated_failures.push((calendar_id, error.message().to_owned()));
+                    report.team_ooo_changed = true;
                     // A retryable failure outranks a permanent one so a total
                     // failure still surfaces as retryable.
                     last_isolated_error = Some(match last_isolated_error {
@@ -838,6 +840,7 @@ where
                     })
                     .await?;
                 self.publish_write_outcome(&outcome);
+                report.team_ooo_changed |= outcome.team_ooo_changed;
                 calendar_count += 1;
             }
             // The upserts above committed individually, so they count even
@@ -867,6 +870,7 @@ where
             // gone once the commit lands, so nothing downstream can rediscover
             // it by re-reading Postgres.
             report.events_retired += retired.len();
+            report.team_ooo_changed |= !retired.is_empty() || cancellation_count > 0;
             self.publish_retirements(retired);
             // Tombstones only apply inside the snapshot commit, so they
             // count once it succeeds.
@@ -966,6 +970,7 @@ where
             .reconcile_google_calendar_list(key, lease_token, account_id, calendar_ids)
             .await?;
         report.events_retired += retired.len();
+        report.team_ooo_changed |= !retired.is_empty();
         self.publish_retirements(retired);
 
         Ok(())

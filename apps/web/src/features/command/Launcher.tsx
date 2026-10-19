@@ -92,6 +92,7 @@ import { createCallCommand } from './create-call-command';
 import { MobileCreateSheet } from './mobile/MobileCreateSheet';
 import type { CreatableBlock, CreatableName, OpenCreatedItem } from './types';
 
+const LAUNCHER_SEARCH_MODE_STORE = 'launcher-search-mode-v1';
 const LAUNCHER_FRECENCY_STORE = 'launcher-frecency-v1';
 
 type LauncherFrecencyEntry = {
@@ -104,6 +105,10 @@ type LauncherFrecencyStore = Record<string, LauncherFrecencyEntry>;
 const [launcherFrecencyStore, setLauncherFrecencyStore] = makePersisted(
   createStore<LauncherFrecencyStore>({}),
   { name: LAUNCHER_FRECENCY_STORE }
+);
+const [launcherSearchMode, setLauncherSearchModePreference] = makePersisted(
+  createSignal(true),
+  { name: LAUNCHER_SEARCH_MODE_STORE }
 );
 
 export function useRecentCreateMenuBlocks(items: Accessor<CreatableBlock[]>) {
@@ -1027,7 +1032,7 @@ export const LauncherShell = (
     sortLauncherBlocks(availableBlocks(), launcherFrecencyStore)
   );
   const [searchQuery, setSearchQuery] = createSignal('');
-  const [searchMode, setSearchMode] = createSignal(true);
+  const [searchMode, setSearchMode] = createSignal(launcherSearchMode());
   const recentBlocks = useRecentCreateMenuBlocks(availableBlocks);
   const filteredBlocks = createMemo(() => {
     if (!searchMode()) return sortedBlocks();
@@ -1079,6 +1084,7 @@ export const LauncherShell = (
   const setLauncherSearchMode = (next: boolean) => {
     const selectedItem = blocks()[focusedIndex()];
     setSearchMode(next);
+    setLauncherSearchModePreference(next);
 
     if (!next) {
       setSearchQuery('');

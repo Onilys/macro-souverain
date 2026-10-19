@@ -75,13 +75,12 @@ import { isMobile } from '@core/mobile/isMobile';
 import { createMethodRegistration } from '@core/orchestrator';
 import { blockHotkeyScopeSignal } from '@core/signal/blockElement';
 import { blockHandleSignal } from '@core/signal/load';
-import { buildEntityData } from '@entity';
+import { buildEntityData, canEditChannelIdentity } from '@entity';
 import PictureIcon from '@icon/system/regular/image.svg';
 import RenameIcon from '@icon/system/regular/pencil-line.svg';
 import TrashIcon from '@icon/system/regular/trash.svg';
 import { useActiveCallQuery } from '@queries/call/call';
 import { useChannelParticipantsQuery } from '@queries/channel/channel-participants';
-import { ChannelType } from '@service-storage/generated/schemas/channelType';
 import { useSearchParams } from '@solidjs/router';
 import { cn } from '@ui';
 import {
@@ -138,16 +137,6 @@ function NewTop(props: { channelId: string }) {
   const activeCallQuery = useActiveCallQuery(() => props.channelId);
   const participants = () =>
     participantsQuery.isLoading ? [] : participantsQuery.data;
-  const picture = useChannelPictureActions({
-    channelId: () => props.channelId,
-    canEdit: () =>
-      channelType() !== ChannelType.direct_message &&
-      (participants() ?? []).some(
-        (participant) =>
-          participant.user_id === userId() &&
-          (participant.role === 'admin' || participant.role === 'owner')
-      ),
-  });
   const tabs = useChannelTabItems(props.channelId);
 
   const channelEntity = () => {
@@ -167,7 +156,15 @@ function NewTop(props: { channelId: string }) {
     });
   };
 
-  // Seed for "Ask AI": a new chat with this channel @mentioned, so the
+  const picture = useChannelPictureActions({
+    channelId: () => props.channelId,
+    canEdit: () => {
+      const entity = channelEntity();
+      return !!entity && canEditChannelIdentity(entity);
+    },
+  });
+
+  // Seed for "Ask Macro": a new chat with this channel @mentioned, so the
   // user does not have to create an agent and mention the channel by hand.
   const askMacroEntity = () => {
     const type = channelType();

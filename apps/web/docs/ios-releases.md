@@ -1,5 +1,8 @@
 # iOS releases and breaking Tauri changes
 
+(The Android counterpart — `android-update`, `Android Native Check`, Google
+Play as the source of truth — is described in `docs/development/android.md`.)
+
 Web bundles ship to installed apps over the air (see
 `tauri/macro_bundle_updater_plugin`), but native code — anything under
 `apps/web/tauri/` — only reaches users through the App Store. A bundle that
@@ -109,9 +112,8 @@ Two things:
   bumps when a cache change must ship: a PR that moves it (compared with
   the base branch on the merge ref) is a native PR, and the version is part
   of the provenance hash, so a build is only "live" for the version it was
-  built with. The Android release workflow applies the same rule when it
-  decides whether a production release needs a new App Bundle
-  (`scripts/android-release-needed.mjs`).
+  built with. The Android gate and release apply the same rule through
+  `scripts/android-native.mjs`.
 
 The hash recipe is defined once, in `scripts/ios_native_tree.sh` next to the
 workflow sources, mirrored in `ios-app-store.mjs`; the gate's change
@@ -131,6 +133,12 @@ code" is defined above. The checks:
   a hand release — fails with "re-bump". The PR's own earlier upload (same
   version, same stamp) is a retry: the release skips the build and goes
   straight to submit.
+- **Up-to-date check** (release workflow, before building and again before
+  submitting): the head's native tree must equal that of the PR's merge
+  result. A head that lacks native code `main` gained since it branched
+  would go through App Review but could never pass the gate; the release
+  refuses instead, and the fix is to merge `main`, bump, and re-add the
+  label.
 - **Live check** (the gate): the live build's stamp must equal the native
   tree of the PR's **current merge result** (fetched through the API, so a
   re-run of the job evaluates today's `main`, not the one the run started
@@ -174,7 +182,8 @@ release only starts on a PR that is ready to merge. Pushes afterwards:
   PR is caught by the watcher instead, within half an hour: it compares the
   in-flight build's stamp with the head's native code and does the same
   withdrawal. The release itself also refuses to
-  submit if the native tree moved while it was building. To continue: bump
+  submit if the native tree moved while it was building, on the PR or on
+  `main`. To continue: bump
   (the marketing version stays, the build number moves), commit, push, and
   re-add the label; `submit` takes the withdrawn version record over, so no
   App Store Connect visit is needed. If Apple had already approved the stale

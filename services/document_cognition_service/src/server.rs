@@ -542,6 +542,21 @@ pub async fn run() -> anyhow::Result<()> {
     // ENABLE_AI_USAGE_BILLING.
     let recorder = ai_usage::with_tracking(recorder, ai_usage::pg_tracking(db.clone()));
 
+    let decision_classifier = config
+        .typesafe_api_key
+        .value()
+        .map(jev::outbound::TypesafeJev::new)
+        .transpose()
+        .context("failed to configure the decision classifier")?
+        .map(|provider| jev::domain::JevClassifier::new(provider, recorder.clone()));
+    let decisions = Arc::new(jev::domain::decisions::DecisionServiceImpl::new(
+        decision_classifier,
+        admission.clone(),
+    ));
+    let tool_free_completions = Arc::new(
+        crate::service::structured_completion::ToolFreeCompletionService::new(recorder.clone()),
+    );
+
     // The import pipeline: staged/imported external items, gather jobs over
     // the user's connectors, and the Haiku import job. Built before the tool
     // service context so the chat toolset gets a wired import context.
@@ -712,6 +727,11 @@ pub async fn run() -> anyhow::Result<()> {
         &databases_tool_context,
         &crm_tool_context,
     );
+    let crm_transfer_tool_context = ai_tools::build_crm_transfer_tool_context(
+        &pipeline_tool_context,
+        &crm_tool_context,
+        &document_tool_context,
+    );
 
     let calendar_tool_context = ai_tools::build_calendar_tool_context(
         db.clone(),
@@ -734,6 +754,7 @@ pub async fn run() -> anyhow::Result<()> {
     );
 
     let tool_service_context = ai_tools::ToolServiceContext {
+        cognition_tool_context: ai_tools::build_cognition_tool_context()?,
         connector_tool_context: ai_tools::build_connector_tool_context(db.clone(), None),
         search_service_client: search_service_client.clone(),
         email_service_client: email_service_client_external.clone(),
@@ -801,6 +822,7 @@ pub async fn run() -> anyhow::Result<()> {
         team_tool_context: ai_tools::build_team_tool_context(db.clone()),
         crm_tool_context,
         pipeline_tool_context,
+        crm_transfer_tool_context,
         skill_tool_context: ai_tools::build_skill_tool_context(
             search_service_client.clone(),
             soup_service.clone(),
@@ -968,6 +990,8 @@ pub async fn run() -> anyhow::Result<()> {
         user_permissions_service,
         non_user_owners,
         ai_admission: tool_service_context.admission.clone(),
+        decisions,
+        tool_free_completions,
         ai_billing,
         internal_api_key: config.internal_api_key.clone(),
         config: Arc::new(config),

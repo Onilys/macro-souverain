@@ -1,6 +1,5 @@
 import { ViewSidebar } from '@app/components/view-shell';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
-import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
 import { enableReminders } from '@core/constant/featureFlags';
 import ArchiveIcon from '@icon/system/regular/archive.svg';
 import BellIcon from '@icon/system/regular/bell-simple.svg';
@@ -23,7 +22,6 @@ import { EMAIL_TABS, type EmailTabItem } from '../constants';
 import { useEmailView } from '../email-view-context';
 import { EMAIL_TOUR } from '../tour';
 import type { EmailTab } from '../types';
-import { useEmailInboxHotkeys } from '../use-email-inbox-hotkeys';
 import { EmailPrimaryActions } from './EmailHeader';
 import { EmailInboxList } from './EmailInboxSelector';
 
@@ -103,22 +101,8 @@ export function EmailNavigation(props: { onNavigate?: () => void }) {
 }
 
 export function EmailSidebar(props: { onSearchEscape?: () => void }) {
-  const panel = useSplitPanelOrThrow();
-  const {
-    state,
-    setTab,
-    selectedThread,
-    showTags,
-    isSidebarSectionOpen,
-    setSidebarSectionOpen,
-  } = useEmailView();
-
-  useEmailInboxHotkeys({
-    scopeId: panel.splitHotkeyScope,
-    enabled: () => panel.isPanelActive() && !selectedThread(),
-    activeId: () => state.tab,
-    setActiveId: setTab,
-  });
+  const { state, showTags, isSidebarSectionOpen, setSidebarSectionOpen } =
+    useEmailView();
 
   return (
     <ViewSidebar.Root aria-label="Email navigation">

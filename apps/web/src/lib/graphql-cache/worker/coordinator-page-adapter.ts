@@ -106,10 +106,13 @@ const withVersion = <
     ...value,
   }) as unknown as T;
 
-const defaultSharedWorkerFactory = (scope: string): SharedWorkerLike =>
+const defaultSharedWorkerFactory = (
+  scope: string,
+  buildTime: number
+): SharedWorkerLike =>
   new SharedWorker(
     new URL('./cache.coordinator.shared-worker.ts', import.meta.url),
-    { type: 'module', name: `graphql-cache-coordinator:${scope}` }
+    { type: 'module', name: `graphql-cache-coordinator:${scope}:${buildTime}` }
   );
 
 const defaultDedicatedWorkerFactory = (
@@ -181,7 +184,9 @@ export class CacheCoordinatorPageAdapter {
     }
     this.tabId = options.tabId ?? crypto.randomUUID();
     this.createSharedWorker =
-      options.createSharedWorker ?? defaultSharedWorkerFactory;
+      options.createSharedWorker ??
+      ((scope) =>
+        defaultSharedWorkerFactory(scope, options.buildTime ?? APP_BUILD_TIME));
     this.createDedicatedWorker =
       options.createDedicatedWorker ?? defaultDedicatedWorkerFactory;
     this.lockManager = options.lockManager;

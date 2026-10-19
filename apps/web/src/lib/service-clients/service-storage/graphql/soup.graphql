@@ -502,6 +502,20 @@ fragment SoupNotificationNavigationMetadataFields on GraphqlNotifEvent {
 		repliedToDocumentCommentThreadSenderProfilePictureUrl: senderProfilePictureUrl
 		repliedToDocumentCommentThreadSenderDisplayName: senderDisplayName
 	}
+	... on GraphqlEntityAccessRequestedMetadata {
+		entityAccessRequestedRequestId: requestId
+		entityAccessRequestedRevision: revision
+		entityAccessRequestedEntityName: entityName
+		entityAccessRequestedFileType: fileType
+		entityAccessRequestedAccessLevel: accessLevel
+	}
+	... on GraphqlEntityAccessGrantedMetadata {
+		entityAccessGrantedRequestId: requestId
+		entityAccessGrantedRevision: revision
+		entityAccessGrantedEntityName: entityName
+		entityAccessGrantedFileType: fileType
+		entityAccessGrantedAccessLevel: accessLevel
+	}
 	... on GraphqlCommentedOnDocumentMetadata {
 		commentedOnDocumentDocumentName: documentName
 		commentedOnDocumentOwner: owner

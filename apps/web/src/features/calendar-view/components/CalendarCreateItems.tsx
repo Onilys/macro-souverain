@@ -60,7 +60,7 @@ export function CalendarCreateBookingLinkItem(props: CreateItemProps) {
         closeOnSelect
         onSelect={() => {
           props.onSelect?.();
-          navigate('/settings/booking-links?createBookingLink=true');
+          navigate('/app/scheduling?s0.scheduling.createBookingLink=true');
         }}
       />
     </ShowFeatureFlag>

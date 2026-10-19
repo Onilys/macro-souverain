@@ -537,6 +537,27 @@ pub async fn run() -> anyhow::Result<()> {
 
     let connection_gateway = Arc::new(ConnectionGatewayImpl::new(conn_gateway_client.clone()));
 
+    let access_requests_repo =
+        Arc::new(access_requests::outbound::postgres::PgRequestRepository::new(db.clone()));
+    let access_requests_service =
+        Arc::new(access_requests::domain::service::AccessRequestService::new(
+            access_requests_repo.clone(),
+            entity_access_service.clone(),
+            access_requests::domain::ports::SystemClock,
+        ));
+    consumer_tracker.spawn(access_requests::inbound::dispatch::run(
+        access_requests_repo,
+        crate::outbound::access_requests::AccessRequestDelivery {
+            withdrawal: Arc::new(
+                notification::outbound::withdrawal::PgNotificationWithdrawal(db.clone()),
+            ),
+            ingress: notification_ingress_service.clone(),
+            reader: graphql_notification_reader.clone(),
+            connection: connection_gateway.clone(),
+        },
+        consumer_cancellation_token.clone(),
+    ));
+
     let connection_service =
         ConnectionServiceImpl::new(entity_access_service.clone(), connection_gateway.clone());
 
@@ -1573,7 +1594,7 @@ pub async fn run() -> anyhow::Result<()> {
         SoupImpl::new(
             PgSoupRepo::new(readonly_pool::ReadOnlyPool(readonly_db.clone())),
             frecency_service,
-            readonly_email_service,
+            readonly_email_service.clone(),
             ChannelListServiceImpl::new(
                 PgChannelsRepo::new(readonly_db.clone()),
                 PgChannelsRepo::new(readonly_db.clone()),
@@ -2065,16 +2086,22 @@ pub async fn run() -> anyhow::Result<()> {
             entity_access_service.clone(),
             authorization_state.clone(),
         ),
+        access_requests_state: access_requests::inbound::axum_router::AccessRequestsRouterState {
+            service: access_requests_service,
+            authorization_state: authorization_state.clone(),
+        },
         graphql_initiative_entity_loader: graphql_initiative::InitiativeEntityLoader(
             graphql_soup::soup_item_loader(
                 primary_entity_soup.clone(),
                 Arc::new(email_service.clone()),
+                entity_access_service.as_ref().clone(),
             ),
         ),
         graphql_agent_session_entity_loader: graphql_soup::AgentSessionEntityLoader(
             graphql_soup::soup_item_loader(
                 primary_entity_soup.clone(),
                 Arc::new(email_service.clone()),
+                entity_access_service.as_ref().clone(),
             ),
         ),
         graphql_soup_update_hydration_loader: graphql_soup::SoupUpdateHydrationLoader(
@@ -2083,6 +2110,14 @@ pub async fn run() -> anyhow::Result<()> {
                 Arc::new(email_service.clone()),
                 entity_access_service.as_ref().clone(),
             ),
+        ),
+        // Ordinary single-entity GraphQL reads use the replica-backed Soup
+        // and email readers. Subscription hydration and mutation replies
+        // above read the primary.
+        graphql_soup_item_loader: graphql_soup::soup_item_loader_with_team_access(
+            soup_service.clone(),
+            Arc::new(readonly_email_service),
+            entity_access_service.as_ref().clone(),
         ),
         graphql_crm_context: graphql_crm::CrmGraphqlContext::new(pipeline_service.clone()),
         graphql_initiative_context: graphql_initiative::InitiativeGraphqlContext::new(

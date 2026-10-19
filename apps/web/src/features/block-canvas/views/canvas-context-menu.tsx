@@ -11,6 +11,7 @@ import ArrowLineUp from '@icon/system/regular/arrow-line-up.svg';
 import ArrowUp from '@icon/system/regular/arrow-up.svg';
 import Clipboard from '@icon/system/regular/clipboard.svg';
 import Copy from '@icon/system/regular/copy.svg';
+import DownloadSimple from '@icon/system/regular/download-simple.svg';
 import Scissors from '@icon/system/regular/scissors.svg';
 import SelectionAll from '@icon/system/regular/selection-all.svg';
 import SelectionPlus from '@icon/system/regular/selection-plus.svg';
@@ -19,12 +20,18 @@ import Stack from '@icon/system/regular/stack.svg';
 import Trash from '@icon/system/regular/trash.svg';
 import { ContextMenu } from '@kobalte/core/context-menu';
 import { selectAllCommand } from '@macro-inc/graphics';
+import { Show } from 'solid-js';
 import type { CanvasClipboard } from '../clipboard';
 import type { CanvasState } from '../primitives/create-canvas-state';
 
 export function CanvasContextMenu(props: {
   state: CanvasState;
   clipboard: CanvasClipboard;
+  imageActions?: {
+    disabled: boolean;
+    onCopy: () => void;
+    onSave: () => void;
+  };
   onClose: () => void;
 }) {
   const selected = () => props.state.selection().length > 0;
@@ -59,6 +66,12 @@ export function CanvasContextMenu(props: {
           onClick={() => void props.clipboard.paste()}
         />
         <MenuItem
+          text="Paste in place"
+          icon={Clipboard}
+          shortcut="shift+cmd+v"
+          onClick={() => void props.clipboard.paste(true)}
+        />
+        <MenuItem
           text="Duplicate"
           icon={Copy}
           shortcut="cmd+d"
@@ -66,6 +79,25 @@ export function CanvasContextMenu(props: {
           onClick={props.state.duplicate}
         />
         <MenuSeparator />
+        <Show when={props.imageActions}>
+          {(actions) => (
+            <>
+              <MenuItem
+                text="Copy image"
+                icon={Copy}
+                disabled={actions().disabled}
+                onClick={() => actions().onCopy()}
+              />
+              <MenuItem
+                text="Save image"
+                icon={DownloadSimple}
+                disabled={actions().disabled}
+                onClick={() => actions().onSave()}
+              />
+              <MenuSeparator />
+            </>
+          )}
+        </Show>
         <MenuItem
           text="Group"
           icon={SelectionPlus}

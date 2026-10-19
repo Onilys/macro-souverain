@@ -269,7 +269,12 @@ impl FoldState {
                     && PromptRequest::matches_method(&request.method)
                 {
                     return self
-                        .begin_turn(&request.id, request.params.as_ref(), entry.user_id.clone())
+                        .begin_turn(
+                            &request.id,
+                            request.params.as_ref(),
+                            entry.user_id.clone(),
+                            entry.logged_at,
+                        )
                         .into_iter()
                         .map(StepChange::Message)
                         .collect();

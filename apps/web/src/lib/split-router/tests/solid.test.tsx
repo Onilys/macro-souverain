@@ -82,6 +82,11 @@ function GuardedView() {
   return <p data-testid="guarded">guarded</p>;
 }
 
+function SearchGuardedView() {
+  useBeforeLeave(() => allowLeave, { search: ['list'] });
+  return <ListView />;
+}
+
 function ListView() {
   const [search, setSearch] = createSearchParams({
     namespace: 'list',
@@ -157,6 +162,12 @@ const paneRoutes = [
   }),
   defineRoute({ id: 'home', path: 'home', component: () => <p>home</p> }),
   defineRoute({ id: 'guarded', path: 'guarded', component: GuardedView }),
+  defineRoute({
+    id: 'watched-list',
+    path: 'watched-list',
+    search: ['list'],
+    component: SearchGuardedView,
+  }),
   defineRoute({
     id: 'list',
     path: 'list',
@@ -255,6 +266,15 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+it('opts a mounted view into leave guards for its search namespace', () => {
+  renderPanes('/watched-list');
+  allowLeave = false;
+  fireEvent.click(screen.getByRole('button', { name: 'sort:name' }));
+  expect(screen.getByRole('button', { name: 'sort:name' })).toBeTruthy();
+  allowLeave = true;
+  fireEvent.click(screen.getByRole('button', { name: 'sort:name' }));
+  expect(screen.getByRole('button', { name: 'sort:date' })).toBeTruthy();
+});
 describe('split router Solid bindings', () => {
   it('keeps a view mounted while its remount key holds and updates params in place', () => {
     const { router } = renderPanes('/drive/md/d1');

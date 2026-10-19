@@ -8,7 +8,7 @@ afterEach(() => {
 });
 
 describe('calendar preferences', () => {
-  it('drops a saved team out-of-office hide now that it has no switch', async () => {
+  it('keeps a saved team out-of-office hide across reloads', async () => {
     localStorage.setItem(
       CALENDAR_PREFERENCES_KEY,
       JSON.stringify({ hiddenSourceIds: ['team-ooo', 'holidays'] })
@@ -22,6 +22,6 @@ describe('calendar preferences', () => {
       return ids;
     });
 
-    expect(hidden).toEqual(['holidays']);
+    expect(hidden).toEqual(['team-ooo', 'holidays']);
   });
 });

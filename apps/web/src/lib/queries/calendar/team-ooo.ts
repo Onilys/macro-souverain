@@ -1,5 +1,4 @@
 import { throwOnErr } from '@core/util/result';
-import { queryClient } from '@queries/client';
 import { storageServiceClient } from '@service-storage/client';
 import type { TeamOutOfOfficeItem } from '@service-storage/generated/schemas/teamOutOfOfficeItem';
 import { queryOptions, useQuery } from '@tanstack/solid-query';
@@ -86,11 +85,5 @@ export function useTeamOutOfOfficeQuery(
       opts?.enabled !== false,
       opts?.refetchOnWindowFocus ?? true
     );
-  });
-}
-
-export function invalidateTeamOutOfOffice() {
-  return queryClient.invalidateQueries({
-    queryKey: calendarKeys.teamOutOfOffice._def,
   });
 }

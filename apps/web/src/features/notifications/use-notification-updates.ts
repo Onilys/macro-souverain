@@ -1,3 +1,4 @@
+import { refreshSharedAccess } from '@queries/access-requests/requests';
 import { queryClient } from '@queries/client';
 import { emailKeys } from '@queries/email/keys';
 import { invalidateEmailLinks } from '@queries/email/link';
@@ -11,6 +12,7 @@ import {
 import { teamKeys } from '@queries/team/keys';
 import { onCleanup } from 'solid-js';
 import { match, P } from 'ts-pattern';
+import { shareEntity } from '../access-requests/core/types';
 import type { NotificationSource } from './notification-source';
 import type { UnifiedNotification } from './types';
 
@@ -52,6 +54,16 @@ function refreshEmailThread(notification: UnifiedNotification) {
  */
 export function handleNotificationUpdate(notification: UnifiedNotification) {
   match(notification.notification_metadata)
+    .with(
+      { tag: P.union('entity_access_requested', 'entity_access_granted') },
+      () => {
+        const entity = shareEntity(
+          notification.entity_type,
+          notification.entity_id
+        );
+        if (entity) refreshSharedAccess(entity);
+      }
+    )
     .with(
       { tag: 'channel_mention' },
       { tag: 'channel_message_reaction' },

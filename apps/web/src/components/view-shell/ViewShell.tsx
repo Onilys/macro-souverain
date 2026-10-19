@@ -511,7 +511,15 @@ function Aside(props: ViewShellAsideProps) {
         <div
           class="absolute inset-0 z-20"
           onKeyDown={(event) => {
-            if (event.key === 'Escape') {
+            // Portaled menus own Escape even though Solid bubbles through here.
+            if (
+              event.key === 'Escape' &&
+              !event.defaultPrevented &&
+              event.currentTarget.contains(event.target as Node) &&
+              !(event.target as Element).closest(
+                '[aria-haspopup][aria-expanded="true"]'
+              )
+            ) {
               event.stopPropagation();
               ws.aside.collapse();
             }
@@ -622,8 +630,18 @@ export function ViewNavigationControls() {
   );
 }
 
-function Main(props: JSX.HTMLAttributes<HTMLElement>) {
-  const [local, rest] = splitProps(props, ['children', 'class', 'ref']);
+type ViewShellMainProps = JSX.HTMLAttributes<HTMLElement> & {
+  /** Called with the solved width after a drag beside an inline detail. */
+  onWidthChangeEnd?: (width: number) => void;
+};
+
+function Main(props: ViewShellMainProps) {
+  const [local, rest] = splitProps(props, [
+    'children',
+    'class',
+    'ref',
+    'onWidthChangeEnd',
+  ]);
   const ws = useViewShellInternal();
   const layout = ws.main.layout;
   const target = () => {
@@ -641,6 +659,7 @@ function Main(props: JSX.HTMLAttributes<HTMLElement>) {
       minSize={layout().min}
       maxSize={ws.detail.placement() === 'inline' ? layout().max : undefined}
       target={target()}
+      onSizeChangeEnd={local.onWidthChangeEnd}
     >
       <main
         {...rest}

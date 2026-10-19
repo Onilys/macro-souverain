@@ -52,7 +52,7 @@ export function EmailViewBreadcrumbItem() {
   );
 }
 
-export function EmailTopBar(props: ParentProps = {}) {
+export function EmailTopBar(props: ParentProps<{ tabOnly?: boolean }> = {}) {
   const { state, setTab } = useEmailView();
   const counts = useInboxViewCounts(state);
   const isInbox = () =>
@@ -97,7 +97,7 @@ export function EmailTopBar(props: ParentProps = {}) {
             )}
           </For>
         </nav>
-        <Show when={!isInbox()}>
+        <Show when={!isInbox() && !props.tabOnly}>
           <ViewBreadcrumbs.Outlet aria-label="Email location" />
         </Show>
       </div>
@@ -105,7 +105,7 @@ export function EmailTopBar(props: ParentProps = {}) {
   );
 }
 
-export function EmailHeader() {
+export function EmailHeader(props: { tabOnly?: boolean } = {}) {
   const panel = useSplitPanelOrThrow();
   const { state } = useEmailView();
   const [filterOpen, setFilterOpen] = createSignal(false);
@@ -124,7 +124,7 @@ export function EmailHeader() {
   });
 
   return (
-    <EmailTopBar>
+    <EmailTopBar tabOnly={props.tabOnly}>
       <div class="flex shrink-0 items-center gap-1">
         <EmailInboxMenu />
         <Show when={state.tab !== 'scheduled'}>

@@ -14,6 +14,7 @@ import PhoneCallFillIcon from '@icon/system/fill/phone-call-fill.svg';
 import AgentFillIcon from '@icon/system/fill/sparkle-fill.svg';
 import BuildingsIcon from '@icon/system/regular/buildings.svg';
 import CalendarBlankIcon from '@icon/system/regular/calendar-blank.svg';
+import CalendarCheckIcon from '@icon/system/regular/calendar-check.svg';
 import ChatsCircleIcon from '@icon/system/regular/chats-circle.svg';
 import EnvelopeIcon from '@icon/system/regular/envelope.svg';
 import FolderSimpleIcon from '@icon/system/regular/folder-simple.svg';
@@ -30,11 +31,19 @@ import type { SidebarPrefs } from './use-sidebar-prefs';
  * the button switches to while its view is active. Both are required here,
  * unlike `SidebarItem['icon']` — a rail button is nothing but its glyph.
  */
-export type SidebarNextNavItem = SidebarItem & {
+export type SidebarNextNavItem = Omit<SidebarItem, 'hotkeyToken'> & {
+  /** Only destinations with a registered GoTo shortcut expose a key hint. */
+  hotkeyToken?: SidebarItem['hotkeyToken'];
   icon: NavIcon;
   /** Matching Macro active glyph, shown while the view is active. */
   iconActive: NavIcon;
 };
+
+/** More-menu destinations do not require an active icon or keyboard shortcut. */
+export type SidebarNextMenuItem = Omit<
+  SidebarNextNavItem,
+  'iconActive' | 'hotkeyToken'
+>;
 
 /**
  * SidebarRail's nav buttons, in default render order.
@@ -137,11 +146,19 @@ export const SIDEBAR_NEXT_NAV_ITEMS = [
     hotkey: 'v',
     hotkeyToken: TOKENS.sidebar.goTo.reviews,
   },
+  {
+    id: 'booking-links',
+    label: 'Scheduling',
+    href: '/scheduling',
+    icon: CalendarCheckIcon,
+    iconActive: CalendarCheckIcon,
+  },
 ] satisfies SidebarNextNavItem[];
 
-/** Feature flag gates for feature-gated nav buttons. */
+/** Feature flag gates for sidebar destinations. */
 export type NavItemGates = {
   showCalendar: boolean;
+  showScheduling: boolean;
   showCustomers: boolean;
   showCalls: boolean;
   showReviews: boolean;
@@ -155,6 +172,7 @@ export const isNavItemAvailable = (
   gates: NavItemGates
 ): boolean => {
   if (item.id === 'calendar') return gates.showCalendar;
+  if (item.id === 'booking-links') return gates.showScheduling;
   if (item.id === 'companies') return gates.showCustomers;
   if (item.id === 'calls') return gates.showCalls;
   if (item.id === 'reviews') return gates.showReviews;
@@ -209,10 +227,8 @@ export const customizableNavItems = (
     gates.prefs.order
   );
 
-/**
- * Items hidden from the rail but available for quick open in the More menu.
- */
-export const moreMenuItems = (gates: NavItemGates): SidebarNextNavItem[] =>
+/** Hidden rail items, available for quick open in the More menu. */
+export const moreMenuItems = (gates: NavItemGates): SidebarNextMenuItem[] =>
   customizableNavItems(gates).filter(
     (item) => item.id !== 'home' && gates.prefs.hidden.has(item.id)
   );

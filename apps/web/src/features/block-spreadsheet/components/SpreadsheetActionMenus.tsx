@@ -3,6 +3,7 @@ import ArrowRight from '@icon/system/regular/arrow-right.svg';
 import CaretCircleDown from '@icon/system/regular/caret-circle-down.svg';
 import CaretRight from '@icon/system/regular/caret-right.svg';
 import ChartBar from '@icon/system/regular/chart-bar.svg';
+import CheckSquare from '@icon/system/regular/check-square.svg';
 import Clipboard from '@icon/system/regular/clipboard-text.svg';
 import Crosshair from '@icon/system/regular/crosshair.svg';
 import Download from '@icon/system/regular/download-simple.svg';
@@ -15,6 +16,7 @@ import Selection from '@icon/system/regular/selection.svg';
 import Sliders from '@icon/system/regular/sliders-horizontal.svg';
 import SortAscending from '@icon/system/regular/sort-ascending.svg';
 import SortDescending from '@icon/system/regular/sort-descending.svg';
+import Table from '@icon/system/regular/table.svg';
 import TextAlignLeft from '@icon/system/regular/text-align-left.svg';
 import Upload from '@icon/system/regular/upload-simple.svg';
 import { Dropdown } from '@ui/components/Dropdown';
@@ -97,7 +99,7 @@ export function PasteMenu(props: SpreadsheetToolbarProps) {
 export function InsertMenu(props: SpreadsheetToolbarProps) {
   return (
     <ActionMenu
-      label="Insert chart or image"
+      label="Insert chart, image or checkbox"
       icon={<ChartBar class="size-[18px]" />}
       disabled={props.readonly || !props.onInsertChart}
       onRestoreFocus={props.onRestoreFocus}
@@ -149,6 +151,13 @@ export function InsertMenu(props: SpreadsheetToolbarProps) {
           <ImageIcon class="size-4 shrink-0" />
           Image…
         </Dropdown.Item>
+        <Dropdown.Item
+          closeOnSelect
+          onSelect={() => props.onCommand('insert-checkbox')}
+        >
+          <CheckSquare class="size-4 shrink-0" />
+          Checkbox
+        </Dropdown.Item>
         <Show when={props.onSelectDrawings}>
           <Dropdown.Item
             closeOnSelect
@@ -174,6 +183,7 @@ export function ViewMenu(props: SpreadsheetToolbarProps) {
       <Dropdown.Group>
         <Dropdown.CheckboxItem
           checked={props.showGridlines}
+          disabled={props.readonly}
           onChange={() => props.onCommand('toggle-gridlines')}
         >
           Gridlines
@@ -235,6 +245,14 @@ export function DataFormatMenu(props: SpreadsheetToolbarProps) {
         >
           <CaretCircleDown class="size-4" />
           Dropdown…
+        </Dropdown.Item>
+        <Dropdown.Item
+          closeOnSelect
+          disabled={props.readonly}
+          onSelect={() => props.onCommand('table')}
+        >
+          <Table class="size-4" />
+          {props.inTable ? 'Table options' : 'Convert to table'}
         </Dropdown.Item>
         <Dropdown.Item
           closeOnSelect
