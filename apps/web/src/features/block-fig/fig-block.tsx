@@ -40,6 +40,7 @@ import {
   useBlockDocumentDownloadName,
   useBlockDocumentName,
 } from '@core/util/currentBlockDocumentName';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { buildSimpleEntityUrl } from '@core/util/url';
 import { downloadFile } from '@filesystem/download';
 import IconShared from '@icon/share.svg';
@@ -165,7 +166,7 @@ function FigHost(props: {
         setFailure(e instanceof Error ? e.message : String(e));
       }
     };
-    void open();
+    fireAndForget(open(), 'fig-viewer');
     onCleanup(() => {
       disposed = true;
       shared?.close();
@@ -191,7 +192,8 @@ function FigHost(props: {
                 context={{
                   engine: e(),
                   fileName: props.fileName,
-                  download: (blob, name) => void downloadFile(blob, name),
+                  download: (blob, name) =>
+                    fireAndForget(downloadFile(blob, name), 'fig-viewer'),
                   notifyError: (message) => toast.failure(message),
                   notifyInfo: (message) => toast.success(message),
                   canEdit,
@@ -266,7 +268,7 @@ function DesignSession(props: {
 }) {
   const userId = useUserId();
   const opening = prepareFigEngine(props.bytes);
-  onCleanup(() => void opening.dispose());
+  onCleanup(() => fireAndForget(opening.dispose(), 'fig-viewer'));
   const session = createDesignCollabSession({
     documentId: props.documentId,
     userId: userId(),
@@ -375,7 +377,7 @@ export default function FigBlock(props: { share?: string; present?: string }) {
       const url = data()?.blobUrl;
       if (!url) return;
       const response = await fetch(url);
-      void downloadFile(await response.blob(), downloadName());
+      await downloadFile(await response.blob(), downloadName());
     } catch {
       toast.failure('Error downloading file');
     }
@@ -404,7 +406,7 @@ export default function FigBlock(props: { share?: string; present?: string }) {
                 group: 'file',
                 label: 'Download',
                 icon: DownloadSimple,
-                action: () => void download(),
+                action: () => fireAndForget(download(), 'fig-viewer'),
               },
               { op: 'delete' },
             ]}
@@ -424,7 +426,11 @@ export default function FigBlock(props: { share?: string; present?: string }) {
               {(d) => (
                 <Show
                   when={d.bytes}
-                  fallback={<DownloadOnly onDownload={() => void download()} />}
+                  fallback={
+                    <DownloadOnly
+                      onDownload={() => fireAndForget(download(), 'fig-viewer')}
+                    />
+                  }
                 >
                   {(bytes) => (
                     <CollaborativeFigHost

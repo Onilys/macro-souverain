@@ -3,6 +3,7 @@ import ArrowRight from '@phosphor/arrow-right.svg';
 import CaretCircleDown from '@phosphor/caret-circle-down.svg';
 import CaretRight from '@phosphor/caret-right.svg';
 import ChartBar from '@phosphor/chart-bar.svg';
+import CheckSquare from '@phosphor/check-square.svg';
 import Clipboard from '@phosphor/clipboard-text.svg';
 import Crosshair from '@phosphor/crosshair.svg';
 import Download from '@phosphor/download-simple.svg';
@@ -15,6 +16,7 @@ import Selection from '@phosphor/selection.svg';
 import Sliders from '@phosphor/sliders-horizontal.svg';
 import SortAscending from '@phosphor/sort-ascending.svg';
 import SortDescending from '@phosphor/sort-descending.svg';
+import Table from '@phosphor/table.svg';
 import TextAlignLeft from '@phosphor/text-align-left.svg';
 import Upload from '@phosphor/upload-simple.svg';
 import { Dropdown } from '@ui/components/Dropdown';
@@ -97,7 +99,7 @@ export function PasteMenu(props: SpreadsheetToolbarProps) {
 export function InsertMenu(props: SpreadsheetToolbarProps) {
   return (
     <ActionMenu
-      label="Insert chart or image"
+      label="Insert chart, image or checkbox"
       icon={<ChartBar class="size-[18px]" />}
       disabled={props.readonly || !props.onInsertChart}
       onRestoreFocus={props.onRestoreFocus}
@@ -149,6 +151,13 @@ export function InsertMenu(props: SpreadsheetToolbarProps) {
           <ImageIcon class="size-4 shrink-0" />
           Image…
         </Dropdown.Item>
+        <Dropdown.Item
+          closeOnSelect
+          onSelect={() => props.onCommand('insert-checkbox')}
+        >
+          <CheckSquare class="size-4 shrink-0" />
+          Checkbox
+        </Dropdown.Item>
         <Show when={props.onSelectDrawings}>
           <Dropdown.Item
             closeOnSelect
@@ -174,6 +183,7 @@ export function ViewMenu(props: SpreadsheetToolbarProps) {
       <Dropdown.Group>
         <Dropdown.CheckboxItem
           checked={props.showGridlines}
+          disabled={props.readonly}
           onChange={() => props.onCommand('toggle-gridlines')}
         >
           Gridlines
@@ -235,6 +245,14 @@ export function DataFormatMenu(props: SpreadsheetToolbarProps) {
         >
           <CaretCircleDown class="size-4" />
           Dropdown…
+        </Dropdown.Item>
+        <Dropdown.Item
+          closeOnSelect
+          disabled={props.readonly}
+          onSelect={() => props.onCommand('table')}
+        >
+          <Table class="size-4" />
+          {props.inTable ? 'Table options' : 'Convert to table'}
         </Dropdown.Item>
         <Dropdown.Item
           closeOnSelect

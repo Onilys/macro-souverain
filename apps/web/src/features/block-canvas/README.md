@@ -26,7 +26,7 @@ Saves are debounced and serialized; failures keep edits dirty. Save state is not
 shown in the canvas UI.
 
 SyncService integration and collaboration remain a follow-up. This change keeps
-the existing whole-file save behavior. See [Graphics and Canvas parity](../../../../../docs/GRAPHICS_PARITY.md)
+the existing whole-file save behavior. See [Graphics and Canvas parity](../../../../../docs/design/graphics-parity.md)
 for the remaining editor and collaboration work.
 
 ## Controls
@@ -35,20 +35,34 @@ The floating top toolbar uses the shared `Toolbar` and Phosphor icons for drawin
 and inserting media, document cards, and embeds. Tooltips show each tool's shortcut.
 Zoom, reset-to-100%, fit, undo, and redo live at the bottom-left. Adjacent controls
 toggle floating properties and layers panels.
-Fit Scene uses the current viewport dimensions, centers all scene geometry and
+Fit Scene and menu/keyboard zoom use the full canvas viewport without subtracting
+floating panels. Fit Scene centers all scene geometry and
 zooms in or out to leave 100 screen pixels per side on the first axis to fill.
 Camera zoom limits still apply; padding decreases for small embedded viewports.
 Ctrl/Meta-wheel zoom is pointer-anchored, with a continuous 0.002 exponential rate
 per normalized wheel pixel and an exponent cap of 0.2 per event (about 22% zoom-in).
 Plain wheel input pans at its existing speed.
-The Canvas panel's zoom menu offers **No snapping** (the default for each session),
+The Canvas panel's zoom menu offers **No grid snapping** (the default grid mode for each session),
 **Snap to px** (1 canvas px at every zoom), and **Auto snapping** (the smallest
 currently visible dot-grid interval, including faint dots). Auto follows zoom;
 hiding the grid temporarily disables it. Drawing, moving, resizing, insertion, duplication, pasting, free
 connector endpoints and layout inspector values use the chosen interval; inspector
 scrubs preview the same snapped values they commit. Freehand and rotation keep
 their own precision, and connector bindings and aspect-ratio constraints stay exact.
-The preference is local editor state, not saved JSON or shared Loro data.
+The preferences are local editor state, not saved JSON or shared Loro data.
+**Snap to objects** is independently enabled by default. Moving selections snap
+their combined world bounds' edges and centers to nearby objects; axis-aligned
+resize handles snap their moving edges. Matching axes show dashed guides and
+prefer object alignment over grid snapping. The tolerance is six screen pixels,
+with a 160-screen-pixel perpendicular reach. Shift constraints and proportional /
+centered resizing remain intact; rotated resize frames retain local-axis behavior.
+The graphics engine caches sorted alignment anchors with perpendicular interval
+trees per immutable scene snapshot (O(n log n) construction). Each pointer update
+queries a constant number of selection anchors and prunes distant candidates,
+including long rows and columns, instead of comparing every selected object with
+every scene object. Selected objects, descendants, and ancestors are excluded.
+Gesture telemetry records query, candidate, and visited-index-node counts; its
+span measures the gesture, not cold index construction.
 The dot grid adapts to zoom, revealing 1, 4, 16, 64 px levels (and
 coarser levels at extreme zoom-out). Coarse dots remain steady while finer dots
 fade in gently; individual canvas pixels are faintly visible at 800%. Dots use
@@ -59,6 +73,10 @@ panel tokens; the dot-grid visibility toggle hides every level.
 The shared context menu exposes clipboard, grouping, layer ordering, select-all,
 and delete actions, with normal keyboard navigation and focus restoration. Active
 embedded editors and text editing retain their own context menus.
+With exactly one image selected, the context menu and inspector also offer
+**Copy image** and **Save image** for the original image, without canvas styling
+or transforms. These reuse the shared image actions (including native mobile
+sharing) and stay disabled while the image source or an action is pending.
 Selecting Arrow, Line, Connector, or Pencil repairs invisible drawing defaults:
 missing/transparent strokes use theme Ink, zero width uses 2 px, and zero opacity
 uses full opacity. Other style choices and existing shapes are preserved.
@@ -74,6 +92,7 @@ uses full opacity. Other style choices and existing shapes are preserved.
 | Move horizontally / vertically | Hold Shift while dragging; follows the dominant world axis |
 | Select inside a group | Cmd/Ctrl-click |
 | Copy / cut / paste | Cmd/Ctrl+C / X / V |
+| Paste in place | Shift+Cmd/Ctrl+V |
 | Duplicate | Cmd/Ctrl+D, or Option/Alt-drag |
 | Select all | Cmd/Ctrl+A |
 | Nudge | Arrows: one snap unit; Shift+arrows: ten snap units |
@@ -89,7 +108,11 @@ Native clipboard events own the actual copy/cut/paste keystrokes; proxied Macro
 commands expose those actions in the command UI without double handling.
 Clipboard context-menu actions use the browser clipboard API and report denied
 access. Fragments include whole selected subtrees, fresh IDs on insertion, stable
-relative order and world placement. Pasting repeatedly offsets by another 24 units.
+relative order and world placement. Copies include the source canvas ID: pasting
+within that canvas offsets each repeat by another 24 units. Fragments from another
+canvas (or without source metadata), including Excalidraw imports, are centered as
+a whole in the current viewport, accounting for pan and zoom. Shift+Cmd/Ctrl+V
+and **Paste in place** preserve original world coordinates without grid snapping.
 Canvas Next fragments preserve rich text. Plain text and HTML pasted onto the canvas
 create a wrapped text shape; pasting inside the editor belongs to Lexical. Image
 clipboard data uploads through the media adapter. Legacy Canvas clipboard format
@@ -314,7 +337,12 @@ sized, fitted within 640 × 480 world units, and inserted in one undo step per b
 Uploading/loading is host-owned; only stable static-file or document references
 enter the scene. Reset/unmount invalidates pending insertion. Saved Canvas Next
 documents retain stable uploaded references;
-uploads use the existing static file service. Existing workspace file selection
+uploads use the existing static file service. Pasted and dropped files show local
+blob previews at their insertion positions while uploads finish. These previews
+are not editable scene items; failures, reset, and unmount release their URLs.
+Image nodes reserve their full bounds with the shared `skeleton-shimmer` and
+`bg-skeleton` classes until the browser loads the image, including in read-only
+canvases. Existing workspace file selection
 does not create a new file.
 
 Image/video shape definitions own validation, bounds, hit testing and resizing in
@@ -335,11 +363,39 @@ preview contents, and upload state are never stored in core. SVG-to-editable-sha
 conversion is not part of this checkpoint; SVG files can be inserted as images.
 
 
-New embed insertion is not currently exposed in the toolbar. An existing document
-card can switch between preview and embed in the inspector. Double-click
-an embed or choose Interact to enter; Done, Escape, or a click elsewhere on this
-canvas returns input to the outer canvas. Resizing changes the editor viewport.
+The drawing toolbar’s paperclip **Attach** button (shortcut hint `I`) opens a
+standard dropdown for Media, Upload media, and Reference. Its pickers appear
+above the toolbar and place attachments at the canvas center.
+
+Press `I` with the canvas focused to open a radial menu of separate floating rectangular buttons centered at the pointer
+(or the viewport center before a pointer location is available). **Media** opens
+the current searchable media picker; **Upload media** opens the OS file picker
+directly; **Reference** opens the searchable document picker. The pickers reuse
+the mentions menu's quick-access source, paging, icons, and rows. Media accepts
+workspace images/videos or local uploads; references create document preview cards.
+The full viewport around the center is divided into equal directional slices. Moving into
+a slice highlights its button and matching ring arc; clicking anywhere outside the buttons
+activates the highlighted slice instead of dismissing the menu. The center remains neutral. Arrow keys or Ctrl+J/K
+navigate; Enter selects and Escape closes. Scrolled results
+keep the same inset as the menu padding. The media picker includes a dashed drop
+area and Add files button for local images/videos.
+Insertion keeps the world position captured when the menu opened, even under
+pan/zoom. New embed insertion and preview-to-embed conversion are unavailable.
+Existing embeds can be converted to previews in the inspector. Double-click an
+existing embed or choose Interact to enter; Done, Escape, or a click elsewhere on
+this canvas returns input to the outer canvas. Resizing changes the editor viewport.
 The embedded block stays mounted when entering/leaving interaction mode.
+
+Document cards participate in the shared entity-mention reference system. The
+serialized save adapter registers one mention per target document and stores its
+ID in optional `referenceTracking` file metadata. Duplicate cards share a mention;
+deleting the last card removes it after the scene saves. Undo/redo reconciles the
+saved targets. Failed saves retain created IDs for retry, and pending deletions
+survive reload. Source ownership prevents copied canvases from deleting mentions
+belonging to the original. Existing untracked cards register on the next edit;
+opening a canvas does not write references. Tracking follows the shared mention
+tracking flag. File saving and mention creation are separate server operations,
+so an interrupted creation before the file save cannot be recovered transactionally.
 
 `block-embed-adapter.tsx` mounts the existing unmanaged block loader with its own
 panel handle, toolbar, and hotkey scope. The existing editor owns permissions and

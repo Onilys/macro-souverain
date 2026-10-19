@@ -8,6 +8,7 @@ import EnvelopeIcon from '@phosphor/envelope.svg';
 import FileIcon from '@phosphor/file-text.svg';
 import HashIcon from '@phosphor/hash.svg';
 import SearchIcon from '@phosphor/magnifying-glass.svg';
+import PhoneIcon from '@phosphor/phone.svg';
 import PlusIcon from '@phosphor/plus.svg';
 import { Button, badgeTriggerClasses } from '@ui';
 import { format } from 'date-fns';
@@ -82,6 +83,9 @@ function EventIcon(props: { group: RoutineEventGroup; class: string }) {
       <Match when={props.group === 'Email'}>
         <EnvelopeIcon class={props.class} />
       </Match>
+      <Match when={props.group === 'Calls'}>
+        <PhoneIcon class={props.class} />
+      </Match>
     </Switch>
   );
 }
@@ -93,6 +97,7 @@ function TriggerIcon(props: { trigger?: RoutineTriggerDraft }) {
     if (kind === 'TASK') return 'Tasks';
     if (kind === 'THREAD') return 'Email';
     if (kind === 'DOCUMENT') return 'Documents';
+    if (kind === 'CALL_RECORD') return 'Calls';
     return 'Channels';
   };
   return (

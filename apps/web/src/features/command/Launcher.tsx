@@ -51,9 +51,10 @@ import {
   createSnippet,
 } from '@core/util/create';
 import { createControlledOpenSignal } from '@core/util/createControlledOpenSignal';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { Dialog } from '@kobalte/core/dialog';
 import { getMarkdownGoldenBytes } from '@macro-inc/lexical-core/markdown-golden';
-import type { Span } from '@macro-inc/observability';
+import { type Span, Telemetry } from '@macro-inc/observability';
 import ChatIcon from '@phosphor/chat.svg';
 import MagnifyingGlassIcon from '@phosphor/magnifying-glass.svg';
 import PlusIcon from '@phosphor/plus.svg';
@@ -91,7 +92,7 @@ import {
 } from './core/launcher-history';
 import { createCallCommand } from './create-call-command';
 import { MobileCreateSheet } from './mobile/MobileCreateSheet';
-import type { CreatableBlock, CreatableName } from './types';
+import type { CreatableBlock, CreatableName, OpenCreatedItem } from './types';
 
 const LAUNCHER_FRECENCY_STORE = 'launcher-frecency-v1';
 const LAUNCHER_SEARCH_MODE_STORE = 'launcher-search-mode-v1';
@@ -108,7 +109,7 @@ const [launcherFrecencyStore, setLauncherFrecencyStore] = makePersisted(
   { name: LAUNCHER_FRECENCY_STORE }
 );
 const [launcherSearchMode, setLauncherSearchModePreference] = makePersisted(
-  createSignal(false),
+  createSignal(true),
   { name: LAUNCHER_SEARCH_MODE_STORE }
 );
 
@@ -150,17 +151,19 @@ const createBlock = async (spec: {
   createFn: () => Promise<string | undefined>;
   loading?: boolean;
   shouldInsert?: boolean;
+  openCreated?: OpenCreatedItem;
   /** Active creation span; registered by document id after creation. */
   span?: Span;
 }) => {
   const { openWithSplit } = useSplitLayout();
-  const { blockName, createFn, loading, span } = spec;
+  const { blockName, createFn, loading, openCreated, span } = spec;
 
   setCreateMenuOpen(false, false);
 
   // On mobile, navigate directly after creation instead of showing an
-  // intermediate loading pane during the swipe transition.
-  const showLoadingFirst = loading && !isMobile();
+  // intermediate loading pane during the swipe transition. The loading pane
+  // would also unmount a surface that opens the document itself.
+  const showLoadingFirst = loading && !isMobile() && !openCreated;
 
   const split = showLoadingFirst
     ? openWithSplit(
@@ -179,6 +182,11 @@ const createBlock = async (spec: {
 
   span?.setAttr('document.id', id);
   if (span) registerDocumentSpan(id, span);
+
+  if (openCreated?.({ blockName, id })) {
+    span?.event('doc.navigated');
+    return;
+  }
 
   // If we are creating a new markdown document "from scratch" then we can let
   // them instantly start editing
@@ -214,7 +222,10 @@ const createBlock = async (spec: {
   span?.event('doc.navigated');
 };
 
-const createComponent = async (spec: {
+const reportCreateBlockError = (error: unknown) =>
+  Telemetry.error(error, { surface: 'launcher' });
+
+const createComponent = (spec: {
   componentId: string;
   shouldInsert?: boolean;
   asPopover?: boolean;
@@ -252,9 +263,12 @@ export function runCreateAction(
     source?: string;
     projectId?: string;
     destination?: string;
+    /** Creatables that open a composer instead ignore it. */
+    openCreated?: OpenCreatedItem;
   } = {}
 ) {
   const shouldInsert = options.shouldInsert ?? false;
+  const openCreated = options.openCreated;
   // Creation analytics fire at the data-layer chokepoints (create.ts /
   // projects.ts); `source` just attributes which surface initiated it.
   const source = options.source ?? 'create_menu';
@@ -264,7 +278,7 @@ export function runCreateAction(
       const span = startDocumentSpan('doc.create');
       span.setAttr('doc.type', 'md');
       span.setAttr('doc.source', source);
-      void span
+      span
         .run(() =>
           createBlock({
             blockName: 'md',
@@ -278,27 +292,32 @@ export function runCreateAction(
                 source,
               }),
             shouldInsert,
+            openCreated,
           })
         )
         .catch((error) => {
           span.error(error);
           endTrackedDocumentSpan(span);
-          throw error;
+          reportCreateBlockError(error);
         });
       return;
     }
     case 'spreadsheet':
       if (!isSpreadsheetEnabledForCurrentUser()) return;
-      void createBlock({
-        blockName: 'spreadsheet',
-        loading: true,
-        createFn: () =>
-          createSpreadsheetDocument({
-            projectId: options.projectId,
-            source,
-          }),
-        shouldInsert,
-      });
+      fireAndForget(
+        createBlock({
+          blockName: 'spreadsheet',
+          loading: true,
+          createFn: () =>
+            createSpreadsheetDocument({
+              projectId: options.projectId,
+              source,
+            }),
+          shouldInsert,
+          openCreated,
+        }),
+        'launcher'
+      );
       return;
     case 'psd':
       if (!isFeatureEnabled(enablePsdEditor)) return;
@@ -308,7 +327,8 @@ export function runCreateAction(
         createFn: () =>
           createPsdDocument({ projectId: options.projectId, source }),
         shouldInsert,
-      });
+        openCreated,
+      }).catch(reportCreateBlockError);
       return;
     case 'fig':
       if (!isFeatureEnabled(enableFigViewer)) return;
@@ -318,7 +338,8 @@ export function runCreateAction(
         createFn: () =>
           createFigDocument({ projectId: options.projectId, source }),
         shouldInsert,
-      });
+        openCreated,
+      }).catch(reportCreateBlockError);
       return;
     case 'ai':
       if (!isFeatureEnabled(enableAiEditor)) return;
@@ -328,7 +349,8 @@ export function runCreateAction(
         createFn: () =>
           createAiDocument({ projectId: options.projectId, source }),
         shouldInsert,
-      });
+        openCreated,
+      }).catch(reportCreateBlockError);
       return;
     case 'canvas':
       createBlock({
@@ -345,7 +367,8 @@ export function runCreateAction(
           return result.documentId ?? undefined;
         },
         shouldInsert,
-      });
+        openCreated,
+      }).catch(reportCreateBlockError);
       return;
     case 'task':
       createComponent({
@@ -372,7 +395,8 @@ export function runCreateAction(
             source,
           }),
         shouldInsert,
-      });
+        openCreated,
+      }).catch(reportCreateBlockError);
       return;
     case 'email':
       // Focus the "To" field within this gesture so the iOS keyboard opens;
@@ -417,7 +441,8 @@ export function runCreateAction(
           return result.chatId;
         },
         shouldInsert,
-      });
+        openCreated,
+      }).catch(reportCreateBlockError);
       return;
     case 'project':
       createComponent({
@@ -447,7 +472,8 @@ export function runCreateAction(
           return created.value;
         },
         shouldInsert,
-      });
+        openCreated,
+      }).catch(reportCreateBlockError);
       return;
     case 'form':
       if (!isFeatureEnabled(enableForms)) return;
@@ -466,7 +492,8 @@ export function runCreateAction(
           return created.value.form.id;
         },
         shouldInsert,
-      });
+        openCreated,
+      }).catch(reportCreateBlockError);
       return;
     case 'code':
       createBlock({
@@ -484,7 +511,8 @@ export function runCreateAction(
           return result.value.documentId ?? undefined;
         },
         shouldInsert,
-      });
+        openCreated,
+      }).catch(reportCreateBlockError);
       return;
     case 'routine':
       createComponent({ componentId: 'routine-compose', asPopover: true });

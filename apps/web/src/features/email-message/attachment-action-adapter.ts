@@ -37,7 +37,9 @@ export function createEmailAttachmentOpener() {
       );
     }
 
-    refetchSoupEntity(document_id, 'document');
+    refetchSoupEntity(document_id, 'document').catch((error) =>
+      Telemetry.error(error, { surface: 'email-attachment' })
+    );
 
     const fileType = Object.values(FileTypeMap).findLast(
       (type) => type.mime === attachment.mime_type

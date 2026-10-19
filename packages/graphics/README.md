@@ -3,15 +3,15 @@
 Experimental graphics editor with a framework-independent scene tree.
 
 For a short implementation-based reference, start with the
-[Graphics API guide](../../docs/GRAPHICS_API.md).
+[Graphics API guide](../../docs/architecture/graphics-api.md).
 
-Status reviewed 2026-09-28. The [parity plan](../../docs/GRAPHICS_PARITY.md) is the
+Status reviewed 2026-09-28. The [parity plan](../../docs/design/graphics-parity.md) is the
 progress/next-checkpoint index. Canvas Next now includes rich text/mentions,
 shape labels, connectors, media, document cards and full embeds as the default
 canvas editor. Versioned JSON persistence is wired at the Canvas host boundary.
 The Loro adapter remains experimental; production collaboration is not wired.
 The next product checkpoint is a
-[legacy bridge and color policy](../../docs/CANVAS_LEGACY_BRIDGE.md), kept outside
+[legacy bridge and color policy](../../docs/architecture/canvas-legacy-bridge.md), kept outside
 the pure core. Expanding peer support is deferred.
 
 - `@macro-inc/graphics`: document, affine math, scene queries, selection, editing,
@@ -85,7 +85,7 @@ individual shapes. This does not change hit testing for unselected shapes.
 
 Editors accept `snapUnit` in their options, with `getSnapUnit()` and
 `setSnapUnit(unit)` for local configuration. Any positive finite scene-unit
-interval is supported, including fractions; `undefined` disables snapping.
+interval is supported, including fractions; `undefined` disables grid snapping.
 It is independent of camera zoom, document serialization and backend choice.
 Changing the unit cancels active drawing/transform previews without adding history.
 `CommandContext.snapUnit` and the pure `snapValue`, `snapPoint`, and
@@ -100,6 +100,20 @@ aspect ratio; center resizing keeps its center. Image boundaries, connector
 bindings and angle/axis constraints take priority over the grid. Freehand samples,
 rotation, equal distribution and exact alignment retain their own semantics.
 Snapping does not round existing documents on load or remote updates.
+
+Object snapping is a separate opt-in editor option (`objectSnapping`, default
+`false`) controlled by `setObjectSnapping(enabled)` and exposed in the session.
+Canvas enables it by default. Moves align the selection's combined world bounds'
+edges and centers; axis-aligned resize handles align their moving edges. Rotated
+resize frames keep local-axis behavior, and image surfaces do not object-snap.
+The index caches sorted anchors and perpendicular interval trees per immutable
+scene snapshot, with O(n log n) construction and a constant number of spatially
+pruned anchor queries per pointer update. Selected objects and their ancestors /
+descendants are excluded. Tolerance is six screen pixels; perpendicular reach is
+160 screen pixels. Object matches override grid values on matched axes without
+breaking axis or aspect constraints. `transform.snapGuides` drives the Solid
+overlay and `transform.snapStats` exposes aggregate query work to host telemetry.
+Changing the setting cancels active transforms without adding history.
 
 The Solid surface's dot grid is camera-aware presentation: scene-unit intervals
 1, 4, 16, 64, 256, etc. appear progressively as zoom increases. Fine dots fade in
@@ -225,7 +239,7 @@ Affine reflection/shear compose correctly, but have no dedicated UI controls.
 SyncService integration remains separate work. The two-peer Loro experiment uses
 native local undo; never apply local item-delta undo to a shared document.
 
-The [scene foundation specification](../../docs/GRAPHICS_SCENE_FOUNDATION.md)
+The [scene foundation specification](../../docs/architecture/graphics-scene-foundation.md)
 describes the intended longer-term boundary and collaboration questions.
 Run `bun run test` and `bun run type-check` here. Tests cover tree invariants,
 transform math, document reset, pose preservation, nested editing, history, selection,

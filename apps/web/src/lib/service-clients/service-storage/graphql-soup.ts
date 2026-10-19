@@ -5,7 +5,9 @@ import {
   isFeatureEnabled,
 } from '@core/constant/featureFlags';
 import { SERVER_HOSTS } from '@core/constant/servers';
+import { hasLoginCookie } from '@core/util/cookies';
 import { fetchToken } from '@core/util/fetchWithToken';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { isTauri } from '@core/util/platform';
 import { platformFetch } from '@core/util/platformFetch';
 import { reloadForNewerBuild } from '@core/util/reloadForNewerBuild';
@@ -67,7 +69,7 @@ import {
   createClient as createGraphqlWsClient,
   type Client as GraphqlWsClient,
 } from 'graphql-ws';
-import { createSignal } from 'solid-js';
+import { batch, createSignal, untrack } from 'solid-js';
 import { match } from 'ts-pattern';
 import { delegateChannelNotificationRefresh } from '../../queries/channel/notification-refresh';
 import { soupOptimisticResolvers } from '../../queries/optimistic-resolvers';
@@ -447,7 +449,7 @@ function getUncachedRealtimeClient(): Client {
   uncachedRealtimeClient = client;
   uncachedRealtimeCleanup = () => {
     subscriptionsLifecycle.dispose();
-    void websocketClient.dispose();
+    fireAndForget(websocketClient.dispose(), 'graphql-soup-client');
   };
   return client;
 }
@@ -456,6 +458,46 @@ let cacheInitializationFailed = false;
 // Changes when the session abandons its cache so reactive readers of the
 // availability getters below (query options, effects) move to network paths.
 const [cacheAvailability, setCacheAvailability] = createSignal(0);
+// Signed-out pages (auth routes, shared links, an expired session) can neither
+// authenticate the live-updates websocket nor own a draft queue, so they only
+// get the plain network client.
+const [sessionActive, setSessionActive] = createSignal(hasLoginCookie());
+
+/**
+ * Records whether this tab has a signed-in session. Ending one disposes the
+ * cached and realtime clients, so their websocket and queue runner stop.
+ */
+export function setGraphqlSoupSessionActive(active: boolean): void {
+  if (untrack(sessionActive) === active) return;
+  if (!active) {
+    // Flip first, or a reactive reader woken by the teardown rebuilds the client.
+    setSessionActive(false);
+    disposeSessionClients();
+    return;
+  }
+  // Build before readers wake: getGraphqlCacheHost() only reports an existing
+  // host, so a reader that ran while signed out would otherwise stay uncached.
+  batch(() => {
+    setSessionActive(true);
+    untrack(getGraphqlSoupClient);
+    setCacheAvailability((version) => version + 1);
+  });
+}
+
+function disposeSessionClients(): void {
+  const cleanup = cachedCacheCleanup;
+  cachedCacheCleanup = undefined;
+  cachedCacheHost = undefined;
+  cachedClient = undefined;
+  browserCacheClientActivated = false;
+  disposeUncachedRealtimeClient();
+  try {
+    cleanup?.();
+  } catch {
+    // Teardown failures cannot keep a signed-out tab on the cached client.
+  }
+  setCacheAvailability((version) => version + 1);
+}
 
 /**
  * Whether the normalized cache is active for soup GraphQL queries.
@@ -464,6 +506,7 @@ const [cacheAvailability, setCacheAvailability] = createSignal(0);
  */
 export function graphqlCacheEnabled(): boolean {
   cacheAvailability();
+  if (!sessionActive()) return false;
   if (cacheInitializationFailed) return false;
   if (!isTauri() && browserCacheClientActivated) return true;
   return getBrowserTursoCacheRolloutDecision().enabled;
@@ -524,6 +567,7 @@ export function getGraphqlCacheHost(): CacheHost | undefined {
  * a reload or native update can resume the preserved queue.
  */
 export function getGraphqlSoupClient(): Client {
+  if (!sessionActive()) return graphqlSoupClient;
   const native = isTauri();
   // Only the browser Turso client is session-latched. Tauri keeps the prior
   // dynamic GraphQL transport behavior and can return to the plain client when
@@ -582,7 +626,8 @@ export function getGraphqlSoupClient(): Client {
       // Retires the host: operations still running on this client, and any
       // caller that captured the host, fall back to the network from here.
       host?.dispose();
-      if (websocketClient) void websocketClient.dispose();
+      if (websocketClient)
+        fireAndForget(websocketClient.dispose(), 'graphql-soup-client');
     };
     const onInitializationError = (error: Error) => {
       if (!host || cachedCacheHost !== host) return;
@@ -991,6 +1036,38 @@ function mapGraphqlNotificationMetadata(
               metadata.repliedToDocumentCommentThreadSenderDisplayName,
           },
         }) satisfies NotifEventMember<'replied_to_document_comment_thread'>
+    )
+    .with(
+      { __typename: 'GraphqlEntityAccessRequestedMetadata' },
+      (metadata) =>
+        ({
+          tag: 'entity_access_requested',
+          content: {
+            requestId: metadata.entityAccessRequestedRequestId,
+            revision: metadata.entityAccessRequestedRevision,
+            entityName: metadata.entityAccessRequestedEntityName,
+            fileType: metadata.entityAccessRequestedFileType,
+            accessLevel: match(metadata.entityAccessRequestedAccessLevel)
+              .with('view', 'comment', 'edit', (level) => level)
+              .otherwise(() => 'comment' as const),
+          },
+        }) satisfies NotifEventMember<'entity_access_requested'>
+    )
+    .with(
+      { __typename: 'GraphqlEntityAccessGrantedMetadata' },
+      (metadata) =>
+        ({
+          tag: 'entity_access_granted',
+          content: {
+            requestId: metadata.entityAccessGrantedRequestId,
+            revision: metadata.entityAccessGrantedRevision,
+            entityName: metadata.entityAccessGrantedEntityName,
+            fileType: metadata.entityAccessGrantedFileType,
+            accessLevel: match(metadata.entityAccessGrantedAccessLevel)
+              .with('view', 'comment', 'edit', (level) => level)
+              .otherwise(() => 'comment' as const),
+          },
+        }) satisfies NotifEventMember<'entity_access_granted'>
     )
     .with(
       { __typename: 'GraphqlCommentedOnDocumentMetadata' },
@@ -1639,7 +1716,7 @@ export function mapGraphqlSoupItem(item: GraphqlSoupItem): SoupApiItem | null {
             updatedAt: entity.updatedAt,
             viewedAt: entity.viewedAt ?? undefined,
             participants: entity.participants.map((participant) => ({
-              id: participant.id,
+              id: participant.contactId,
               linkId: participant.linkId,
               name: participant.name ?? undefined,
               emailAddress: participant.email ?? undefined,

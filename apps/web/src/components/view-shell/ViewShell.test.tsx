@@ -2,6 +2,7 @@ import {
   SplitPanelContext,
   type SplitPanelContextType,
 } from '@components/app/split-layout/context';
+import { SplitPanel } from '@components/app/split-panel';
 import {
   cleanup,
   fireEvent,
@@ -10,6 +11,7 @@ import {
   within,
 } from '@solidjs/testing-library';
 import { createSignal, type JSX, onMount } from 'solid-js';
+import { Portal } from 'solid-js/web';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useViewShell, ViewShell, ViewSidebarToggle } from './ViewShell';
 import { ViewSidebar } from './ViewSidebar';
@@ -30,6 +32,7 @@ vi.mock('@solid-primitives/resize-observer', () => ({
 
 vi.mock('@ui', async () => ({
   ...(await import('../ui/utils/classname')),
+  ...(await import('../ui/utils/press')),
   Button: (
     props: JSX.ButtonHTMLAttributes<HTMLButtonElement> & { label?: string }
   ) => (
@@ -37,6 +40,7 @@ vi.mock('@ui', async () => ({
       aria-label={props.label}
       aria-expanded={props['aria-expanded']}
       onClick={props.onClick}
+      onMouseDown={props.onMouseDown}
     >
       {props.children}
     </button>
@@ -280,6 +284,7 @@ function Workspace(props: {
       >
         <ViewShell.Aside>
           <ViewSidebar.Header>
+            <ViewSidebar.CloseButton />
             <ViewSidebar.Title>{props.app}</ViewSidebar.Title>
           </ViewSidebar.Header>
         </ViewShell.Aside>
@@ -293,6 +298,52 @@ function Workspace(props: {
     </section>
   );
 }
+
+it.each([720, 600, 400])(
+  'keeps split close available in a %spx navigation overlay',
+  (width) => {
+    measurement.width = () => width;
+    const [canClose, setCanClose] = createSignal(true);
+    const panes = ['home', 'tasks', 'email'].map((app) => ({
+      app,
+      close: vi.fn(),
+    }));
+    render(() =>
+      panes.map((pane) => (
+        <SplitPanel.Root
+          controller={{
+            canClose,
+            close: pane.close,
+            canGoBack: () => false,
+            goBack: vi.fn(),
+            canGoForward: () => false,
+            goForward: vi.fn(),
+          }}
+        >
+          <Workspace app={pane.app} />
+        </SplitPanel.Root>
+      ))
+    );
+
+    for (const pane of panes) {
+      const workspace = within(screen.getByRole('region', { name: pane.app }));
+      fireEvent.click(
+        workspace.getByRole('button', { name: 'Show navigation' })
+      );
+      expect(workspace.getByRole('button', { name: 'Close' })).toBeTruthy();
+    }
+
+    const email = within(screen.getByRole('region', { name: 'email' }));
+    fireEvent.click(email.getByRole('button', { name: 'Close' }));
+    expect(panes[2].close).toHaveBeenCalledOnce();
+    expect(panes[0].close).not.toHaveBeenCalled();
+    expect(panes[1].close).not.toHaveBeenCalled();
+
+    setCanClose(false);
+    expect(email.queryByRole('button', { name: 'Close' })).toBeNull();
+    expect(email.getByRole('button', { name: 'Hide navigation' })).toBeTruthy();
+  }
+);
 
 it('hides only the owning split and keeps the current item mounted', () => {
   const mounted = vi.fn();
@@ -380,6 +431,48 @@ it('reopens automatic narrow collapse as a dismissible overlay', () => {
     screen.getByRole('button', { name: 'Close navigation backdrop' })
   );
   expect(screen.getByRole('button', { name: 'Show navigation' })).toBeTruthy();
+  expect(
+    screen.queryByRole('button', { name: 'Close navigation backdrop' })
+  ).toBeNull();
+});
+
+it('lets an open popup handle Escape before dismissing the navigation overlay', () => {
+  measurement.width = () => 600;
+  const [expanded, setExpanded] = createSignal(true);
+  render(() => (
+    <ViewShell.Root asidePreferenceKey="calendar">
+      <ViewShell.Aside>
+        <button type="button" aria-haspopup="menu" aria-expanded={expanded()}>
+          Booking links
+        </button>
+        <button type="button" onKeyDown={(event) => event.preventDefault()}>
+          Handled Escape
+        </button>
+        <Portal>
+          <button type="button" role="menuitem">
+            Manage booking links
+          </button>
+        </Portal>
+      </ViewShell.Aside>
+      <ViewShell.Main>
+        <ViewShell.TopBar />
+      </ViewShell.Main>
+    </ViewShell.Root>
+  ));
+  fireEvent.click(screen.getByRole('button', { name: 'Show navigation' }));
+  const popupTrigger = screen.getByRole('button', { name: 'Booking links' });
+  for (const target of [
+    screen.getByRole('menuitem', { name: 'Manage booking links' }),
+    popupTrigger,
+    screen.getByRole('button', { name: 'Handled Escape' }),
+  ]) {
+    fireEvent.keyDown(target, { key: 'Escape' });
+    expect(
+      screen.getByRole('button', { name: 'Close navigation backdrop' })
+    ).toBeTruthy();
+  }
+  setExpanded(false);
+  fireEvent.keyDown(popupTrigger, { key: 'Escape' });
   expect(
     screen.queryByRole('button', { name: 'Close navigation backdrop' })
   ).toBeNull();

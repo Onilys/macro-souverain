@@ -1,5 +1,6 @@
 //! Unit tests for the notification services.
 
+mod access_request_delivery;
 mod android;
 mod status_updates;
 
@@ -106,6 +107,7 @@ fn test_user_id(email: &str) -> MacroUserIdStr<'static> {
 
 /// Mock repository that tracks calls.
 struct MockRepository {
+    withdrawn_notifications: HashSet<Uuid>,
     muted_users: HashSet<MacroUserIdStr<'static>>,
     unsubscribed_users: HashSet<MacroUserIdStr<'static>>,
     type_disabled_users: HashSet<MacroUserIdStr<'static>>,
@@ -128,6 +130,7 @@ struct MockRepository {
 impl MockRepository {
     fn new() -> Self {
         Self {
+            withdrawn_notifications: HashSet::new(),
             muted_users: HashSet::new(),
             unsubscribed_users: HashSet::new(),
             type_disabled_users: HashSet::new(),
@@ -276,6 +279,9 @@ impl NotificationRepository for MockRepository {
         _service_sender: &str,
         apns_collapse_key: Option<&str>,
     ) -> Result<Option<Vec<UserNotificationRow<Arc<T>>>>, Report> {
+        if request.recipient_ids.is_empty() {
+            return Ok(None);
+        }
         self.created_notifications
             .lock()
             .unwrap()
@@ -306,6 +312,17 @@ impl NotificationRepository for MockRepository {
             })
             .collect();
         Ok(Some(rows))
+    }
+
+    async fn notification_is_withdrawn(&self, notification_id: Uuid) -> Result<bool, Report> {
+        Ok(self.withdrawn_notifications.contains(&notification_id))
+    }
+
+    async fn complete_notification_publication(
+        &self,
+        _notification_id: Uuid,
+    ) -> Result<(), Report> {
+        Ok(())
     }
 
     async fn update_sent_status<'a>(
@@ -501,6 +518,7 @@ impl NotificationRepository for MockRepository {
         _device_token: &str,
         _device_endpoint: &str,
         _device_type: &DeviceType,
+        _native_call_capable: bool,
     ) -> Result<(), Report> {
         Ok(())
     }
@@ -588,6 +606,16 @@ impl NotificationRepository for std::sync::Arc<MockRepository> {
     ) -> Result<Option<Vec<UserNotificationRow<Arc<T>>>>, Report> {
         (**self)
             .create_notification(request, notification_id, service_sender, apns_collapse_key)
+            .await
+    }
+
+    async fn notification_is_withdrawn(&self, notification_id: Uuid) -> Result<bool, Report> {
+        (**self).notification_is_withdrawn(notification_id).await
+    }
+
+    async fn complete_notification_publication(&self, notification_id: Uuid) -> Result<(), Report> {
+        (**self)
+            .complete_notification_publication(notification_id)
             .await
     }
 
@@ -750,9 +778,16 @@ impl NotificationRepository for std::sync::Arc<MockRepository> {
         device_token: &str,
         device_endpoint: &str,
         device_type: &DeviceType,
+        native_call_capable: bool,
     ) -> Result<(), Report> {
         (**self)
-            .upsert_device(user_id, device_token, device_endpoint, device_type)
+            .upsert_device(
+                user_id,
+                device_token,
+                device_endpoint,
+                device_type,
+                native_call_capable,
+            )
             .await
     }
 

@@ -21,6 +21,7 @@ import { useUserId } from '@core/context/user';
 import { useAddInboxFlow } from '@core/email-link';
 import { calendarConsentScopes } from '@core/email-link/consent';
 import { recipientEntityMapper, useContacts } from '@core/user';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { useVisibleCalendarsQuery } from '@queries/calendar/calendars';
 import { useEmailLinksQuery } from '@queries/email/link';
 import type { CreateCalendarEvent } from '@service-cognition/generated/tools/types';
@@ -45,6 +46,12 @@ export type CalendarDraftComposerProps = {
   initialData: CreateCalendarEvent;
   /** Where edits, the confirmation and the rejection go. */
   sink: UserToolReviewSink<CreateCalendarEvent>;
+  /** Capture edits before a surrounding stack navigates or submits. */
+  registerDraftReader?: (reader: () => CreateCalendarEvent | undefined) => void;
+  /** The same validated form snapshot used by individual creation. */
+  registerSubmitReader?: (
+    reader: () => Promise<CreateCalendarEvent | undefined>
+  ) => void;
   /** A key for the preview's synthetic event; the call's id in practice. */
   previewKey: string;
   /** Show the calendar preview under the form. On by default. */
@@ -99,8 +106,10 @@ function CalendarDraftComposerContent(props: CalendarDraftComposerProps) {
     calendarsQuery.isPending || linksQuery.isPending;
   const calendarLoadFailed = () => calendarsQuery.isError || linksQuery.isError;
   const retryCalendarData = () => {
-    if (calendarsQuery.isError) void calendarsQuery.refetch();
-    if (linksQuery.isError) void linksQuery.refetch();
+    if (calendarsQuery.isError)
+      fireAndForget(calendarsQuery.refetch(), 'ai-calendar-compose');
+    if (linksQuery.isError)
+      fireAndForget(linksQuery.refetch(), 'ai-calendar-compose');
   };
   const primaryInbox = () =>
     links().find((link) => link.macro_id === userId() && link.is_primary);
@@ -180,6 +189,9 @@ function CalendarDraftComposerContent(props: CalendarDraftComposerProps) {
       : undefined;
   }
 
+  props.registerDraftReader?.(currentArgs);
+  props.registerSubmitReader?.(async () => currentArgs());
+
   async function handleCreate(values: EventEditorSubmitValues) {
     if (interactionLocked()) return;
     const args = currentArgs(values);
@@ -248,10 +260,13 @@ function CalendarDraftComposerContent(props: CalendarDraftComposerProps) {
                         variant="outline"
                         size="sm"
                         onClick={() =>
-                          void startAddInbox({
-                            scopes: calendarConsentScopes(link()),
-                            emailAddress: link().email_address,
-                          })
+                          fireAndForget(
+                            startAddInbox({
+                              scopes: calendarConsentScopes(link()),
+                              emailAddress: link().email_address,
+                            }),
+                            'add-inbox'
+                          )
                         }
                       >
                         Reconnect calendar
@@ -263,7 +278,10 @@ function CalendarDraftComposerContent(props: CalendarDraftComposerProps) {
                       variant="outline"
                       size="sm"
                       onClick={() =>
-                        void startAddInbox({ scopes: 'gmail_and_calendar' })
+                        fireAndForget(
+                          startAddInbox({ scopes: 'gmail_and_calendar' }),
+                          'add-inbox'
+                        )
                       }
                     >
                       Connect calendar
@@ -281,8 +299,12 @@ function CalendarDraftComposerContent(props: CalendarDraftComposerProps) {
               finalized || !props.sink.canAct() || operation() === 'reject'
             }
             pending={operation() === 'create'}
-            onCancel={() => void handleCancel()}
-            onSubmit={(values) => void handleCreate(values)}
+            onCancel={() =>
+              fireAndForget(handleCancel(), 'ai-calendar-compose')
+            }
+            onSubmit={(values) =>
+              fireAndForget(handleCreate(values), 'ai-calendar-compose')
+            }
           />
         </div>
         <Show when={props.showPreview !== false}>

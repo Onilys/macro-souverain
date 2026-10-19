@@ -5,6 +5,9 @@ runner=runner.ts
 if [[ ${1:-} == --links ]]; then
   runner=links-runner.ts
   shift
+elif [[ ${1:-} == --notifications ]]; then
+  runner=notifications-runner.ts
+  shift
 fi
 for tool in bun unshare ip dbus-run-session xvfb-run WebKitWebDriver; do
   if ! command -v "$tool" >/dev/null; then

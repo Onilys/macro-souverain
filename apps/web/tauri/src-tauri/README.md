@@ -182,7 +182,10 @@ GraphQL hydration checkpoints require the native
 through the bundle updater, set `MIN_NATIVE_BUILD_ANDROID` to the first Android
 versionCode that implements the command and `MIN_NATIVE_BUILD_IOS` to the first
 iOS CFBundleVersion that implements it. Set both together: build numbers are
-independent. The schema 3 manifest carries `minNativeBuilds: { android, ios }`;
+independent. Production builds (`just build-prod`) read both from
+`apps/web/min-native-build.json`; `just ios-bump` raises the iOS one (see
+`apps/web/docs/ios-releases.md`). The schema 3 manifest carries
+`minNativeBuilds: { android, ios }`;
 the endpoint returns the requesting platform's minimum in its existing response.
 The updater checks that minimum during extraction, restore, and application.
 Old schema 2 updaters reject schema 3 and continue using their existing bundle.
@@ -204,6 +207,16 @@ sender. Before publishing this frontend in a desktop OTA archive, set
 `MIN_NATIVE_BUILD` to the first native release containing the command. Older
 binaries show an update-required notice instead of falling back to the legacy
 notification API, which macOS rejects after UserNotifications has been used.
+
+Linux notification activation requires `send_linux_notification` and
+`close_linux_notification`. Ship a full native AppImage containing these commands;
+a frontend-only update cannot add clickable system notifications. Before publishing
+this frontend as a desktop OTA archive, raise `MIN_NATIVE_BUILD` to that release.
+Older Linux binaries show an update-required error rather than silently sending
+notifications that cannot be activated. The native sender retains the D-Bus
+connection, advertises the default Open action, and forwards activation tokens to
+GTK before the existing frontend notification callback navigates. Dismissal never
+navigates. This supports the running app, not relaunch after the process exits.
 
 Extraction writes a sibling `<directory>.complete` record only after checksum,
 extraction, manifest, and entrypoint validation succeed. Directories without a

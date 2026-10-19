@@ -88,9 +88,28 @@ and keyboard activation, a normal `_blank` link, same-frame external navigation,
 `window.open`, and absolute/relative Macro app links. Each external activation
 must launch exactly once and retain the original webview. Prevented clicks and
 browser-only/local-file popup URLs must not launch anything. The desktop JS click
-interceptor must be absent. Artifacts are under `test-results/native/links-*`.
+interceptor must be absent. A trusted standalone HTML document must open in a
+separate native window, not be converted to an SPA navigation or external launch.
+Artifacts are under `test-results/native/links-*`.
 This is Linux coverage; macOS/Windows native popup handling and the unchanged
 mobile JS fallback need platform-specific verification.
+
+## Native notification activation regression
+
+After `bun run native:e2e:build`, run `bun run native:e2e:notifications` in the
+same `.#tauri-e2e` shell. A disposable Rust notification daemon owns only the
+isolated session bus. The production Linux notification adapter runs in the real
+WebKit window and calls the actual native commands; no IPC is mocked. The suite
+checks the advertised default action, two independent notification handles,
+activation-token/click delivery through GTK to the correct JS callback, dismissal
+without navigation, and explicit close. Artifacts are in
+`test-results/native/notifications-*`.
+
+This is not a compositor focus test: Xvfb has no Wayland activation protocol. On a
+real desktop, separately check clicking a notification with Macro minimized,
+hidden, or on another workspace. Both the shell and GTK must support activation
+tokens for Wayland focus. It also does not test process relaunch or authenticated
+notification-target rendering (the callback navigates a local fixture).
 
 ## Exhaustive filter-selection matrix
 

@@ -8,6 +8,7 @@ import {
   StaticMarkdown,
   StaticMarkdownContext,
 } from '@core/component/LexicalMarkdown/component/core/StaticMarkdown';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { GithubLabelPills } from '@entity/components/GithubLabelPill';
 import { PrAgentSessionsChip } from '@entity/views/PrAgentSessionsChip';
 import { DebouncedNotificationReadMarker } from '@notifications';
@@ -244,7 +245,7 @@ export function StandalonePrDetail(props: { foreignEntityId: string }) {
               data={detail.data()}
               status={detail.query.status}
               discussionSource={detail.discussionSource}
-              onRetry={() => void detail.query.refetch()}
+              onRetry={() => fireAndForget(detail.query.refetch(), 'pr-detail')}
             />
           </div>
         </ChangesSplit>

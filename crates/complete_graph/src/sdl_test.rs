@@ -1,4 +1,29 @@
 #[test]
+fn email_senders_are_embedded_and_legacy_participants_remain_available() {
+    let sdl = crate::build_schema().sdl();
+    let participant = sdl
+        .split_once("type GraphqlSoupEmailSender {")
+        .expect("email sender type")
+        .1
+        .split_once('}')
+        .expect("end of email sender type")
+        .0;
+    assert!(
+        participant
+            .lines()
+            .any(|line| line.trim() == "contactId: ID!")
+    );
+    assert!(sdl.contains("senders: [GraphqlSoupEmailSender!]!"));
+    assert!(sdl.contains("participants: [GraphqlSoupEmailParticipant!]!"));
+    assert!(
+        !participant
+            .lines()
+            .any(|line| line.trim().starts_with("id:")),
+        "message-specific names must not be normalized by contact ID"
+    );
+}
+
+#[test]
 fn soup_response_schema_exposes_frontend_fields() {
     let sdl = crate::build_schema().sdl();
 
@@ -27,7 +52,8 @@ fn soup_response_schema_exposes_frontend_fields() {
         "linkId: ID!",
         "latestInboundMessageTs: String",
         "senderPhotoUrl: String",
-        "participants: [GraphqlSoupEmailParticipant!]!",
+        "participants: [GraphqlSoupEmailParticipant!]! @deprecated(reason: \"Use senders to preserve message-specific display names.\")",
+        "senders: [GraphqlSoupEmailSender!]!",
         "attachments: [GraphqlSoupEmailAttachment!]!",
         "labels: [GraphqlSoupEmailLabel!]!",
         "type GraphqlEmailLink {",
@@ -151,10 +177,28 @@ fn soup_response_schema_exposes_frontend_fields() {
     ] {
         assert_sdl_line(&sdl, expected);
     }
-    assert!(
-        sdl.contains("union GraphqlNotifEvent = GraphqlChannelMentionMetadata |"),
-        "notification metadata must be represented by the typed event union"
-    );
+    let schema = apollo_compiler::Schema::parse_and_validate(&sdl, "schema.graphql")
+        .expect("generated SDL is valid");
+    let apollo_compiler::schema::ExtendedType::Union(metadata) = schema
+        .types
+        .get("GraphqlNotifEvent")
+        .expect("notification metadata union exists")
+    else {
+        panic!("notification metadata must be represented by the typed event union");
+    };
+    for expected in [
+        "GraphqlChannelMentionMetadata",
+        "GraphqlEntityAccessRequestedMetadata",
+        "GraphqlEntityAccessGrantedMetadata",
+    ] {
+        assert!(
+            metadata
+                .members
+                .iter()
+                .any(|member| member.name.as_str() == expected),
+            "notification metadata union missing {expected}"
+        );
+    }
     assert_eq!(
         sdl.lines()
             .filter(|line| line.trim() == "metadata: GraphqlNotifEvent!")
@@ -615,6 +659,8 @@ fn scheduled_actions_hang_off_the_authenticated_user() {
         "CHANNEL_MENTIONED",
         "CHANNEL_MESSAGE_PATCHED",
         "CHANNEL_MESSAGE_ATTACHMENT_CREATED",
+        "CALL_STARTED",
+        "CALL_ENDED",
     ] {
         assert_sdl_line(&sdl, value);
     }

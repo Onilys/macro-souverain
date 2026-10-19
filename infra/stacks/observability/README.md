@@ -1,5 +1,66 @@
 # Observability pilot
 
+## CI telemetry
+
+`tooling/xtask/crates/xtask_workflows/src/workflows/export_ci_telemetry.rs` defines
+this workflow. Run `cargo x workflows` to regenerate
+`.github/workflows/export-ci-telemetry.yml`; CI checks it for drift. The JavaScript
+preflight and shell credential reader are embedded from adjacent `scripts/` files
+at generation time, so runtime checkout is unnecessary.
+
+The generated workflow observes completed workflows on its
+explicit name list using Grafana's
+[`gha-otel-export`](https://github.com/grafana/grafana-github-actions/tree/b1c422726cc4ff4adb0838ebca67586f24babb42/gha-otel-export)
+action, pinned to that reviewed commit. It reads the triggering attempt's GitHub
+metadata and sends OTLP/HTTP protobuf traces to our existing endpoint. The trace
+hierarchy is workflow → jobs → steps, stored in Tempo with
+`service.name=github-actions` and `deployment.environment=ci`. There is no custom
+telemetry exporter, triggering PR checkout, artifact download, raw build-log
+collection, or Datadog export. Individual test cases are outside this integration.
+
+`/d/macro-ci` provides workflow traces, failed/cancelled jobs and steps, and jobs
+running longer than five minutes. Open a trace for its execution waterfall and
+GitHub URL. Search tables are limited to 100 traces and 100 matching spans per
+trace; narrow the time range to investigate further. These are bounded searches,
+not complete counts or p95 summaries. The action does not emit our old structured
+Loki events. Job durations exclude runner queue time. Workflow root duration
+includes waiting and, on reruns, starts at the original run creation time because
+of an upstream limitation; do not treat it as attempt execution time.
+
+### Pinned exporter limits
+
+A small metadata preflight rejects runs that the upstream action cannot export
+reliably: more than 100 jobs, 512 or more total workflow/job/step spans, colliding
+name-derived span IDs, or unavailable/invalid job or step timestamps. The action
+only fetches its first jobs page; its automatic batch export can swallow delivery
+errors at 512 spans. These guards catch those known cases before export.
+Skipped/cancelled jobs are included when GitHub supplies their timestamps; those
+without timing cause a visible exporter failure. Zero-job attempts are skipped
+with a notice. Remove limits only after upgrading and verifying the upstream fix.
+
+Deploy the prod Pulumi stack before enabling the workflow: it creates the account's
+GitHub OIDC provider and `macro-observability-ci` role, restricted to this repository's
+`main` identity and reading only `observability/dev-ingest` from Secrets Manager.
+There are no stored AWS access keys in this workflow. `ciIngestSecretArn` must match
+that existing Virginia secret. The bearer token is masked and passed only to the
+export step. The role can submit telemetry but cannot read stored traces or obtain
+Grafana's OAuth credentials. The provider is account-wide and protected; import it
+into Pulumi if another stack creates it before this rollout.
+
+Build, publish and smoke-boot a NixOS image with `ci-dashboard.nix`, then pin its AMI
+and deploy normally to provision the dashboard. The workflow starts observing after
+merge to `main`; add new workflow names to its list when they are introduced.
+GitHub's three-level `workflow_run` chaining limit still applies. Keep
+`trace-artifacts-glob` unset so the exporter never downloads PR-produced artifacts.
+
+Exporter failures appear as failed **Export CI telemetry** runs and do not change
+the observed workflow's result. Retry transient failures after GitHub finalizes job
+metadata. Deterministic trace IDs allow lookup across retries, but delivery is not
+transactional or guaranteed exactly once. Old spans are subject to Tempo's ingestion
+and retention limits. This is completion-time collection, with no live job progress,
+historical backfill, or CI alert notifications. Validate a successful and failed
+workflow, a rerun, and a multi-job trace after rollout before relying on the dashboard.
+
 This stack starts Grafana alongside Datadog on one private EC2 instance. It
 runs Grafana, Loki, Tempo, Prometheus, Alloy and nginx as native systemd services
 on a prebuilt NixOS image. There is no Docker or Compose dependency. Nix owns
@@ -228,7 +289,7 @@ From `infra/stacks/observability`, on an x86_64 Linux Nix builder:
 
 ```bash
 nix build . --cores 2
-python3 nixos/publish-image.py result '<private Ohio image-artifact bucket>'
+python3 nixos/publish-image.py result macro-observability-images-569036502058-us-east-2 --role macro-observability-vmimport
 ```
 
 The build produces a UEFI VHD with the complete host configuration. KVM speeds up
@@ -352,8 +413,8 @@ Tempo spans link to the service's logs in a time window and its generated metric
 logs carrying an OTLP trace ID link back to the trace. FireLens logs do not always
 carry trace IDs, so service/time correlation is not a claim of exact trace-to-log
 matching. Service graph edges require correctly related client/server spans.
-Profiles, database query monitoring, RUM/session replay, and complete Datadog
-dashboard/monitor migration remain separate coverage work.
+Profiles, production/full database-query parity, RUM/session replay, and complete
+Datadog dashboard/monitor migration remain separate coverage work.
 
 ### Provisioned dashboards and alerts
 
@@ -447,6 +508,17 @@ stack definitions and the CloudWatch-logged preview gateway need a separate
 coverage pass. Lambda CloudWatch logs, RUM/session replay, synthetics and database query monitoring
 are separate sources; ECS/edge OTLP duplication alone does not provide parity.
 
+## PostgreSQL query monitoring
+
+The separate [dev database collector](../database-observability/README.md) sends
+query statistics to Prometheus and normalized SQL/activity samples to Loki. Its
+query dashboard at `/d/macro-postgres-queries` links from `/d/macro-postgres`.
+Deploy the Ohio image with the authenticated POST-only `/loki/api/v1/push` route
+before upgrading the collector. The route reuses the existing ingestion
+credential and exposes no Loki query or administration APIs. SQL records are
+sensitive and use Loki's existing retention/access controls. Database setup and
+collector deployment are manual; merging the PR does not enable collection.
+
 ## Validation and subsequent passes
 
 From `infra/`, run `bunx biome check stacks/observability` and `bun run check`.
@@ -463,9 +535,10 @@ Follow-up PRs:
    independent bounded queues, retries and matching sampling. Check actual
    metrics temporality and attribute mapping before enabling all services.
 2. Inventory non-OTEL sources: Datadog agents, infrastructure metrics, CloudWatch,
-   RDS/Postgres query monitoring and logs, browser RUM, synthetics, profiling and
-   security features. They are not covered by duplicating OTLP. Add DB collectors
-   with dedicated read-only monitoring identities and evaluate query-level
+   production RDS/Postgres query parity and logs, browser RUM, synthetics,
+   profiling and security features. They are not covered by duplicating OTLP.
+   Extend the dev DB collector to production with dedicated read-only monitoring
+   identities and evaluate query-level
    parity before replacing Datadog DBM.
 3. Port dashboards/alerts and run representative incidents in both tools. Add
    pipeline/queue alerts, ingestion canaries, host/root-disk monitoring and a

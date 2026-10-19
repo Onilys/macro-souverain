@@ -11,10 +11,10 @@ import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { getPlatform, isTauri } from '@core/util/platform';
 import { platformFetch } from '@core/util/platformFetch';
 import { promptReloadForFailedLoad } from '@core/util/reloadForNewerBuild';
+import { Telemetry } from '@macro-inc/observability';
 import { initMonochromeIcons } from '@ui/utils/monochromeIcons';
 import { ErrorBoundary, render } from 'solid-js/web';
 import { FatalError } from './components/app/FatalError';
-import { registerServiceWorker } from './lib/service-worker/register';
 import { Root } from './routes/Root';
 
 // Override global fetch with platformFetch for Tauri compatibility
@@ -114,8 +114,6 @@ async function main() {
   }
 
   renderApp();
-  registerServiceWorker();
 }
 
-// unawaited
-main();
+main().catch((error) => Telemetry.error(error, { surface: 'app-startup' }));

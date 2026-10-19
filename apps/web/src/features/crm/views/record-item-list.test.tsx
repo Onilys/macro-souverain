@@ -68,3 +68,38 @@ it('keeps loaded rows and retries the page after a failed continuation', () => {
   expect(failed.fetchNextPage).toHaveBeenCalledTimes(1);
   expect(failed.refetch).not.toHaveBeenCalled();
 });
+
+it('searches titles and supporting text without dropping pagination', () => {
+  const list = source({
+    data: {
+      entities: [
+        { id: 'call-1', name: 'Pilot check-in', summary: 'Review adoption' },
+        {
+          id: 'call-2',
+          name: 'Technical deep dive',
+          summary: 'Security review',
+        },
+      ] as never,
+    },
+    hasNextPage: true,
+  });
+  render(() => (
+    <RecordItemList source={list} search="  REVIEW pilot  " empty="Nothing" />
+  ));
+
+  screen.getByText('Pilot check-in');
+  expect(screen.queryByText('Technical deep dive')).toBeNull();
+  expect(screen.queryByText('No matching items.')).toBeNull();
+});
+
+it('only declares no search results after the final page', () => {
+  render(() => (
+    <RecordItemList
+      source={source({ hasNextPage: true })}
+      search="missing"
+      empty="Nothing"
+    />
+  ));
+  screen.getByText('Searching more…');
+  expect(screen.queryByText('No matching items.')).toBeNull();
+});

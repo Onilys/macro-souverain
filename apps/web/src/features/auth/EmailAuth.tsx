@@ -11,7 +11,9 @@ import { useEmailLinks } from '@core/email-link';
 import { consumeInboxLinkReturn } from '@core/email-link/return-layout';
 import { isMobile } from '@core/mobile/isMobile';
 import { isNativeMobilePlatform } from '@core/mobile/isNativeMobilePlatform';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { whenSettled } from '@core/util/whenSettled';
+import { Telemetry } from '@macro-inc/observability';
 import SpinnerIcon from '@phosphor/spinner-gap.svg';
 import {
   invalidateAllAfterLogin,
@@ -76,7 +78,9 @@ function EmailSignupCallback(props: Pick<EmailAuthParams, 'successPath'>) {
     query,
     async () => {
       const onSuccess = () => {
-        onSuccessfulAuth();
+        onSuccessfulAuth().catch((error) =>
+          Telemetry.error(error, { surface: 'email-auth' })
+        );
         navigateToSuccess();
       };
 
@@ -232,7 +236,7 @@ function EmailLinkCallback(props: Pick<EmailAuthParams, 'successPath'>) {
       return;
     }
 
-    void runInit(linkId, false);
+    fireAndForget(runInit(linkId, false), 'email-auth');
   });
 
   return (
@@ -283,7 +287,7 @@ function EmailLinkCallback(props: Pick<EmailAuthParams, 'successPath'>) {
           onShare={() => {
             const linkId = c().linkId;
             setConflict(null);
-            void runInit(linkId, true);
+            fireAndForget(runInit(linkId, true), 'email-auth');
           }}
         />
       )}

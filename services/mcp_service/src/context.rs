@@ -447,6 +447,11 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
         &databases_tool_context,
         &crm_tool_context,
     );
+    let crm_transfer_tool_context = ai_tools::build_crm_transfer_tool_context(
+        &pipeline_tool_context,
+        &crm_tool_context,
+        &document_tool_context,
+    );
 
     let calendar_tool_context = ai_tools::build_calendar_tool_context(
         db.clone(),
@@ -531,6 +536,7 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
     );
 
     let tool_context = ToolServiceContext {
+        cognition_tool_context: ai_tools::build_cognition_tool_context()?,
         connector_tool_context: ai_tools::build_connector_tool_context(db.clone(), None),
         email_service_client: Arc::new(EmailServiceClientExternal::new(
             email_service_client.url().to_owned(),
@@ -577,6 +583,7 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
         import_tool_context: ToolImportToolContext::wired(import_service),
         chat_tool_context,
         channel_tool_context,
+        channel_media_upload_tool_context: ai_tools::build_channel_media_upload_tool_context()?,
         bot_tool_context: ai_tools::build_bot_tool_context(
             db.clone(),
             ai_tools::MaybeToolEventBroker::Real(macro_event_broker.clone()),
@@ -597,6 +604,7 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
         team_tool_context: ai_tools::build_team_tool_context(db.clone()),
         crm_tool_context,
         pipeline_tool_context,
+        crm_transfer_tool_context,
         skill_tool_context,
         schedule_tool_context: ai_tools::build_routine_tool_context()?,
         anthropic_tool_context: ai_tools::build_anthropic_tool_context(),

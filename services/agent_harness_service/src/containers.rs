@@ -174,7 +174,7 @@ where
                     self.inmem()
                         .manager
                         .attach(*facts, Some(command.egress.session_token))
-                        .await,
+                        .await?,
                 ),
             )),
             Route::Sandbox => self
@@ -240,7 +240,7 @@ where
                         self.inmem()
                             .manager
                             .attach(*facts, Some(token.as_str().to_owned()))
-                            .await,
+                            .await?,
                     ),
                 ))
             }

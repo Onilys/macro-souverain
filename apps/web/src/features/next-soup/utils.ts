@@ -13,6 +13,7 @@ import {
   CALENDAR_VIEW_ID,
   type CalendarViewTarget,
 } from '@app/features/calendar-view/types';
+import { callsHostedContent } from '@app/features/calls-view/calls-hosted-content';
 import { driveHostedContent } from '@app/features/drive-view/drive-hosted-content';
 import { projectRouteId } from '@app/features/projects/core/route';
 import { reviewsHostedContent } from '@app/features/reviews-view/reviews-hosted-content';
@@ -52,6 +53,7 @@ import {
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import type { BlockOrchestrator } from '@core/orchestrator';
 import type { DateValue } from '@core/util/date';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { throwOnErr } from '@core/util/result';
 import { waitForFrames } from '@core/util/sleep';
 import { openExternalUrl } from '@core/util/url';
@@ -78,6 +80,7 @@ import {
   type WithNotification,
   type WithSearch,
 } from '@entity';
+import { Telemetry } from '@macro-inc/observability';
 import {
   compositeEntity,
   documentCommentLocation,
@@ -747,6 +750,7 @@ export const openEntityInSplitFromUnifiedList = async (
   // legacy blocks. Comment targets keep their document block.
   const hostedContent =
     reviewsHostedContent(content) ??
+    callsHostedContent(content) ??
     driveHostedContent(content, {
       allowDocuments: !isTouchDevice() && !commentParams,
     });
@@ -788,9 +792,12 @@ export const openEntityInSplitFromUnifiedList = async (
     markedNotifications = true;
     if (!options.notificationSource) return;
     if (deferredChannel) {
-      void hydrateNotificationsAndMarkSeen(
-        deferredChannel,
-        options.notificationSource
+      fireAndForget(
+        hydrateNotificationsAndMarkSeen(
+          deferredChannel,
+          options.notificationSource
+        ),
+        'open-entity-in-split'
       );
       return;
     }
@@ -821,14 +828,20 @@ export const openEntityInSplitFromUnifiedList = async (
     markNotificationsSeen();
   }
 
-  if (commentParams && entity.type === 'document') {
-    // An already-open document ignores new split params.
-    await navigateDocumentEntityToComment(entity, blockOrchestrator);
-  } else if (!target && openChannelAtLatest) {
-    // Force the scroll-to-bottom even when the channel is already open in a
-    // (preview) split, where reopen: 'latest' only reactivates the parked
-    // split without re-pinning it to the newest message.
-    await goToChannelLatest(blockOrchestrator, content.id);
+  // The split is already open; a failed in-block navigation leaves it at its
+  // default position, so report it rather than rejecting every caller.
+  try {
+    if (commentParams && entity.type === 'document') {
+      // An already-open document ignores new split params.
+      await navigateDocumentEntityToComment(entity, blockOrchestrator);
+    } else if (!target && openChannelAtLatest) {
+      // Force the scroll-to-bottom even when the channel is already open in a
+      // (preview) split, where reopen: 'latest' only reactivates the parked
+      // split without re-pinning it to the newest message.
+      await goToChannelLatest(blockOrchestrator, content.id);
+    }
+  } catch (error) {
+    Telemetry.error(error, { surface: 'open-entity-in-split' });
   }
 };
 
@@ -879,10 +892,13 @@ export function markCalendarNotificationSeenOnOpen(
 ) {
   // Calendar events open a component split without a block to clear notifications.
   if (entity.type !== 'calendar_event') return;
-  void markNotificationsForEntityAsReadInBackground(notificationSource, {
-    type: entity.type,
-    id: entity.id,
-  });
+  fireAndForget(
+    markNotificationsForEntityAsReadInBackground(notificationSource, {
+      type: entity.type,
+      id: entity.id,
+    }),
+    'open-entity-in-split'
+  );
 }
 
 /**

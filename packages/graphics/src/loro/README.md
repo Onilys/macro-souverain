@@ -1,9 +1,9 @@
 # Two-peer scene experiment
 
-Status reviewed 2026-09-28. See the [main progress plan](../../../../docs/GRAPHICS_PARITY.md).
+Status reviewed 2026-09-28. See the [main progress plan](../../../../docs/design/graphics-parity.md).
 Automated mapping coverage now includes pencil, rich text/labels, connectors and
 media/document references. Full Canvas Next integration is deferred while the
-[legacy bridge and colors](../../../../docs/CANVAS_LEGACY_BRIDGE.md) take priority.
+[legacy bridge and colors](../../../../docs/architecture/canvas-legacy-bridge.md) take priority.
 
 `@macro-inc/graphics/loro` is an experimental adapter with an in-memory transport
 harness used by tests. It uses the workspace Loro version (1.16.3). No SyncService,

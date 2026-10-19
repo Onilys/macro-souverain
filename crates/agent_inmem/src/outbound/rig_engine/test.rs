@@ -9,8 +9,45 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use std::sync::Mutex;
 
+#[tokio::test]
+async fn a_runtime_panic_is_reported_as_failure_instead_of_an_empty_success() {
+    let (parts, mut receiver) = mpsc::channel(2);
+    forward_turn_result(async { panic!("provider initialization failed") }, &parts).await;
+    drop(parts);
+    let error = receiver.recv().await.unwrap().unwrap_err();
+    assert!(error.to_string().contains("runtime ended unexpectedly"));
+    assert!(receiver.recv().await.is_none());
+}
+
+#[tokio::test]
+async fn a_failure_after_partial_output_is_still_forwarded_to_the_consumer() {
+    let (parts, mut receiver) = mpsc::channel(2);
+    forward_turn_result(
+        async {
+            parts
+                .send(Ok(StreamPart::Content("Partial answer".into())))
+                .await
+                .unwrap();
+            Err(AgentError::Other(anyhow::anyhow!("provider unavailable")))
+        },
+        &parts,
+    )
+    .await;
+    assert!(matches!(
+        receiver.recv().await.unwrap(),
+        Ok(StreamPart::Content(_))
+    ));
+    assert_eq!(
+        receiver.recv().await.unwrap().unwrap_err().to_string(),
+        "provider unavailable"
+    );
+}
+
 /// A stand-in for the toolset prompt, short enough to assert on positionally.
 const TOOLS: &str = "TOOLS";
+
+#[path = "test/tool_mode.rs"]
+mod tool_mode;
 
 #[test]
 fn cached_definitions_keep_client_capabilities_and_reviewable_tools() {
@@ -35,6 +72,24 @@ fn cached_definitions_keep_client_capabilities_and_reviewable_tools() {
             assert!(tools.user_tools.contains_key(name));
         }
     }
+}
+
+#[test]
+fn reduced_definitions_keep_user_input_and_user_tool_review() {
+    let tools = NativeTools::from_factory(ai_tools::tools_for_agent_code_mode, true);
+    assert!(tools.for_turn(true).tools.contains_key("AskUser"));
+    assert!(!tools.for_turn(false).tools.contains_key("AskUser"));
+    for supports_input in [true, false] {
+        let selected = tools.for_turn(supports_input);
+        for name in ["SendEmail", "CreateCalendarEvent"] {
+            assert!(selected.user_tools.contains_key(name));
+        }
+        assert!(selected.tools.contains_key("ContentSearch"));
+        assert!(!selected.tools.contains_key("NameSearch"));
+    }
+    assert!(tools.tool_names.contains("ContentSearch"));
+    assert!(!tools.tool_names.contains("NameSearch"));
+    assert!(!tools.deferred.iter().any(|tool| tool.name == "NameSearch"));
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -146,7 +201,7 @@ fn instructions_are_a_delimited_section_after_the_standing_prompt() {
          conversation is agent session {session}. Once it grows long, its earlier part is \
          summarized to keep it within your context. To find the exact words of anything said \
          earlier, summarized or not, run ContentSearch with agentSessionIds \
-         [\"{session}\"].\n</agent_session>"
+         [\"{session}\"]. ContentSearch remains a direct tool for scoped session-history search.\n</agent_session>"
     )));
 }
 
@@ -226,7 +281,7 @@ fn sessions_of_an_agent_share_everything_before_their_instructions() {
         "\n<agent_session>\nThis conversation is agent session {session}. Once it grows long, \
          its earlier part is summarized to keep it within your context. To find the exact words \
          of anything said earlier, summarized or not, run ContentSearch with agentSessionIds \
-         [\"{session}\"].\n</agent_session>"
+         [\"{session}\"]. ContentSearch remains a direct tool for scoped session-history search.\n</agent_session>"
     );
     assert_eq!(
         first.rest(),

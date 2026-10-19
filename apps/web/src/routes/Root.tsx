@@ -30,6 +30,7 @@ import {
   syncLoginStorage,
   updateCookie,
 } from '@core/util/cookies';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { licenseChannel } from '@core/util/licenseUpdateBroadcastChannel';
 import { isTauri } from '@core/util/platform';
 import { transformShortIdInUrlPathname } from '@core/util/url';
@@ -43,6 +44,7 @@ import {
   prefetchUserInfo,
   useUserInfoQuery,
 } from '@queries/auth/user-info';
+import { setGraphqlSoupSessionActive } from '@service-storage/graphql-soup';
 import { MetaProvider, Title } from '@solidjs/meta';
 import {
   HashRouter,
@@ -73,6 +75,7 @@ function useSyncLoginCookie() {
     const { value, ...options } = getLoginCookieOptions(authenticated);
     updateCookie('login', value, options);
     syncLoginStorage(authenticated);
+    setGraphqlSoupSessionActive(authenticated);
   });
 }
 
@@ -209,7 +212,7 @@ export function Root() {
 
   createEffect(() => {
     const cleanup = licenseChannel.subscribe(() => {
-      invalidateUserInfo();
+      fireAndForget(invalidateUserInfo(), 'license-update');
     });
 
     onCleanup(() => cleanup());

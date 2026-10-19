@@ -25,7 +25,7 @@ use crate::domain::{
     },
     ports::{
         EmailContentService, EmailMessageEnqueuer, EmailRepo, EmailService,
-        EmailThreadMailProjectionService, EmailThreadMetadataService,
+        EmailThreadMailProjectionService, EmailThreadMetadataService, EmailThreadPreviewService,
     },
 };
 use crm::domain::service::CrmService;
@@ -607,6 +607,26 @@ where
         receipts: Vec<EntityAccessReceipt<ViewAccessLevel>>,
     ) -> Result<HashMap<Uuid, EmailThreadMailProjection>, EmailErr> {
         self.get_email_thread_mail_projections_impl(viewer, receipts)
+            .await
+    }
+}
+
+impl<T, U, E, CS, Eam, B> EmailThreadPreviewService for EmailServiceImpl<T, U, E, CS, Eam, B>
+where
+    T: EmailRepo,
+    U: FrecencyQueryService,
+    E: EmailMessageEnqueuer,
+    CS: CrmService,
+    Eam: EntityAccessManagementService,
+    B: MacroEventBroker,
+    anyhow::Error: From<T::Err>,
+{
+    async fn get_email_thread_previews_by_receipts(
+        &self,
+        viewer: macro_user_id::user_id::MacroUserIdStr<'static>,
+        receipts: Vec<EntityAccessReceipt<ViewAccessLevel>>,
+    ) -> Result<Vec<EnrichedEmailThreadPreview>, EmailErr> {
+        self.get_email_thread_previews_by_receipts_impl(viewer, receipts)
             .await
     }
 }

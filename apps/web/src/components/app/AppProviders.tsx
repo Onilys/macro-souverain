@@ -1,3 +1,4 @@
+import { useAccessRequestInvalidations } from '@app/features/access-requests/use-access-request-invalidations';
 import { IncomingMeetingInvitationsProvider } from '@app/features/meetings/incoming-meeting-invitations';
 import { usePendingNotificationNavigationEffect } from '@app/features/notifications/PendingNotificationNavigationEffect';
 import { SearchProvider } from '@app/features/soup/search/context';
@@ -14,6 +15,7 @@ import { TeamContextProvider } from '@core/context/team';
 import { useUserId } from '@core/context/user';
 import { isNativeMobilePlatform } from '@core/mobile/isNativeMobilePlatform';
 import { createBlockOrchestrator } from '@core/orchestrator';
+import { fireAndForget } from '@core/util/fireAndForget';
 import {
   createNotificationSource,
   type UnifiedNotification,
@@ -67,9 +69,11 @@ function ConfiguredGlobalAppStateProvider(props: ParentProps) {
   }
   const notificationSource = createNotificationSource(
     connectionGatewayWebsocket,
-    (notification) => void deliverNotification(notification)
+    (notification) =>
+      fireAndForget(deliverNotification(notification), 'notifications')
   );
   useNotificationUpdates(notificationSource);
+  useAccessRequestInvalidations();
   useReactiveFavicon(notificationSource);
 
   const blockOrchestrator = createBlockOrchestrator();

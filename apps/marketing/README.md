@@ -9,7 +9,8 @@ The public site, product pages, blog, sample workspace, and signup introduction
 follow the visitor's system color scheme. `?theme=cream` and `?theme=dark` pin a
 palette. `features/setup/cream-preview.css` owns the light palette; the shared
 router applies it across navigation, and each HTML entry applies it before
-first paint. Check both palettes when changing a shared demo or surface.
+first paint. Sample workspace styles read that HTML palette before route code
+runs. Check both palettes when changing a shared demo or surface.
 
 ## Ownership and dependency boundary
 
@@ -128,9 +129,13 @@ Before the first prerender build, install Chromium with
 Run `git lfs pull` when migrated video files have not been fetched. The build
 writes the public artifact to `apps/marketing/dist/`, verifies the standalone
 boundary, prerenders public pages, and finishes with the SEO migration gate.
-The homepage uses Solid SSR and hydration. Build verification checks that its
-first-painted heading retains its DOM node and geometry on desktop and mobile,
-and exercises navigation and the deferred email demo.
+The homepage uses Solid SSR and hydration. Both Vite builds compile Tailwind so
+prerendered demos include their UI utilities before the client bundle loads.
+Build verification checks sample workspace controls, icons, avatars, and layout
+with the client bundle blocked in dark and cream palettes on desktop and mobile.
+It also checks that the homepage's first-painted heading retains its DOM node and
+geometry, then exercises navigation, the embedded workspace, and the deferred
+email demo.
 
 Architecture regression tests create real temporary source graphs, CSS files,
 assets, and package symlinks. They verify that valid website references pass
@@ -253,7 +258,11 @@ Interacting with the frame settles the entrance permanently for that mount.
 Embedded mode hides the demo banner; the normal `/demo` route keeps it. Verify
 navigation and the mobile sidebar inside the frame, forward/backward scrolling,
 and interaction during the reveal. The desktop iframe renders at 85% scale inside
-the same frame. The iframe uses native lazy loading.
+the same frame. An IntersectionObserver sets the iframe's source as it nears the
+viewport. Do not use native `loading="lazy"` for the sample workspace: Safari
+can ignore the router's history updates in lazy frames and fail to boot. Verify
+the embedded workspace in native Safari as well as Chromium after a production
+build; a correctly styled standalone `/demo` does not prove the iframe boots.
 
 A benefit carousel fades the live preview into slab-serif headlines. The first
 highlight opens an email inside Home’s mixed activity feed; subsequent highlights

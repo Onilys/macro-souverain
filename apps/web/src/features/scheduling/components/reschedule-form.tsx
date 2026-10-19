@@ -1,6 +1,7 @@
-import { Button } from '@ui';
+import { fireAndForget } from '@core/util/fireAndForget';
+import { Button, DatePicker } from '@ui';
 import { createSignal, Show } from 'solid-js';
-import { Field, SelectInput, TextInput } from './fields';
+import { Field, SelectInput } from './fields';
 
 export function RescheduleForm(props: {
   timeZone: string;
@@ -58,19 +59,19 @@ export function RescheduleForm(props: {
   return (
     <form
       class="mt-6 flex flex-col gap-4 border-t border-edge-muted pt-5"
-      onSubmit={(e) => void save(e)}
+      onSubmit={(e) => fireAndForget(save(e), 'scheduling')}
     >
       <h2 class="font-semibold">Choose a new time</h2>
       <Field
         label="Date"
         hint={`Dates and times in ${props.timeZone.replaceAll('_', ' ')}`}
       >
-        <TextInput
-          type="date"
+        <DatePicker
+          aria-label="Date"
           disabled={saving()}
           required
           value={date()}
-          onInput={(e) => void load(e.currentTarget.value)}
+          onChange={(value) => fireAndForget(load(value), 'scheduling')}
         />
       </Field>
       <Show

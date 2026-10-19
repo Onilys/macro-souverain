@@ -44,6 +44,17 @@ const releaseConfig = {
 };
 
 describe('Android release versions', () => {
+  it('names pull-request releases by version code', () => {
+    const code = releaseConfig.bundle.android.versionCode;
+    expect(androidReleaseMetadata(`vc${code}`, releaseConfig).filename).toBe(
+      `macro-vc${code}-android-arm64.aab`
+    );
+    expect(() => androidReleaseMetadata(`vc${code + 1}`, releaseConfig)).toThrow(
+      /does not match/
+    );
+    expect(() => androidReleaseMetadata('vc0', releaseConfig)).toThrow();
+  });
+
   it.each(['v2026.10.7', 'v2026.10.6.2', 'v2027.1.1.0'])(
     'uses the native config independently of tag %s',
     (tag) => {
@@ -202,7 +213,7 @@ describe('Android signing provisioning', () => {
         throw new Error('secret-password');
       });
       await expect(ensureAndroidSigning(directory, properties)).rejects.toThrow(
-        'Unable to fetch Android signing credentials. Install the Doppler CLI and authenticate with read access to android-release/prd (CI: DOPPLER_TOKEN). See docs/ANDROID_DEVELOPMENT.md.'
+        'Unable to fetch Android signing credentials. Install the Doppler CLI and authenticate with read access to android-release/prd (CI: DOPPLER_TOKEN). See docs/development/android.md.'
       );
       await expect(stat(directory)).rejects.toMatchObject({ code: 'ENOENT' });
       await expect(stat(properties)).rejects.toMatchObject({ code: 'ENOENT' });

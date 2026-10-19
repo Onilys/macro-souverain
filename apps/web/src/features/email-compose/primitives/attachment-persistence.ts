@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import { type Accessor, createSignal } from 'solid-js';
 import type {
   EmailAttachmentStorage,
@@ -125,10 +126,13 @@ export function createAttachmentPersistence(options: {
         );
         inFlight.add(settled);
         setUploading(true);
-        void settled.then(() => {
-          inFlight.delete(settled);
-          setUploading(inFlight.size > 0);
-        });
+        fireAndForget(
+          settled.then(() => {
+            inFlight.delete(settled);
+            setUploading(inFlight.size > 0);
+          }),
+          'email-compose'
+        );
       }
       while (inFlight.size) await Promise.all([...inFlight]);
       // All work has settled; rethrow this save's own upload failure.

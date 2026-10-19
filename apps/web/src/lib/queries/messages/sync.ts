@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import type { MessageEvent } from '@service-storage/generated/schemas/messageEvent';
 import type {
   Message,
@@ -80,10 +81,10 @@ export function applyMessage(
     if (target.kind === 'thread_reply' && !existing) {
       // A deletion outside the preview (or one already applied) needs the
       // authoritative count, not another guessed decrement.
-      void queryClient.invalidateQueries({
+      queryClient.invalidateQueries({
         queryKey: getMessageTimelineQueryKeyPrefix(parent),
       });
-      void queryClient.invalidateQueries({
+      queryClient.invalidateQueries({
         queryKey: [...messageKeys.messagesByIds._def, parent],
       });
     } else if (
@@ -123,7 +124,7 @@ export function applyMessage(
     change === 'posted' &&
     !queryClient.getQueryData(getThreadRepliesQueryKey(parent, parent.id))
   ) {
-    void refreshUnloadedCallThread(parent);
+    fireAndForget(refreshUnloadedCallThread(parent), 'messages-sync');
   }
 }
 
@@ -159,7 +160,7 @@ export function applyRootDeletion(
     return;
   const state = cached ?? getCachedThreadState(parent, message.id);
   if (!state) {
-    void queryClient.invalidateQueries({
+    queryClient.invalidateQueries({
       queryKey: getMessageTimelineQueryKeyPrefix(parent),
     });
     return;
@@ -185,6 +186,7 @@ export function handleMessageEvent(
         user_id: event.actor,
         thread_id: change.thread_id,
         action: change.active ? 'start' : 'stop',
+        agent: change.agent,
       },
       currentUserId ?? ''
     );
@@ -208,7 +210,10 @@ export function handleMessageEvent(
   if (isOwnEcho) return;
   applyMessage(change.message, change.type);
   if (isRootPost && parent.type !== 'channel') {
-    void loadDiscussionRootState(parent, change.message.id);
+    fireAndForget(
+      loadDiscussionRootState(parent, change.message.id),
+      'messages-sync'
+    );
   }
 }
 
@@ -227,8 +232,9 @@ function refetchTimelineAwaitingFirstPage(parent: MessageParent): boolean {
   const refetch = () =>
     queryClient.invalidateQueries({ queryKey, exact: true });
   const inFlight = query.promise;
-  if (inFlight) void refetchAfterPendingPage(inFlight, refetch);
-  else void refetch();
+  if (inFlight)
+    fireAndForget(refetchAfterPendingPage(inFlight, refetch), 'messages-sync');
+  else fireAndForget(refetch(), 'messages-sync');
   return true;
 }
 
@@ -257,7 +263,7 @@ async function loadDiscussionRootState(parent: MessageParent, rootId: string) {
     );
     applyThreadState(parent, thread.state);
   } catch {
-    void queryClient.invalidateQueries({
+    queryClient.invalidateQueries({
       queryKey: getMessageTimelineQueryKeyPrefix(parent),
     });
   }
@@ -303,7 +309,7 @@ export function applyThreadState(
   if (state.deleted_at) {
     // Annotation layout also reads tombstones, including roots outside loaded
     // pages. Fetch the committed state so it survives late document mounting.
-    void queryClient.invalidateQueries({
+    queryClient.invalidateQueries({
       queryKey: getMessageTimelineQueryKeyPrefix(parent),
     });
   }

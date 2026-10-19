@@ -4,6 +4,7 @@ import {
 } from '@app/features/calendar/hooks/use-calendar-ui-flag';
 import { useKeyedPersistentToasts } from '@core/component/Toast/useKeyedPersistentToasts';
 import { useAddInboxFlow } from '@core/email-link';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { useEmailLinksQuery } from '@queries/email/link';
 
 /**
@@ -58,10 +59,13 @@ export function CalendarPermissionPrompt() {
             // Suppress re-prompting until the grant upgrades; on native the
             // page stays mounted while the OAuth flow runs.
             dismiss();
-            void startAddInbox({
-              scopes: 'calendar',
-              emailAddress: link.email_address,
-            });
+            fireAndForget(
+              startAddInbox({
+                scopes: 'calendar',
+                emailAddress: link.email_address,
+              }),
+              'add-inbox'
+            );
           },
         },
       ],

@@ -1,4 +1,6 @@
 import { openPipedreamConnectUI } from '@core/pipedream/connect-ui';
+import { pipedreamSlugsMatch } from '@core/pipedream/slugs';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { ThrownResultError, throwOnErr } from '@core/util/result';
 import { queryClient } from '@queries/client';
 import { queryReadyGate } from '@queries/gate';
@@ -34,6 +36,10 @@ function fetchPipedreamConnections() {
   );
 }
 
+export function pipedreamConnectionsQueryOptions() {
+  return { queryKey: KEYS.list, queryFn: fetchPipedreamConnections };
+}
+
 export function usePipedreamConnectionsQuery(options?: {
   /**
    * Poll for connection changes. Connecting finishes in the Connect UI
@@ -45,8 +51,7 @@ export function usePipedreamConnectionsQuery(options?: {
   neverSuspend?: boolean;
 }) {
   return useQuery(() => ({
-    queryKey: KEYS.list,
-    queryFn: fetchPipedreamConnections,
+    ...pipedreamConnectionsQueryOptions(),
     refetchOnMount: 'always' as const,
     refetchOnWindowFocus: 'always' as const,
     refetchInterval: options?.refetchInterval,
@@ -227,31 +232,39 @@ export async function connectPipedreamApp(args: {
       onEvent: (event) => {
         if (event.type === 'success' && !settled) {
           settled = true;
-          void (async () => {
-            try {
-              const connection = await throwOnErr(
-                async () =>
-                  await cognitionApiServiceClient.completePipedreamConnection({
-                    account_id: event.accountId,
-                    server_name: args.serverName,
-                  })
-              );
-              if (connection.app_slug !== args.appSlug || !connection.enabled) {
-                throw new Error('The requested connector was not enabled');
+          fireAndForget(
+            (async () => {
+              try {
+                const connection = await throwOnErr(
+                  async () =>
+                    await cognitionApiServiceClient.completePipedreamConnection(
+                      {
+                        account_id: event.accountId,
+                        server_name: args.serverName,
+                      }
+                    )
+                );
+                if (
+                  !pipedreamSlugsMatch(connection.app_slug, args.appSlug) ||
+                  !connection.enabled
+                ) {
+                  throw new Error('The requested connector was not enabled');
+                }
+                upsertConnection(connection);
+                await invalidateConnections();
+                resolve('connected');
+              } catch (error) {
+                reject(
+                  error instanceof Error
+                    ? error
+                    : new Error('failed to register Pipedream connection')
+                );
+              } finally {
+                ui.close();
               }
-              upsertConnection(connection);
-              await invalidateConnections();
-              resolve('connected');
-            } catch (error) {
-              reject(
-                error instanceof Error
-                  ? error
-                  : new Error('failed to register Pipedream connection')
-              );
-            } finally {
-              ui.close();
-            }
-          })();
+            })(),
+            'pipedream-connect'
+          );
         } else if (event.type === 'close' && !settled) {
           settled = true;
           resolve('closed');

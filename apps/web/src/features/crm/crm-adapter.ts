@@ -8,7 +8,8 @@ import {
   enableCrmPipelines,
 } from '@core/constant/featureFlags';
 import { useUserId } from '@core/context/user';
-import { getInitialsFromName } from '@core/user';
+import { useProfilePictureUrl } from '@core/signal/profilePicture';
+import { emailToMacroId, getInitialsFromName } from '@core/user';
 import { idToEmail } from '@core/user/util';
 import { queryReadyGate } from '@queries/gate';
 import { useListPropertiesQuery } from '@queries/properties/definitions';
@@ -48,6 +49,7 @@ import {
   createCrmPermissions,
 } from './primitives/team-config';
 import {
+  createCompanyImporter,
   useCompanyQuery,
   useCreateCompanyMutation,
   useCreateContactMutation,
@@ -64,6 +66,7 @@ import {
 } from './queries/contacts';
 import { fetchCrmExportCompanies } from './queries/export';
 import { useCrmLists } from './queries/lists';
+import { createPipelineTransfer } from './queries/pipeline-transfer';
 import { createPipelinesSource } from './queries/pipelines';
 import {
   recordListFailure,
@@ -78,6 +81,7 @@ import {
   useResetCrmStagesMutation,
 } from './queries/stages';
 import { useTeamCrmConfig } from './queries/team-config';
+import { useQuickAccessCrmContactsQuery } from './record-adapter';
 import { createAppDealStages } from './stage-adapter';
 
 // Loaded on demand: the Tasks list imports soup, which imports CRM entry points.
@@ -173,8 +177,12 @@ export function createAppCrmContext(): CrmContext {
       storage: deps.storage,
     }),
     PipelineSharing: PipelineShare,
+    createPipelineTransfer: (pipeline) =>
+      createPipelineTransfer(deps, pipeline),
     feedback: toast,
     downloadCsv: downloadCrmCsv,
+    createContactPhoto: (email) =>
+      useProfilePictureUrl(emailToMacroId(email))[0],
     contactInitials: getInitialsFromName,
     userEmail: idToEmail,
     createNavigation: createAppCrmNavigation,
@@ -217,6 +225,7 @@ export function createAppCrmContext(): CrmContext {
     exportCompanies: (...args) =>
       fetchCrmExportCompanies(deps.storage, ...args),
     createCompanySuggestions: useQuickAccessCrmCompaniesQuery,
+    createContactSuggestions: useQuickAccessCrmContactsQuery,
     hydrateCompany(company) {
       if (company.properties) return company;
       const cached = getSoupEntityById(company.id);
@@ -271,6 +280,7 @@ export function createAppCrmContext(): CrmContext {
     createTeamViews: () => useTeamCrmViews(deps, userId, createSettings()),
     createLists: (teamId) => useCrmLists(deps, teamId),
     createCompany: (...args) => useCreateCompanyMutation(deps, ...args),
+    createCompanyImporter: () => createCompanyImporter(deps),
     createContact: (...args) => useCreateContactMutation(deps, ...args),
     renameCompany: (...args) => useSetCompanyNameMutation(deps, ...args),
     renameContact: (...args) => useSetContactNameMutation(deps, ...args),

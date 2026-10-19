@@ -28,9 +28,27 @@ const releaseConfigSchema = z
   .passthrough();
 
 export function androidReleaseMetadata(tag: string, config: unknown) {
+  const release = releaseConfigSchema.parse(config);
+  // Pull-request releases (the android-update label) have no production
+  // release tag; they are named by version code, `vc<versionCode>`, which
+  // must match the config being built.
+  const prLabel = /^vc([1-9][0-9]{0,9})$/.exec(tag);
+  if (prLabel) {
+    if (Number(prLabel[1]) !== release.bundle.android.versionCode)
+      throw new Error(
+        `Label ${tag} does not match the configured versionCode ${release.bundle.android.versionCode}`
+      );
+    return {
+      version: release.version,
+      versionCode: release.bundle.android.versionCode,
+      filename: `macro-${tag}-android-arm64.aab`,
+    };
+  }
   const match = /^v(20\d{2})\.(\d{1,2})\.(\d{1,2})(?:\.(\d{1,2}))?$/.exec(tag);
   if (!match || match[0] !== tag)
-    throw new Error('Expected release tag vYYYY.M.D or vYYYY.M.D.N (N: 0–99)');
+    throw new Error(
+      'Expected release tag vYYYY.M.D or vYYYY.M.D.N (N: 0–99), or vc<versionCode>'
+    );
   const [year, month, day] = match.slice(1, 4).map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
   if (
@@ -39,7 +57,6 @@ export function androidReleaseMetadata(tag: string, config: unknown) {
     date.getUTCDate() !== day
   )
     throw new Error('Release tag must contain a valid calendar date');
-  const release = releaseConfigSchema.parse(config);
   return {
     version: release.version,
     versionCode: release.bundle.android.versionCode,
@@ -154,7 +171,7 @@ function fetchSigning() {
     );
   } catch {
     throw new Error(
-      'Unable to fetch Android signing credentials. Install the Doppler CLI and authenticate with read access to android-release/prd (CI: DOPPLER_TOKEN). See docs/ANDROID_DEVELOPMENT.md.'
+      'Unable to fetch Android signing credentials. Install the Doppler CLI and authenticate with read access to android-release/prd (CI: DOPPLER_TOKEN). See docs/development/android.md.'
     );
   }
 }
@@ -167,7 +184,7 @@ export async function ensureAndroidSigning(
   if (existsSync(propertiesPath)) return;
   if (lstatSync(propertiesPath, { throwIfNoEntry: false })) {
     throw new Error(
-      'Android keystore.properties is a broken symlink. Restore its signing files; see docs/ANDROID_DEVELOPMENT.md.'
+      'Android keystore.properties is a broken symlink. Restore its signing files; see docs/development/android.md.'
     );
   }
 
@@ -178,7 +195,7 @@ export async function ensureAndroidSigning(
       !existsSync(join(directory, 'upload-keystore.jks'))
     ) {
       throw new Error(
-        `Android signing directory ${directory} is incomplete. Restore its signing files or provision signing manually; see docs/ANDROID_DEVELOPMENT.md.`
+        `Android signing directory ${directory} is incomplete. Restore its signing files or provision signing manually; see docs/development/android.md.`
       );
     }
     await symlink(resolve(properties), propertiesPath);

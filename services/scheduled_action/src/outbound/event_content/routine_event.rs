@@ -1,6 +1,9 @@
 //! The typed event a routine's agent is told about, from the same content the
 //! condition classifier reads.
 
+use std::collections::HashMap;
+
+use call::domain::models::CallRecord;
 use channel_sender::ChannelSender;
 use channels::domain::models::{ChannelMetadata, ChannelType as ChannelKind};
 use email::domain::models::{ContactInfo, ParsedMessage};
@@ -15,11 +18,14 @@ use properties::EntityPropertyInfo;
 use rootcause::Report;
 use system_properties::SystemPropertyKey;
 use trigger_context::{
-    ChannelType, ContextMessage, ContextPerson, ContextThread, DiscussionContext,
-    DiscussionSurface, DocumentSnapshot, EmailSnapshot, ReplyTarget, RoutineEvent, TaskSnapshot,
+    CallSnapshot, CallStartedSnapshot, ChannelType, ContextMessage, ContextPerson, ContextThread,
+    DiscussionContext, DiscussionSurface, DocumentSnapshot, EmailSnapshot, ReplyTarget,
+    RoutineEvent, TaskSnapshot, TranscriptLine,
 };
 
-use super::{ChannelMessage, EventContent, email_body, truncate};
+use super::{
+    ChannelMessage, EventContent, MAX_TRANSCRIPT_CHARS, email_body, truncate, truncate_to,
+};
 use crate::domain::event_trigger::{EventName, EventReference};
 
 #[cfg(test)]
@@ -53,6 +59,18 @@ pub(super) fn routine_event(
         EventContent::Channel { channel, message } => {
             channel_event(name, event.entity_id(), channel, message)
         }
+        EventContent::Call(record) => match (name, record) {
+            (EventName::CallStarted, Some(record)) => Ok(RoutineEvent::CallStarted {
+                call: call_started_snapshot(event.entity_id(), record)?,
+            }),
+            (EventName::CallEnded, Some(record)) => Ok(RoutineEvent::CallEnded {
+                call: call_snapshot(event.entity_id(), record)?,
+            }),
+            (EventName::CallStarted | EventName::CallEnded, None) => {
+                Err(rootcause::report!("the call record is no longer available"))
+            }
+            (name, _) => Err(mismatch(name)),
+        },
     }
 }
 
@@ -202,6 +220,96 @@ fn email_snapshot(thread_id: Uuid, message: &ParsedMessage) -> EmailSnapshot {
             .unwrap_or(message.created_at),
         body: email_body(message).unwrap_or_default(),
     }
+}
+
+fn call_started_snapshot(call_id: Uuid, record: CallRecord) -> Result<CallStartedSnapshot, Report> {
+    if record.call_id != call_id {
+        return Err(mismatch(EventName::CallStarted));
+    }
+    let started_by = principal(&record.created_by);
+    let participants = call_participants(&record);
+    Ok(CallStartedSnapshot {
+        id: record.call_id,
+        title: record.custom_name,
+        channel_id: record.channel_id,
+        channel_name: record.channel_name,
+        started_at: record.started_at,
+        started_by,
+        participants,
+    })
+}
+
+fn call_snapshot(call_id: Uuid, record: CallRecord) -> Result<CallSnapshot, Report> {
+    if record.call_id != call_id {
+        return Err(mismatch(EventName::CallEnded));
+    }
+    let ended_at = record
+        .ended_at
+        .ok_or_else(|| rootcause::report!("the call has not ended"))?;
+    let participants = call_participants(&record);
+    let (transcript, transcript_omitted) = call_transcript(&record);
+    Ok(CallSnapshot {
+        id: record.call_id,
+        title: record.custom_name,
+        channel_id: record.channel_id,
+        channel_name: record.channel_name,
+        started_at: record.started_at,
+        ended_at,
+        participants,
+        summary: record.summary.as_deref().map(truncate),
+        transcript,
+        transcript_omitted,
+    })
+}
+
+/// Everyone who joined: Macro accounts first, then guests by their own names.
+pub(super) fn call_participants(record: &CallRecord) -> Vec<ContextPerson> {
+    record
+        .participants
+        .iter()
+        .map(|participant| principal(&participant.user_id))
+        .chain(record.guests.iter().map(|guest| ContextPerson {
+            id: guest.id.to_string(),
+            name: guest.display_name.clone(),
+            email: None,
+        }))
+        .collect()
+}
+
+/// What was said, oldest first, up to [`MAX_TRANSCRIPT_CHARS`] of speech; true
+/// when the rest was left out.
+pub(super) fn call_transcript(record: &CallRecord) -> (Vec<TranscriptLine>, bool) {
+    let guests: HashMap<String, &str> = record
+        .guests
+        .iter()
+        .map(|guest| (guest.id.to_string(), guest.display_name.as_str()))
+        .collect();
+    let line = |speaker_id: &str, text: String, at| TranscriptLine {
+        speaker: guests
+            .get(speaker_id)
+            .map_or_else(|| principal(speaker_id).name, |name| (*name).to_owned()),
+        text,
+        at,
+    };
+    let mut room = MAX_TRANSCRIPT_CHARS;
+    let mut lines = Vec::new();
+    for segment in &record.transcript {
+        let length = segment.content.chars().count();
+        if length > room {
+            if room > 0 {
+                let text = truncate_to(&segment.content, room);
+                lines.push(line(&segment.speaker_id, text, segment.started_at));
+            }
+            return (lines, true);
+        }
+        room -= length;
+        lines.push(line(
+            &segment.speaker_id,
+            segment.content.clone(),
+            segment.started_at,
+        ));
+    }
+    (lines, false)
 }
 
 fn address(contact: &ContactInfo) -> String {

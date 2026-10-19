@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import { thrownResultErrorHasCode } from '@core/util/result';
 import {
   type Cleanup,
@@ -163,6 +164,7 @@ function shouldRejoin(reason?: DisconnectReason) {
 /** One coordinator per call provider; views only submit intent and observe it. */
 export function createCallLifecycle(options: {
   shouldRequestToken: (channelId: string) => boolean;
+  prepareToken?: (channelId: string) => Promise<() => Promise<void>>;
   requestToken: (channelId: string) => Promise<CallTokenResponse>;
   connect: (token: CallTokenResponse) => Promise<void>;
   disconnect: (options?: CallSessionDisconnectOptions) => Promise<void>;
@@ -213,13 +215,19 @@ export function createCallLifecycle(options: {
       joining: ({ request }, dispatch) => {
         let active = true;
         let settled = false;
+        let finishPreparation: (() => Promise<void>) | undefined;
+        const releasePreparation = () => {
+          const cleanup = finishPreparation;
+          finishPreparation = undefined;
+          if (cleanup) void cleanup().catch(options.reportError);
+        };
         const fail = (error: unknown) => {
           if (!active) return;
           settled = true;
           request.reject(error);
           dispatch({ t: 'fail', error });
         };
-        const timeout = setTimeout(
+        let timeout = setTimeout(
           () => fail(new Error('Connection timed out')),
           JOIN_TIMEOUT_MS
         );
@@ -264,6 +272,20 @@ export function createCallLifecycle(options: {
               request.channelId
             );
             if (needsConnection || renewMembership) {
+              if (options.prepareToken) {
+                // Permission prompts precede the lease and connection deadline.
+                clearTimeout(timeout);
+                const cleanup = await options.prepareToken(request.channelId);
+                if (!active) {
+                  await cleanup();
+                  return;
+                }
+                finishPreparation = cleanup;
+                timeout = setTimeout(
+                  () => fail(new Error('Connection timed out')),
+                  JOIN_TIMEOUT_MS
+                );
+              }
               const [token] = await Promise.all([
                 options.requestToken(request.channelId),
                 delay,
@@ -313,11 +335,14 @@ export function createCallLifecycle(options: {
             }
           } catch (error) {
             fail(error);
+          } finally {
+            releasePreparation();
           }
         }
-        void connect();
+        fireAndForget(connect(), 'channel-call');
         return () => {
           active = false;
+          releasePreparation();
           clearTimeout(timeout);
           clearTimeout(delayTimer);
           finishDelay();
@@ -336,7 +361,11 @@ export function createCallLifecycle(options: {
             if (!retry) notifyLeft(call.channelId);
           },
           () => {
-            if (active) void leaveEndedNativeSession(call.channelId);
+            if (active)
+              fireAndForget(
+                leaveEndedNativeSession(call.channelId),
+                'channel-call'
+              );
           }
         );
         return () => {
@@ -393,7 +422,7 @@ export function createCallLifecycle(options: {
             options.reportError(error);
           }
         }
-        void recover();
+        fireAndForget(recover(), 'channel-call');
         return () => {
           active = false;
         };
@@ -420,7 +449,7 @@ export function createCallLifecycle(options: {
             options.reportError(error);
           }
         }
-        void cleanUpFailedJoin();
+        fireAndForget(cleanUpFailedJoin(), 'channel-call');
         return () => {
           active = false;
         };
@@ -459,7 +488,7 @@ export function createCallLifecycle(options: {
             else options.reportError(error);
           }
         }
-        void disconnect();
+        fireAndForget(disconnect(), 'channel-call');
         return () => {
           active = false;
           clearTimeout(timeout);
@@ -599,7 +628,7 @@ export function createCallLifecycle(options: {
         ) {
           // The native transport may already be restored, but the old DELETE
           // is still authoritative for membership until it settles.
-          void restoreAfterLeave(call);
+          fireAndForget(restoreAfterLeave(call), 'channel-call');
           return;
         }
         machine.dispatch({ t: 'adopt', call });
@@ -609,7 +638,10 @@ export function createCallLifecycle(options: {
       if (state.t === 'joining') {
         // Requesting a token can register a server participant before media
         // connects. Clean up unless a new session supersedes this attempt.
-        void leaveEndedNativeSession(state.request.channelId);
+        fireAndForget(
+          leaveEndedNativeSession(state.request.channelId),
+          'channel-call'
+        );
         return;
       }
       const channelId = match(state)

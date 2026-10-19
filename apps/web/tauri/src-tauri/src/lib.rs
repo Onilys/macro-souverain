@@ -36,6 +36,8 @@ use url::Url;
 mod desktop_update;
 mod device;
 mod diagnostics;
+#[cfg(target_os = "linux")]
+mod linux_notification;
 mod logging;
 #[cfg(target_os = "macos")]
 mod macos_notification_permission;
@@ -110,6 +112,10 @@ static ALLOWED_DOMAINS: &[&str] = &[
     "http://localhost:3009",
 ];
 
+/// Third-party pages the SPA renders in an iframe. Keep in sync with
+/// `CONNECT_UI_URL` in `apps/web/src/lib/core/pipedream/connect-ui.ts`.
+static EMBEDDED_DOCUMENTS: &[&str] = &["https://pipedream.com/_static/connect.html"];
+
 /// hosts whose `/app` urls are Macro app links. Main-frame navigations to
 /// these are routed through the SPA router instead of loading the remote
 /// site in the webview. Keep in parity with the deep-link hosts in
@@ -172,7 +178,9 @@ pub fn run() {
     };
     let navigation = MacroNavigationPlugin::new(ALLOWED_DOMAINS)
         .expect("Domains must be valid urls")
-        .with_app_link_hosts(APP_LINK_HOSTS);
+        .with_app_link_hosts(APP_LINK_HOSTS)
+        .with_embedded_documents(EMBEDDED_DOCUMENTS)
+        .expect("Embedded documents must be valid urls");
     let mut builder = tauri::Builder::default();
 
     #[cfg(desktop)]
@@ -184,6 +192,19 @@ pub fn run() {
                 tracing::debug!("single instance callback with argv: {argv:?}");
             }))
             .plugin(window_state::plugin());
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        builder = builder
+            .manage(linux_notification::LinuxNotifications::default())
+            .on_window_event(|window, event| {
+                if matches!(event, tauri::WindowEvent::Destroyed) {
+                    window
+                        .state::<linux_notification::LinuxNotifications>()
+                        .close_window(window.label());
+                }
+            });
     }
 
     #[cfg(target_os = "ios")]
@@ -205,6 +226,7 @@ pub fn run() {
             .plugin(tauri_plugin_android_auth::init())
             .plugin(tauri_plugin_android_mobile::init())
             .plugin(tauri_plugin_android_push::init())
+            .plugin(tauri_plugin_call_kit::init())
             .plugin(tauri_plugin_network_status::init());
     }
 
@@ -300,6 +322,10 @@ pub fn run() {
             desktop_update::get_native_update_status,
             desktop_update::restart_native_update,
             diagnostics::read_desktop_diagnostics,
+            #[cfg(target_os = "linux")]
+            linux_notification::send_linux_notification,
+            #[cfg(target_os = "linux")]
+            linux_notification::close_linux_notification,
             #[cfg(target_os = "macos")]
             macos_notification_permission::get_macos_notification_permission,
             #[cfg(target_os = "macos")]

@@ -65,6 +65,30 @@ in
             proxy_read_timeout 30s;
           '';
         };
+        "= /api/v1/write" = {
+          proxyPass = "http://127.0.0.1:9090/api/v1/write";
+          basicAuthFile = "/run/credentials/nginx.service/metrics.htpasswd";
+          extraConfig = ''
+            if ($observability_host != otlp) { return 404; }
+            limit_except POST { deny all; }
+            limit_req zone=ingest burst=200 nodelay;
+            limit_req_status 429;
+            proxy_read_timeout 30s;
+            proxy_set_header Authorization "";
+          '';
+        };
+        "= /loki/api/v1/push" = {
+          proxyPass = "http://127.0.0.1:3100/loki/api/v1/push";
+          basicAuthFile = "/run/credentials/nginx.service/metrics.htpasswd";
+          extraConfig = ''
+            if ($observability_host != otlp) { return 404; }
+            limit_except POST { deny all; }
+            limit_req zone=ingest burst=200 nodelay;
+            limit_req_status 429;
+            proxy_read_timeout 30s;
+            proxy_set_header Authorization "";
+          '';
+        };
       };
     };
     # Grafana Viewers can choose arbitrary datasource proxy paths. Allow query
