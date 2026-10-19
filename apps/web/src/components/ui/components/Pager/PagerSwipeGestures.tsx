@@ -1,10 +1,10 @@
 import { createEffect, on, onCleanup } from 'solid-js';
 import { type PagerDirection, usePager } from './Pager';
 
-const DEFAULT_DIRECTION_LOCK_DISTANCE = 8;
-const DEFAULT_VELOCITY_ACTIVATION_DISTANCE = 24;
-const DEFAULT_VELOCITY_THRESHOLD = 0.5;
-const RELEASE_VELOCITY_WINDOW = 100;
+const DEFAULT_DIRECTION_LOCK_DISTANCE = 6;
+const DEFAULT_VELOCITY_ACTIVATION_DISTANCE = 16;
+const DEFAULT_VELOCITY_THRESHOLD = 0.25;
+const RELEASE_VELOCITY_WINDOW = 80;
 
 interface ActiveGesture {
   axis: 'x' | 'y' | undefined;
@@ -141,7 +141,7 @@ export function PagerSwipeGestures(props: PagerSwipeGesturesProps) {
       const activationDistance = () => {
         const configured = props.activationDistance;
         if (configured === undefined) {
-          return Math.min(96, Math.max(48, viewport.clientWidth * 0.2));
+          return Math.min(80, Math.max(40, viewport.clientWidth * 0.15));
         }
 
         if (configured < 1) {
@@ -187,12 +187,12 @@ export function PagerSwipeGestures(props: PagerSwipeGesturesProps) {
           Math.sign(velocity) === Math.sign(offset);
 
         if (!commitsByDistance && !commitsByVelocity) {
-          pager.cancelDrag();
+          pager.cancelDrag(Math.abs(velocity));
           return;
         }
 
         const direction: PagerDirection = offset < 0 ? 'next' : 'previous';
-        void pager.commitDrag(direction);
+        void pager.commitDrag(direction, Math.abs(velocity));
       };
 
       const handleTouchCancel = animateBackAfterInterruption;
