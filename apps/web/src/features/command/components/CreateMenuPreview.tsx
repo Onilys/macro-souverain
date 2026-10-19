@@ -9,9 +9,9 @@ import {
   createCommandListController,
 } from '@ui';
 import { createMemo, createSignal, createUniqueId, Show } from 'solid-js';
+import { creatableId } from '../core/creatable';
 import {
   type CreateMenuSection,
-  creatableId,
   createMenuSearchText,
   groupCreateMenuItems,
   groupRecentCreateMenuItems,

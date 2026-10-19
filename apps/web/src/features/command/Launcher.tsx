@@ -85,11 +85,8 @@ import {
 } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { Dynamic } from 'solid-js/web';
-import {
-  type CreateMenuSection,
-  creatableDescription,
-  creatableId,
-} from './core/create-menu-details';
+import { creatableDescription, creatableId } from './core/creatable';
+import type { CreateMenuSection } from './core/create-menu-details';
 import {
   launcherItemKey,
   recentLauncherBlocks,

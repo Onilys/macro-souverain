@@ -1,5 +1,5 @@
 import type { CreatableBlock } from '../types';
-import { creatableId } from './create-menu-details';
+import { creatableId } from './creatable';
 
 type UsageHistory = Record<string, { count: number; lastUsedAt: number }>;
 

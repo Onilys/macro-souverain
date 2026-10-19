@@ -1,5 +1,6 @@
 import { type TranslationKey, t } from '@app/lib/i18n';
 import type { CreatableBlock } from '../types';
+import { creatableDescription, creatableId } from './creatable';
 
 export type CreateMenuGroupId =
   | 'docs'
@@ -223,18 +224,6 @@ const DETAILS: Record<string, CreateMenuDetails> = {
     'create.skillExample3',
   ]),
 };
-
-/** The creatable's stable English name, independent of the interface language. */
-export function creatableId(item: CreatableBlock): string {
-  return item.id ?? item.label;
-}
-
-/** The creatable's command description, resolved for display. */
-export function creatableDescription(item: CreatableBlock): string {
-  return typeof item.description === 'function'
-    ? item.description()
-    : item.description;
-}
 
 export function createMenuDetails(
   item: CreatableBlock
