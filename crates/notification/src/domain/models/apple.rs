@@ -199,6 +199,9 @@ pub struct VoipPushPayload {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PushNotificationData {
+    /// Optional direct channel destination, flattened for native string-valued bridges.
+    #[serde(flatten)]
+    pub channel_target: Option<ChannelPushTarget>,
     /// The id of the notification record (UserNotification.id)
     pub notification_id: Uuid,
     /// The sender's profile picture URL, used by the Notification Service Extension
@@ -206,4 +209,17 @@ pub struct PushNotificationData {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub sender_profile_picture_url: Option<String>,
+}
+
+/// Message destination carried by channel alerts so opening one needs no notification lookup.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ChannelPushTarget {
+    /// Channel containing the message.
+    pub channel_id: Uuid,
+    /// Message to reveal and highlight.
+    pub message_id: Uuid,
+    /// Root message of the thread when the target is a reply.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<Uuid>,
 }

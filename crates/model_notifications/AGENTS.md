@@ -12,6 +12,7 @@ types.
   metadata types — the fastest way to see every notification kind that exists.
 - `src/metadata.rs` + `src/metadata/`: one metadata struct per notification
   kind (channel, CRM discussion, initiative discussion, GitHub PR, reminder, …).
+- `src/metadata/channel_push.rs`: validated channel/message/thread destinations on mobile alerts; invalid targets retain notification-ID lookup.
 - `src/digest_state.rs`: the digest batching state machine.
 - `src/device.rs`, `src/unsubscribe.rs`: device type and per-user unsubscribe.
 

@@ -2939,6 +2939,16 @@
         "type": "object",
         "required": ["notificationId"],
         "properties": {
+          "channelId": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "Channel containing the target message, when provided by the producer."
+          },
+          "messageId": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "Message to reveal and highlight."
+          },
           "notificationId": {
             "type": "string",
             "format": "uuid",
@@ -2947,6 +2957,11 @@
           "senderProfilePictureUrl": {
             "type": ["string", "null"],
             "description": "The sender's profile picture URL, used by the Notification Service Extension\nto download and attach as a rich notification image."
+          },
+          "threadId": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "Root message of the thread when the target is a reply."
           }
         }
       },

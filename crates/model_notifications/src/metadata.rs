@@ -1,4 +1,5 @@
 mod access_request;
+mod channel_push;
 pub use access_request::{
     EntityAccessGrantedMetadata, EntityAccessRequestedMetadata, RequestedAccessLevel,
 };
@@ -1050,6 +1051,7 @@ fn alert_apns<T: NotificationTitle>(
             ..Default::default()
         },
         push_notification_data: PushNotificationData {
+            channel_target: None,
             notification_id,
             sender_profile_picture_url,
         },
@@ -1098,11 +1100,13 @@ impl NotificationExtIos for ChannelMessageSendMetadata {
     fn as_apns<'a>(
         &self,
         sender_id: Option<MacroUserIdStr<'a>>,
-        _entity: &Entity<'_>,
+        entity: &Entity<'_>,
         notification_id: Uuid,
     ) -> Option<APNSPushNotification<Self::NotifData>> {
         let profile_pic = self.sender_profile_picture_url.clone();
-        alert_apns(self, sender_id, notification_id, profile_pic).ok()
+        alert_apns(self, sender_id, notification_id, profile_pic)
+            .ok()
+            .map(|apns| channel_push::with_target(apns, entity, &self.message_id, None))
     }
 }
 
@@ -1116,7 +1120,7 @@ impl NotificationExtIos for ChannelMessageReactionMetadata {
     fn as_apns<'a>(
         &self,
         sender_id: Option<MacroUserIdStr<'a>>,
-        _entity: &Entity<'_>,
+        entity: &Entity<'_>,
         notification_id: Uuid,
     ) -> Option<APNSPushNotification<Self::NotifData>> {
         alert_apns(
@@ -1126,6 +1130,9 @@ impl NotificationExtIos for ChannelMessageReactionMetadata {
             self.sender_profile_picture_url.clone(),
         )
         .ok()
+        .map(|apns| {
+            channel_push::with_target(apns, entity, &self.message_id, self.thread_id.as_deref())
+        })
     }
 }
 
@@ -1139,11 +1146,15 @@ impl NotificationExtIos for ChannelMentionMetadata {
     fn as_apns<'a>(
         &self,
         sender_id: Option<MacroUserIdStr<'a>>,
-        _entity: &Entity<'_>,
+        entity: &Entity<'_>,
         notification_id: Uuid,
     ) -> Option<APNSPushNotification<Self::NotifData>> {
         let profile_pic = self.sender_profile_picture_url.clone();
-        alert_apns(self, sender_id, notification_id, profile_pic).ok()
+        alert_apns(self, sender_id, notification_id, profile_pic)
+            .ok()
+            .map(|apns| {
+                channel_push::with_target(apns, entity, &self.message_id, self.thread_id.as_deref())
+            })
     }
 }
 
@@ -1157,11 +1168,20 @@ impl NotificationExtIos for ChannelReplyMetadata {
     fn as_apns<'a>(
         &self,
         sender_id: Option<MacroUserIdStr<'a>>,
-        _entity: &Entity<'_>,
+        entity: &Entity<'_>,
         notification_id: Uuid,
     ) -> Option<APNSPushNotification<Self::NotifData>> {
         let profile_pic = self.sender_profile_picture_url.clone();
-        alert_apns(self, sender_id, notification_id, profile_pic).ok()
+        alert_apns(self, sender_id, notification_id, profile_pic)
+            .ok()
+            .map(|apns| {
+                channel_push::with_target(
+                    apns,
+                    entity,
+                    &self.message_id,
+                    Some(self.thread_id.as_str()),
+                )
+            })
     }
 }
 
@@ -1175,11 +1195,20 @@ impl NotificationExtIos for DocumentMentionMetadata {
     fn as_apns<'a>(
         &self,
         sender_id: Option<MacroUserIdStr<'a>>,
-        _entity: &Entity<'_>,
+        entity: &Entity<'_>,
         notification_id: Uuid,
     ) -> Option<APNSPushNotification<Self::NotifData>> {
         let profile_pic = self.channel.sender_profile_picture_url.clone();
-        alert_apns(self, sender_id, notification_id, profile_pic).ok()
+        alert_apns(self, sender_id, notification_id, profile_pic)
+            .ok()
+            .map(|apns| {
+                channel_push::with_target(
+                    apns,
+                    entity,
+                    &self.channel.message_id,
+                    self.channel.thread_id.as_deref(),
+                )
+            })
     }
 }
 

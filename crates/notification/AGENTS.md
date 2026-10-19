@@ -74,6 +74,7 @@ through the same service.
   delivery; keep tombstone checks when changing either delivery boundary.
 - Independent Kafka consumers have no durable group lag. Health logs distinguish
   stale/unknown measurements from zero; they are not client-delivery ACKs.
+- Channel alert destinations are optional flat UUID fields on `PushNotificationData`; keep old queued payloads readable and native string-valued bridges compatible.
 - Notification payloads must not be logged on tracing spans (see the
   `fix(notification): stop recording notification payloads` history).
 

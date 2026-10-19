@@ -85,10 +85,11 @@ Vite server used by the native app, set `MACRO_DEV_PROXY=false` (or run it throu
 the Tauri CLI); the browser-only hosted API proxy cannot be fetched through the
 native HTTP plugin from `tauri://localhost`.
 
-Sign in as the notification recipient. Use a real thread reply notification that
-the account can read and record its notification ID, channel ID, parent message
-ID, and reply ID. Choose a reply outside the collapsed thread preview. A made-up
-notification ID can check bridge delivery but cannot verify message navigation.
+Sign in as the notification recipient. Record the channel ID, parent message
+ID, and reply ID of a thread the account can read. Choose a reply outside the
+collapsed thread preview. For the legacy-payload comparison, also use a real
+notification ID; without destination fields, a made-up notification ID can only
+check bridge delivery.
 
 To inject the push without depending on APNs transport, save this payload to a
 temporary `.apns` file, replacing the IDs with a real readable channel, thread root, and reply. Keep

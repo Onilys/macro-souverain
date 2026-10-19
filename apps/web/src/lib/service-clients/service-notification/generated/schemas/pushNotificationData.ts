@@ -4,12 +4,21 @@
  * notification_service
  * OpenAPI spec version: 0.1.0
  */
+import type { PushNotificationDataChannelId } from './pushNotificationDataChannelId';
+import type { PushNotificationDataMessageId } from './pushNotificationDataMessageId';
 import type { PushNotificationDataSenderProfilePictureUrl } from './pushNotificationDataSenderProfilePictureUrl';
+import type { PushNotificationDataThreadId } from './pushNotificationDataThreadId';
 
 export interface PushNotificationData {
+  /** Channel containing the target message, when provided by the producer. */
+  channelId?: PushNotificationDataChannelId;
+  /** Message to reveal and highlight. */
+  messageId?: PushNotificationDataMessageId;
   /** The id of the notification record (UserNotification.id) */
   notificationId: string;
   /** The sender's profile picture URL, used by the Notification Service Extension
 to download and attach as a rich notification image. */
   senderProfilePictureUrl?: PushNotificationDataSenderProfilePictureUrl;
+  /** Root message of the thread when the target is a reply. */
+  threadId?: PushNotificationDataThreadId;
 }

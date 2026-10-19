@@ -636,6 +636,7 @@ impl NotificationExtIos for CallStartedNotification {
                 ..Default::default()
             },
             push_notification_data: PushNotificationData {
+                channel_target: None,
                 notification_id,
                 sender_profile_picture_url: self.sender_profile_picture_url.clone(),
             },

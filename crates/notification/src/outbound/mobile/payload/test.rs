@@ -11,6 +11,7 @@ fn android_alert_uses_sns_fcm_v1_with_string_data() {
         "A message with \"quotes\" and 🦀".into(),
         "stable-identifier".into(),
         PushNotificationData {
+            channel_target: None,
             notification_id: id,
             sender_profile_picture_url: Some("https://example.com/avatar.png".into()),
         },
