@@ -15,7 +15,7 @@ use std::sync::Arc;
 mod reads;
 
 use entity_access::domain::models::{
-    AccessLevel, EditAccessLevel, EntityAccessAuth, EntityAccessReceipt, EntityPermission,
+    AccessLevel, EditAccessLevel, Entity, EntityAccessAuth, EntityAccessReceipt, EntityPermission,
     EntityType, OwnerAccessLevel, ViewAccessLevel,
 };
 use macro_user_id::cowlike::CowLike;
@@ -27,6 +27,8 @@ use models_permissions::share_permission::team_share::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 
+use crate::domain::conversion::TaskConversions;
+use crate::domain::models::InitialPropertyValue;
 use crate::domain::models::{
     CreateInitiativeRepoArgs, CreateInitiativeRequest, InitiativeBasic, InitiativeDetail,
     InitiativeError, InitiativeId, InitiativeList, MAX_INITIATIVE_DESCRIPTION_GRAPHEMES,
@@ -43,6 +45,25 @@ pub struct InitiativeServiceImpl<R, S> {
     description_surfaces: S,
     resources: Arc<dyn InitiativeResources>,
     events: Option<Arc<dyn InitiativeEventPublisher>>,
+    task_conversions: Option<Arc<dyn TaskConversions>>,
+}
+
+/// Where a new initiative's description starts.
+enum DescriptionSeed {
+    /// Markdown; empty leaves the surface to be ensured on first open.
+    Markdown(String),
+    /// A full Loro snapshot, copied as is.
+    Snapshot(Vec<u8>),
+}
+
+/// A validated initiative ready to persist.
+struct NewInitiative {
+    owner_id: MacroUserIdStr<'static>,
+    name: String,
+    member_ids: Vec<MacroUserIdStr<'static>>,
+    property_values: Vec<InitialPropertyValue>,
+    share_with_team: bool,
+    description: DescriptionSeed,
 }
 
 impl<R, S> std::fmt::Debug for InitiativeServiceImpl<R, S> {
@@ -63,12 +84,19 @@ where
             description_surfaces,
             resources,
             events: None,
+            task_conversions: None,
         }
     }
 
     /// Attach the host's shared initiative event publisher.
     pub fn with_event_publisher(mut self, publisher: Arc<dyn InitiativeEventPublisher>) -> Self {
         self.events = Some(publisher);
+        self
+    }
+
+    /// Enable converting tasks into projects with the task-side steps.
+    pub fn with_task_conversions(mut self, conversions: Arc<dyn TaskConversions>) -> Self {
+        self.task_conversions = Some(conversions);
         self
     }
 
@@ -88,6 +116,130 @@ where
         if let Err(error) = self.description_surfaces.delete(id).await {
             tracing::error!(?error, %id, "description surface orphaned after failed initiative create");
         }
+    }
+
+    async fn publish_created(&self, id: InitiativeId, attribution: activity::Attribution) {
+        self.publish(
+            id,
+            InitiativeTopicEvent::Created(InitiativeChange {
+                initiative_id: id,
+                attribution: Some(attribution.into()),
+                occurred_at: Utc::now(),
+            }),
+        )
+        .await;
+    }
+
+    /// Seed the description, persist the row and set the first property values. A
+    /// seeded description commits before the row, so the project never opens without
+    /// it; a failure after that retires what was made. Publishes nothing.
+    async fn create_new(&self, new: NewInitiative) -> Result<InitiativeDetail, InitiativeError> {
+        let team_default = self
+            .repo
+            .get_team_default_link_share(&new.owner_id)
+            .await
+            .map_err(Into::into)?;
+        let share_permission = SharePermissionV2::new_initiative_share_permission(team_default);
+        let team_share = if new.share_with_team {
+            TeamShareCreation::Initiative
+        } else {
+            TeamShareCreation::Unshared
+        };
+
+        let id = InitiativeId::generate();
+        // Without a seed the surface is ensured on first open.
+        let seeded = match new.description {
+            DescriptionSeed::Markdown(markdown) if markdown.is_empty() => false,
+            DescriptionSeed::Snapshot(snapshot) if snapshot.is_empty() => false,
+            DescriptionSeed::Markdown(markdown) => {
+                self.description_surfaces.ensure(id, markdown).await?;
+                true
+            }
+            DescriptionSeed::Snapshot(snapshot) => {
+                self.description_surfaces
+                    .ensure_from_snapshot(id, snapshot)
+                    .await?;
+                true
+            }
+        };
+        let created = self
+            .repo
+            .create(
+                CreateInitiativeRepoArgs {
+                    id,
+                    owner_id: new.owner_id.clone(),
+                    name: new.name,
+                    member_ids: new.member_ids,
+                },
+                share_permission,
+                team_share,
+            )
+            .await;
+        let mut detail = match created {
+            Ok(detail) => detail,
+            Err(error) => {
+                if seeded {
+                    self.retire_description(id).await;
+                }
+                return Err(error.into());
+            }
+        };
+        if let Err(error) = initialize_properties(
+            self.resources.as_ref(),
+            new.owner_id,
+            id,
+            new.property_values,
+        )
+        .await
+        {
+            if self
+                .repo
+                .delete(id)
+                .await
+                .inspect_err(|cleanup| {
+                    tracing::error!(error=?cleanup, %id, "failed to compensate initiative initialization");
+                })
+                .is_ok()
+            {
+                self.publish(id, InitiativeTopicEvent::Purged { initiative_id: id })
+                    .await;
+                self.retire_description(id).await;
+            }
+            return Err(error);
+        }
+        detail.user_access_level = AccessLevel::Owner;
+        Ok(detail)
+    }
+
+    /// Remove a just-created initiative no caller has seen: its rows, properties and
+    /// description. Failures are logged; the caller is already reporting an error.
+    async fn discard_created(&self, id: InitiativeId) {
+        if let Err(error) = self.repo.delete(id).await {
+            tracing::error!(?error, %id, "failed to discard initiative after a failed conversion");
+            return;
+        }
+        self.publish(id, InitiativeTopicEvent::Purged { initiative_id: id })
+            .await;
+        match EntityAccessReceipt::try_new(
+            EntityAccessAuth::Internal,
+            Entity {
+                entity_id: id.to_string(),
+                entity_type: EntityType::Initiative,
+            },
+            EntityPermission::AccessLevel {
+                access_level: AccessLevel::Owner,
+            },
+        ) {
+            Ok(receipt) => {
+                if let Err(error) = self.resources.purge(receipt).await {
+                    tracing::error!(?error, %id, "discarded initiative left properties behind");
+                }
+            }
+            Err(error) => {
+                tracing::error!(?error, %id, "discarded initiative left properties behind");
+            }
+        }
+        self.retire_description(id).await;
     }
 
     /// Authorize one team-share edit against the initiative's canonical facts.
@@ -177,15 +329,7 @@ where
         request: CreateInitiativeRequest,
         attribution: activity::Attribution,
     ) -> Result<InitiativeDetail, InitiativeError> {
-        let authorized = match &attribution {
-            activity::Attribution::Direct { actor } => {
-                actor.as_user().is_some_and(|actor| actor == user_id)
-            }
-            activity::Attribution::Delegated { actor, subject } => {
-                actor.as_bot().is_some() && subject == user_id
-            }
-        };
-        if !authorized {
+        if !attributed_to(&attribution, user_id) {
             return Err(InitiativeError::Unauthorized);
         }
         let name = normalize_name(&request.name)?;
@@ -193,82 +337,70 @@ where
         let owner_id = user_id.clone().into_owned();
         let member_ids = parse_member_ids(request.member_ids.unwrap_or_default(), &owner_id)?;
         let property_values = validate_initial_properties(request.property_values)?;
-        let team_default = self
-            .repo
-            .get_team_default_link_share(&owner_id)
-            .await
-            .map_err(Into::into)?;
-        let share_permission = SharePermissionV2::new_initiative_share_permission(team_default);
-        let team_share = if request.share_with_team.unwrap_or(true) {
-            TeamShareCreation::Initiative
-        } else {
-            TeamShareCreation::Unshared
-        };
+        let detail = self
+            .create_new(NewInitiative {
+                owner_id,
+                name,
+                member_ids,
+                property_values,
+                share_with_team: request.share_with_team.unwrap_or(true),
+                description: DescriptionSeed::Markdown(prefill_markdown),
+            })
+            .await?;
+        self.publish_created(detail.id, attribution).await;
+        Ok(detail)
+    }
 
-        let id = InitiativeId::generate();
-        // A description given at creation seeds the surface before the row exists, so the
-        // project never opens without it. Otherwise the surface is ensured on first open.
-        let seeded = !prefill_markdown.is_empty();
-        if seeded {
-            self.description_surfaces
-                .ensure(id, prefill_markdown)
-                .await?;
+    #[tracing::instrument(err, skip_all)]
+    async fn convert_task(
+        &self,
+        task: EntityAccessReceipt<OwnerAccessLevel>,
+        attribution: activity::Attribution,
+    ) -> Result<InitiativeDetail, InitiativeError> {
+        let conversions = self.task_conversions.clone().ok_or_else(|| {
+            InitiativeError::Internal(rootcause::report!("task conversion is not configured"))
+        })?;
+        if task.entity().entity_type != EntityType::Document {
+            return Err(InitiativeError::BadRequest(
+                "requires a task access receipt".to_string(),
+            ));
         }
-        let created = self
-            .repo
-            .create(
-                CreateInitiativeRepoArgs {
-                    id,
-                    owner_id,
-                    name,
-                    member_ids,
-                },
-                share_permission,
-                team_share,
-            )
-            .await;
-        let mut detail = match created {
-            Ok(detail) => detail,
-            Err(error) => {
-                if seeded {
-                    self.retire_description(id).await;
-                }
-                return Err(error.into());
-            }
-        };
-        if let Err(error) = initialize_properties(
-            self.resources.as_ref(),
-            user_id.clone().into_owned(),
-            id,
-            property_values,
-        )
-        .await
-        {
-            if self
-                .repo
-                .delete(id)
-                .await
-                .inspect_err(|cleanup| {
-                    tracing::error!(error=?cleanup, %id, "failed to compensate initiative initialization");
-                })
-                .is_ok()
-            {
-                self.publish(id, InitiativeTopicEvent::Purged { initiative_id: id })
-                    .await;
-                self.retire_description(id).await;
-            }
+        let owner_id = task
+            .acting_user_id()
+            .cloned()
+            .ok_or(InitiativeError::Unauthorized)?;
+        if !attributed_to(&attribution, &owner_id) {
+            return Err(InitiativeError::Unauthorized);
+        }
+        let source = conversions.read(&task).await?;
+        let property_values = validate_initial_properties(source.property_values)?;
+        let detail = self
+            .create_new(NewInitiative {
+                owner_id: owner_id.clone(),
+                name: converted_name(&source.name),
+                member_ids: Vec::new(),
+                property_values,
+                share_with_team: true,
+                description: DescriptionSeed::Snapshot(source.description),
+            })
+            .await?;
+        let id = detail.id;
+        // Until the comments move, the task is untouched and the project can go.
+        if let Err(error) = conversions.move_discussions(&task, id).await {
+            self.discard_created(id).await;
             return Err(error);
         }
-        detail.user_access_level = AccessLevel::Owner;
-        self.publish(
-            id,
-            InitiativeTopicEvent::Created(InitiativeChange {
-                initiative_id: id,
-                attribution: Some(attribution.into()),
-                occurred_at: Utc::now(),
-            }),
-        )
-        .await;
+        if let Err(error) = conversions
+            .adopt_subtasks(owner_id, source.subtask_ids, id)
+            .await
+        {
+            tracing::error!(?error, %id, "converted task's subtasks did not join its project");
+        }
+        // The project is complete; a task left behind is a duplicate, not a failure.
+        if let Err(error) = conversions.retire(task).await {
+            tracing::error!(?error, %id, "converted task was not moved to the trash");
+        }
+        self.publish_created(id, attribution).await;
         Ok(detail)
     }
 
@@ -498,6 +630,33 @@ fn normalize_name(name: &str) -> Result<String, InitiativeError> {
         });
     }
     Ok(name.to_string())
+}
+
+/// Direct users must be the owner; delegated bots must act for that owner.
+fn attributed_to(attribution: &activity::Attribution, owner: &MacroUserIdStr<'_>) -> bool {
+    match attribution {
+        activity::Attribution::Direct { actor } => {
+            actor.as_user().is_some_and(|actor| actor == owner)
+        }
+        activity::Attribution::Delegated { actor, subject } => {
+            actor.as_bot().is_some() && subject == owner
+        }
+    }
+}
+
+/// A task title as a project name: trimmed, cut to the project limit, and named
+/// like an untitled project when blank.
+fn converted_name(title: &str) -> String {
+    let title = title.trim();
+    if title.is_empty() {
+        return "Untitled project".to_string();
+    }
+    title
+        .graphemes(true)
+        .take(MAX_INITIATIVE_NAME_GRAPHEMES)
+        .collect::<String>()
+        .trim_end()
+        .to_string()
 }
 
 fn normalize_description(description: Option<String>) -> Result<String, InitiativeError> {

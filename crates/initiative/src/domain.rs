@@ -3,6 +3,8 @@
 pub mod activity;
 #[cfg(feature = "ports")]
 pub mod assignees;
+#[cfg(feature = "ports")]
+pub mod conversion;
 pub mod events;
 #[cfg(feature = "ports")]
 pub mod history;

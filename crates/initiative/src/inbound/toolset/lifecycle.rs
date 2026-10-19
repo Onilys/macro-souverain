@@ -70,6 +70,51 @@ impl<S: InitiativeService, A: EntityAccessService, R: EntityActivityReads>
     }
 }
 
+/// Turn a task into a project in place.
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+#[schemars(
+    title = "ConvertTaskToInitiative",
+    description = "Turn a task into a project (called an initiative in the API) when the user says a task should be a project. The project takes the task's title, its full body as the description, its status, priority, assignees, due date and other applicable properties, and all of its comments (inline comments become general project discussion). The task's subtasks join the project. The task itself moves to the trash. Requires ownership of the task. A project cannot be turned back into a task."
+)]
+pub struct ConvertTaskToInitiative {
+    /// Task to convert.
+    #[schemars(description = "Task to convert.")]
+    pub task_id: String,
+}
+
+impl ToolAnnotated for ConvertTaskToInitiative {
+    const ANNOTATIONS: ToolAnnotations = ToolAnnotations::destructive("Convert task to project");
+}
+
+#[async_trait]
+impl<S: InitiativeService, A: EntityAccessService, R: EntityActivityReads>
+    AsyncTool<InitiativeToolContext<S, A, R>> for ConvertTaskToInitiative
+{
+    type Output = ProjectDetails;
+    async fn call(
+        &self,
+        context: ServiceContext<InitiativeToolContext<S, A, R>>,
+        request: RequestContext,
+    ) -> ToolResult<Self::Output> {
+        let receipt = context
+            .receipt::<OwnerAccessLevel>(&request, &self.task_id, EntityType::Document)
+            .await?;
+        context
+            .service
+            .convert_task(
+                receipt,
+                activity::Attribution::delegated(
+                    activity::Actor::new_from_bot(context.actor),
+                    request.user_id.clone(),
+                ),
+            )
+            .await
+            .map(Into::into)
+            .map_err(failure)
+    }
+}
+
 /// Rename a project or change its collaboration members.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]

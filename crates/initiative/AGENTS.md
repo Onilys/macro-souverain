@@ -13,6 +13,9 @@ properties, and activity.
 - `src/domain/models.rs`: `Initiative`, `InitiativeError`.
 - `src/domain/assignees.rs`, `src/domain/history.rs`, `src/domain/activity.rs`:
   assignment policy, change history, and activity recording.
+- `src/domain/conversion.rs`: the `TaskConversions` port behind
+  `convert_task` (task → project in place); the adapter is
+  `crates/initiative_task_conversion`.
 - `src/outbound/pg_initiative_repo.rs` (+ `create.rs`, `list.rs`, `members.rs`,
   `share.rs`): the Postgres adapter, split by operation.
 - `src/inbound/toolset/`: AI toolset surface (lifecycle, reads, sharing).
@@ -23,7 +26,8 @@ properties, and activity.
 
 - Owns: initiative CRUD, assignment, sharing, properties, and activity.
 - Not here: the GraphQL surface → `crates/graphql_initiative`; initiative
-  descriptions (collab surface) → `crates/initiative_description`.
+  descriptions (collab surface) → `crates/initiative_description`; the
+  task-side steps of a conversion → `crates/initiative_task_conversion`.
 
 ## Boundaries
 
@@ -31,6 +35,7 @@ properties, and activity.
   `macro_event_broker`/`macro_event_topics`, optionally `properties` /
   `system_properties` (feature `resources`).
 - Used by: `graphql_initiative`, `ai_tools`, `initiative_description`,
+  `initiative_task_conversion`,
   `agent_trigger`, `messages`, `soup_realtime`.
 
 ## Recipes

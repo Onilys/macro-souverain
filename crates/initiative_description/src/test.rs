@@ -10,6 +10,7 @@ use super::*;
 #[derive(Default)]
 struct FakeSurfaces {
     ensured: Mutex<Vec<(Entity<'static>, Uuid, String)>>,
+    seeded: Mutex<Vec<(Entity<'static>, Uuid, Vec<u8>)>>,
     retired: Mutex<Vec<Uuid>>,
     markdown: Option<String>,
 }
@@ -36,11 +37,21 @@ impl OwnedSurfaceService for FakeSurfaces {
 
     async fn ensure_owned_surface_from_snapshot(
         &self,
-        _parent: Entity<'static>,
-        _id: Uuid,
-        _snapshot: Vec<u8>,
+        parent: Entity<'static>,
+        id: Uuid,
+        snapshot: Vec<u8>,
     ) -> Result<CollabSurface, CollabSurfaceError> {
-        unreachable!("initiative descriptions are seeded from markdown")
+        self.seeded
+            .lock()
+            .unwrap()
+            .push((parent.clone(), id, snapshot));
+        Ok(CollabSurface {
+            id,
+            parent,
+            state: SurfaceState::Ready,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        })
     }
 
     async fn owned_surface_markdown(
@@ -95,6 +106,28 @@ async fn the_surface_has_the_initiative_id_and_parent() {
         )]
     );
     assert_eq!(*fake.retired.lock().unwrap(), vec![initiative.as_uuid()]);
+}
+
+#[tokio::test]
+async fn a_converted_task_seeds_the_surface_with_its_snapshot() {
+    let fake = Arc::new(FakeSurfaces::default());
+    let adapter = InitiativeDescriptionSurfacesAdapter::new(fake.clone());
+    let initiative = InitiativeId::from_uuid(Uuid::now_v7());
+
+    adapter
+        .ensure_from_snapshot(initiative, vec![1, 2, 3])
+        .await
+        .unwrap();
+
+    assert_eq!(
+        *fake.seeded.lock().unwrap(),
+        vec![(
+            EntityType::Initiative.with_entity_string(initiative.to_string()),
+            initiative.as_uuid(),
+            vec![1, 2, 3],
+        )]
+    );
+    assert!(fake.ensured.lock().unwrap().is_empty());
 }
 
 #[tokio::test]

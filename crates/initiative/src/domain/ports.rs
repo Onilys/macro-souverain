@@ -30,6 +30,14 @@ pub trait InitiativeDescriptionSurfaces: Send + Sync + 'static {
         markdown: String,
     ) -> impl Future<Output = Result<(), InitiativeError>> + Send;
 
+    /// [`InitiativeDescriptionSurfaces::ensure`] for a new surface that starts from a
+    /// full Loro `snapshot`, such as a task body becoming the description.
+    fn ensure_from_snapshot(
+        &self,
+        initiative: InitiativeId,
+        snapshot: Vec<u8>,
+    ) -> impl Future<Output = Result<(), InitiativeError>> + Send;
+
     /// The description as GitHub-flavored markdown; empty while the surface was never ensured.
     fn read(
         &self,
@@ -144,6 +152,16 @@ pub trait InitiativeService: Send + Sync + 'static {
         &self,
         user_id: &MacroUserIdStr<'_>,
         request: CreateInitiativeRequest,
+        attribution: activity::Attribution,
+    ) -> impl Future<Output = Result<InitiativeDetail, InitiativeError>> + Send;
+
+    /// Replace a task with a project owned by its owner. The task body becomes the
+    /// description, its properties and comments carry over, its subtasks join the
+    /// project, and the task moves to the trash. Attribution follows
+    /// [`InitiativeService::create_attributed`].
+    fn convert_task(
+        &self,
+        task: EntityAccessReceipt<OwnerAccessLevel>,
         attribution: activity::Attribution,
     ) -> impl Future<Output = Result<InitiativeDetail, InitiativeError>> + Send;
 

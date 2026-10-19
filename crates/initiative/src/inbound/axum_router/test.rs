@@ -307,6 +307,14 @@ impl InitiativeService for FakeInitiativeService {
     ) -> Result<InitiativeDetail, InitiativeError> {
         self.create(user_id, request).await
     }
+
+    async fn convert_task(
+        &self,
+        _task: EntityAccessReceipt<OwnerAccessLevel>,
+        _attribution: activity::Attribution,
+    ) -> Result<InitiativeDetail, InitiativeError> {
+        Err(InitiativeError::NotFound)
+    }
     async fn page(
         &self,
         _user_id: &MacroUserIdStr<'_>,

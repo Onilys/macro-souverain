@@ -49,6 +49,23 @@ where
         Ok(())
     }
 
+    #[tracing::instrument(skip(self, snapshot), fields(snapshot_len = snapshot.len()), err)]
+    async fn ensure_from_snapshot(
+        &self,
+        initiative: InitiativeId,
+        snapshot: Vec<u8>,
+    ) -> Result<(), InitiativeError> {
+        self.surfaces
+            .ensure_owned_surface_from_snapshot(
+                EntityType::Initiative.with_entity_string(initiative.to_string()),
+                initiative.as_uuid(),
+                snapshot,
+            )
+            .await
+            .map_err(map_surface_error)?;
+        Ok(())
+    }
+
     #[tracing::instrument(skip(self), err)]
     async fn read(&self, initiative: InitiativeId) -> Result<String, InitiativeError> {
         Ok(self

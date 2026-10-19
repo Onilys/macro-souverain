@@ -8,7 +8,9 @@ mod types;
 #[cfg(test)]
 mod test;
 
-pub use lifecycle::{CreateInitiative, DeleteInitiative, UpdateInitiative};
+pub use lifecycle::{
+    ConvertTaskToInitiative, CreateInitiative, DeleteInitiative, UpdateInitiative,
+};
 pub use reads::{ListInitiatives, ReadInitiative, ReadInitiativeActivity};
 pub use sharing::UpdateInitiativeSharing;
 pub use types::*;
@@ -113,6 +115,7 @@ pub fn initiative_toolset<S: InitiativeService, A: EntityAccessService, R: Entit
         .add_tool::<CreateInitiative, InitiativeToolContext<S, A, R>>()
         .add_tool::<UpdateInitiative, InitiativeToolContext<S, A, R>>()
         .add_tool::<DeleteInitiative, InitiativeToolContext<S, A, R>>()
+        .add_tool::<ConvertTaskToInitiative, InitiativeToolContext<S, A, R>>()
         .add_tool::<UpdateInitiativeSharing, InitiativeToolContext<S, A, R>>()
         .add_tool::<ReadInitiativeActivity, InitiativeToolContext<S, A, R>>()
 }
