@@ -1,0 +1,16 @@
+---
+title: ConvertTaskToInitiative
+description: >-
+  Turn a task into a project (called an initiative in the API) when the user
+  says a task should be a project.
+---
+
+# ConvertTaskToInitiative
+
+Turn a task into a project (called an initiative in the API) when the user says a task should be a project. The project takes the task's title, its full body as the description, its status, priority, assignees, due date and other applicable properties, and all of its comments (inline comments become general project discussion). The task's subtasks join the project. The task itself moves to the trash. Requires ownership of the task. A project cannot be turned back into a task.
+
+## Parameters
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `taskId` | string | Yes | Task to convert. |

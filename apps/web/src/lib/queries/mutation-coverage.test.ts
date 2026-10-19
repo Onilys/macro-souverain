@@ -36,6 +36,8 @@ const policies = {
   MarkWorkFeedItemsDone:
     'custom: feed rows stay hidden until the server removes them',
   CreateInitiative: 'authoritative: server assigns the project ID',
+  ConvertTaskToInitiative:
+    'authoritative: server creates the project and trashes the task',
   DeleteInitiative:
     'authoritative: boolean response; membership refresh after success',
   EnsureInitiativeDescriptionSurface:
