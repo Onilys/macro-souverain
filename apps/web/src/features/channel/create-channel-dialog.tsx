@@ -34,6 +34,7 @@ import {
 } from '@ui';
 import { createMemo, createSignal, Show } from 'solid-js';
 import { v7 as uuidv7 } from 'uuid';
+import { ConnectWhatsAppGroup } from '../whatsapp-linked/group-adoption';
 
 import {
   newChannelModalFocusLock,
@@ -429,6 +430,12 @@ export function CreateChannelDialog() {
 
             <Show when={step() === 'name'}>
               <div class="flex flex-col gap-3">
+                <ConnectWhatsAppGroup
+                  onConnected={(id) => {
+                    replaceOrInsertSplit({ type: 'channel', id });
+                    resetAndClose();
+                  }}
+                />
                 <Checkbox
                   checked={whatsapp()}
                   disabled={!!submittedGroup()}

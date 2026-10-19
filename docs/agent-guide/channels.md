@@ -1401,3 +1401,9 @@ team settings use channel detail, including auto-join, while retaining native ro
 checks. Account refresh errors keep registration rows and unsubmitted PINs mounted;
 PINs must never persist outside that password field. Invite-link copy uses a transient
 success toast, and confirmed group deletion removes the channel from pane history.
+
+## Personal WhatsApp groups
+
+With the linked-device flag enabled, choose **Create channel → Connect WhatsApp group**. Choose an already-existing joined group and explicitly review workspace and Macro audience. Each teammate connects their own account and adopts the same group; authorized retries reuse one native channel. In Participants, distinguish WhatsApp roster from Macro access. Granting Macro access does not add people remotely. **Disconnect group from Macro** is a local detach. When ownership is required, a permitted manager may explicitly own future files.
+
+The existing composer says **Send to WhatsApp** and shows only your own identity. Check text, native attachments, quotes, reactions and supported own-message edits/deletes. Phone-origin rows retain a WhatsApp origin mark. Offline preserves drafts without submitting; account replacement must isolate old drafts. Unknown metadata never creates an internal composer. Verify 390px layouts, keyboard controls, and zero business `/meta/channels` calls for linked groups. Ordinary channels still make zero `/meta/*` calls. See `WHATSAPP_LINKED_VERIFICATION.md` for executed synthetic checks and the separately authorized real-account checklist.
