@@ -1033,8 +1033,15 @@ and returns focus to the chat button; reopening preserves the draft and scroll
 position. The call continues while chat is open or closed.
 
 Signed-in participants in channel, quick, and scheduled calls use the same chat
-panel. Guest meeting participants do not see chat because shared messages require
-a Macro account. Each call session has one persistent message thread, using the
+panel. Guests in quick and scheduled calls can also open chat and read and send
+text without signing in. Guest authors appear as **Name (Guest)**. Their composer
+uses Enter to send on desktop and the Send button on touch devices, preserves drafts on close, and
+keeps failed messages available to retry. Guest chat refreshes while open and is
+available only while that guest is connected to the call. Check a signed-in
+participant and a guest exchanging messages in both directions, then verify the
+guest loses access after leaving or after the call ends. Guest messages remain
+in the saved call discussion. Each call session has one persistent message thread;
+signed-in participants use the
 shared message composer, attachments, reactions, and message actions. The `@`
 menu offers Macro and available owned and team agents. Mention an agent and send
 to invoke it in the call thread; follow-up mentions use the same thread. Reply

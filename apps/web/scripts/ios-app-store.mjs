@@ -628,7 +628,10 @@ async function inFlightVersionForPr(pr) {
 /// code changed after the release, so that build must never go live).
 /// GITHUB_OUTPUT gets withdrawn=true|false and, if the PR's version is past
 /// the point of withdrawal — approved by Apple or already shipped —
-/// live=<version> (<build>) so the caller can warn loudly.
+/// live=<version> (<build>) so the caller can warn loudly. With
+/// --unless-tree <hash> (the watcher's drift check) a build whose stamp still
+/// matches the PR's native code is left alone in every state, in-flight or
+/// live: nothing drifted, so nothing to withdraw or warn about.
 async function withdraw() {
   const pr = args.pr ?? releasePr;
   if (!pr) {
@@ -675,6 +678,13 @@ async function withdraw() {
     const stamp = await buildStamp(attached.data.id);
     if (stamp?.pr === String(pr)) {
       const live = `${record.attributes.versionString} (${attached.data.attributes.version})`;
+      if (args["unless-tree"] && stamp.tree === args["unless-tree"]) {
+        console.log(
+          `PR #${pr}'s version ${live} is live on the App Store, built from native tree ` +
+            `${stamp.tree}, which is still the PR's; nothing to withdraw.`,
+        );
+        return;
+      }
       console.log(`PR #${pr}'s version ${live} is already live on the App Store.`);
       setGitHubOutput("live", live);
       return;

@@ -78,6 +78,10 @@ without changing the active route. Backend registration still verifies account
 ownership. Cancel, logout, and the ten-minute timeout retire pending callbacks.
 
 ### General
+- Keep signed-out Drive document routes on the shared detail viewer without
+  mounting private list/sidebar sources; let document access checks decide visibility.
+- Gate account-only queries, comment readers, and account WebSockets on confirmed
+  authentication; keep public document loading independent of those services.
 - Disable GraphQL cache sessions and clear login hints on confirmed auth 401s,
   even with retained user data; preserve session state on transient failures.
 - Mobile dock search owns transient category/mode state in `features/command/mobile`; reuse the shared entity source and explicit full-text adapter rather than overlaying the dock query on view tabs or saved facets. See `docs/agent-guide/search.md` at the repository root.
@@ -96,7 +100,7 @@ ownership. Cancel, logout, and the ten-minute timeout retire pending callbacks.
   guards in `features/block-md/{primitives,queries}/task-predictions.ts`.
   Highlight changed AI values with `TaskPredictionHighlight`; keep text readable,
   preserve control focus, and respect reduced motion on desktop and mobile.
-- Keep desktop inbox consent in the system browser with a
+- Keep desktop Gmail and Outlook inbox consent in the system browser with a
   `macro:///inbox-link-callback` return; webview origins are not desktop callbacks.
 - Draft autosaves preserve active email thread messages; evict inactive legacy
   caches on save and the active cache on thread exit. Revalidate GraphQL thread
