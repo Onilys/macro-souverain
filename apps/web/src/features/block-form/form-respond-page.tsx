@@ -7,6 +7,7 @@
  * `RespondView`.
  */
 import { useUserId } from '@core/context/user';
+import { fireAndForget } from '@core/util/fireAndForget';
 import Eye from '@phosphor/eye.svg';
 import { useNavigate, useSearchParams } from '@solidjs/router';
 import { Button, Layer } from '@ui';
@@ -57,7 +58,9 @@ function FormRespondContent(props: { formId: string }) {
                   <div class="mx-auto flex max-w-[680px] flex-col px-4 py-16">
                     <FormLoadFailureView
                       failure={failure()}
-                      onRetry={() => void source.refetch()}
+                      onRetry={() =>
+                        fireAndForget(source.refetch(), 'form-respond')
+                      }
                     />
                     <Show when={failure().kind === 'sign-in'}>
                       <SignInToRespond class="mx-auto text-sm text-link hover:underline">
@@ -76,7 +79,9 @@ function FormRespondContent(props: { formId: string }) {
                   <div class="mx-auto max-w-[680px] px-4 py-16">
                     <FormLoadFailureView
                       failure={{ kind: 'forbidden' }}
-                      onRetry={() => void source.refetch()}
+                      onRetry={() =>
+                        fireAndForget(source.refetch(), 'form-respond')
+                      }
                     />
                   </div>
                 }

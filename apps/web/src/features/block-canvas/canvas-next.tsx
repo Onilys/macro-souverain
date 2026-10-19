@@ -7,6 +7,7 @@ import {
   resolveBlockAlias,
 } from '@core/constant/allBlocks';
 import { useHotkeyDOMScope } from '@core/hotkey/hotkeys';
+import { fireAndForget } from '@core/util/fireAndForget';
 import type { GraphicsEditor, TextMeasurer } from '@macro-inc/graphics';
 import { createGraphicsEditor, screenToWorld } from '@macro-inc/graphics';
 import { fetchDocumentMetadata } from '@queries/storage/document-metadata';
@@ -101,7 +102,7 @@ function EditableCanvasNext(props: {
       state.chooseTool('select');
     },
     (files) => {
-      void assets.files(files, center());
+      fireAndForget(assets.files(files, center()), 'canvas-assets');
     },
     { canvasId: props.documentId, center }
   );

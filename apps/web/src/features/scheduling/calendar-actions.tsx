@@ -6,6 +6,7 @@ import { toast } from '@core/component/Toast/Toast';
 import { enableCalendarScheduling } from '@core/constant/featureFlags';
 import { useUserId } from '@core/context/user';
 import { writeClipboardData } from '@core/util/dataTransfer';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { getWebOrigin } from '@core/util/webOrigin';
 import ArrowSquareOutIcon from '@phosphor/arrow-square-out.svg';
 import CaretDownIcon from '@phosphor/caret-down.svg';
@@ -37,7 +38,7 @@ function Actions(props: { sidebar?: boolean }) {
   const copyLink = async (event?: EventType) => {
     const profile = source.isSuccess ? source.data : undefined;
     if (!profile?.revision) {
-      navigate({ route: bookingLinksRoute });
+      fireAndForget(navigate({ route: bookingLinksRoute }), 'scheduling');
       return;
     }
 
@@ -98,7 +99,9 @@ function Actions(props: { sidebar?: boolean }) {
           >
             <For each={enabledLinks()}>
               {(event) => (
-                <Dropdown.Item onSelect={() => void copyLink(event)}>
+                <Dropdown.Item
+                  onSelect={() => fireAndForget(copyLink(event), 'scheduling')}
+                >
                   <span class="min-w-0 truncate">{event.title}</span>
                 </Dropdown.Item>
               )}

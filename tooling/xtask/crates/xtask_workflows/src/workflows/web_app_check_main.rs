@@ -95,6 +95,7 @@ fn typescript() -> Job {
         .add_step(steps::setup_reqs_web("Setup Prereqs", false))
         .add_step(check_dynamic_ui_schema())
         .add_step(check_types())
+        .add_step(check_floating_promises())
         .add_step(check_functional_test_types())
         .add_step(check_collaboration_types())
         .add_step(check_lexical_service_types())
@@ -367,6 +368,12 @@ fn check_types() -> Step<Run> {
     Step::new("Check Types")
         .run("bun run type-check")
         .working_directory(xtask_paths::repo_dir!("apps/web"))
+}
+
+/// Type-aware oxlint over all of `apps/web`; `no-floating-promises` is an
+/// error and needs type information to run at all.
+fn check_floating_promises() -> Step<Run> {
+    Step::new("Check Floating Promises").run("bun run lint:oxlint --quiet")
 }
 
 fn check_functional_test_types() -> Step<Run> {
