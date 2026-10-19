@@ -9,6 +9,7 @@ import {
 import { createWebsocketStateSignal } from '@macro-inc/collaboration/websocket/solid/state-signal';
 import { createEffect, createSignal, onCleanup } from 'solid-js';
 import { v7 as uuidv7 } from 'uuid';
+import { createSessionWebsocketTelemetry } from '../session-websocket-telemetry';
 
 /**
  * The interval in milliseconds to send a heartbeat message to the server.
@@ -28,9 +29,19 @@ async function resolveWsUrl() {
   return SERVER_HOSTS['websocket-service'];
 }
 
-const ws = new WebsocketBuilder(resolveWsUrl)
+export const storageSessionTelemetry = createSessionWebsocketTelemetry(
+  'storage',
+  resolveWsUrl
+);
+
+const ws = new WebsocketBuilder(storageSessionTelemetry.resolveUrl)
+  .withAutoConnect(false)
   .withBackoff(new ConstantBackoff(2_000))
   .withMaxRetries(20)
+  .onOpen(storageSessionTelemetry.opened)
+  .onError(storageSessionTelemetry.failed)
+  .onClose((_, event) => storageSessionTelemetry.closed(event))
+  .onRetry((_, event) => storageSessionTelemetry.retry(event.detail))
   .withHeartbeat({
     pingMessage: JSON.stringify({ action: 'wsping' }),
     pongMessage: 'pong',

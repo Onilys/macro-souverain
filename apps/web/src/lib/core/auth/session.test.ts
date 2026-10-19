@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import { err, ok } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -41,9 +42,12 @@ async function loadSession(initial: Identity) {
 
 function settled(promise: Promise<unknown>) {
   let done = false;
-  void promise.then(
-    () => (done = true),
-    () => (done = true)
+  fireAndForget(
+    promise.then(
+      () => (done = true),
+      () => (done = true)
+    ),
+    'session-test'
   );
   return async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));

@@ -1,4 +1,5 @@
-import { useUserId } from '@core/context/user';
+import { useIsAuthenticated, useUserId } from '@core/context/user';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { throwOnErr } from '@core/util/result';
 import { Telemetry } from '@macro-inc/observability';
 import { invalidateUserInfo } from '@queries/auth/user-info';
@@ -30,9 +31,11 @@ const queryEnabled = () => true;
  * prompt — nothing renders from this query.
  */
 export function useInboxHealthProbeQuery() {
+  const authenticated = useIsAuthenticated();
   return useQuery(() => ({
     queryKey: emailKeys.linksHealthProbe.queryKey,
     queryFn: probeInboxHealth,
+    enabled: authenticated() === true,
     staleTime: HEALTH_PROBE_STALE_TIME,
     refetchOnWindowFocus: true,
     retry: false,
@@ -49,10 +52,11 @@ function fetchEmailLinks() {
 }
 
 export function useEmailLinksQuery(enabled: Accessor<boolean> = queryEnabled) {
+  const authenticated = useIsAuthenticated();
   return useQuery(() => ({
     queryKey: emailKeys.links.queryKey,
     queryFn: fetchEmailLinks,
-    enabled: enabled(),
+    enabled: authenticated() === true && enabled(),
     staleTime: LINK_STALE_TIME,
     refetchOnWindowFocus: 'always',
     meta: requiresSession,
@@ -135,7 +139,7 @@ async function refreshSenderCatalog(): Promise<void> {
 export function invalidateEmailLinks() {
   // Connection, reauthorization and link-removal events must refresh the
   // GraphQL catalog consumed by both From and the sidebar, not only legacy reads.
-  void refreshSenderCatalog();
+  fireAndForget(refreshSenderCatalog(), 'email-links');
   queryClient.cancelQueries({ queryKey: emailKeys.links.queryKey });
   queryClient.invalidateQueries({
     queryKey: emailKeys.links.queryKey,

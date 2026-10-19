@@ -456,6 +456,14 @@ impl EmailUserService for CountingEmailService {
 }
 
 impl EmailService for CountingEmailService {
+    async fn resolve_message_operation(
+        &self,
+        _actor: macro_user_id::user_id::MacroUserIdStr<'static>,
+        _request: email::domain::models::mailbox_operation::MessageResolutionRequest,
+    ) -> Result<Uuid, EmailErr> {
+        Err(EmailErr::RepoErr(anyhow::anyhow!("unused test capability")))
+    }
+
     async fn send_message_for_user(
         &self,
         _user: MacroUserIdStr<'static>,
@@ -646,6 +654,7 @@ impl EmailService for CountingEmailService {
 
     async fn set_sender_policy(
         &self,
+        _actor: &macro_user_id::user_id::MacroUserIdStr<'_>,
         _link: &Link,
         _sender_email: &str,
         _policy: SenderPolicy,
@@ -689,6 +698,9 @@ impl graphql_email::SoupEmailThreadMetadataEdgeReader for RecordingEmailContentR
                         link_id: Uuid::from_u128(900 + thread_id.as_u128()),
                         latest_inbound_message_ts: (thread_id.as_u128() % 2 == 1)
                             .then(Default::default),
+                        latest_outbound_message_ts: (thread_id.as_u128() % 2 == 1)
+                            .then(Default::default),
+                        latest_non_spam_message_ts: Some(Default::default()),
                         reminder_returned_at: (thread_id.as_u128() % 2 == 0).then(Default::default),
                     }),
                 )
@@ -894,6 +906,7 @@ fn full_message(thread_id: Uuid) -> Message {
     let message_id = Uuid::from_u128(100);
     let draft_attachment_id = Uuid::from_u128(102);
     Message {
+        operation_status: None,
         calendar_invitations: Default::default(),
         db_id: message_id,
         provider_id: Some("provider-message".to_owned()),
@@ -924,6 +937,7 @@ fn full_message(thread_id: Uuid) -> Message {
         body_macro: None,
         body_replyless: Some("Direct thread body".to_owned()),
         attachments: vec![MessageAttachment {
+            reference_url: Some("https://outlook.office.com/mail/message".into()),
             db_id: Uuid::from_u128(103),
             provider_id: Some("provider-attachment".to_owned()),
             filename: Some("provider.txt".to_owned()),
@@ -933,6 +947,9 @@ fn full_message(thread_id: Uuid) -> Message {
             content_id: Some("inline-content".to_owned()),
         }],
         attachments_draft: vec![AttachmentDraft {
+            upload_pending: false,
+            content_id: None,
+            is_inline: false,
             id: draft_attachment_id,
             draft_id: message_id,
             file_name: "draft.txt".to_owned(),
@@ -2198,7 +2215,7 @@ async fn email_thread_metadata_is_lazy_and_batches_across_threads() {
 
     let with_metadata = harness
         .execute(
-            r#"{ user { soup(input: {initial: {}}) { items { ... on GraphqlSoupEmailThread { id linkId latestInboundMessageTs reminderReturnedAt } } } } }"#,
+            r#"{ user { soup(input: {initial: {}}) { items { ... on GraphqlSoupEmailThread { id linkId latestInboundMessageTs latestOutboundMessageTs latestNonSpamMessageTs reminderReturnedAt } } } } }"#,
         )
         .await;
     assert!(
@@ -2223,6 +2240,16 @@ async fn email_thread_metadata_is_lazy_and_batches_across_threads() {
     assert!(items[1]["latestInboundMessageTs"].is_null());
     assert!(items[0]["reminderReturnedAt"].is_null());
     assert_eq!(items[1]["reminderReturnedAt"], "1970-01-01T00:00:00+00:00");
+    assert!(items[0]["latestOutboundMessageTs"].as_str().is_some());
+    assert!(items[1]["latestOutboundMessageTs"].is_null());
+    assert_eq!(
+        items[0]["latestNonSpamMessageTs"],
+        "1970-01-01T00:00:00+00:00"
+    );
+    assert_eq!(
+        items[1]["latestNonSpamMessageTs"],
+        "1970-01-01T00:00:00+00:00"
+    );
 }
 
 #[tokio::test]
@@ -2489,7 +2516,7 @@ async fn email_message_full_fields_request_the_full_edge_payload() {
 
     let response = harness
         .execute(&format!(
-            r#"{{ user {{ emailThread(input: {{threadId: "{thread_id}"}}) {{ messages(offset: 2, limit: 4) {{ providerId replyingToId scheduledSendTime bodyParsed attachments {{ id providerId sfsId }} attachmentsDraft {{ id draftId fileName }} attachmentsForwarded {{ attachmentId draftId providerAttachmentId }} }} }} }} }}"#
+            r#"{{ user {{ emailThread(input: {{threadId: "{thread_id}"}}) {{ messages(offset: 2, limit: 4) {{ providerId replyingToId scheduledSendTime bodyParsed attachments {{ id providerId sfsId referenceUrl }} attachmentsDraft {{ id draftId fileName }} attachmentsForwarded {{ attachmentId draftId providerAttachmentId }} }} }} }} }}"#
         ))
         .await;
 
@@ -2503,6 +2530,10 @@ async fn email_message_full_fields_request_the_full_edge_payload() {
     assert_eq!(
         message["attachments"][0]["sfsId"],
         Uuid::from_u128(104).to_string()
+    );
+    assert_eq!(
+        message["attachments"][0]["referenceUrl"],
+        "https://outlook.office.com/mail/message"
     );
     assert_eq!(message["attachmentsDraft"][0]["fileName"], "draft.txt");
     assert_eq!(

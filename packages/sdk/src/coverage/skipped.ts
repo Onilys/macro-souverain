@@ -369,6 +369,9 @@ export const storageExcluded = [
   'getRingStatus',
   'getUserDocumentViewLocation',
   'getViewsHandler',
+  // Guest chat uses a live RTC session token, not SDK account credentials.
+  'guestCallChatPost',
+  'guestCallChatRead',
   'handler',
   'healthHandler',
   'ingestTranscript',

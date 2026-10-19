@@ -15,6 +15,7 @@ import { CallStartedNotifier } from '@channel/Call/CallStartedNotifier';
 import { CallKitSync } from '@channel/Call/use-callkit';
 import { dismissBootShell } from '@components/app/boot-shell';
 import { RootFrame } from '@components/app/Layout';
+import { useSessionWebsockets } from '@core/auth/session-websockets';
 import { ToastRegion } from '@core/component/Toast/ToastRegion';
 import { ChannelsContextProvider } from '@core/context/channels';
 import { EmailLinksContextProvider } from '@core/context/emailLinks';
@@ -24,12 +25,8 @@ import { useHotKeyRoot } from '@core/hotkey/hotkeys';
 import { IosPushNotificationModal } from '@core/mobile/IosPushNotificationModal';
 import { IpadUnsupportedDialog } from '@core/mobile/IpadUnsupportedDialog';
 import { formatTabTitle, tabTitleSignal } from '@core/signal/tabTitle';
-import {
-  getLoginCookieOptions,
-  setCookie,
-  syncLoginStorage,
-  updateCookie,
-} from '@core/util/cookies';
+import { setCookie } from '@core/util/cookies';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { licenseChannel } from '@core/util/licenseUpdateBroadcastChannel';
 import { isTauri } from '@core/util/platform';
 import { transformShortIdInUrlPathname } from '@core/util/url';
@@ -38,11 +35,7 @@ import { MaybeTauriProvider } from '@macro/tauri';
 import { TauriRouteListener } from '@macro/tauri/TauriProvider';
 import { Telemetry } from '@macro-inc/observability';
 import { BrowserNotificationModal } from '@notifications';
-import {
-  invalidateUserInfo,
-  prefetchUserInfo,
-  useUserInfoQuery,
-} from '@queries/auth/user-info';
+import { invalidateUserInfo, prefetchUserInfo } from '@queries/auth/user-info';
 import { MetaProvider, Title } from '@solidjs/meta';
 import {
   HashRouter,
@@ -60,21 +53,10 @@ import {
 } from '@theme/utils/themeUtils';
 import { detect } from 'detect-browser';
 import { createEffect, type JSX, on, onCleanup, onMount } from 'solid-js';
+import { perfMark } from '../observability/perf-marks';
 import { AppRouterView } from './app-router-view';
 
-/** Syncs login cookie with auth state. Only updates on successful query (not errors/loading). */
-function useSyncLoginCookie() {
-  const userInfoQuery = useUserInfoQuery();
-
-  createEffect(() => {
-    if (!userInfoQuery.isSuccess) return;
-
-    const authenticated = userInfoQuery.data.authenticated ?? false;
-    const { value, ...options } = getLoginCookieOptions(authenticated);
-    updateCookie('login', value, options);
-    syncLoginStorage(authenticated);
-  });
-}
+import { useSyncLoginCookie } from './use-sync-login-cookie';
 
 const rootPreload: RoutePreloadFunc = async (args) => {
   await prefetchUserInfo();
@@ -195,6 +177,7 @@ const BOOT_SHELL_MAX_WAIT_MS = 8000;
  */
 function AppRouteFrame(props: RouteSectionProps) {
   useUserInfoSideEffects();
+  useSessionWebsockets();
   onMount(() => {
     const cap = setTimeout(dismissBootShell, BOOT_SHELL_MAX_WAIT_MS);
     onCleanup(() => clearTimeout(cap));
@@ -209,13 +192,14 @@ export function Root() {
 
   createEffect(() => {
     const cleanup = licenseChannel.subscribe(() => {
-      invalidateUserInfo();
+      fireAndForget(invalidateUserInfo(), 'license-update');
     });
 
     onCleanup(() => cleanup());
   });
 
   onMount(() => {
+    perfMark('boot.root-mounted');
     applyTheme(resolveActiveThemeId());
     ensureMinimalThemeContrast();
   });

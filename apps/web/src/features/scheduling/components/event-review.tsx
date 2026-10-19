@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import CalendarBlank from '@phosphor/calendar-blank.svg';
 import CalendarCheck from '@phosphor/calendar-check.svg';
 import Copy from '@phosphor/copy.svg';
@@ -144,7 +145,7 @@ export function EventReview(props: {
                     aria-invalid={copyError() ? true : undefined}
                     aria-describedby={copyError() ? copyErrorId : undefined}
                     class="shrink-0 aria-invalid:ring-2 aria-invalid:ring-failure/40"
-                    onClick={() => void copyLink()}
+                    onClick={() => fireAndForget(copyLink(), 'scheduling')}
                   >
                     <Copy class="size-4" aria-hidden="true" />
                   </Button>
