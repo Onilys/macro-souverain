@@ -66,6 +66,7 @@ jobs:
           i18n_changed:
             - 'apps/web/src/lib/i18n/**'
             - 'apps/web/src/lib/core/component/ContextMenu.tsx'
+            - 'apps/web/src/lib/core/constant/settingsTabsConfig.tsx'
             - 'apps/web/src/components/ui/components/Dropdown.tsx'
             - 'apps/web/src/features/settings/**'
   android-native-check:

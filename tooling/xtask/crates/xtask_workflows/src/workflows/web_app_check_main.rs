@@ -280,7 +280,8 @@ fn paths_filter() -> Step<Use> {
     // The Nix dev-shell action is also omitted from `should_run` so Typecheck
     // stays off for a shell-only tweak. Workflow YAML drift is `check
     // generated workflows`. `i18n_changed` covers what the interface language
-    // browser tests render: translations, the menu primitives, and settings.
+    // browser tests render: translations, the menu primitives, and settings
+    // navigation.
     Step::new("Filter changed paths")
         .uses(
             "dorny",
@@ -291,7 +292,7 @@ fn paths_filter() -> Step<Use> {
         .add_with((
             "filters",
             format!(
-                "should_run:\n{artifact_paths}  - 'services/lexical-service/**'\n  - 'packages/sdk/**'\n  - 'packages/sdk-docs/**'\n  - 'services/ai-editing-worker/**'\n  - 'packages/code-mode-sdk/**'\n  - 'crates/code_execution/src/outbound/deno/*.mjs'\n  - 'crates/agent_code_mode/src/domain/documentation.json'\n  - 'crates/agent_code_mode/SKILL.md'\n  - 'crates/ai_tools/src/display_results/schema.generated.json'\n  - '.github/actions/setup-reqs-web/**'\ncodegen_changed:\n  - 'crates/**/*.rs'\n  - 'services/**/*.rs'\n  - 'Cargo.toml'\n  - 'Cargo.lock'\n  - 'apps/web/scripts/generate-api-schema.ts'\n  - 'apps/web/scripts/services.ts'\n  - 'packages/sdk/**'\n  - 'apps/docs/**'\n  - '.github/actions/setup-reqs-web/**'\ni18n_changed:\n  - 'apps/web/src/lib/i18n/**'\n  - 'apps/web/src/lib/core/component/ContextMenu.tsx'\n  - 'apps/web/src/components/ui/components/Dropdown.tsx'\n  - 'apps/web/src/features/settings/**'\n"
+                "should_run:\n{artifact_paths}  - 'services/lexical-service/**'\n  - 'packages/sdk/**'\n  - 'packages/sdk-docs/**'\n  - 'services/ai-editing-worker/**'\n  - 'packages/code-mode-sdk/**'\n  - 'crates/code_execution/src/outbound/deno/*.mjs'\n  - 'crates/agent_code_mode/src/domain/documentation.json'\n  - 'crates/agent_code_mode/SKILL.md'\n  - 'crates/ai_tools/src/display_results/schema.generated.json'\n  - '.github/actions/setup-reqs-web/**'\ncodegen_changed:\n  - 'crates/**/*.rs'\n  - 'services/**/*.rs'\n  - 'Cargo.toml'\n  - 'Cargo.lock'\n  - 'apps/web/scripts/generate-api-schema.ts'\n  - 'apps/web/scripts/services.ts'\n  - 'packages/sdk/**'\n  - 'apps/docs/**'\n  - '.github/actions/setup-reqs-web/**'\ni18n_changed:\n  - 'apps/web/src/lib/i18n/**'\n  - 'apps/web/src/lib/core/component/ContextMenu.tsx'\n  - 'apps/web/src/lib/core/constant/settingsTabsConfig.tsx'\n  - 'apps/web/src/components/ui/components/Dropdown.tsx'\n  - 'apps/web/src/features/settings/**'\n"
             ),
         ))
 }

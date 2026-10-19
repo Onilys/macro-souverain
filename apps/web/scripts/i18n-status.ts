@@ -188,6 +188,16 @@ async function main() {
       );
       process.exit(1);
     }
+    // A wrong placeholder shows broken text; fix it before calling it current.
+    const mismatched = (await Promise.all(targets.map(status))).filter(
+      ({ placeholderMismatch }) => placeholderMismatch.length > 0
+    );
+    if (mismatched.length > 0) {
+      for (const { language, placeholderMismatch } of mismatched)
+        for (const { key } of placeholderMismatch)
+          console.error(`${language}: placeholders differ from English in ${key}`);
+      process.exit(1);
+    }
     await accept(targets);
     return;
   }
