@@ -1,8 +1,8 @@
 # Shared Changes viewer
 
 `changes.tsx` is the shared entry for PRs, agent sessions, and previews. A host
-supplies a `ChangesSource` and `ChangesHost`; `ChangesProvider` owns controller,
-view-state, and dismissal setup. Shared UI never reads agent-session context.
+supplies a `ChangesSource` and `ChangesHost`; `ChangesProvider` owns controller and
+view-state setup. Shared UI never reads agent-session context.
 
 ```tsx
 <ChangesProvider context={{ source, host }}>
