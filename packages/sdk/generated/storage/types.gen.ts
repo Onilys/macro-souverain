@@ -8845,6 +8845,12 @@ export type Message = {
     attachments: Array<MessageAttachment>;
     bot_profile?: null | BotSenderProfile;
     /**
+     * When set, this channel message is a broadcast copy of a thread reply.
+     * Contains the id of the thread's root message that the original reply
+     * belongs to, so the UI can link back to the thread.
+     */
+    broadcast_from_thread?: string | null;
+    /**
      * Macro Markdown body.
      */
     content: string;
@@ -10234,6 +10240,12 @@ export type PostMessage = {
      * Initial attachments.
      */
     attachments?: Array<NewAttachment>;
+    /**
+     * When true and `thread_id` is set, also post a copy of this reply at
+     * the channel level so it appears in the main timeline (like Slack's
+     * "Also send to channel"). Only valid for channel parents.
+     */
+    broadcast_to_channel?: boolean;
     /**
      * Macro Markdown body.
      */

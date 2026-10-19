@@ -32089,6 +32089,11 @@
               }
             ]
           },
+          "broadcast_from_thread": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "When set, this channel message is a broadcast copy of a thread reply.\nContains the id of the thread's root message that the original reply\nbelongs to, so the UI can link back to the thread."
+          },
           "content": {
             "type": "string",
             "description": "Macro Markdown body."
@@ -34495,6 +34500,10 @@
               "$ref": "#/components/schemas/NewAttachment"
             },
             "description": "Initial attachments."
+          },
+          "broadcast_to_channel": {
+            "type": "boolean",
+            "description": "When true and `thread_id` is set, also post a copy of this reply at\nthe channel level so it appears in the main timeline (like Slack's\n\"Also send to channel\"). Only valid for channel parents."
           },
           "content": {
             "type": "string",
