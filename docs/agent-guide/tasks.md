@@ -525,7 +525,9 @@ also show up in Files/`All` and in AI-chat document listings.
 While composing on desktop or mobile, pausing for 700 ms after editing the title
 or description asks Jev for priority and project predictions through the existing
 cognition service’s `POST /decisions` API. Confident suggestions fill the property controls with a
-brief fade; reduced-motion users see the value change without animation. Project
+soft accent fill and outline that fades out over 1.2 seconds, without dimming the
+text or moving the control. Manual edits and unchanged predictions do not animate;
+reduced-motion users see the value change without animation. Project
 matching considers up to 28 recently updated projects with edit/owner access from
 the first loaded project page, and runs only while Projects is enabled. Ambiguous
 results leave a field unset or clear an earlier suggestion. Failures leave the

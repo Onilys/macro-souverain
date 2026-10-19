@@ -94,6 +94,8 @@ ownership. Cancel, logout, and the ten-minute timeout retire pending callbacks.
 - Task-composer predictions use Jev's existing `/decisions` API; preserve manual
   selections (including clears), draft prediction ownership, and stale-result
   guards in `features/block-md/{primitives,queries}/task-predictions.ts`.
+  Highlight changed AI values with `TaskPredictionHighlight`; keep text readable,
+  preserve control focus, and respect reduced motion on desktop and mobile.
 - Keep desktop inbox consent in the system browser with a
   `macro:///inbox-link-callback` return; webview origins are not desktop callbacks.
 - Draft autosaves preserve active email thread messages; evict inactive legacy

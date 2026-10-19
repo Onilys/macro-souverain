@@ -4,28 +4,38 @@ import { createEffect, on, onCleanup, type ParentProps } from 'solid-js';
 export function TaskPredictionHighlight(
   props: ParentProps<{ version: number }>
 ) {
-  let element: HTMLDivElement | undefined;
+  let highlight: HTMLSpanElement | undefined;
   createEffect(
     on(
       () => props.version,
       (version) => {
         if (
           !version ||
-          !element ||
+          !highlight ||
           window.matchMedia('(prefers-reduced-motion: reduce)').matches
         )
           return;
-        const animation = element.animate([{ opacity: 0.45 }, { opacity: 1 }], {
-          duration: 650,
-          easing: 'ease-out',
-        });
+        const animation = highlight.animate(
+          [
+            { opacity: 0 },
+            { opacity: 1, offset: 0.15 },
+            { opacity: 1, offset: 0.35 },
+            { opacity: 0 },
+          ],
+          { duration: 1200, easing: 'ease-out' }
+        );
         onCleanup(() => animation.cancel());
       }
     )
   );
   return (
-    <div ref={element} class="flex min-w-0">
+    <div class="relative flex min-w-0">
       {props.children}
+      <span
+        ref={highlight}
+        aria-hidden="true"
+        class="pointer-events-none absolute inset-0 rounded-md bg-accent/10 opacity-0 ring-1 ring-accent/30"
+      />
     </div>
   );
 }
