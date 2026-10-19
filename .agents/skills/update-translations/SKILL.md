@@ -1,6 +1,6 @@
 ---
 name: update-translations
-description: Bring the web app's interface translations up to date with its English text. Use for the periodic translation update, when `bun run i18n:status` reports missing or stale messages, or when asked to translate new menu or navigation text.
+description: Bring the web app's interface translations up to date with its English text. Use for the periodic translation update, when `bun run i18n:status` reports missing or stale messages, or when asked to translate new UI text.
 allowed-tools: Bash, Read, Edit, Write, Grep, Glob
 ---
 
@@ -25,10 +25,11 @@ other interface language. Run everything from `apps/web`. Conventions are in
   command definitions, tab names. Read the `apps/web/src` diff of changes
   merged since the last update
   (`git log --since='8 days ago' --format='%h %s' origin/main -- apps/web/src`)
-  for new user-visible menu or navigation text with a string literal. Move
-  each into `src/lib/i18n/locales/en/<namespace>.ts` and render it with `t()`,
-  following the rule. Leave the editors that are not translated yet (slides,
-  canvas, spreadsheet, database) and page content alone.
+  for user-visible text with a string literal in new UI, menus, or
+  navigation. Move each into `src/lib/i18n/locales/en/<namespace>.ts` and
+  render it with `t()`, following the rule. Leave surfaces that aren't
+  translated yet (most page content; the slides, canvas, spreadsheet, and
+  database editors) alone, so no page mixes languages.
 
 Nothing missing, stale, or newly converted: stop, without a branch or PR.
 
