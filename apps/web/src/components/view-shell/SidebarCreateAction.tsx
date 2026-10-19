@@ -39,13 +39,19 @@ export function SidebarCreateAction(
       {...rest}
       variant={sidebar ? 'ghost' : 'outline'}
       size="md"
-      fullWidth={false}
+      fullWidth={!!sidebar}
       glass={false}
       data-sidebar-create=""
-      tooltip={props.tooltip ?? props['aria-label'] ?? props.label}
+      tooltip={
+        props.tooltip ??
+        local.sidebarLabel ??
+        description() ??
+        props['aria-label'] ??
+        props.label
+      }
       class={
         sidebar
-          ? 'h-8 w-max shrink-0 justify-start gap-1.5 rounded-md border-0 px-2 text-base leading-6 font-semibold tracking-[-0.025em] text-ink-muted'
+          ? 'h-8 w-full min-w-0 max-w-full justify-start gap-1.5 rounded-md border-0 px-2 text-base leading-6 font-semibold tracking-[-0.025em] text-ink-muted'
           : 'h-8 min-w-8 gap-1.5 px-3 text-sm leading-5'
       }
     >
@@ -58,7 +64,7 @@ export function SidebarCreateAction(
           </>
         }
       >
-        <span class="shrink-0 whitespace-nowrap text-ink">
+        <span class="min-w-0 truncate text-ink">
           {local.sidebarLabel ??
             description() ??
             props['aria-label'] ??

@@ -1,7 +1,7 @@
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import CaretDownIcon from '@icon/system/regular/caret-down.svg';
 import MagnifyingGlassIcon from '@icon/system/regular/magnifying-glass.svg';
-import { Button, cn, Layer } from '@ui';
+import { Button, cn, Layer, Tooltip } from '@ui';
 import {
   type Accessor,
   children,
@@ -212,12 +212,14 @@ export function SidebarActionRow(props: {
           class={
             current().hasCreate()
               ? 'sr-only'
-              : 'flex flex-1 items-center gap-1.5 text-base leading-6 font-semibold tracking-[-0.025em] text-ink-muted'
+              : 'flex min-w-0 flex-1 items-center gap-1.5 text-base leading-6 font-semibold tracking-[-0.025em] text-ink-muted'
           }
         >
-          <span class="whitespace-nowrap text-ink">
-            {current().title() ?? props.title}
-          </span>
+          <Tooltip label={current().title() ?? props.title} class="min-w-0">
+            <span class="min-w-0 truncate text-ink">
+              {current().title() ?? props.title}
+            </span>
+          </Tooltip>
           <Show when={!current().hasCreate()}>
             <CaretDownIcon class="size-4 shrink-0" />
           </Show>
@@ -225,7 +227,7 @@ export function SidebarActionRow(props: {
         <Show when={current().hasCreate()}>
           <div
             data-sidebar-create-area=""
-            class="mr-auto flex shrink-0 items-center"
+            class="mr-auto flex min-w-0 flex-1 items-center"
             role="group"
             aria-label={`Create in ${current().title() ?? props.title}`}
           >

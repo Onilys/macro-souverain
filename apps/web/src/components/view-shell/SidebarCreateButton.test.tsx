@@ -16,6 +16,7 @@ vi.mock('@ui', async () => ({
   ...(await import('../ui/utils/classname')),
   ...(await import('../ui/utils/press')),
   Surface: (props: { children?: JSX.Element }) => props.children,
+  Tooltip: (props: { children?: JSX.Element }) => props.children,
   Layer: (props: { children?: JSX.Element }) => props.children,
   Button: (
     props: JSX.ButtonHTMLAttributes<HTMLButtonElement> & { label?: string }

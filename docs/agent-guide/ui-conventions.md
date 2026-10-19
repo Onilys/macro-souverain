@@ -81,7 +81,7 @@ and contact views (both inside the CRM workspace and in standalone blocks).
 ## Workspace creation and search
 
 Workspace sidebars use a large, unframed creation label in the title position.
-It shows its complete label with 16px semibold text and no entity icon, pill
+It shows its complete label when space permits, truncating with a tooltip in narrow sidebars, with 16px semibold text and no entity icon, pill
 background, border, or shadow. Search and close/collapse controls sit on the right in the
 48px topbar. Views without creation retain a noninteractive label with the same typography and solid text color.
 All sidebar titles show a decorative 16px trailing chevron, including single actions and static labels. Multiple creation choices
