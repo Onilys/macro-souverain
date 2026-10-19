@@ -5,6 +5,7 @@
 - `bun run lint`: lint with biome 
 - `bun run format`: format changes with biome 
 - `bun run knip`: to check for dead code
+- `bun run lint:oxlint` (repository root): type-aware oxlint. `typescript/no-floating-promises` is an error with no suppressions and `ignoreVoid: false` (FE-13), enforced in `just check` and CI; start detached work with `fireAndForget` from `@core/util/fireAndForget`, not `void`. Plain `oxlint` without `--type-aware` skips that rule silently. The ast-grep rule `ts-no-expression-void` covers `() => void p()`, which the lint can't see.
 - Email rendering is isolated in `packages/email-renderer` at the repository root. Run `just test-email-rendering` for its Node and Chromium suites. Add fixtures under `packages/email-renderer/tests/fixtures`, run `just test-email-rendering-update`, and review changed images. These are renderer tests, not inbox e2e.
 - The app does not register a service worker. Keep `public/sw.js` as a retirement
   endpoint for existing installations; see the [startup bundle rule](../../.agents/rules/web/startup-bundle.md).
@@ -66,6 +67,8 @@ Then trigger the interaction and read `window.__inst.log`. `'1,2,3' → '' → '
 ## Development Patterns
 
 ### General
+- Disable GraphQL cache sessions and clear login hints on confirmed auth 401s,
+  even with retained user data; preserve session state on transient failures.
 - Mobile dock search owns transient category/mode state in `features/command/mobile`; reuse the shared entity source and explicit full-text adapter rather than overlaying the dock query on view tabs or saved facets. See `docs/agent-guide/search.md` at the repository root.
 - Keep Quick Access cache availability reactive to the GraphQL rollout flag; it can arrive after the provider mounts, and email has no legacy source fallback.
 - Virtualize mobile name results like desktop Command Menu; local Quick Access sources are unbounded, and mounting them all stalls iOS keyboard focus during layout. Load additional search pages near the scroll end instead of reserving a paging bar.
@@ -112,6 +115,18 @@ the startup bundle, Lexical nodes, and translated menu labels.
 
 ## Notes
 - Don't shy away from pulling good examples into context. In the case of solid-primtiives/kobalte try reading documentation, or just temp clone into /tmp to reference
+
+## Desktop file drops
+
+Keep `app.windows[].dragDropEnabled` false in `tauri/src-tauri/tauri.macos.conf.json`.
+Markdown editors and attachment inputs use browser events through `fileFolderDrop`
+and `fileDrop`; Tauri's native handler intercepts Finder drops before those handlers
+receive them. This config change requires a rebuilt macOS app; a frontend bundle
+update alone does not apply it.
+
+Tauri replaces arrays when merging platform configuration. Keep the other macOS
+window settings aligned with `tauri/src-tauri/tauri.conf.json` when changing the
+shared window. Verify with the [Finder-drop walkthrough](../../docs/agent-guide/documents.md#desktop-file-drops).
 
 ## Subscription offers
 

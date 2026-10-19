@@ -1,4 +1,5 @@
 import { StaticMarkdownContext } from '@core/component/LexicalMarkdown/component/core/StaticMarkdown';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { Key } from '@solid-primitives/keyed';
 import { cn, Layer } from '@ui';
 import {
@@ -73,7 +74,10 @@ export function MessageList(props: MessageListProps) {
       ) {
         return;
       }
-      void fetchOlderMessages(list, context.query.fetchNextPage);
+      fireAndForget(
+        fetchOlderMessages(list, context.query.fetchNextPage),
+        'email-thread'
+      );
     };
 
     applyHeight();
@@ -108,7 +112,10 @@ export function MessageList(props: MessageListProps) {
           !context.query.isFetching() &&
           context.query.hasMore()
         ) {
-          void fetchOlderMessages(list, context.query.fetchNextPage);
+          fireAndForget(
+            fetchOlderMessages(list, context.query.fetchNextPage),
+            'email-thread'
+          );
         }
       }}
     >

@@ -237,7 +237,9 @@ function PipelineToolbar(props: {
   const database = useDatabase();
   const columns = () => database.data.rows.columns();
   // A column added with a board shows once the table is read again.
-  const refreshColumns = () => void database.data.rows.refresh('refresh');
+  const refreshColumns = () => {
+    database.data.rows.refresh('refresh');
+  };
   return (
     <DatabaseToolbar
       columns={columns()}
@@ -327,10 +329,9 @@ function PipelineToolbar(props: {
 function PipelineRefresh() {
   const database = useDatabase();
   onMount(() => {
-    const timer = setInterval(
-      () => void database.data.rows.refresh('refresh'),
-      5000
-    );
+    const timer = setInterval(() => {
+      database.data.rows.refresh('refresh');
+    }, 5000);
     onCleanup(() => clearInterval(timer));
   });
   return null;

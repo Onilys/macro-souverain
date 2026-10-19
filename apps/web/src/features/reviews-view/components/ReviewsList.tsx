@@ -18,6 +18,7 @@ import {
 import { type PrLinks, priorityTaskName } from '@block-pr/data/pr-links';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
 import { ContextMenuContent, MenuItem } from '@core/component/ContextMenu';
+import { fireAndForget } from '@core/util/fireAndForget';
 import {
   EntitySelectionToolbar,
   type GithubPullRequestEntity,
@@ -165,12 +166,19 @@ function ReviewRow(props: {
                 ? t('entityActions.removeFromFavorites')
                 : t('entityActions.addToFavorites')
             }
-            onClick={() => void props.favoriteAction.execute([props.review])}
+            onClick={() =>
+              fireAndForget(
+                props.favoriteAction.execute([props.review]),
+                'reviews-view'
+              )
+            }
           />
           <MenuItem
             icon={CopyIcon}
             text={t('entityActions.copyLinkCommand')}
-            onClick={() => void copyLink.execute([props.review])}
+            onClick={() =>
+              fireAndForget(copyLink.execute([props.review]), 'reviews-view')
+            }
           />
           <MenuItem
             icon={ArrowSquareOutIcon}
@@ -291,7 +299,7 @@ export function ReviewsList(props: ReviewsListProps) {
     )
       return;
     if (element.scrollHeight - element.scrollTop - element.clientHeight < 320)
-      void loadMore();
+      fireAndForget(loadMore(), 'reviews-view');
   };
 
   useInfiniteScrollSentinel({
@@ -299,7 +307,7 @@ export function ReviewsList(props: ReviewsListProps) {
     hasNextPage: () =>
       source.hasMore() && !source.pageError() && !missingIdentity(),
     isFetchingNextPage: source.isLoadingMore,
-    fetchNextPage: () => void loadMore(),
+    fetchNextPage: () => fireAndForget(loadMore(), 'reviews-view'),
     rootMargin: '320px',
   });
 
@@ -357,7 +365,7 @@ export function ReviewsList(props: ReviewsListProps) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => void source.retry()}
+                onClick={() => fireAndForget(source.retry(), 'reviews-view')}
               >
                 Try again
               </Button>
@@ -517,7 +525,10 @@ export function ReviewsList(props: ReviewsListProps) {
                     size="sm"
                     disabled={source.isLoadingMore()}
                     onClick={() =>
-                      void (source.hasMore() ? loadMore() : source.retry())
+                      fireAndForget(
+                        source.hasMore() ? loadMore() : source.retry(),
+                        'reviews-view'
+                      )
                     }
                   >
                     <Show

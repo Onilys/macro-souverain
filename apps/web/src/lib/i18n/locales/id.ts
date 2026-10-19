@@ -88,6 +88,7 @@ export default {
     undo: 'Urungkan',
     redo: 'Ulangi',
     failedToUndo: 'Gagal mengurungkan',
+    failedToSignOut: 'Gagal keluar',
     failedToRedo: 'Gagal mengulangi',
     favorites: 'Favorit',
     backToList: 'Kembali ke daftar',

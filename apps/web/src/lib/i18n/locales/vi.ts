@@ -88,6 +88,7 @@ export default {
     undo: 'Hoàn tác',
     redo: 'Làm lại',
     failedToUndo: 'Không thể hoàn tác',
+    failedToSignOut: 'Không thể đăng xuất',
     failedToRedo: 'Không thể làm lại',
     favorites: 'Mục yêu thích',
     backToList: 'Quay lại danh sách',

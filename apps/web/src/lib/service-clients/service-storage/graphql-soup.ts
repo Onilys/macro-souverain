@@ -7,6 +7,7 @@ import {
 import { SERVER_HOSTS } from '@core/constant/servers';
 import { hasLoginCookie } from '@core/util/cookies';
 import { fetchToken } from '@core/util/fetchWithToken';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { isTauri } from '@core/util/platform';
 import { platformFetch } from '@core/util/platformFetch';
 import { reloadForNewerBuild } from '@core/util/reloadForNewerBuild';
@@ -448,7 +449,7 @@ function getUncachedRealtimeClient(): Client {
   uncachedRealtimeClient = client;
   uncachedRealtimeCleanup = () => {
     subscriptionsLifecycle.dispose();
-    void websocketClient.dispose();
+    fireAndForget(websocketClient.dispose(), 'graphql-soup-client');
   };
   return client;
 }
@@ -625,7 +626,8 @@ export function getGraphqlSoupClient(): Client {
       // Retires the host: operations still running on this client, and any
       // caller that captured the host, fall back to the network from here.
       host?.dispose();
-      if (websocketClient) void websocketClient.dispose();
+      if (websocketClient)
+        fireAndForget(websocketClient.dispose(), 'graphql-soup-client');
     };
     const onInitializationError = (error: Error) => {
       if (!host || cachedCacheHost !== host) return;

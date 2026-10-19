@@ -9,7 +9,9 @@ import { useUserId } from '@core/context/user';
 import { HotkeyTags } from '@core/hotkey/constants';
 import { createHotkeyGroup, registerHotkey } from '@core/hotkey/hotkeys';
 import { TOKENS } from '@core/hotkey/tokens';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { type EntityData, isEmailEntity, isTaskEntity } from '@entity';
+import { Telemetry } from '@macro-inc/observability';
 import { SYSTEM_PROPERTY_IDS } from '@property/constants';
 import type { Property, PropertyDefinitionDomain } from '@property/types';
 import { type Accessor, onCleanup } from 'solid-js';
@@ -38,6 +40,9 @@ import {
   makeShareAction,
 } from './index';
 import type { MarkDoneDelegate } from './mark-done-delegate';
+
+const reportEntityActionError = (error: unknown) =>
+  Telemetry.error(error, { surface: 'entity-actions' });
 
 type UseEntityActionHotkeysOptions = {
   scopeId: string;
@@ -139,7 +144,7 @@ export const useEntityActionHotkeys = (
       mergeHistory: true,
       referredFrom: splitHandle.referredFrom(),
       notificationSource,
-    });
+    }).catch(reportEntityActionError);
   };
 
   /**
@@ -183,11 +188,13 @@ export const useEntityActionHotkeys = (
       if (entities.length === 0) return false;
       if (!entities.every(markDone.canExecute)) return false;
 
-      markDone.executeWithSoup(
-        entities,
-        list,
-        options.createActionNavigationHandler?.() ?? openNextEntity
-      );
+      markDone
+        .executeWithSoup(
+          entities,
+          list,
+          options.createActionNavigationHandler?.() ?? openNextEntity
+        )
+        .catch(reportEntityActionError);
       return true;
     },
     condition: () => {
@@ -212,7 +219,9 @@ export const useEntityActionHotkeys = (
       if (entities.length === 0) return false;
       if (!entities.every(markNotDone.canExecute)) return false;
 
-      markNotDone.executeWithSoup(entities, list);
+      markNotDone
+        .executeWithSoup(entities, list)
+        .catch(reportEntityActionError);
       return true;
     },
     condition: () => {
@@ -237,7 +246,10 @@ export const useEntityActionHotkeys = (
       if (entities.length === 0) return false;
       if (!entities.every(markUnread.canExecute)) return false;
 
-      markUnread.executeWithSoup(entities, list);
+      fireAndForget(
+        markUnread.executeWithSoup(entities, list),
+        'entity-actions'
+      );
       return true;
     },
     condition: () => {
@@ -260,7 +272,7 @@ export const useEntityActionHotkeys = (
       if (entities.length === 0) return false;
       if (!entities.some(markRead.canExecute)) return false;
 
-      markRead.executeWithSoup(entities, list);
+      fireAndForget(markRead.executeWithSoup(entities, list), 'entity-actions');
       return true;
     },
     condition: () => {
@@ -288,7 +300,10 @@ export const useEntityActionHotkeys = (
       if (entities.length === 0) return false;
       if (!entities.every(deleteAction.canExecute)) return false;
 
-      deleteAction.executeWithSoup(entities, list);
+      fireAndForget(
+        deleteAction.executeWithSoup(entities, list),
+        'entity-actions'
+      );
       return true;
     };
     const canDelete = () => {
@@ -351,7 +366,10 @@ export const useEntityActionHotkeys = (
 
       if (!entities.every(renameAction.canExecute)) return false;
 
-      renameAction.executeWithSoup(entities, list);
+      fireAndForget(
+        renameAction.executeWithSoup(entities, list),
+        'entity-actions'
+      );
       return true;
     },
     condition: () => {
@@ -382,7 +400,10 @@ export const useEntityActionHotkeys = (
       if (entities.length === 0) return false;
       if (!entities.every(favoriteAction.canExecute)) return false;
 
-      favoriteAction.executeWithSoup(entities, list);
+      fireAndForget(
+        favoriteAction.executeWithSoup(entities, list),
+        'entity-actions'
+      );
       return true;
     },
     condition: () => {
@@ -432,7 +453,10 @@ export const useEntityActionHotkeys = (
       if (entities.length === 0) return false;
       if (!entities.every(muteAction.canExecute)) return false;
 
-      void muteAction.executeWithSoup(entities, list);
+      fireAndForget(
+        muteAction.executeWithSoup(entities, list),
+        'entity-actions'
+      );
       return true;
     },
     condition: () => {
@@ -460,7 +484,7 @@ export const useEntityActionHotkeys = (
       if (entities.length === 0) return false;
       if (!entities.every(copyAction.canExecute)) return false;
 
-      copyAction.executeWithSoup(entities, list);
+      copyAction.executeWithSoup(entities, list).catch(reportEntityActionError);
       return true;
     },
     condition: () => {
@@ -488,7 +512,10 @@ export const useEntityActionHotkeys = (
       if (entities.length === 0) return false;
       if (!entities.every(moveToProjectAction.canExecute)) return false;
 
-      moveToProjectAction.executeWithSoup(entities, list);
+      fireAndForget(
+        moveToProjectAction.executeWithSoup(entities, list),
+        'entity-actions'
+      );
       return true;
     },
     condition: () => {
@@ -512,7 +539,9 @@ export const useEntityActionHotkeys = (
       const entities = getEntitiesForAction();
       if (entities.length === 0) return false;
       if (!copyLinkAction.canExecute(entities[0])) return false;
-      copyLinkAction.executeWithSoup(entities, list);
+      copyLinkAction
+        .executeWithSoup(entities, list)
+        .catch(reportEntityActionError);
       return true;
     },
     condition: () => {
@@ -534,7 +563,10 @@ export const useEntityActionHotkeys = (
       const entities = getEntitiesForAction();
       if (entities.length === 0) return false;
       if (!copyBranchNameAction.canExecute(entities[0])) return false;
-      copyBranchNameAction.executeWithSoup(entities, list);
+      fireAndForget(
+        copyBranchNameAction.executeWithSoup(entities, list),
+        'entity-actions'
+      );
       return true;
     },
     condition: () => {
@@ -557,7 +589,9 @@ export const useEntityActionHotkeys = (
       const entities = getEntitiesForAction();
       if (entities.length === 0) return false;
       if (!copyEntityIdAction.canExecute(entities[0])) return false;
-      copyEntityIdAction.executeWithSoup(entities, list);
+      copyEntityIdAction
+        .executeWithSoup(entities, list)
+        .catch(reportEntityActionError);
       return true;
     },
     condition: () => {
@@ -582,10 +616,14 @@ export const useEntityActionHotkeys = (
       const entities = getEntitiesForAction();
       if (entities.length !== 1) return false;
       if (!createReminderAction.canExecute(entities[0])) return false;
-      createReminderAction.executeWithSoup(entities, list, {
-        advances: marksDoneOnThisView(),
-        onNavigate: options.createActionNavigationHandler?.() ?? openNextEntity,
-      });
+      fireAndForget(
+        createReminderAction.executeWithSoup(entities, list, {
+          advances: marksDoneOnThisView(),
+          onNavigate:
+            options.createActionNavigationHandler?.() ?? openNextEntity,
+        }),
+        'entity-actions'
+      );
       return true;
     },
     condition: () => {
@@ -609,7 +647,10 @@ export const useEntityActionHotkeys = (
       const entities = getEntitiesForAction();
       if (entities.length === 0) return false;
       if (!shareAction.canExecute(entities[0])) return false;
-      shareAction.executeWithSoup(entities, list);
+      fireAndForget(
+        shareAction.executeWithSoup(entities, list),
+        'entity-actions'
+      );
       return true;
     },
     condition: () => {

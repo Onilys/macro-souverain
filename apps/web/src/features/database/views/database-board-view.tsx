@@ -375,7 +375,9 @@ function GroupedBoard(
           <DatabaseLoadFailure
             title="This board could not be laid out"
             message="Refresh the table, then try again."
-            onRetry={() => void props.source.refresh()}
+            onRetry={() => {
+              props.source.refresh();
+            }}
           />
         </Match>
       </Switch>

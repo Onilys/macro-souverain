@@ -8,6 +8,7 @@ import { t } from '@app/lib/i18n';
 import { MenuItem, MenuSeparator } from '@core/component/ContextMenu';
 import { toast } from '@core/component/Toast/Toast';
 import { useUserId } from '@core/context/user';
+import { fireAndForget } from '@core/util/fireAndForget';
 import type { ProjectEntity } from '@entity';
 import { invalidateProjects } from '@queries/storage/projects';
 import { Show } from 'solid-js';
@@ -32,7 +33,7 @@ export function DriveFolderActions(props: { folder: DriveFolderMetadata }) {
   const deleteFolder = makeDeleteAction({
     userId,
 
-    onDeleted: () => void invalidateProjects(),
+    onDeleted: () => fireAndForget(invalidateProjects(), 'drive-view'),
   });
 
   const editFolder = (view: 'rename' | 'moveToProject') => {
@@ -41,7 +42,7 @@ export function DriveFolderActions(props: { folder: DriveFolderMetadata }) {
       entities: [entity()],
 
       onFinish: () => {
-        void invalidateProjects();
+        fireAndForget(invalidateProjects(), 'drive-view');
         toast.success(
           view === 'rename'
             ? t('entityActions.toastRenamed')
@@ -68,7 +69,9 @@ export function DriveFolderActions(props: { folder: DriveFolderMetadata }) {
             ? t('entityActions.unfavorite')
             : t('entityActions.favorite')
         }
-        onClick={() => void favorite.execute([entity()])}
+        onClick={() =>
+          fireAndForget(favorite.execute([entity()]), 'drive-view')
+        }
       />
       <MenuItem
         text={t('entityActions.moveToFolder')}
@@ -76,14 +79,18 @@ export function DriveFolderActions(props: { folder: DriveFolderMetadata }) {
       />
       <MenuItem
         text={t('entityActions.copyLink')}
-        onClick={() => void copyLink.execute([entity()])}
+        onClick={() =>
+          fireAndForget(copyLink.execute([entity()]), 'drive-view')
+        }
       />
       <Show when={deleteFolder.canExecute(entity())}>
         <MenuSeparator />
         <MenuItem
           text={t('entityActions.delete')}
           class="text-failure-ink"
-          onClick={() => void deleteFolder.execute([entity()])}
+          onClick={() =>
+            fireAndForget(deleteFolder.execute([entity()]), 'drive-view')
+          }
         />
       </Show>
     </>

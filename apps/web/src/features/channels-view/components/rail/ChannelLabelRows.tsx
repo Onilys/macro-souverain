@@ -8,6 +8,7 @@ import {
   SubTrigger,
 } from '@core/component/ContextMenu';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
+import { fireAndForget } from '@core/util/fireAndForget';
 import type { ChannelEntity } from '@entity';
 import { ContextMenu } from '@kobalte/core/context-menu';
 import CaretDownIcon from '@phosphor/caret-down.svg';
@@ -150,9 +151,12 @@ export function ChannelLabelRow(props: { label: ChannelLabel }) {
                     : t('entityActions.rename')
                 }
                 onSelect={() =>
-                  void (props.label.rule
-                    ? rail.editSmartTag(props.label)
-                    : rail.renameLabel(props.label))
+                  fireAndForget(
+                    props.label.rule
+                      ? rail.editSmartTag(props.label)
+                      : rail.renameLabel(props.label),
+                    'channels-view'
+                  )
                 }
               />
               <MenuRow
@@ -171,7 +175,9 @@ export function ChannelLabelRow(props: { label: ChannelLabel }) {
                     ? t('channelLabels.deleteSmartLabel')
                     : t('channelLabels.deleteLabel')
                 }
-                onSelect={() => void rail.deleteLabel(props.label)}
+                onSelect={() =>
+                  fireAndForget(rail.deleteLabel(props.label), 'channels-view')
+                }
               />
             </Dropdown.Group>
           </Dropdown.Content>
@@ -235,12 +241,16 @@ export function ChannelsCreateMenu() {
             <MenuRow
               icon={TagIcon}
               label={t('channelLabels.newLabel')}
-              onSelect={() => void rail.createLabel([])}
+              onSelect={() =>
+                fireAndForget(rail.createLabel([]), 'channels-view')
+              }
             />
             <MenuRow
               icon={FilterIcon}
               label={t('channelLabels.newSmartLabel')}
-              onSelect={() => void rail.createSmartTag()}
+              onSelect={() =>
+                fireAndForget(rail.createSmartTag(), 'channels-view')
+              }
             />
           </Dropdown.Group>
         </Dropdown.Content>
@@ -315,7 +325,12 @@ export function ChannelLabelMenuItems(props: { channel: ChannelEntity }) {
           <MenuItem
             icon={PlusIcon}
             text={t('channelLabels.newLabelEllipsis')}
-            onClick={() => void rail.createLabel([props.channel.id])}
+            onClick={() =>
+              fireAndForget(
+                rail.createLabel([props.channel.id]),
+                'channels-view'
+              )
+            }
           />
         </ContextMenuContent>
       </ContextMenu.Sub>

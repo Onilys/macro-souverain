@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import { Popover } from '@kobalte/core/popover';
 import { Tooltip } from '@kobalte/core/tooltip';
 import CaretDownIcon from '@phosphor/caret-down.svg';
@@ -269,7 +270,7 @@ export function GridCell(props: GridCellProps) {
     setSelectedMention(preview);
     setEditing(false);
     setMentionOpen(false);
-    void writeMention(onMention, preview);
+    fireAndForget(writeMention(onMention, preview), 'database');
     if (direction && props.onNavigate?.(direction)) return;
     queueMicrotask(() => {
       if (direction) focusAdjacent(trigger, direction);
@@ -428,7 +429,7 @@ export function GridCell(props: GridCellProps) {
                 onBeginEdit={beginEdit}
                 onClear={() => {
                   setSelectedMention(undefined);
-                  void write(null);
+                  fireAndForget(write(null), 'database');
                 }}
               />
             </div>
@@ -517,12 +518,14 @@ function BooleanCell(props: {
       class="flex min-h-9 items-center px-3 outline-none focus-visible:ring-2 focus-visible:ring-ink/50"
       checked={Boolean(props.value)}
       disabled={!props.editable}
-      onChange={(checked) => void props.onWrite(checked ? 1 : 0)}
+      onChange={(checked) =>
+        fireAndForget(props.onWrite(checked ? 1 : 0), 'database')
+      }
       onKeyDown={(event: KeyboardEvent) => {
         if (props.editable && isClearCellKey(event)) {
           event.preventDefault();
           event.stopPropagation();
-          void props.onWrite(null);
+          fireAndForget(props.onWrite(null), 'database');
           return;
         }
         if (!isComposingKey(event)) navigateOnTab(event, props.onNavigate);
@@ -735,7 +738,7 @@ function InlineEditor(props: {
     }
     finishing = true;
     props.onClose(restoreFocus);
-    void props.onWrite(value);
+    fireAndForget(props.onWrite(value), 'database');
     return true;
   }
   const onKeyDown = (event: KeyboardEvent) => {
@@ -955,14 +958,17 @@ function SelectCell(props: GridCellProps) {
     event.preventDefault();
     event.stopPropagation();
     if (chosen !== undefined && chosen !== label())
-      void props.onWrite(withOption(chosen));
+      fireAndForget(props.onWrite(withOption(chosen)), 'database');
     keys.leave(event.shiftKey ? -1 : 1);
   }
   function pick(option: string) {
     if (props.column.isMultiSelect)
-      void props.onWrite(withOption(option, !selected().includes(option)));
+      fireAndForget(
+        props.onWrite(withOption(option, !selected().includes(option))),
+        'database'
+      );
     else {
-      void props.onWrite(option);
+      fireAndForget(props.onWrite(option), 'database');
       setOpen(false);
     }
   }
@@ -998,7 +1004,7 @@ function SelectCell(props: GridCellProps) {
       if (isClearCellKey(event)) {
         event.preventDefault();
         event.stopPropagation();
-        void props.onWrite(null);
+        fireAndForget(props.onWrite(null), 'database');
         return;
       }
       if (
@@ -1086,10 +1092,10 @@ function SelectCell(props: GridCellProps) {
               }}
               onPick={pick}
               onClear={() => {
-                void props.onWrite(null);
+                fireAndForget(props.onWrite(null), 'database');
                 setOpen(false);
               }}
-              onCreate={(value) => void create(value)}
+              onCreate={(value) => fireAndForget(create(value), 'database')}
               onKeyDown={tabAway}
               editing={editing}
               inputRef={(element) => {
@@ -1153,7 +1159,7 @@ function DateCell(props: GridCellProps) {
       if (isClearCellKey(event)) {
         event.preventDefault();
         event.stopPropagation();
-        void props.onWrite(null);
+        fireAndForget(props.onWrite(null), 'database');
       } else if (
         event.key.length === 1 &&
         !event.ctrlKey &&
@@ -1218,7 +1224,10 @@ function DateCell(props: GridCellProps) {
             selectedDate={fromCellDate(props.value)}
             initialQuery={query()}
             onSelectDate={(date) =>
-              void props.onWrite(date ? toCellDate(date) : null)
+              fireAndForget(
+                props.onWrite(date ? toCellDate(date) : null),
+                'database'
+              )
             }
             onClose={() => setOpen(false)}
           />

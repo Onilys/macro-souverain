@@ -90,6 +90,7 @@ export default {
     undo: 'Deshacer',
     redo: 'Rehacer',
     failedToUndo: 'No se pudo deshacer',
+    failedToSignOut: 'No se pudo cerrar la sesión',
     failedToRedo: 'No se pudo rehacer',
     favorites: 'Favoritos',
     backToList: 'Volver a la lista',

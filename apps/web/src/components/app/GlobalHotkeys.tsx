@@ -28,11 +28,13 @@ import { registerHotkey } from '@core/hotkey/hotkeys';
 import { setActiveScope } from '@core/hotkey/state';
 import { TOKENS } from '@core/hotkey/tokens';
 import type { ValidHotkey } from '@core/hotkey/types';
+import { fireAndForget } from '@core/util/fireAndForget';
 import {
   handleFolderSelect,
   openFilePicker,
   openFolderPicker,
 } from '@core/util/upload';
+import { Telemetry } from '@macro-inc/observability';
 import IconGear from '@phosphor/gear.svg';
 import Plus from '@phosphor/plus.svg';
 import LogoutIcon from '@phosphor/sign-out.svg';
@@ -400,7 +402,10 @@ export default function GlobalShortcuts() {
     description: () => t('commands.logout'),
     icon: LogoutIcon,
     keyDownHandler: () => {
-      logout();
+      logout().catch((error) => {
+        Telemetry.error(error, { surface: 'logout' });
+        toast.failure(t('commands.failedToSignOut'));
+      });
       return true;
     },
     runWithInputFocused: true,
@@ -634,9 +639,12 @@ export default function GlobalShortcuts() {
     keyDownHandler: (e) => {
       if (!undoCtx.canUndo()) return false;
       e?.preventDefault();
-      undoCtx.undo({
-        onError: () => toast.failure(t('commands.failedToUndo')),
-      });
+      fireAndForget(
+        undoCtx.undo({
+          onError: () => toast.failure(t('commands.failedToUndo')),
+        }),
+        'global-hotkeys'
+      );
       return true;
     },
     condition: () => undoCtx.canUndo(),
@@ -650,9 +658,12 @@ export default function GlobalShortcuts() {
     keyDownHandler: (e) => {
       if (!undoCtx.canRedo()) return false;
       e?.preventDefault();
-      undoCtx.redo({
-        onError: () => toast.failure(t('commands.failedToRedo')),
-      });
+      fireAndForget(
+        undoCtx.redo({
+          onError: () => toast.failure(t('commands.failedToRedo')),
+        }),
+        'global-hotkeys'
+      );
       return true;
     },
     condition: () => undoCtx.canRedo(),

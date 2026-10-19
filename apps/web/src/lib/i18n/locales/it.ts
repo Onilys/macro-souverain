@@ -89,6 +89,7 @@ export default {
     undo: 'Annulla',
     redo: 'Ripeti',
     failedToUndo: 'Impossibile annullare',
+    failedToSignOut: 'Impossibile uscire',
     failedToRedo: 'Impossibile ripetere',
     favorites: 'Preferiti',
     backToList: 'Torna all’elenco',

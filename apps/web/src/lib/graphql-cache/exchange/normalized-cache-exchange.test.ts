@@ -4583,9 +4583,10 @@ describe('normalizedCacheExchange', () => {
           ...mutation.context,
           fetch: operationFetch,
         } as never);
+        let fetched: Promise<Response> | undefined;
         const { ops } = harness(host, (op) => {
           if (op.kind === 'mutation') {
-            void op.context.fetch?.('http://test', {
+            fetched = op.context.fetch?.('http://test', {
               signal: existingSignal,
             });
           }
@@ -4600,6 +4601,7 @@ describe('normalizedCacheExchange', () => {
           'http://test',
           expect.objectContaining({ signal: combinedSignal })
         );
+        await fetched;
       } finally {
         timeout.mockRestore();
         any.mockRestore();

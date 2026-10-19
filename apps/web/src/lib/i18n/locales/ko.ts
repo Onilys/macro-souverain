@@ -88,6 +88,7 @@ export default {
     undo: '실행 취소',
     redo: '다시 실행',
     failedToUndo: '실행 취소하지 못했습니다',
+    failedToSignOut: '로그아웃하지 못했습니다',
     failedToRedo: '다시 실행하지 못했습니다',
     favorites: '즐겨찾기',
     backToList: '목록으로 돌아가기',

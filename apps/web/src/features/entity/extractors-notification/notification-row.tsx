@@ -12,7 +12,10 @@ import { type JSX, Match, Show, Switch } from 'solid-js';
 import { Layout } from '../core/Layout';
 import type { EntityData } from '../types/entity';
 import { isNotificationUnread } from '../utils/notification';
-import { useNotificationActions } from './notification-actions';
+import {
+  reportNotificationActionError,
+  useNotificationActions,
+} from './notification-actions';
 import {
   DocumentMentionPill,
   NotificationContent,
@@ -324,7 +327,7 @@ export function NotificationRow(props: NotificationRowProps) {
   };
 
   const handleMarkAsDone = () => {
-    markAsDone();
+    markAsDone().catch(reportNotificationActionError);
   };
 
   const handleMarkAsRead = async () => {
@@ -352,7 +355,7 @@ export function NotificationRow(props: NotificationRowProps) {
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              handleClick(e);
+              handleClick(e).catch(reportNotificationActionError);
             }
             if (e.key === 'e' && canMarkDone()) {
               e.preventDefault();

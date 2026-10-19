@@ -88,6 +88,7 @@ export default {
     undo: 'पहले जैसा करें',
     redo: 'फिर से करें',
     failedToUndo: 'पहले जैसा नहीं किया जा सका',
+    failedToSignOut: 'साइन आउट नहीं हो सका',
     failedToRedo: 'फिर से नहीं किया जा सका',
     favorites: 'पसंदीदा',
     backToList: 'सूची पर वापस जाएं',

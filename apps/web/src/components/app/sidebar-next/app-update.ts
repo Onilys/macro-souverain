@@ -1,4 +1,5 @@
 import { t } from '@app/lib/i18n';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { pendingWebUpdate } from '@core/util/reloadForNewerBuild';
 import { useTauri } from '@macro/tauri';
 import { invoke } from '@tauri-apps/api/core';
@@ -105,7 +106,8 @@ export function useAppUpdate(): Accessor<AppUpdate | undefined> {
         id: `native:${native.data.version}`,
         ...(preparing ? UPDATE_COPY.nativePreparing : UPDATE_COPY.native),
         busy: preparing,
-        apply: () => void tauri.restartNativeUpdate(),
+        apply: () =>
+          fireAndForget(tauri.restartNativeUpdate(), 'native-updates'),
       };
     }
 
@@ -114,7 +116,7 @@ export function useAppUpdate(): Accessor<AppUpdate | undefined> {
         id: `bundle:${runningBuild()}`,
         ...UPDATE_COPY.bundle,
         busy: false,
-        apply: () => void invoke('perform_update'),
+        apply: () => fireAndForget(invoke('perform_update'), 'bundle-update'),
       };
     }
 

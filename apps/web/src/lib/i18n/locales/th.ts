@@ -88,6 +88,7 @@ export default {
     undo: 'เลิกทำ',
     redo: 'ทำซ้ำ',
     failedToUndo: 'เลิกทำไม่สำเร็จ',
+    failedToSignOut: 'ออกจากระบบไม่สำเร็จ',
     failedToRedo: 'ทำซ้ำไม่สำเร็จ',
     favorites: 'รายการโปรด',
     backToList: 'กลับไปที่รายการ',

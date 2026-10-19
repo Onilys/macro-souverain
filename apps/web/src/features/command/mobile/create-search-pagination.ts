@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import { createResizeObserver } from '@solid-primitives/resize-observer';
 import { type Accessor, createEffect, on, onCleanup } from 'solid-js';
 
@@ -24,7 +25,7 @@ export function createSearchPagination<T>(options: {
     const page = options.items();
     if (automatic && page === lastAutoPage) return;
     lastAutoPage = page;
-    void options.loadMore();
+    fireAndForget(options.loadMore(), 'mobile-search');
   };
 
   // DOM measurements settle after rendering and ResizeObserver updates. A new

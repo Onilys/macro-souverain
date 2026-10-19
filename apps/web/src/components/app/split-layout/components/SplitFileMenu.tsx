@@ -29,6 +29,7 @@ import { type HotkeyToken, TOKENS } from '@core/hotkey/tokens';
 import { getActiveCommandByToken } from '@core/hotkey/utils';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { useGetPermissions } from '@core/signal/permissions';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { buildEntityData, type EntityData } from '@entity';
 import ArrowRight from '@phosphor/arrow-right.svg';
 import BellSimple from '@phosphor/bell-simple.svg';
@@ -400,7 +401,7 @@ export function SplitFileMenu(props: SplitFileMenuProps) {
         : t('entityActions.favorite'),
       icon: Star,
       action: () => {
-        void favoriteAction.execute([entity]);
+        fireAndForget(favoriteAction.execute([entity]), 'entity-actions');
       },
       get hotkeyToken() {
         return activeHotkeyToken(TOKENS.entity.action.favorite);
@@ -419,7 +420,7 @@ export function SplitFileMenu(props: SplitFileMenuProps) {
         : t('entityActions.muteNotifications'),
       icon: muted ? BellSimple : BellSlash,
       action: () => {
-        void muteAction.execute([entity]);
+        fireAndForget(muteAction.execute([entity]), 'entity-actions');
       },
       get hotkeyToken() {
         return activeHotkeyToken(TOKENS.entity.action.mute);
@@ -485,9 +486,12 @@ export function SplitFileMenu(props: SplitFileMenuProps) {
       icon: Link,
       action: () => {
         if (entity) {
-          void copyLinkAction.execute([entity]);
+          fireAndForget(copyLinkAction.execute([entity]), 'entity-actions');
         } else {
-          void copyLinkAction.executeByBlock(props.id, props.entityKind);
+          fireAndForget(
+            copyLinkAction.executeByBlock(props.id, props.entityKind),
+            'entity-actions'
+          );
         }
       },
       get hotkeyToken() {
@@ -501,7 +505,7 @@ export function SplitFileMenu(props: SplitFileMenuProps) {
     label: t('entityActions.copyId'),
     icon: Copy,
     action: () => {
-      void copyEntityIdAction.executeById(props.id);
+      fireAndForget(copyEntityIdAction.executeById(props.id), 'entity-actions');
     },
     get hotkeyToken() {
       return activeHotkeyToken(TOKENS.entity.action.copyEntityId);

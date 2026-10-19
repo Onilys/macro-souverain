@@ -89,6 +89,7 @@ export default {
     undo: 'Cofnij',
     redo: 'Ponów',
     failedToUndo: 'Nie udało się cofnąć',
+    failedToSignOut: 'Nie udało się wylogować',
     failedToRedo: 'Nie udało się ponowić',
     favorites: 'Ulubione',
     backToList: 'Wróć do listy',

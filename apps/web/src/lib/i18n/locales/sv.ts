@@ -90,6 +90,7 @@ export default {
     undo: 'Ångra',
     redo: 'Gör om',
     failedToUndo: 'Det gick inte att ångra',
+    failedToSignOut: 'Det gick inte att logga ut',
     failedToRedo: 'Det gick inte att göra om',
     favorites: 'Favoriter',
     backToList: 'Tillbaka till listan',

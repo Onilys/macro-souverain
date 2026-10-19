@@ -88,6 +88,7 @@ export default {
     undo: '復原',
     redo: '重做',
     failedToUndo: '無法復原',
+    failedToSignOut: '無法登出',
     failedToRedo: '無法重做',
     favorites: '我的最愛',
     backToList: '返回清單',

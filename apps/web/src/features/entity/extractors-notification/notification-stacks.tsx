@@ -22,7 +22,10 @@ import {
   filterValidNotifications,
   isNotificationUnread,
 } from '../utils/notification';
-import { useNotificationStackActions } from './notification-actions';
+import {
+  reportNotificationActionError,
+  useNotificationStackActions,
+} from './notification-actions';
 import { NotificationContent } from './notification-content';
 import { copyNotificationLink } from './notification-copy-link';
 import { NotificationDescription } from './notification-description';
@@ -103,7 +106,7 @@ export function NotificationStackRow(props: {
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              handleClick(e);
+              handleClick(e).catch(reportNotificationActionError);
             }
             if (e.key === 'e' && canMarkDone()) {
               e.preventDefault();

@@ -22,6 +22,7 @@ export default {
   undo: 'Undo',
   redo: 'Redo',
   failedToUndo: 'Failed to undo',
+  failedToSignOut: 'Failed to sign out',
   failedToRedo: 'Failed to redo',
   favorites: 'Favorites',
   backToList: 'Back to list',

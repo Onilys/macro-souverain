@@ -69,6 +69,7 @@
     "commands.create": "4759498ac2",
     "commands.createNewSplit": "b4827b728d",
     "commands.failedToRedo": "c2d4143c52",
+    "commands.failedToSignOut": "46bc340974",
     "commands.failedToUndo": "08e78d0c90",
     "commands.favorites": "7a1f2a83ac",
     "commands.focusSplitLeft": "3628b42ce9",

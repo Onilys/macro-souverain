@@ -90,6 +90,7 @@ export default {
     undo: 'Anular',
     redo: 'Refazer',
     failedToUndo: 'Não foi possível anular',
+    failedToSignOut: 'Não foi possível terminar a sessão',
     failedToRedo: 'Não foi possível refazer',
     favorites: 'Favoritos',
     backToList: 'Voltar à lista',

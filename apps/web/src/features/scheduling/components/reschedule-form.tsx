@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import { Button, DatePicker } from '@ui';
 import { createSignal, Show } from 'solid-js';
 import { Field, SelectInput } from './fields';
@@ -58,7 +59,7 @@ export function RescheduleForm(props: {
   return (
     <form
       class="mt-6 flex flex-col gap-4 border-t border-edge-muted pt-5"
-      onSubmit={(e) => void save(e)}
+      onSubmit={(e) => fireAndForget(save(e), 'scheduling')}
     >
       <h2 class="font-semibold">Choose a new time</h2>
       <Field
@@ -70,7 +71,7 @@ export function RescheduleForm(props: {
           disabled={saving()}
           required
           value={date()}
-          onChange={(value) => void load(value)}
+          onChange={(value) => fireAndForget(load(value), 'scheduling')}
         />
       </Field>
       <Show

@@ -88,6 +88,7 @@ export default {
     undo: 'Отменить',
     redo: 'Повторить',
     failedToUndo: 'Не удалось отменить',
+    failedToSignOut: 'Не удалось выйти',
     failedToRedo: 'Не удалось повторить',
     favorites: 'Избранное',
     backToList: 'Назад к списку',

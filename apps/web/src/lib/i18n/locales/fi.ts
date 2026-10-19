@@ -88,6 +88,7 @@ export default {
     undo: 'Kumoa',
     redo: 'Tee uudelleen',
     failedToUndo: 'Kumoaminen epäonnistui',
+    failedToSignOut: 'Uloskirjautuminen epäonnistui',
     failedToRedo: 'Uudelleen tekeminen epäonnistui',
     favorites: 'Suosikit',
     backToList: 'Takaisin luetteloon',

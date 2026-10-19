@@ -1,6 +1,7 @@
 import { openBulkEditModal } from '@app/features/entity/bulk-edit/BulkEditEntityModal';
 import { t } from '@app/lib/i18n';
 import { toast } from '@core/component/Toast/Toast';
+import { fireAndForget } from '@core/util/fireAndForget';
 import type { EntityData } from '@entity';
 import { restoreSoupFocus } from '../utils';
 import type { EntityActionListState } from './entity-action-context';
@@ -54,7 +55,7 @@ export const makeMoveToProjectAction = () => {
             ? t('entityActions.toastMovedCount', { count: entities.length })
             : t('entityActions.toastMovedToFolder')
         );
-        restoreSoupFocus(nextRow?.id);
+        fireAndForget(restoreSoupFocus(nextRow?.id), 'entity-actions');
       },
       onError: () => toast.failure(t('entityActions.toastMoveToFolderFailed')),
       onCancel: () => {
@@ -62,7 +63,7 @@ export const makeMoveToProjectAction = () => {
         if (firstEntity) {
           soup.focus.set(firstEntity.id);
         }
-        restoreSoupFocus(firstEntity?.id);
+        fireAndForget(restoreSoupFocus(firstEntity?.id), 'entity-actions');
       },
     });
   };

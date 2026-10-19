@@ -2,6 +2,7 @@ import { t } from '@app/lib/i18n';
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import { useSplitPanel } from '@components/app/split-layout/layoutUtils';
 import { ContextMenuContent, MenuItem } from '@core/component/ContextMenu';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { ContextMenu } from '@kobalte/core/context-menu';
 import FunnelIcon from '@phosphor/funnel-simple.svg';
 import PencilIcon from '@phosphor/pencil-simple.svg';
@@ -42,7 +43,10 @@ function TagChip(props: {
   };
 
   const removeTag = () => {
-    void props.docTags.removeTag(props.tag.scope, props.tag.optionId);
+    fireAndForget(
+      props.docTags.removeTag(props.tag.scope, props.tag.optionId),
+      'property-tags'
+    );
   };
 
   return (

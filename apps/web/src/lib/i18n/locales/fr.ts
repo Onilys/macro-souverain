@@ -90,6 +90,7 @@ export default {
     undo: 'Annuler',
     redo: 'Rétablir',
     failedToUndo: 'Impossible d’annuler',
+    failedToSignOut: 'Impossible de se déconnecter',
     failedToRedo: 'Impossible de rétablir',
     favorites: 'Favoris',
     backToList: 'Retour à la liste',

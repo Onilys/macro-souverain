@@ -2,6 +2,7 @@ import { createAiDocument } from '@app/features/block-ai/queries/create-ai';
 import { createFigDocument } from '@app/features/block-fig/queries/create-fig';
 import { createPsdDocument } from '@app/features/block-psd/queries/create-psd';
 import { useSpreadsheetAccess } from '@app/features/block-spreadsheet/primitives/use-spreadsheet-access';
+import { createSpreadsheetDocument } from '@app/features/block-spreadsheet/queries/create-spreadsheet';
 import { openChatWithAgent } from '@app/features/chat/ChatWithAgentButton';
 import { t } from '@app/lib/i18n';
 import type { BlockTool } from '@components/app/ResponsiveBlockToolbar';
@@ -24,6 +25,7 @@ import {
   createMarkdownFile,
   createTask,
 } from '@core/util/create';
+import { fireAndForget } from '@core/util/fireAndForget';
 import type { ObjectLike } from '@core/util/result';
 import CaretDown from '@phosphor/caret-down.svg';
 import PlusIcon from '@phosphor/plus.svg';
@@ -342,19 +344,25 @@ function ProjectCreateDialog(props: {
                       spec.blockName === 'chat' &&
                       isFeatureEnabled(enableChatV3Agents)
                     ) {
-                      void openChatWithAgent({
-                        type: 'project',
-                        id: props.projectId,
-                        name: props.name,
-                      });
+                      fireAndForget(
+                        openChatWithAgent({
+                          type: 'project',
+                          id: props.projectId,
+                          name: props.name,
+                        }),
+                        'project-create'
+                      );
                       return;
                     }
-                    createBlock({
-                      blockName: spec.blockName,
-                      loading: spec.loading,
-                      createFn: () => spec.createFn(props.projectId),
-                      params: spec.params,
-                    });
+                    fireAndForget(
+                      createBlock({
+                        blockName: spec.blockName,
+                        loading: spec.loading,
+                        createFn: () => spec.createFn(props.projectId),
+                        params: spec.params,
+                      }),
+                      'project-create'
+                    );
                   }}
                 >
                   <div class="size-4 shrink-0">
@@ -400,11 +408,14 @@ function MenuContent(props: { projectId: string; name: string }) {
       Icon: spec.icon,
       action: () => {
         if (spec.blockName === 'chat' && isFeatureEnabled(enableChatV3Agents)) {
-          void openChatWithAgent({
-            type: 'project',
-            id: props.projectId,
-            name: props.name,
-          });
+          fireAndForget(
+            openChatWithAgent({
+              type: 'project',
+              id: props.projectId,
+              name: props.name,
+            }),
+            'project-create'
+          );
           return;
         }
         return createBlock({
@@ -474,5 +485,3 @@ export function ProjectCreateMenu(props: { id: string; name: string }) {
     </Dropdown>
   );
 }
-
-import { createSpreadsheetDocument } from '@app/features/block-spreadsheet/queries/create-spreadsheet';

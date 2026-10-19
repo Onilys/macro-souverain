@@ -41,6 +41,7 @@ import { ReplyEnvelope } from './reply-envelope';
 false && fileFolderDrop;
 false && fileSelector;
 
+import { fireAndForget } from '@core/util/fireAndForget';
 import {
   createReplyComposer,
   type ReplyComposerOptions,
@@ -89,7 +90,9 @@ export function ReplyInputView(props: ReplyInputViewProps) {
         fallback={
           <div role="alert">
             Unable to load local draft.{' '}
-            <button onClick={() => void refetch()}>Retry</button>
+            <button onClick={() => fireAndForget(refetch(), 'email-compose')}>
+              Retry
+            </button>
           </div>
         }
       >
@@ -260,7 +263,7 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
         scopeId: composeHotkeyScope,
         description: 'Send email',
         keyDownHandler: () => {
-          sendEmail();
+          sendEmail().catch(composeContext.notices.reportError);
           return true;
         },
         runWithInputFocused: true,
@@ -273,7 +276,7 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
         scopeId: composeHotkeyScope,
         description: 'Send and mark done',
         keyDownHandler: () => {
-          sendEmail(true);
+          sendEmail(true).catch(composeContext.notices.reportError);
           return true;
         },
         runWithInputFocused: true,
@@ -332,7 +335,7 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
 
           if (isEmpty) {
             // Delete draft and close reply
-            deleteDraftAndReset();
+            deleteDraftAndReset().catch(() => {});
           } else {
             // Move focus back to the message
             ctx.exitToThread('selected');
@@ -374,7 +377,11 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
               }}
               removable={!editingDisabled()}
               onRemove={() => {
-                if (!editingDisabled()) handleRemoveAttachment(attachment);
+                if (!editingDisabled())
+                  fireAndForget(
+                    handleRemoveAttachment(attachment),
+                    'email-compose'
+                  );
               }}
               onClick={attachmentViewer.onClickFor(attachment)}
             />

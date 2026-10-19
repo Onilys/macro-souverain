@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import Copy from '@phosphor/copy.svg';
 import { CopyButton } from '@ui';
 import {
@@ -151,26 +152,35 @@ export function OwnerSettingsSection(props: {
                 onDuplicate={duplicate}
                 link={(item) => capabilities.link(p(), item.slug)}
                 onCopy={(item) =>
-                  void action(() => capabilities.copyLink(p(), item.slug))
+                  fireAndForget(
+                    action(() => capabilities.copyLink(p(), item.slug)),
+                    'scheduling'
+                  )
                 }
                 onToggle={(item, enabled) =>
-                  void action(() =>
-                    save({
-                      ...p(),
-                      eventTypes: p().eventTypes.map((e) =>
-                        e.id === item.id ? { ...e, enabled } : e
-                      ),
-                    })
+                  fireAndForget(
+                    action(() =>
+                      save({
+                        ...p(),
+                        eventTypes: p().eventTypes.map((e) =>
+                          e.id === item.id ? { ...e, enabled } : e
+                        ),
+                      })
+                    ),
+                    'scheduling'
                   )
                 }
                 onDelete={(item) =>
-                  void action(() =>
-                    save({
-                      ...p(),
-                      eventTypes: p().eventTypes.filter(
-                        (e) => e.id !== item.id
-                      ),
-                    })
+                  fireAndForget(
+                    action(() =>
+                      save({
+                        ...p(),
+                        eventTypes: p().eventTypes.filter(
+                          (e) => e.id !== item.id
+                        ),
+                      })
+                    ),
+                    'scheduling'
                   )
                 }
               />
@@ -224,26 +234,32 @@ export function OwnerSettingsSection(props: {
                   saving={source.saving()}
                   onEdit={owner.editSchedule}
                   onDefault={(s) =>
-                    void action(() => save({ ...p(), defaultScheduleId: s.id }))
+                    fireAndForget(
+                      action(() => save({ ...p(), defaultScheduleId: s.id })),
+                      'scheduling'
+                    )
                   }
                   onDelete={(s) =>
-                    void action(async () => {
-                      if (p().eventTypes.some((e) => e.scheduleId === s.id))
-                        throw new Error(
-                          'Move event types to another schedule first.'
+                    fireAndForget(
+                      action(async () => {
+                        if (p().eventTypes.some((e) => e.scheduleId === s.id))
+                          throw new Error(
+                            'Move event types to another schedule first.'
+                          );
+                        const schedules = p().schedules.filter(
+                          (x) => x.id !== s.id
                         );
-                      const schedules = p().schedules.filter(
-                        (x) => x.id !== s.id
-                      );
-                      await save({
-                        ...p(),
-                        schedules,
-                        defaultScheduleId:
-                          p().defaultScheduleId === s.id
-                            ? (schedules[0]?.id ?? null)
-                            : p().defaultScheduleId,
-                      });
-                    })
+                        await save({
+                          ...p(),
+                          schedules,
+                          defaultScheduleId:
+                            p().defaultScheduleId === s.id
+                              ? (schedules[0]?.id ?? null)
+                              : p().defaultScheduleId,
+                        });
+                      }),
+                      'scheduling'
+                    )
                   }
                 />
               </div>
@@ -295,7 +311,9 @@ export function OwnerSettingsSection(props: {
                   })
                 }
                 onRevert={owner.revertProfile}
-                onSave={() => void action(owner.saveProfile)}
+                onSave={() =>
+                  fireAndForget(action(owner.saveProfile), 'scheduling')
+                }
               />
             </div>
           </Match>
@@ -318,17 +336,29 @@ export function OwnerSettingsSection(props: {
                 canManageBookings={scope().canManageBookings}
                 busyId={busyBooking()}
                 onApprove={(id) =>
-                  void bookingAction(id, () => source.approve(id))
+                  fireAndForget(
+                    bookingAction(id, () => source.approve(id)),
+                    'scheduling'
+                  )
                 }
                 onCancel={(id) =>
-                  void bookingAction(id, () => source.cancel(id))
+                  fireAndForget(
+                    bookingAction(id, () => source.cancel(id)),
+                    'scheduling'
+                  )
                 }
                 onManage={(id) =>
-                  void bookingAction(id, () => capabilities.manageBooking(id))
+                  fireAndForget(
+                    bookingAction(id, () => capabilities.manageBooking(id)),
+                    'scheduling'
+                  )
                 }
                 onAttendance={(id, attendance) =>
-                  void bookingAction(id, () =>
-                    source.setAttendance(id, attendance)
+                  fireAndForget(
+                    bookingAction(id, () =>
+                      source.setAttendance(id, attendance)
+                    ),
+                    'scheduling'
                   )
                 }
               />

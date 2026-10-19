@@ -89,6 +89,7 @@ export default {
     undo: 'Ongedaan maken',
     redo: 'Opnieuw',
     failedToUndo: 'Ongedaan maken mislukt',
+    failedToSignOut: 'Afmelden mislukt',
     failedToRedo: 'Opnieuw uitvoeren mislukt',
     favorites: 'Favorieten',
     backToList: 'Terug naar lijst',

@@ -88,6 +88,7 @@ export default {
     undo: '撤销',
     redo: '重做',
     failedToUndo: '撤销失败',
+    failedToSignOut: '退出登录失败',
     failedToRedo: '重做失败',
     favorites: '收藏',
     backToList: '返回列表',

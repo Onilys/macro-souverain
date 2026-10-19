@@ -88,6 +88,7 @@ export default {
     undo: 'Angre',
     redo: 'Gjør om',
     failedToUndo: 'Kunne ikke angre',
+    failedToSignOut: 'Kunne ikke logge ut',
     failedToRedo: 'Kunne ikke gjøre om',
     favorites: 'Favoritter',
     backToList: 'Tilbake til listen',

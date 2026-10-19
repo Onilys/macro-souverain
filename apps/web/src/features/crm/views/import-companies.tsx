@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import { Button, Dialog, Panel, Select } from '@ui';
 import { For, Show } from 'solid-js';
 import type { CompanyImportPipelines } from '../context/pipelines';
@@ -86,7 +87,9 @@ export function CrmImport(props: {
               type="file"
               accept=".csv,text/csv"
               disabled={pending()}
-              onChange={(e) => void read(e.currentTarget.files?.[0])}
+              onChange={(e) =>
+                fireAndForget(read(e.currentTarget.files?.[0]), 'crm')
+              }
               class="text-sm"
             />
             <Show when={rows().length && !pending()}>
@@ -201,7 +204,7 @@ export function CrmImport(props: {
               <Button
                 variant="strong"
                 disabled={pending() || !runnable()}
-                onClick={() => void run()}
+                onClick={() => fireAndForget(run(), 'crm')}
               >
                 {pending()
                   ? `Importing… ${done().toLocaleString()} of ${rows().length.toLocaleString()}`

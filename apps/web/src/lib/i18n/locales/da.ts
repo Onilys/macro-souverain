@@ -89,6 +89,7 @@ export default {
     undo: 'Fortryd',
     redo: 'Annuller fortryd',
     failedToUndo: 'Kunne ikke fortryde',
+    failedToSignOut: 'Kunne ikke logge ud',
     failedToRedo: 'Kunne ikke annullere fortryd',
     favorites: 'Favoritter',
     backToList: 'Tilbage til listen',

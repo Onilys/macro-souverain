@@ -21,6 +21,7 @@ import {
   calendarConsentScopes,
   reconnectScopes,
 } from '@core/email-link/consent';
+import { fireAndForget } from '@core/util/fireAndForget';
 import GmailIcon from '@icon/mcp-gmail.svg';
 import ArrowsClockwiseIcon from '@phosphor-icons/core/regular/arrows-clockwise.svg?component-solid';
 import CalendarSlashIcon from '@phosphor-icons/core/regular/calendar-slash.svg?component-solid';
@@ -186,16 +187,22 @@ export function EmailCard() {
                 resyncing={resyncingIds().has(primary().id)}
                 onResync={() => handleResyncInbox(primary().id)}
                 onReconnect={() =>
-                  void startAddInbox({
-                    scopes: reconnectScopes(primary()),
-                    emailAddress: primary().email_address,
-                  })
+                  fireAndForget(
+                    startAddInbox({
+                      scopes: reconnectScopes(primary()),
+                      emailAddress: primary().email_address,
+                    }),
+                    'add-inbox'
+                  )
                 }
                 onEnableCalendar={() =>
-                  void startAddInbox({
-                    scopes: calendarConsentScopes(primary()),
-                    emailAddress: primary().email_address,
-                  })
+                  fireAndForget(
+                    startAddInbox({
+                      scopes: calendarConsentScopes(primary()),
+                      emailAddress: primary().email_address,
+                    }),
+                    'add-inbox'
+                  )
                 }
                 onRemove={() =>
                   setRemoveTarget({
@@ -229,16 +236,22 @@ export function EmailCard() {
                 resyncing={resyncingIds().has(link.id)}
                 onResync={() => handleResyncInbox(link.id)}
                 onReconnect={() =>
-                  void startAddInbox({
-                    scopes: reconnectScopes(link),
-                    emailAddress: link.email_address,
-                  })
+                  fireAndForget(
+                    startAddInbox({
+                      scopes: reconnectScopes(link),
+                      emailAddress: link.email_address,
+                    }),
+                    'add-inbox'
+                  )
                 }
                 onEnableCalendar={() =>
-                  void startAddInbox({
-                    scopes: calendarConsentScopes(link),
-                    emailAddress: link.email_address,
-                  })
+                  fireAndForget(
+                    startAddInbox({
+                      scopes: calendarConsentScopes(link),
+                      emailAddress: link.email_address,
+                    }),
+                    'add-inbox'
+                  )
                 }
                 onRemove={() =>
                   setRemoveTarget({

@@ -6,6 +6,7 @@ import {
 } from '@components/app/split-layout/components/SplitLabel';
 import { EmailPermissionsBanner } from '@core/component/EmailPermissionsBanner';
 import { WrapUnlessMobile } from '@core/mobile/WrapUnlessMobile';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { ComposerSurface } from '@ui';
 import { createResource, createSignal, Show } from 'solid-js';
 import { DraftSyncStatus } from '../components/draft-sync-status';
@@ -57,7 +58,9 @@ export function EmailComposeView(props: EmailComposeViewProps) {
         fallback={
           <div role="alert">
             Unable to load this draft.{' '}
-            <button onClick={() => void refetch()}>Retry</button>
+            <button onClick={() => fireAndForget(refetch(), 'email-compose')}>
+              Retry
+            </button>
           </div>
         }
       >

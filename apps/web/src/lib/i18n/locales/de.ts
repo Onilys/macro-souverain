@@ -91,6 +91,7 @@ export default {
     undo: 'Rückgängig',
     redo: 'Wiederholen',
     failedToUndo: 'Rückgängig machen fehlgeschlagen',
+    failedToSignOut: 'Abmelden fehlgeschlagen',
     failedToRedo: 'Wiederholen fehlgeschlagen',
     favorites: 'Favoriten',
     backToList: 'Zurück zur Liste',

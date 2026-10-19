@@ -89,6 +89,7 @@ export default {
     undo: '元に戻す',
     redo: 'やり直す',
     failedToUndo: '元に戻せませんでした',
+    failedToSignOut: 'ログアウトできませんでした',
     failedToRedo: 'やり直せませんでした',
     favorites: 'お気に入り',
     backToList: 'リストに戻る',
