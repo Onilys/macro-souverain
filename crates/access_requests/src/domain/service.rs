@@ -179,6 +179,7 @@ impl<R: RequestRepository, A: EntityAccessService, C: Clock> AccessRequestServic
             supported_levels(entity.entity_type, tx.facts().file_type.as_deref())
         };
         let owner = (access_level.is_some() || can_review).then(|| tx.facts().owner.principal_id());
+        let entity_name = tx.facts().name.clone();
         let mine = tx.mine(&user).await?;
         let (requests, pending_count) = if can_review {
             tx.pending(offset, PAGE_SIZE).await?
@@ -193,6 +194,7 @@ impl<R: RequestRepository, A: EntityAccessService, C: Clock> AccessRequestServic
         };
         tx.commit().await?;
         Ok(AccessRequestState {
+            entity_name,
             owner,
             can_review,
             access_level,

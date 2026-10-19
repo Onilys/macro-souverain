@@ -18470,6 +18470,7 @@
         "type": "object",
         "description": "Share state visible to one authenticated viewer.",
         "required": [
+          "entityName",
           "canReview",
           "supportedLevels",
           "requests",
@@ -18490,6 +18491,10 @@
           "canReview": {
             "type": "boolean",
             "description": "Whether this viewer can resolve requests and manage direct grants."
+          },
+          "entityName": {
+            "type": "string",
+            "description": "Entity display name, shown to callers without access so a shared link\nnames what they are requesting."
           },
           "mine": {
             "oneOf": [

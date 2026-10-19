@@ -18226,6 +18226,11 @@ export const accessRequestsStateResponse = zod
       .describe(
         'Whether this viewer can resolve requests and manage direct grants.'
       ),
+    entityName: zod
+      .string()
+      .describe(
+        'Entity display name, shown to callers without access so a shared link\nnames what they are requesting.'
+      ),
     mine: zod
       .union([
         zod.null(),

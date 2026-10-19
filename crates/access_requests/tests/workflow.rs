@@ -67,6 +67,8 @@ async fn upgrades_and_private_state(pool: PgPool) {
     ));
     let outsider = s.state(user("outsider"), entity(), 0).await.unwrap();
     assert!(outsider.access_level.is_none());
+    // A shared link has to name what is being requested, even with no access.
+    assert_eq!(outsider.entity_name, "Shared document");
     assert!(outsider.owner.is_none());
     assert!(!outsider.can_review);
     assert!(outsider.requests.is_empty());

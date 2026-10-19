@@ -1,6 +1,6 @@
 # Type Alias: AccessRequestState
 
-> **AccessRequestState** = \{ `accessLevel?`: `null` \| [`AccessLevel`](AccessLevel.md); `canReview`: `boolean`; `mine?`: `null` \| [`AccessRequest`](AccessRequest.md); `nextOffset?`: `number` \| `null`; `owner?`: `string` \| `null`; `pendingCount`: `number`; `requests`: [`AccessRequest`](AccessRequest.md)[]; `supportedLevels`: [`AccessLevel`](AccessLevel.md)[]; \}
+> **AccessRequestState** = \{ `accessLevel?`: `null` \| [`AccessLevel`](AccessLevel.md); `canReview`: `boolean`; `entityName`: `string`; `mine?`: `null` \| [`AccessRequest`](AccessRequest.md); `nextOffset?`: `number` \| `null`; `owner?`: `string` \| `null`; `pendingCount`: `number`; `requests`: [`AccessRequest`](AccessRequest.md)[]; `supportedLevels`: [`AccessLevel`](AccessLevel.md)[]; \}
 
 Share state visible to one authenticated viewer.
 
@@ -10,6 +10,7 @@ Share state visible to one authenticated viewer.
 | ------ | ------ | ------ |
 | <a id="property-accesslevel"></a> `accessLevel?` | `null` \| [`AccessLevel`](AccessLevel.md) | - |
 | <a id="property-canreview"></a> `canReview` | `boolean` | Whether this viewer can resolve requests and manage direct grants. |
+| <a id="property-entityname"></a> `entityName` | `string` | Entity display name, shown to callers without access so a shared link names what they are requesting. |
 | <a id="property-mine"></a> `mine?` | `null` \| [`AccessRequest`](AccessRequest.md) | - |
 | <a id="property-nextoffset"></a> `nextOffset?` | `number` \| `null` | Next page offset, absent at the end. |
 | <a id="property-owner"></a> `owner?` | `string` \| `null` | Recorded owner principal, visible to reviewers and callers with access. |

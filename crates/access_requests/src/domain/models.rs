@@ -103,6 +103,9 @@ pub struct DirectAccess {
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AccessRequestState {
+    /// Entity display name, shown to callers without access so a shared link
+    /// names what they are requesting.
+    pub entity_name: String,
     /// Recorded owner principal, visible to reviewers and callers with access.
     pub owner: Option<String>,
     /// Whether this viewer can resolve requests and manage direct grants.

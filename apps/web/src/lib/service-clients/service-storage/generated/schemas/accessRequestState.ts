@@ -19,6 +19,9 @@ export interface AccessRequestState {
   accessLevel?: AccessRequestStateAccessLevel;
   /** Whether this viewer can resolve requests and manage direct grants. */
   canReview: boolean;
+  /** Entity display name, shown to callers without access so a shared link
+names what they are requesting. */
+  entityName: string;
   mine?: AccessRequestStateMine;
   /**
    * Next page offset, absent at the end.
