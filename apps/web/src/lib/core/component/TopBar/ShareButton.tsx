@@ -1937,7 +1937,7 @@ export function ShareTrigger(props: {
           label="Share"
           icon={
             <ShareRequestIcon count={requests.count()}>
-              <IconShared />
+              <IconShared class="size-3.5" />
             </ShareRequestIcon>
           }
           onClick={() => {
