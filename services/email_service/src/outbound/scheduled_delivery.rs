@@ -24,6 +24,9 @@ use uuid::Uuid;
 /// Concrete worker adapters, wired by the scheduled worker's composition root.
 pub struct ScheduledDeliveryAdapter {
     pub db: sqlx::PgPool,
+    pub forwarded_attachments: email::domain::forwarded_attachments::ForwardedAttachmentService<
+        crate::outbound::forwarded_attachments::PgForwardedAttachmentRepo,
+    >,
     pub email_api: GmailApi,
     pub s3_client: s3_client::S3,
     pub attachment_bucket: String,
@@ -212,7 +215,15 @@ impl ScheduledMessageSender<ScheduledClaim, SentDelivery> for ScheduledDeliveryA
         .await?;
 
         // Include forwarded attachments (fetched from Gmail at send time)
-        fetch_and_attach_forwarded_attachments(&ctx.db, &ctx.email_api, link, &mut message_to_send)
+        let actor = data
+            .actor_id
+            .as_deref()
+            .and_then(|actor| MacroUserIdStr::parse_from_str(actor).ok());
+        let sources = ctx
+            .forwarded_attachments
+            .for_delivery(actor.as_ref(), link.id, data.message_id)
+            .await?;
+        fetch_and_attach_forwarded_attachments(&ctx.email_api, &sources, &mut message_to_send)
             .await?;
 
         let send_request = SendRequest {

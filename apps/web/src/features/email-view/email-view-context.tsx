@@ -6,7 +6,6 @@ import {
   listOwnedSlotName,
 } from '@app/components/list';
 import { setSidebarSectionCollapsed } from '@app/components/view-shell';
-import { useMobileSearchText } from '@app/features/command/mobile/use-mobile-search-text';
 import { normalizeFacetSelection } from '@app/features/soup';
 import { registerListNavigationSource } from '@app/features/soup/collection/list-navigation-source';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
@@ -16,6 +15,7 @@ import {
   useNavigate,
   useRouteParams,
 } from '@app/lib/split-router';
+import { usePreference } from '@app/preferences/use-preference';
 import { emailSplitRoute, emailThreadRoute } from '@app/routes/routes';
 import { createPreviewSelectionGuard } from '@components/app/createPreviewSelectionGuard';
 import {
@@ -33,7 +33,6 @@ import {
   type Accessor,
   createEffect,
   createMemo,
-  mergeProps,
   on,
   onCleanup,
 } from 'solid-js';
@@ -110,11 +109,17 @@ export type EmailViewContext = {
   /** Returns false when inline detail is unavailable so the caller opens a split instead. */
   openThread: (
     thread: EmailThreadTarget,
-    options?: EntityDetailNavigationOptions
+    options?: EntityDetailNavigationOptions & {
+      /** Replace the history entry, for opens that follow the list cursor. */
+      replace?: boolean;
+    }
   ) => boolean;
   closeThread: () => void;
   isSidebarSectionOpen: (id: string) => boolean;
   setSidebarSectionOpen: (id: string, open: boolean) => void;
+  /** Open threads beside the list instead of in its place (desktop). */
+  readingPane: Accessor<boolean>;
+  setReadingPane: (enabled: boolean) => void;
 };
 
 export const [EmailViewProvider, useEmailView] = createAssertedContextProvider<
@@ -157,15 +162,7 @@ export const [EmailViewProvider, useEmailView] = createAssertedContextProvider<
       restorePreferences: initial.collapsedSidebarSectionIds === undefined,
     })
   );
-  const searchText = useMobileSearchText(
-    () => persistedState.search,
-    panel.handle.isActive
-  );
-  const state = mergeProps(persistedState, {
-    get search() {
-      return searchText();
-    },
-  });
+  const state = persistedState;
 
   createEffect(
     on(
@@ -266,7 +263,7 @@ export const [EmailViewProvider, useEmailView] = createAssertedContextProvider<
     );
   const openThread = (
     thread: EmailThreadTarget,
-    options?: EntityDetailNavigationOptions
+    options?: EntityDetailNavigationOptions & { replace?: boolean }
   ) => {
     if (!opensInline(options)) return false;
     const selection = { type: 'email' as const, id: thread.id };
@@ -276,6 +273,7 @@ export const [EmailViewProvider, useEmailView] = createAssertedContextProvider<
     navigate(
       { route: emailThreadRoute, params: { threadId: thread.id } },
       {
+        replace: options?.replace,
         search: {
           [emailDetailSearch.namespace]: {},
           [emailTabSearch.namespace]: emailTabSearchCodec.serialize({
@@ -410,6 +408,11 @@ export const [EmailViewProvider, useEmailView] = createAssertedContextProvider<
     );
   };
 
+  const [readingPane, setReadingPane] = usePreference(
+    'macro:pref:email:reading-pane',
+    { default: false }
+  );
+
   const isSidebarSectionOpen = (id: string) =>
     !state.collapsedSidebarSectionIds.includes(id);
 
@@ -435,5 +438,7 @@ export const [EmailViewProvider, useEmailView] = createAssertedContextProvider<
     closeThread,
     isSidebarSectionOpen,
     setSidebarSectionOpen,
+    readingPane,
+    setReadingPane,
   };
 });

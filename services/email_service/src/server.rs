@@ -234,6 +234,10 @@ pub async fn run() -> anyhow::Result<()> {
         invitation_resolver: Arc::new(CalendarInvitationResolver::new(PgCalendarRepository::new(
             db.clone(),
         ))),
+        forwarded_attachments:
+            email::domain::forwarded_attachments::ForwardedAttachmentService::new(
+                crate::outbound::forwarded_attachments::PgForwardedAttachmentRepo(db.clone()),
+            ),
         db,
         internal_api_key: config.internal_api_key.clone(),
         config: Arc::new(config),

@@ -52,7 +52,9 @@ replace the timestamp within its existing space. Archived rows offer
 **Unarchive email**; the archive control is disabled in tabs that do not support
 Mark Done. The icons also appear when a button receives keyboard focus. Clicking
 an icon neither opens the thread nor applies the action to other selected rows.
-Touch devices retain the swipe actions.
+On touch devices, swiping a row left marks it done and swiping right opens
+**Remind me** for it; the row springs back until a time is picked. Right swipes
+that start within 40px of the left edge are left to swipe-back navigation.
 Search results use the same reserved column, with actions aligned to the first
 line; snippets, highlighted matches, and expanded hits remain unobstructed.
 
@@ -247,6 +249,32 @@ The first scenario covers Signal → Noise → All after disconnecting both nati
 HTTP and WebSockets. iOS shares the native cache code but is not yet covered by
 that driver.
 
+**Reading pane.** On desktop the header's columns button (or `Shift+V`) shows
+threads beside the list instead of in its place; the choice is remembered per
+browser. The list keeps its own keys: j/k and arrows move the cursor and the
+pane follows it (replacing history rather than adding entries) while the list
+keeps focus, even if the thread is still loading; Mark done on
+the open row follows the next row (an action on another row, such as the one
+under the pointer, leaves the pane alone), and the open row keeps an accent
+marker while the pointer highlights others. Rows there are full-bleed bands, not
+rounded insets, and the open row's accent bar runs the row's full height. Enter
+or a click opens the row and moves the keyboard into the reader, as does any
+click inside the reader. Its keys live in a child hotkey scope so they never
+replace the list's, and while it has the keyboard the list's keys stand down,
+so `x`, `Cmd+A`, `End` or `Shift+Enter` in the reader never act on the list.
+j/k in the reader step threads and move the list cursor with them, replacing
+history. Escape in the reader, once there is nothing to unwind, hands the
+keyboard back to the list without closing the thread. Narrow email rows, here
+and on phones, stack senders and date, subject, and one preview line beside a
+slim unread-dot gutter (no per-type icon); unread rows are bold, hovering swaps
+the date for the row actions, and hovering the gutter shows the select checkbox.
+Without room for both (narrow split, collapsed window) the pane folds away and
+a thread replaces the list as usual; the thread remounts, but a reply draft
+survives. The divider can be dragged; the list width is remembered. Verify that
+list `e` still works after switching threads in the pane (the reader's `e` must
+not replace it), and that after j/k the grid still has focus: the next Enter
+moves into the reader without opening a reply.
+
 In the new Email view, ordinary row activation opens the thread inside
 `/app/component/mail`; the view breadcrumb (for example Signal) has a hover
 background and returns to the filtered list. Pressing `Escape` in the open thread
@@ -291,6 +319,11 @@ keeps rounded cards matching the chat composer: soft shadows in light mode,
 the same subtle 3D rim in dark mode, and a faint hover tint. Desktop selection
 does not add an accent-colored ring; keyboard focus has a neutral outline.
 Replies appear inline on desktop and in a composer drawer on touch devices.
+On touch, a saved reply shows as a **Draft** row with its opening words under the
+message it answers (which stays expanded); tapping it reopens the draft.
+On desktop, a saved reply that reappears with its thread (opening it, stepping
+to it with j/k, the reading pane following the list) stays unfocused, so the
+next j moves on instead of typing into it; `r` or a click continues it.
 Desktop draft bodies and app-controlled message text use 15px, matching channels.
 HTML messages with preserved sender typography retain their explicit sizes.
 Desktop reply actions sit together at the bottom right: discard, attach, schedule,
@@ -299,6 +332,12 @@ Standalone compose uses one right-aligned row inside its 16px content padding:
 delete, attach, format, schedule, and send. Touch compose uses its header toolbar.
 `R` and `Alt+R` (`Option+R` on macOS) open reply-all for the selected message,
 or the latest message when none is selected. `F` opens a forward and focuses To.
+In new emails, replies, reply-alls, and forwards, `Cmd+Shift+C` (`Ctrl+Shift+C`)
+reveals and focuses Cc and `Cmd+Shift+B` does the same for Bcc, expanding a
+collapsed reply header; inside a composer they never fall through to the
+thread's Copy link. `bunx playwright test --config
+src/features/email-compose/browser-test/playwright.app.config.ts` (from
+`apps/web`) checks both shortcuts in all four composers.
 While an editable field is focused, Escape is handled by that field before the
 close-reply shortcut.
 An edited reply remains a draft when navigating away and returning. Standalone
@@ -314,6 +353,13 @@ During send or discard, its sender and scheduling controls cannot change the ope
 Attachments that can be opened are buttons named by their filename; Tab to one
 and press Enter or Space. Removal is a separate button named `Remove <filename>`.
 Removing a forwarded file keeps the received original.
+To forward from another inbox, open Forward, expand the forwarding envelope on
+desktop, and select a different account in From (already visible on mobile).
+Forwarded files must remain attached after switching to an owned or delegated
+inbox, saving, and reopening the draft. Send must fetch the original files from
+the receiving inbox while using the selected From inbox for delivery. A scheduled
+cross-inbox forward must not download a source whose inbox access was revoked
+after saving.
 When checking draft autosave, edit the body of a draft with uploaded or forwarded
 attachments, wait for the save, and reopen it; the attachments should remain visible.
 In a long thread, scroll away from the bottom while a draft save is pending.

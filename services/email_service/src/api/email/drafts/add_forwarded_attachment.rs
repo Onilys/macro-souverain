@@ -1,35 +1,26 @@
-use crate::api::context::ApiContext;
+use crate::api::context::{ApiContext, AuthorizationService};
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
+use email::domain::forwarded_attachments::ForwardedAttachmentError;
+use macro_authorization::{MacroAuthorizationExtractor, UserOrInternal};
 use model::response::ErrorResponse;
 use models_email::service::link::Link;
-use strum_macros::AsRefStr;
-use thiserror::Error;
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 
-#[derive(Debug, Error, AsRefStr)]
-pub enum AddForwardedAttachmentError {
-    #[error("Draft not found")]
-    DraftNotFound,
-
-    #[error("Attachment not found")]
-    AttachmentNotFound,
-
-    #[error("Internal error")]
-    InternalError(#[from] anyhow::Error),
-}
+#[derive(Debug, thiserror::Error)]
+#[error(transparent)]
+pub struct AddForwardedAttachmentError(#[from] ForwardedAttachmentError);
 
 impl IntoResponse for AddForwardedAttachmentError {
     fn into_response(self) -> Response {
-        let status_code = match &self {
-            AddForwardedAttachmentError::DraftNotFound
-            | AddForwardedAttachmentError::AttachmentNotFound => StatusCode::NOT_FOUND,
-            AddForwardedAttachmentError::InternalError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        let status_code = match &self.0 {
+            ForwardedAttachmentError::DraftNotFound
+            | ForwardedAttachmentError::AttachmentNotFound => StatusCode::NOT_FOUND,
+            ForwardedAttachmentError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
-
         (
             status_code,
             Json(ErrorResponse {
@@ -78,38 +69,23 @@ pub struct AddForwardedAttachmentResponse {
         (status = 500, body = ErrorResponse),
     )
 )]
-#[tracing::instrument(skip(ctx), err)]
+#[tracing::instrument(skip(ctx, authorization, link), fields(link_id = %link.id), err)]
 pub async fn handler(
     State(ctx): State<ApiContext>,
+    authorization: MacroAuthorizationExtractor<AuthorizationService, UserOrInternal>,
     link: Extension<Link>,
     Path(PathParams { id: draft_id }): Path<PathParams>,
     Json(req): Json<AddForwardedAttachmentRequest>,
 ) -> Result<(StatusCode, Json<AddForwardedAttachmentResponse>), AddForwardedAttachmentError> {
-    // Ensure draft exists and belongs to this link
-    if !email_db_client::messages::get::draft_exists_with_id(&ctx.db, link.id, draft_id).await? {
-        return Err(AddForwardedAttachmentError::DraftNotFound);
-    }
-
-    // Verify the attachment exists in email_attachments and belongs to this link
-    let result = email_db_client::attachments::provider::fetch_attachment_by_id(
-        &ctx.db,
-        req.attachment_id,
-        link.id,
-    )
-    .await?;
-
-    let Some((attachment, _message_provider_id)) = result else {
-        return Err(AddForwardedAttachmentError::AttachmentNotFound);
-    };
-
-    // Insert the forwarded attachment link
-    email_db_client::attachments::forwarded::insert_forwarded_attachment(
-        &ctx.db,
-        link.id,
-        draft_id,
-        req.attachment_id,
-    )
-    .await?;
+    let attachment = ctx
+        .forwarded_attachments
+        .add(
+            &authorization.authorization.user.macro_user_id,
+            link.id,
+            draft_id,
+            req.attachment_id,
+        )
+        .await?;
 
     Ok((
         StatusCode::CREATED,

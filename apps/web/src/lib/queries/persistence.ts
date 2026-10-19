@@ -2,7 +2,12 @@ import {
   type ParsedDuration,
   parsedDurationToMilliseconds,
 } from '@core/util/dateSearch/dateParser';
-import type { Query, QueryClient, QueryKey } from '@tanstack/query-core';
+import {
+  notifyManager,
+  type Query,
+  type QueryClient,
+  type QueryKey,
+} from '@tanstack/query-core';
 import type {
   ClearablePerQueryPersistence,
   PersistedQueryEntry,
@@ -105,6 +110,63 @@ async function handleRestore(
   queryClient.setQueryData(query.queryKey, entry.data, {
     updatedAt: entry.dataUpdatedAt,
   });
+}
+
+/**
+ * Drops account data and rebinds mounted observers to fresh queries. Resetting
+ * a query would restore its old initialData; removing it alone would strand
+ * observers on the retired query instead of delivering the next account's data.
+ */
+function clearQueryMemory(queryClient: QueryClient): void {
+  const queryCache = queryClient.getQueryCache();
+  notifyManager.batch(() => {
+    for (const query of queryCache.getAll()) {
+      const observers = query.observers.map((observer) => ({
+        observer,
+        options: {
+          ...observer.options,
+          initialData: undefined,
+          initialDataUpdatedAt: undefined,
+          placeholderData: undefined,
+        },
+      }));
+      for (const { observer, options } of observers) {
+        observer.setOptions(options);
+      }
+      // Observers also retain the last query with data for keepPreviousData.
+      // Empty that retired object, and fence its in-flight response first.
+      void query.cancel({ silent: true });
+      query.setState({
+        data: undefined,
+        dataUpdatedAt: 0,
+        error: null,
+        errorUpdatedAt: 0,
+        status: 'pending',
+        fetchStatus: 'idle',
+      });
+      queryCache.remove(query);
+
+      let rebinding = true;
+      for (const { observer, options } of observers) {
+        observer.setOptions({
+          ...options,
+          enabled: (current) =>
+            !rebinding &&
+            (typeof options.enabled === 'function'
+              ? options.enabled(current)
+              : options.enabled !== false),
+        });
+      }
+      // Restore the original enabled policy without starting a fetch while
+      // auth is being cleared. The prior callback now resolves the same way.
+      rebinding = false;
+      for (const { observer, options } of observers) {
+        observer.setOptions(options);
+        observer.onQueryUpdate();
+      }
+    }
+  });
+  queryClient.getMutationCache().clear();
 }
 
 /**
@@ -219,7 +281,7 @@ export function setupQueryPersistence(
       clearing = true;
       restores = new WeakMap();
       // Clear memory synchronously; removed-query events cannot race the reset.
-      queryClient.clear();
+      clearQueryMemory(queryClient);
       try {
         const results = await Promise.allSettled(
           scopes.map((scope) => scope.store.clear())
