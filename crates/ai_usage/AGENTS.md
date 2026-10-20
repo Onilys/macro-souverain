@@ -51,6 +51,9 @@ ledger decisions, plus a flexible admin query API.
 - `UsageRecorder` (analytics) is best-effort and never fails the
   originating call; `FinancialUsage` (billable) is awaited and fail-closed
   — don't conflate the two when adding a new recording path.
+- Read prices from the `ai_effective_pricing` view, never `ai_pricing`
+  directly: it applies `ai_pricing_discount`, the per-model percent off
+  (Gemini 3.8 Flash is 30% off).
 
 ## Related
 
