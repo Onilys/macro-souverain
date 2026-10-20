@@ -25,12 +25,12 @@ fn advertised_models_lead_with_auto_then_chat_then_routed() {
 }
 
 #[test]
-fn auto_runs_on_deepseek() {
-    assert_eq!(resolve(AUTO_MODEL), "fireworks/deepseek-v4p1-flash-1017");
+fn auto_defaults_to_gemini() {
+    assert_eq!(resolve(AUTO_MODEL), "google/gemini-3.8-flash");
     assert_eq!(resolve("fireworks/glm-5p3"), "fireworks/glm-5p3");
     assert_eq!(display_name(AUTO_MODEL), "Auto");
     assert_eq!(super::supports_images(AUTO_MODEL), Some(true));
-    assert_eq!(super::context_window(AUTO_MODEL), Some(1_040_000));
+    assert_eq!(super::context_window(AUTO_MODEL), Some(1_048_576));
 }
 
 #[test]

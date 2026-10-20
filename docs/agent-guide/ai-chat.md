@@ -386,7 +386,7 @@ the shimmer.
   names (for example, **Sonnet 5.5**) and provider or model icons aligned with the
   agent icons. The in-memory catalog leads with **Auto**, where Jev sorts each
   turn's prompt: hard prompts run on **Opus 5.5**, simple ones on **Gemini 3.8
-  Flash**, and the rest on DeepSeek V4.1 Flash. It then offers the closed Anthropic and OpenAI chat
+  Flash**, and the rest on **GPT-6.1 Sol**. It then offers the closed Anthropic and OpenAI chat
   models; Kimi, DeepSeek, Muse, GLM, Qwen, MiniMax, GPT OSS, and Nemotron
   open-weight models; and Google's **Gemini 3.8 Flash**. The Anthropic models
   are **Sonnet 5.5**, **Opus 5.5**, and **Haiku 4.5**; older Claude versions

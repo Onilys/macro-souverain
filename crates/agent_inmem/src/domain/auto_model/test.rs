@@ -5,9 +5,9 @@ use jev::domain::{JevError, Probability, YesNoClassifier, YesNoQuestion};
 use macro_user_id::user_id::MacroUserIdStr;
 use serde_json::{Value, json};
 
-use super::{AutoModelSelector, DefaultAutoModel, HIGH_MODEL, JevAutoModel, LOW_MODEL};
+use super::{AutoModelSelector, DefaultAutoModel, HIGH_MODEL, JevAutoModel, MID_MODEL};
 
-const DEEPSEEK: &str = "fireworks/deepseek-v4p1-flash-1017";
+const GEMINI: &str = "google/gemini-3.8-flash";
 
 struct FakeClassifier {
     answer: Result<Vec<f32>, JevError>,
@@ -69,38 +69,38 @@ async fn a_hard_prompt_escalates_to_opus() {
 }
 
 #[tokio::test]
-async fn a_simple_prompt_drops_to_gemini() {
+async fn a_simple_prompt_stays_on_gemini() {
     let selector = JevAutoModel::new(FakeClassifier::answering(Ok(vec![0.03, 0.98])));
 
-    assert_eq!(selector.select(&owner(), "hi").await, LOW_MODEL);
-    assert_eq!(LOW_MODEL, "google/gemini-3.8-flash");
+    assert_eq!(selector.select(&owner(), "hi").await, GEMINI);
 }
 
 #[tokio::test]
-async fn an_ordinary_prompt_stays_on_deepseek() {
+async fn an_ordinary_prompt_runs_on_sol() {
     let selector = JevAutoModel::new(FakeClassifier::answering(Ok(vec![0.2, 0.3])));
 
     assert_eq!(
         selector.select(&owner(), "Summarize this doc").await,
-        DEEPSEEK
+        MID_MODEL
     );
+    assert_eq!(MID_MODEL, "openai/gpt-6.1-sol");
 }
 
 #[tokio::test]
-async fn a_short_answer_stays_on_deepseek() {
+async fn a_short_answer_stays_on_gemini() {
     let selector = JevAutoModel::new(FakeClassifier::answering(Ok(vec![0.9])));
 
-    assert_eq!(selector.select(&owner(), "hi").await, DEEPSEEK);
+    assert_eq!(selector.select(&owner(), "hi").await, GEMINI);
 }
 
 #[tokio::test]
-async fn a_failed_classification_stays_on_deepseek() {
+async fn a_failed_classification_stays_on_gemini() {
     let selector = JevAutoModel::new(FakeClassifier::answering(Err(JevError::Unavailable)));
 
-    assert_eq!(selector.select(&owner(), "hi").await, DEEPSEEK);
+    assert_eq!(selector.select(&owner(), "hi").await, GEMINI);
 }
 
 #[tokio::test]
-async fn without_a_classifier_auto_is_deepseek() {
-    assert_eq!(DefaultAutoModel.select(&owner(), "hi").await, DEEPSEEK);
+async fn without_a_classifier_auto_is_gemini() {
+    assert_eq!(DefaultAutoModel.select(&owner(), "hi").await, GEMINI);
 }

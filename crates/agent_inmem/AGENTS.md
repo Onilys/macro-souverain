@@ -48,7 +48,8 @@ milliseconds instead of waiting on container provisioning.
 
 - `auto` is a picker entry, not a routable id: `RigTurnEngine` asks its
   `AutoModelSelector` (Jev when `TYPESAFE_API_KEY` is set) per turn and runs
-  Opus 5.5 (hard), Gemini 3.8 Flash (simple) or DeepSeek V4.1 Flash. Capability lookups go through
+  Opus 5.5 (hard), GPT-6.1 Sol (mid) or Gemini 3.8 Flash (simple, and
+  whenever Jev is unavailable). Capability lookups go through
   `models::resolve`.
 - Keep session-aware `NameSearch`, `ContentSearch`, and `ListEntities` native in
   code mode; legacy `ReadChat` must not appear in either runtime tool catalog.

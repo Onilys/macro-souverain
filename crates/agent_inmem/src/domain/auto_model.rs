@@ -15,15 +15,15 @@ mod test;
 /// The model a prompt needing high intelligence runs on.
 pub const HIGH_MODEL: &str = "anthropic/claude-opus-5-5";
 
-/// The model a simple prompt runs on.
-pub const LOW_MODEL: &str = "google/gemini-3.8-flash";
+/// The model a prompt that is neither hard nor simple runs on.
+pub const MID_MODEL: &str = "openai/gpt-6.1-sol";
 
 /// Asked first: a yes runs the turn on [`HIGH_MODEL`].
 const HIGH_QUESTION: &str = "Does answering this request require high intelligence: deep \
      reasoning, complex multi-step work, difficult code, or careful analysis?";
 
-/// Asked alongside: a yes, without a yes to [`HIGH_QUESTION`], runs the turn
-/// on [`LOW_MODEL`].
+/// Asked alongside: a yes, without a yes to [`HIGH_QUESTION`], keeps the turn
+/// on Auto's default model; a no runs it on [`MID_MODEL`].
 const LOW_QUESTION: &str = "Is this request simple enough for a small, fast model: a greeting, \
      small talk, a quick factual lookup, or a single small action like renaming, tagging, or \
      moving one item?";
@@ -56,7 +56,7 @@ impl AutoModelSelector for DefaultAutoModel {
 }
 
 /// Asks Jev how much intelligence the prompt needs: [`HIGH_MODEL`] for hard
-/// prompts, [`LOW_MODEL`] for simple ones, Auto's default otherwise.
+/// prompts, Auto's default for simple ones, [`MID_MODEL`] otherwise.
 pub struct JevAutoModel<Classifier> {
     classifier: Classifier,
 }
@@ -102,9 +102,9 @@ impl<Classifier: YesNoClassifier> AutoModelSelector for JevAutoModel<Classifier>
                     if high.get() >= YES_THRESHOLD {
                         HIGH_MODEL
                     } else if low.get() >= YES_THRESHOLD {
-                        LOW_MODEL
-                    } else {
                         resolve(super::models::AUTO_MODEL)
+                    } else {
+                        MID_MODEL
                     }
                 }
                 Ok(_) | Err(_) => {

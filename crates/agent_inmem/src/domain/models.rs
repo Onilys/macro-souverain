@@ -9,7 +9,7 @@ use chat::domain::models::CHAT_MODELS;
 pub const AUTO_MODEL: &str = "auto";
 
 /// The model an [`AUTO_MODEL`] turn runs on.
-const AUTO_TARGET: &str = "fireworks/deepseek-v4p1-flash-1017";
+const AUTO_TARGET: &str = "google/gemini-3.8-flash";
 
 /// The routable id a turn runs on: [`AUTO_MODEL`] becomes its target, every
 /// other id is already routable.
