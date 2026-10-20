@@ -68,7 +68,7 @@ async function setupMessaging({
   const unknown = new Set<string>();
   const metaRequests: string[] = [];
   page.on('request', (request) => {
-    if (new URL(request.url()).pathname.includes('/meta/'))
+    if (new URL(request.url()).pathname.startsWith('/dss/meta/'))
       metaRequests.push(request.url());
   });
   page.on('pageerror', (error) => errors.push(error.message));

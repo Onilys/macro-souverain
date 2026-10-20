@@ -110,9 +110,29 @@ adoption and real message delivery remain user-run checks.
   recovery, roster/native-access layout, actual touch emulation, focused QR/passkey
   handoff and existing-group adoption without a remote create action.
 
+## UI follow-up — 2026-10-20
+
+The composer now uses the native channel name without a phone-number banner.
+Personal-account permission denials no longer display Business API reply-window,
+template or human-support copy; the backend's linked policy already has no reply
+expiry. The picker switches content within one native Panel and supports search,
+audience review and pending-action dismissal protection.
+
+The current source passed the frontend type check, scoped `just check`, the
+54 composer test executions and the picker journey on desktop and 390px touch.
+The personal-account lifecycle journey passed using the existing bundle containing
+the composer name/banner cleanup; the latest permission-denial branch is covered
+by the component regression. That journey timed out during repeated live-reload
+navigations before passing with the supported bundled runner. Memory-heavy bundle
+attempts were interrupted; no additional backend build was needed for this UI work.
+The local stack was stopped when the live sending denial was investigated, so its
+underlying connection/permission condition has not been verified or bypassed.
+
 ## Browser proof
 
 These screenshots contain synthetic fixture data, not customer accounts.
+
+![Minimal personal composer](verification/whatsapp-linked/linked-composer.png)
 
 ![Native audience and remote roster](verification/whatsapp-linked/linked-desktop.png)
 
@@ -121,6 +141,8 @@ These screenshots contain synthetic fixture data, not customer accounts.
 ![Focused desktop handoff](verification/whatsapp-linked/linked-pairing.png)
 
 ![Existing-group audience review](verification/whatsapp-linked/linked-adoption.png)
+
+![Touch group selection](verification/whatsapp-linked/linked-adoption-mobile.png)
 
 ## Existing native audit and external prerequisites
 

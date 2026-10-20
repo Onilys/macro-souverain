@@ -43,6 +43,7 @@ import { createReplyEligibility } from '../primitives/reply-eligibility';
 
 export type MessagingComposerProps = {
   channelId: string;
+  channelName?: string;
   interaction: ChannelInteraction;
   userId: string | undefined;
   createSource: (channelId: string) => ReplySource;
@@ -115,6 +116,7 @@ function MessagingComposer(
         {(interaction) => (
           <ExternalReply
             channelId={props.channelId}
+            channelName={props.channelName}
             userId={props.draftUserId}
             account={interaction().account}
             available={interaction().available}
@@ -122,6 +124,7 @@ function MessagingComposer(
             onRecoverReady={props.onRecoverReady}
             replyTo={props.replyTo}
             onClearReply={props.onClearReply}
+            onRefresh={props.onRefresh}
           />
         )}
       </Match>
@@ -131,11 +134,13 @@ function MessagingComposer(
 
 function ExternalReply(props: {
   channelId: string;
+  channelName?: string;
   userId: string | undefined;
   account: ConversationAccount;
   available: boolean;
   replyTo?: { id: string; text: string };
   onClearReply?: () => void;
+  onRefresh: () => void;
   createSource: (channelId: string) => ReplySource;
   onRecoverReady: (recover: (send: SendAttempt) => void) => () => void;
 }) {
@@ -178,6 +183,7 @@ function ExternalReply(props: {
   onMount(() => onCleanup(props.onRecoverReady(restoreReply)));
   const eligible = createReplyEligibility(() => props.account.eligibility);
   const supports = (mode: 'approved_template' | 'human_support') =>
+    props.account.transport !== 'linked' &&
     props.account.capabilities.modes.includes(mode);
   const open = () => eligible('free_form');
   const connected = () => props.account.status === 'connected';
@@ -505,11 +511,6 @@ function ExternalReply(props: {
                 </div>
               )}
             </Show>
-            <Show when={props.account.transport === 'linked'}>
-              <p class="text-xs text-ink-muted">
-                Send to WhatsApp · {props.account.account_name}
-              </p>
-            </Show>
             <Show when={!props.available}>
               <p role="status" class="text-sm text-ink-muted">
                 Connection unavailable. Your draft is saved here; sending will
@@ -569,7 +570,13 @@ function ExternalReply(props: {
                         rows={1}
                         class="block w-full resize-none min-h-6 max-h-[225px] rounded-none border-0 bg-transparent p-0 text-base leading-6 text-composer-ink placeholder:text-ink-placeholder outline-none focus-visible:shadow-none"
                         aria-label="External customer reply"
-                        placeholder={`Message ${props.account.conversation.customer_display_name ?? props.account.conversation.customer_handle ?? props.account.conversation.customer_phone ?? props.account.conversation.customer_id}…`}
+                        placeholder={
+                          props.account.transport === 'linked'
+                            ? props.channelName
+                              ? `Message ${props.channelName}…`
+                              : 'Message…'
+                            : `Message ${props.account.conversation.customer_display_name ?? props.account.conversation.customer_handle ?? props.account.conversation.customer_phone ?? props.account.conversation.customer_id}…`
+                        }
                         onKeyDown={(event) => {
                           if (
                             event.key === 'Enter' &&
@@ -616,6 +623,14 @@ function ExternalReply(props: {
                         </p>
                       }
                     >
+                      <Match when={props.account.transport === 'linked'}>
+                        <p role="status" class="text-xs text-ink-muted">
+                          Sending is unavailable for this group.{' '}
+                          <Button size="sm" onClick={props.onRefresh}>
+                            Refresh
+                          </Button>
+                        </p>
+                      </Match>
                       <Match when={templateOffered()}>
                         <p class="text-xs text-ink-muted">
                           The reply window is closed. Send an approved template,

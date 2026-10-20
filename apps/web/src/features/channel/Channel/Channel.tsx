@@ -1300,6 +1300,7 @@ export function Channel(props: ChannelProps) {
                                 >
                                   <ChannelMessagingComposer
                                     channelId={props.channelId}
+                                    channelName={channelName()}
                                     interaction={messaging.interaction()}
                                     replyTo={linkedReplyTo()}
                                     onClearReply={() =>

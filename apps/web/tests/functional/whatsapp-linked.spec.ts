@@ -13,9 +13,15 @@ test('personal group uses the native timeline, own sender, scoped drafts and mob
   f.state.linked = true;
   f.state.linkedConnected = true;
   await f.open(f.channels[1].id);
-  await expect(
-    page.getByText('Send to WhatsApp · 15550000000', { exact: true })
-  ).toBeVisible();
+  await expect(f.input).toHaveAttribute(
+    'placeholder',
+    `Message ${f.channels[1].name}…`
+  );
+  await expect(page.getByText(/Send to WhatsApp ·/)).toHaveCount(0);
+  await page.screenshot({
+    path: testInfo.outputPath('linked-composer.png'),
+    fullPage: true,
+  });
   await expect(f.picker).toHaveCount(0);
   await f.expectNoCustomerCalls();
   await f.input.fill('Personal human reply');
@@ -80,9 +86,11 @@ test('personal group uses the native timeline, own sender, scoped drafts and mob
     await page.getByText(f.channels[1].name, { exact: true }).first().click();
     await page.getByRole('radio', { name: 'Messages', exact: true }).click();
   }
-  await expect(
-    page.getByText('Send to WhatsApp · 15550000000', { exact: true })
-  ).toBeVisible();
+  await expect(f.input).toHaveAttribute(
+    'placeholder',
+    `Message ${f.channels[1].name}…`
+  );
+  await expect(page.getByText(/Send to WhatsApp ·/)).toHaveCount(0);
   await expect(f.input).toHaveValue('Preserved while offline');
   await page.screenshot({
     path: testInfo.outputPath('linked-mobile.png'),
@@ -131,6 +139,7 @@ test('focused pairing keeps QR private and hands passkey authentication to deskt
 
 test('adoption reviews an existing group and native audience without creating a remote group', async ({
   page,
+  context,
   messaging: f,
 }, testInfo) => {
   test.setTimeout(120_000);
@@ -147,17 +156,70 @@ test('adoption reviews an existing group and native audience without creating a 
   await expect(
     page.getByText('Existing group of nine', { exact: true })
   ).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(1);
+  await expect(
+    page.getByRole('heading', { name: 'Create a channel', exact: true })
+  ).toHaveCount(0);
+  const search = page.getByRole('textbox', { name: 'Search WhatsApp groups' });
+  await expect(search).toBeFocused();
+  await search.fill('no matching group');
+  await expect(page.getByText('No groups match your search.')).toBeVisible();
+  await search.fill('nine');
   await page.getByRole('button', { name: /Existing group of nine/ }).click();
+  await expect(
+    page.getByRole('button', { name: /Existing group of nine/ })
+  ).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByText('Macro access', { exact: true })).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath('linked-adoption.png'),
     fullPage: true,
   });
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(
+    page.getByRole('textbox', { name: 'Name', exact: true })
+  ).toBeFocused();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const touch = await context.newCDPSession(page);
+  await touch.send('Emulation.setTouchEmulationEnabled', {
+    enabled: true,
+    maxTouchPoints: 1,
+  });
+  await page
+    .getByRole('button', { name: 'Connect WhatsApp group', exact: true })
+    .click();
+  await expect(search).toHaveValue('');
+  await expect(
+    page.getByRole('button', { name: 'Connect group', exact: true })
+  ).toBeDisabled();
+  await page.getByRole('button', { name: /Existing group of nine/ }).click();
+  await expect(
+    page.getByRole('button', { name: 'Connect group', exact: true })
+  ).toBeInViewport();
+  await page.screenshot({
+    path: testInfo.outputPath('linked-adoption-mobile.png'),
+    fullPage: true,
+  });
+  let finishAdoption: (() => void) | undefined;
+  const adoptionResponse = new Promise<void>((resolve) => {
+    finishAdoption = resolve;
+  });
+  await page.route('**/dss/meta/linked/groups', async (route) => {
+    if (route.request().method() === 'POST') await adoptionResponse;
+    await route.fallback();
+  });
   await page
     .getByRole('button', { name: 'Connect group', exact: true })
     .click();
   await expect(
-    page.getByText('Send to WhatsApp · 15550000000', { exact: true })
-  ).toBeVisible();
+    page.getByRole('button', { name: 'Connecting…', exact: true })
+  ).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(search).toBeVisible();
+  finishAdoption?.();
+  await expect(f.input).toHaveAttribute(
+    'placeholder',
+    `Message ${f.channels[1].name}…`
+  );
+  await expect(page.getByText(/Send to WhatsApp ·/)).toHaveCount(0);
   assert.equal(f.state.groupCreateCalls, 0);
 });
