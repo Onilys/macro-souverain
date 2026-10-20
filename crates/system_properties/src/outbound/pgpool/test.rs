@@ -242,6 +242,54 @@ async fn test_bulk_insert_properties_if_absent_keeps_first_write(
     Ok(())
 }
 
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn converting_a_document_to_a_task_keeps_its_property_values(
+    pool: Pool<Postgres>,
+) -> anyhow::Result<()> {
+    use crate::domain::service::{SystemPropertiesService, SystemPropertiesServiceImpl};
+    let repo = PgSystemPropertiesRepository::new(pool.clone());
+    let service = SystemPropertiesServiceImpl::new(repo.clone());
+    let entity_id = "document-becoming-task";
+    let subject_id = SystemPropertyKey::Subject.uuid();
+    repo.bulk_upsert_properties(vec![
+        PropertyRow::string_value(entity_id, EntityType::Document, subject_id, "kept"),
+        PropertyRow::null_value(
+            entity_id,
+            EntityType::Document,
+            SystemPropertyKey::ASSIGNEES_UUID,
+        ),
+    ])
+    .await?;
+
+    let valued = service
+        .convert_document_properties_to_task(entity_id)
+        .await?;
+    // A retry finds the rows already rekeyed and changes nothing.
+    let retried = service
+        .convert_document_properties_to_task(entity_id)
+        .await?;
+
+    assert_eq!(valued, vec![subject_id]);
+    assert_eq!(retried, vec![subject_id]);
+    let document_rows = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) AS "count!" FROM entity_properties WHERE entity_id = $1 AND entity_type = 'DOCUMENT'"#,
+        entity_id,
+    )
+    .fetch_one(&pool)
+    .await?;
+    assert_eq!(document_rows, 0);
+    let task_rows = get_task_property_values(&pool, entity_id).await;
+    assert_eq!(task_rows.len(), 11);
+    assert_eq!(
+        task_rows
+            .iter()
+            .find(|(id, _)| *id == subject_id)
+            .and_then(|(_, values)| values.clone()),
+        Some(serde_json::json!({"type": "String", "value": "kept"}))
+    );
+    Ok(())
+}
+
 // ============================================================================
 // copy_task_properties tests
 // ============================================================================

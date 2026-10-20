@@ -31,6 +31,14 @@ pub trait SystemPropertiesRepository: Clone + Send + Sync + 'static {
         to_task_id: &str,
     ) -> impl Future<Output = Result<(), SystemPropertyError>> + Send;
 
+    /// Rekey an entity's document property rows as task rows, keeping their
+    /// values, and return every task property definition of the entity that
+    /// now holds a value. A task row already present for a definition wins.
+    fn rekey_document_properties_as_task(
+        &self,
+        entity_id: &str,
+    ) -> impl Future<Output = Result<Vec<Uuid>, SystemPropertyError>> + Send;
+
     /// Updates the task to have the provided status
     fn update_task_status(
         &self,

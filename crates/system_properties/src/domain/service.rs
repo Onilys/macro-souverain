@@ -68,6 +68,17 @@ pub trait SystemPropertiesService: Clone + Send + Sync + 'static {
         to_task_id: &str,
     ) -> impl Future<Output = Result<(), SystemPropertyError>> + Send;
 
+    /// Carry a document's property values over to the task it became, then
+    /// attach any missing task properties with null values.
+    ///
+    /// Returns the task property definitions that hold a value afterwards, so
+    /// the caller fills defaults only where the document had none. Safe to
+    /// repeat: values already on the task are kept.
+    fn convert_document_properties_to_task(
+        &self,
+        entity_id: &str,
+    ) -> impl Future<Output = Result<Vec<Uuid>, SystemPropertyError>> + Send;
+
     /// Updates the task to have the provided status
     fn update_task_status(
         &self,
@@ -169,6 +180,21 @@ where
         self.repository
             .copy_task_properties(from_task_id, to_task_id)
             .await
+    }
+
+    #[tracing::instrument(err, skip(self))]
+    async fn convert_document_properties_to_task(
+        &self,
+        entity_id: &str,
+    ) -> Result<Vec<Uuid>, SystemPropertyError> {
+        let valued = self
+            .repository
+            .rekey_document_properties_as_task(entity_id)
+            .await?;
+        self.repository
+            .bulk_insert_properties_if_absent(collect_task_property_rows(entity_id))
+            .await?;
+        Ok(valued)
     }
 
     #[tracing::instrument(skip(self))]

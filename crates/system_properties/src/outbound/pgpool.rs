@@ -257,6 +257,49 @@ impl SystemPropertiesRepository for PgSystemPropertiesRepository {
     }
 
     #[tracing::instrument(skip(self), err)]
+    async fn rekey_document_properties_as_task(
+        &self,
+        entity_id: &str,
+    ) -> Result<Vec<Uuid>, SystemPropertyError> {
+        let mut transaction = self.pool.begin().await?;
+
+        sqlx::query!(
+            r#"
+            UPDATE entity_properties AS document_row
+            SET entity_type = 'TASK', updated_at = NOW()
+            WHERE document_row.entity_id = $1
+              AND document_row.entity_type = 'DOCUMENT'
+              AND NOT EXISTS (
+                SELECT 1 FROM entity_properties AS task_row
+                WHERE task_row.entity_id = $1
+                  AND task_row.entity_type = 'TASK'
+                  AND task_row.property_definition_id = document_row.property_definition_id
+              )
+            "#,
+            entity_id,
+        )
+        .execute(transaction.as_mut())
+        .await?;
+
+        let valued = sqlx::query_scalar!(
+            r#"
+            SELECT property_definition_id
+            FROM entity_properties
+            WHERE entity_id = $1
+              AND entity_type = 'TASK'
+              AND values->'value' IS NOT NULL
+              AND values->'value' NOT IN ('null'::jsonb, '[]'::jsonb)
+            "#,
+            entity_id,
+        )
+        .fetch_all(transaction.as_mut())
+        .await?;
+
+        transaction.commit().await?;
+        Ok(valued)
+    }
+
+    #[tracing::instrument(skip(self), err)]
     async fn update_task_status(
         &self,
         task_id: &str,
