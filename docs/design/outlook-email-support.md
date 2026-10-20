@@ -347,6 +347,17 @@ requires the relevant consent, but its absence must not destroy mail access.
 Verify personal and cross-tenant Microsoft 365 linking, canonical identity,
 revocation, and reconnect on real accounts before enabling connections.
 
+Tenants that restrict user consent answer the authorize request with
+`AADSTS65001` (sometimes `consent_required` or `interaction_required`) and no
+code. The callback classifies the failure and sends the user back to the
+inbox-link page with `email_link_error=admin_consent_required`; the app offers
+the tenant-wide approval link, built by `GET /link/email/providers` from the
+`/organizations/v2.0/adminconsent` endpoint with a signed, non-expiring state,
+so the client never carries the Microsoft client id. The administrator's
+return (`admin_consent=True`) redirects with
+`email_link_notice=admin_consent_granted`. A plain `access_denied` is a cancel
+and returns silently. Only the `AADSTS` code is logged.
+
 **7. Drafts and delivery: preserve edits and model uncertainty.**
 
 Use Macro as the authoritative store for active draft edits, with revision checks

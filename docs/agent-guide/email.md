@@ -39,6 +39,14 @@ same thread, search, Signal/Noise, draft, and schedule surfaces apply to both
 providers. Shared/delegated Microsoft mailboxes are outside this account scope;
 sharing an inbox or thread inside Macro remains available.
 
+A Microsoft 365 tenant that lets only administrators consent sends the user
+back to an `Admin approval required` dialog with `Copy admin approval link`
+(a tenant-wide approval link for IT) and `Connect a different account`.
+Cancelling on the provider's consent screen returns to the previous view
+silently. An administrator who opens the approval link returns to
+`Approved. Try connecting again.` with the connect dialog open. On native
+mobile the approval dialog is not shown; connect from the web app instead.
+
 For Outlook writes, distinguish acceptance from provider confirmation. Thread
 organization notices and inbox settings show pending or failed changes. A saved
 draft can show a conflict or an uncertain delivery: use its recovery actions and

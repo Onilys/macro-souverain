@@ -83,6 +83,12 @@ inputs cannot select an agent, and ordinary user credentials remain unattributed
   when present; see `README.md` before changing signup behavior.
 - Denial responses and policy errors must never disclose configured allowlist
   addresses; never paste operational addresses into code, logs, or docs.
+- `/oauth2/{provider}/callback` verifies two signed `state` kinds
+  (`src/account_link_state.rs`): account links, which expire, and Microsoft
+  admin-consent returns, which do not. A consent screen that ends without a
+  code redirects a link flow to its `original_url` with `email_link_error`
+  (`admin_consent_required`, `cancelled`, `failed`); only the `AADSTS` code
+  from `error_description` is logged, never the description.
 
 ## Related
 
