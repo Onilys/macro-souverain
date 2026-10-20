@@ -164,6 +164,35 @@ function type(text: string) {
 }
 
 describe('Chat session input', () => {
+  it.each([false, true])(
+    'shows the complete static hint immediately and keeps it unchanged (session=%s)',
+    (session) => {
+      vi.useFakeTimers();
+      const view = render(() =>
+        session ? (
+          <ChatSessionInput onSend={vi.fn()} />
+        ) : (
+          <ChatComposer
+            draft=""
+            onDraftChange={vi.fn()}
+            onSend={vi.fn()}
+            selector={null}
+          />
+        )
+      );
+      try {
+        const hint =
+          'Type @ to mention docs, people, or channels, / for skills';
+        expect(screen.getByTestId('editor').textContent).toBe(hint);
+        vi.advanceTimersByTime(30000);
+        expect(screen.getByTestId('editor').textContent).toBe(hint);
+      } finally {
+        view.unmount();
+        vi.useRealTimers();
+      }
+    }
+  );
+
   it('preloads the fold only when focused without sending or changing the draft', () => {
     const send = vi.fn();
     const change = vi.fn();

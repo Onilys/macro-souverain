@@ -33,7 +33,6 @@ import {
   Show,
 } from 'solid-js';
 import { IMAGE_INPUT_WARNING } from '../../block-agent/state/image-input';
-import { createChatComposerTip } from '../primitives/chat-composer-tip';
 
 /** Shared input that starts on one line and grows with the draft. */
 export function ChatComposer(props: {
@@ -56,11 +55,6 @@ export function ChatComposer(props: {
   drawerOpen?: boolean;
   placeholder?: string;
 }) {
-  const tip = createChatComposerTip(
-    () =>
-      props.draft.trim().length === 0 && !isTouchDevice() && !props.placeholder,
-    !props.session
-  );
   const attachments = () => props.attachments ?? [];
   const hasContent = () => !!props.draft.trim() || attachments().length > 0;
   const hasPendingAttachments = () =>
@@ -246,9 +240,10 @@ export function ChatComposer(props: {
         initialValue={props.draft}
         placeholder={
           isTouchDevice()
-            ? // Phones are too narrow for the longer prompts and rotating tips.
+            ? // Phones are too narrow for the full mention and skills hint.
               'Message Macro AI'
-            : (props.placeholder ?? tip())
+            : (props.placeholder ??
+              'Type @ to mention docs, people, or channels, / for skills')
         }
         ariaLabel="Message the agent"
         autofocus={

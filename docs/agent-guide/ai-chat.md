@@ -493,11 +493,9 @@ the shimmer.
   Model-specific effort choices remain available in desktop model submenus.
   Free and Pro users start new conversations at the lowest advertised level,
   unless they explicitly choose another. Existing sessions keep their current setting.
-- On desktop, chat agents' empty input types tips about connectors, skills,
-  mentions, and agents one character at a time, pauses to read each hint, then
-  quickly erases it before typing the next. Entering a draft pauses the animation;
-  clearing it resumes. The text-only typewriter also runs when reduced motion
-  is enabled.
+- On desktop, chat agents' empty input shows the static hint **Type @ to mention
+  docs, people, or channels, / for skills** immediately, without typing or cycling
+  through other hints. Clearing a draft restores the same hint.
   Coding agents show **Describe what you want to build**; phones keep the short
   **Message Macro AI** placeholder. Type `@` for
   mentions and `/` for skills.
