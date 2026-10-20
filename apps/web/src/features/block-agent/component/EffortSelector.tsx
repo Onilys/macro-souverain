@@ -1,4 +1,5 @@
 import { MobileDrawer } from '@components/app/mobile/MobileDrawer';
+import { EffortSlider } from '@core/component/AI/component/input/EffortSlider';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import Check from '@phosphor/check.svg';
 import { Button, Dropdown, Tooltip } from '@ui';
@@ -18,6 +19,7 @@ export function EffortSelector(props: {
   onCloseAutoFocus?: (event: Event) => void;
 }) {
   const [open, setOpen] = createSignal(false);
+  let content: HTMLElement | undefined;
   const changeOpen = (value: boolean) => {
     setOpen(value);
     props.onOpenChange?.(value);
@@ -89,19 +91,37 @@ export function EffortSelector(props: {
                 {contents()}
               </Dropdown.Trigger>
             </Tooltip>
-            <Dropdown.Content class="w-48" aria-label="Reasoning effort">
-              <Dropdown.Group>
-                <For each={choices()}>
-                  {(choice) => (
-                    <Dropdown.Item
-                      disabled={props.disabled}
-                      onSelect={() => choose(choice)}
-                    >
-                      {optionLabel(choice)}
-                    </Dropdown.Item>
-                  )}
-                </For>
-              </Dropdown.Group>
+            <Dropdown.Content
+              ref={content}
+              class="w-64 rounded-2xl"
+              aria-label="Reasoning effort"
+              onOpenAutoFocus={(event) => {
+                // This popup has a slider rather than roving menu items.
+                event.preventDefault();
+                content?.querySelector<HTMLElement>('[role="slider"]')?.focus();
+              }}
+              onCloseAutoFocus={props.onCloseAutoFocus}
+            >
+              <Show when={props.config}>
+                {(config) => (
+                  <EffortSlider
+                    config={config()}
+                    value={value()}
+                    disabled={props.disabled}
+                    onChange={(next) => {
+                      const choice = choices().find(
+                        (choice) => choice.value === next
+                      );
+                      if (choice)
+                        props.onChange({
+                          configId: config().id,
+                          value: choice.value,
+                          name: choice.name,
+                        });
+                    }}
+                  />
+                )}
+              </Show>
             </Dropdown.Content>
           </Dropdown>
         }
