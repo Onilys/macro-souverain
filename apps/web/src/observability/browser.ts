@@ -11,6 +11,7 @@ import {
   desktopResourceAttributes,
   readDesktopDiagnostics,
 } from './desktop';
+import { recordNativeWebviewStart } from './native-lifecycle';
 import { initializeUiOperationTelemetry } from './ui-operation';
 
 async function browserTelemetryEnabled(hasExporter: boolean): Promise<boolean> {
@@ -95,6 +96,7 @@ export async function initializeBrowserObservability(): Promise<void> {
     tracingProvider: (resource, getUserId) =>
       createWebTracingProvider(telemetryConfig, resource, getUserId),
   });
+  if (isTauri()) recordNativeWebviewStart(desktop);
   if (recording && desktop) {
     recording.accept(desktop);
     Telemetry.info('Desktop memory recording enabled', {

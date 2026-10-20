@@ -54,6 +54,10 @@ through the same service.
   (or the relevant inbound adapter) → `src/domain/models.rs` for the event
   shape → `src/domain/service.rs`.
 
+## Tool contracts
+
+- AI notification filters expose agent sessions and omit legacy chat categories and entity targets.
+
 ## Checks
 
 - `cargo test -p notification --all-features` (`SQLX_OFFLINE` unset; needs local

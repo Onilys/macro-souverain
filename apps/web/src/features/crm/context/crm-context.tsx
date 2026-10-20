@@ -51,6 +51,7 @@ export type CrmContext = {
   contactInitials(name: string | null | undefined, email: string): string;
   userEmail(id: string): string;
   copyViewLink(config: import('../core/saved-view').CrmViewConfig): void;
+  copyPipelineLink(pipelineId: string): void;
   copyRecordLink(target: {
     type: 'company' | 'contact';
     id: string;

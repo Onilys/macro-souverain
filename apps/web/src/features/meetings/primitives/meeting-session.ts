@@ -16,6 +16,7 @@ type IssuedMeetingSession = {
 export function createMeetingSession(capabilities: MeetingSessionCapabilities) {
   const [joining, setJoining] = createSignal(false);
   const [joinedCallId, setJoinedCallId] = createSignal<string>();
+  const [credentials, setCredentials] = createSignal<MeetingCredentials>();
   const [error, setError] = createSignal<string>();
   const [hasLeft, setHasLeft] = createSignal(false);
   let issuedSession: IssuedMeetingSession | undefined;
@@ -25,7 +26,10 @@ export function createMeetingSession(capabilities: MeetingSessionCapabilities) {
 
   async function release(session: IssuedMeetingSession) {
     try {
-      await capabilities.release(session.shareToken, session.credentials.token);
+      return await capabilities.release(
+        session.shareToken,
+        session.credentials.token
+      );
     } catch (cause) {
       // LiveKit's participant-left webhook also cleans up the session.
       console.error('Failed to release meeting participant', cause);
@@ -119,6 +123,7 @@ export function createMeetingSession(capabilities: MeetingSessionCapabilities) {
         return;
       }
       issuedSession = issued;
+      setCredentials(issued.credentials);
       joinTrace.setAttr('call.id', issued.credentials.callId);
       const localTracks = claimLocalTracks();
       const credentials = issued.credentials;
@@ -155,6 +160,7 @@ export function createMeetingSession(capabilities: MeetingSessionCapabilities) {
       if (disposed || attempt !== generation) return;
       issuedSession = undefined;
       setError('Could not join the call. Check your connection and try again.');
+      setCredentials(undefined);
       console.error('Failed to join meeting', cause);
     } finally {
       joinTrace.end();
@@ -178,6 +184,7 @@ export function createMeetingSession(capabilities: MeetingSessionCapabilities) {
     activeAttempt = undefined;
     const session = issuedSession;
     issuedSession = undefined;
+    setCredentials(undefined);
     const cleanupLifecycle = capabilities.lifecycle.begin();
     if (!disposed) {
       setJoining(false);
@@ -187,6 +194,7 @@ export function createMeetingSession(capabilities: MeetingSessionCapabilities) {
     // Start the keepalive release before awaiting local RTC disconnection:
     // navigation or tab closure must not strand server-side participation.
     const releasing = session ? release(session) : undefined;
+    let result: { callEnded: boolean } | void;
     try {
       // Cancellation must not wait for the token request it is cancelling.
       // The shared lifecycle still retains that attempt independently.
@@ -201,11 +209,12 @@ export function createMeetingSession(capabilities: MeetingSessionCapabilities) {
       console.error('Failed to disconnect meeting', cause);
     } finally {
       try {
-        await releasing;
+        result = await releasing;
       } finally {
         cleanupLifecycle.complete();
       }
     }
+    return result;
   }
 
   onCleanup(() => {
@@ -213,5 +222,5 @@ export function createMeetingSession(capabilities: MeetingSessionCapabilities) {
     fireAndForget(leave(), 'meetings');
   });
 
-  return { join, leave, joining, joinedCallId, error, hasLeft };
+  return { join, leave, joining, joinedCallId, credentials, error, hasLeft };
 }

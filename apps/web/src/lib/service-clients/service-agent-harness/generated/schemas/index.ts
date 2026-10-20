@@ -62,6 +62,8 @@ export * from './agentSessionChangesPatchResponse';
 export * from './agentSessionChangesResponse';
 export * from './agentSessionChangesResponseAttempt';
 export * from './agentSessionChangesResponseChangeset';
+export * from './agentSessionFoldedLogResponse';
+export * from './agentSessionFoldedLogResponseMessagesItem';
 export * from './agentSessionLogEntryDto';
 export * from './agentSessionLogEntryDtoAllOf';
 export * from './agentSessionLogEntryDtoAllOfUserId';

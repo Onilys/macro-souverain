@@ -21,6 +21,13 @@ export function sameRecordScope(
   return false;
 }
 
+/** A CRM record shown inside the workspace, with its fallback label. */
+export type CrmRecordRef = {
+  type: 'company' | 'contact';
+  id: string;
+  name: string;
+};
+
 /** Tabs of a CRM record, in display order per record type. */
 export const COMPANY_SECTIONS = [
   'overview',

@@ -83,6 +83,16 @@ File: `services/document_cognition_service/src/api/ws/chat_message/mod.rs`
 
 Search for the old model variant being used in the model selection logic (e.g. `Model::Claude45Opus`). Update it to the new variant.
 
+### 4b. Move stored models off the replaced one
+
+Routines (`scheduled_action.task->>'model'`) and in-memory agents
+(`agent_configs.default_model`) freeze their model at creation and nothing
+upgrades them at runtime. When a model replaces an older one of the same tier,
+add a migration that rewrites those rows, modeled on
+`crates/macro_db_client/migrations/20261019221542_upgrade_retired_claude_models.sql`:
+update its tier targets, keep the Macro-runtime scope, and bump the routine's
+`configuration_revision`.
+
 ### 5. Verify Rust compiles
 
 ```bash

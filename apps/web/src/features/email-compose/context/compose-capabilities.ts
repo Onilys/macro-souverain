@@ -1,5 +1,6 @@
 import type { LexicalEditor } from 'lexical';
 import type { Accessor } from 'solid-js';
+import type { MessageOperationSourceFactory } from '../../email-message/context/message-operation-source';
 import type { EmailMessage } from '../../email-message/core/email-message';
 import type { EmailDraft } from '../core/email-draft';
 import type { EmailRecipient } from '../core/email-recipient';
@@ -8,6 +9,7 @@ import type { LocalDraft } from '../core/local-draft';
 import type { DraftFormAttachment } from '../primitives/email-form-state';
 
 export interface EmailInbox extends SenderInbox {
+  provider?: 'GMAIL' | 'OUTLOOK';
   settings: {
     signature?: string | null;
     signature_on_replies_forwards?: boolean | null;
@@ -99,7 +101,15 @@ export interface EmailAttachmentChange {
   inboxId?: string;
 }
 
+/** The server fenced every delayed commit; the original draft remains editable. */
+export class DraftTransferAborted extends Error {}
+
 export interface EmailDraftStorage {
+  /** Reload canonical provider content after an explicit conflict resolution. */
+  reloadDraft?(
+    draftId: string,
+    threadId: string
+  ): Promise<EmailMessage | undefined>;
   /** Local acceptance is separate from remote autosave and continues after rejection. */
   saveLocalDraft?(
     input: SaveEmailDraft & {
@@ -132,6 +142,16 @@ export interface EmailDraftStorage {
       code?: DraftPersistFailureCode;
     }) => void
   ): () => void;
+  transferDraft(input: {
+    operationId: string;
+    draftId: string;
+    sourceInboxId: string;
+    destinationInboxId: string;
+  }): Promise<{
+    draftId: string;
+    threadId: string;
+    attachments: EmailMessage['attachments_draft'];
+  }>;
   saveDraft(input: SaveEmailDraft): Promise<DraftSaveResult>;
   deleteDraft(input: DeleteEmailDraft): Promise<void>;
   restoreDraft(input: {
@@ -144,6 +164,7 @@ export interface EmailDraftStorage {
 }
 
 export interface EmailAttachmentStorage {
+  completeAttachment(input: EmailAttachmentChange): Promise<void>;
   uploadAttachments(input: UploadEmailAttachments): Promise<void>;
   addForwardedAttachments(input: {
     draftId: string;
@@ -246,6 +267,12 @@ export interface EmailComposeFeedback {
   };
   /** A modal notice with a single acknowledgement; resolves when dismissed. */
   blockingNotice(input: { title: string; body: string }): Promise<void>;
+  /** A modal choice; resolves true only when the user confirms. */
+  confirm(input: {
+    title: string;
+    body: string;
+    confirmLabel: string;
+  }): Promise<boolean>;
   reportError(error: unknown): void;
 }
 
@@ -272,9 +299,18 @@ export interface EmailComposePresentation {
   signaturesEnabled: Accessor<boolean>;
 }
 
+/** A file stored as a Macro document, as a body link names it. */
+export interface UploadedDocument {
+  documentId: string;
+  name: string;
+  blockName: string;
+}
+
 export interface EmailEditorFiles {
   readDroppedFiles: import('./editor-capabilities').ComposeBodyActions['readDroppedFiles'];
   makePublic(id: string): void;
+  /** Stores files as documents; resolves with the ones that succeeded after reporting the rest. */
+  uploadDocuments(files: File[]): Promise<UploadedDocument[]>;
   uploadEditorFiles(input: {
     editor: LexicalEditor | undefined;
     sourceId?: string;
@@ -289,6 +325,7 @@ export interface EmailEditorFiles {
 
 /** Production composition groups capabilities for views to wire into their consumers. */
 export interface EmailComposeContext {
+  operations?: MessageOperationSourceFactory;
   drafts: EmailDraftStorage;
   attachmentStorage: EmailAttachmentStorage;
   delivery: EmailDelivery;

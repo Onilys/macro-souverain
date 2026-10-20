@@ -1,4 +1,3 @@
-import { MAX_ATTACHMENTS_BYTES_SIZE } from '@app/features/email-compose/core/constants';
 import { FormatButtons } from '@channel/Input/FormatButtons';
 import { HeaderIsland } from '@components/app/split-layout/components/HeaderIsland';
 import {
@@ -11,8 +10,6 @@ import {
   type NodeTransformType,
 } from '@core/component/LexicalMarkdown/plugins/node-transform/nodeTransformPlugin';
 import { fileSelector } from '@core/directive/fileSelector';
-import { getUploadFileSize } from '@core/mobile/nativeStagedUpload';
-import { plural } from '@core/util/string';
 import PaperclipIcon from '@phosphor/paperclip.svg?component-solid';
 import TextAa from '@phosphor/text-aa.svg';
 import Trash from '@phosphor/trash.svg';
@@ -31,54 +28,11 @@ export function EmailComposeToolbar(props: {
 }) {
   const ctx = useCompose();
   const [showFormatRibbon, setShowFormatRibbon] = createSignal(false);
-  const handleAddAttachments = (files: File[]) => {
-    const currentAttachments = ctx.attachments();
-
-    const attachmentsToAddByteSize = files.reduce(
-      (sum, f) => sum + getUploadFileSize(f),
-      0
-    );
-
-    if (attachmentsToAddByteSize >= MAX_ATTACHMENTS_BYTES_SIZE) {
-      ctx.attachmentFailure(
-        `${plural('Attachment', files.length)} exceed 18MB`
-      );
-      return;
-    }
-
-    const currentAttachmentsByteSize = currentAttachments.reduce(
-      (sum, a) =>
-        sum + (a.type === 'local' ? getUploadFileSize(a.file) : a.fileSize),
-      0
-    );
-
-    if (
-      currentAttachmentsByteSize + attachmentsToAddByteSize >=
-      MAX_ATTACHMENTS_BYTES_SIZE
-    ) {
-      ctx.attachmentFailure("Can't add more attachments", {
-        subtext: 'Total attachments exceed 18MB limit',
-      });
-      return;
-    }
-
-    ctx.onAddAttachments(
-      files.map((file) => ({
-        type: 'local',
-        file,
-      }))
-    );
-  };
 
   return (
     <Show
       when={props.inline || !ctx.isMobile()}
-      fallback={
-        <MobileToolbar
-          handleAddAttachments={handleAddAttachments}
-          status={props.status}
-        />
-      }
+      fallback={<MobileToolbar status={props.status} />}
     >
       <Show when={showFormatRibbon()}>
         <div class="flex flex-row w-full gap-2 items-center p-2 -ml-3">
@@ -111,7 +65,7 @@ export function EmailComposeToolbar(props: {
               ref={(el) =>
                 fileSelector(el, () => ({
                   multiple: true,
-                  onSelect: handleAddAttachments,
+                  onSelect: ctx.onAddAttachments,
                 }))
               }
               tooltip="Attach"
@@ -160,10 +114,7 @@ export function EmailComposeToolbar(props: {
   );
 }
 
-function MobileToolbar(props: {
-  handleAddAttachments: (files: File[]) => void;
-  status?: JSX.Element;
-}) {
+function MobileToolbar(props: { status?: JSX.Element }) {
   const ctx = useCompose();
   const hasScheduleSummary = () => {
     const state = ctx.schedule.state();
@@ -193,7 +144,7 @@ function MobileToolbar(props: {
                 ref={(el) =>
                   fileSelector(el, () => ({
                     multiple: true,
-                    onSelect: props.handleAddAttachments,
+                    onSelect: ctx.onAddAttachments,
                   }))
                 }
                 size="icon-sm"

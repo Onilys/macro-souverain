@@ -47,7 +47,8 @@ export async function exportTheme(themeId?: string): Promise<void> {
   }
 }
 
-async function _importTheme(): Promise<void> {
+/** Imports a theme from the clipboard JSON and applies it. */
+export async function importThemeFromClipboard(): Promise<void> {
   try {
     const text = await navigator.clipboard.readText();
     const parsed: unknown = JSON.parse(text);
@@ -73,6 +74,7 @@ async function _importTheme(): Promise<void> {
     };
     setUserThemes([...userThemes(), newTheme]);
     applyTheme(id);
+    toast.success(`Imported theme "${imported.name}"`);
   } catch (e) {
     console.error('Failed to import theme:', e);
     toast.alert('Failed to import theme from clipboard.');

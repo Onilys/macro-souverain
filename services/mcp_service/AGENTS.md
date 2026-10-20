@@ -38,14 +38,19 @@ FusionAuth.
 
 ## Recipes
 
-- Add an MCP tool: implement it in `crates/ai_toolset` (shared with chat) →
-  no changes usually needed here unless the tool needs MCP-specific response
-  shaping → `src/tool_response.rs` / `src/markdown_images.rs`.
+- Add an MCP tool: implement it in the owning domain's `inbound::toolset` →
+  register it in `crates/ai_tools` (shared with chat) → wire any new context
+  in `src/context.rs`. MCP-specific response shaping lives in
+  `src/tool_response.rs` / `src/markdown_images.rs`.
 - Add a config value: `src/config.rs` → Doppler → the `mcp_service_doppler_config`
   binary validates it in CI.
 - Allow a new MCP client origin: `src/config.rs`
   (`DEFAULT_MCP_ALLOWED_REDIRECT_HOSTS`) — see `mcp_auth_proxy/README.md` for
   the redirect URI policy this feeds.
+
+## Tool contracts
+
+- Agent sessions use the shared session toolset; legacy chat tools are not advertised or callable.
 
 ## Checks
 

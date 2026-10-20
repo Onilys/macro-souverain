@@ -34,15 +34,53 @@ the build-time `VITE_ENABLE_GRAPHQL_SOUP=true` override; see the
 [cache guide](../../apps/web/docs/graphql-normalized-cache-plan.md#cached-email-quick-access).
 
 Category/mode changes keep the same input mounted and focused. Enter dismisses
-the keyboard without ending search. Opening a result or **Close search** ends the
-session; reopening starts in All/name mode. Mobile query/category state is transient
-and does not modify desktop search state. The dock search row has no Ask AI button.
+the keyboard without ending search. Opening a result hides search chrome while
+preserving that Search history entry's query, category, mode, result order, and
+scroll position. Opening a result does not promote it within that saved list,
+even when its last-viewed time changes. Swiping back, pressing the native Back control, or using browser Back
+returns to those results without focusing the input or reopening the keyboard.
+Native search captures its state when covered: it retains mounted results while
+it is among the front two panes, and restores them after deeper navigation evicts
+it. A remounted history entry immediately restores its loaded results,
+virtualizer measurements and offset (or the full-text scroller's offset).
+Refreshing sources rebuild the loaded window and update matching rows in place;
+new pages append without reordering saved rows. A saved row missing from an
+incomplete source page remains until it is found or pagination exhausts.
+Changing the query/category or starting a new dock search computes a fresh order.
+Native dock searches carry a new session ID in Search's route state; returning
+through history retains the earlier ID and its saved window without changing the URL.
+Saved rows and scroll measurements belong to their account; switching accounts
+resets the result sources and scrollers and cannot restore another account's window.
+Available results show no loading footer. Failed background reads retain the window;
+successful empty results replace it, and authoritative errors discard the saved
+window in favor of the current source result. A later search
+cannot overwrite an earlier entry. **Close search** ends the
+session; opening Search from the dock starts in All/name mode. Mobile search state
+does not modify desktop search state. The dock search row has no Ask AI button.
 If a person’s conversation lookup fails, search stays open with its query and
 category intact so the result can be retried.
 
 Verify sender-only `teo` matches with one- and two-character prefixes, then switch
-categories with the keyboard up. Select full text, edit the query, open a snippet,
-reopen search, and check All/name reset. Clear with whitespace and check category
+categories with the keyboard up. In both name and full-text modes, scroll several
+pages, open a result/snippet, and go Back: check the query, category, mode, visible
+rows, and scroll position. Repeat Back/Forward and native swipe/Back; the keyboard
+stays dismissed on return. Open Search from the dock and check All/name reset,
+then revisit the earlier history entry and confirm its query is intact.
+Open a result from midway through the list and confirm it keeps its original
+position after Back, both when Search stays mounted and after deeper navigation
+evicts it. Refresh row metadata and append pages; existing rows must keep their order.
+Switch accounts with a scrolled Search entry still mounted, then remount that
+entry: neither path should retain the previous account's rows or scroll offset.
+Repeat with a slow refresh: the saved rows and scroll should appear before it
+finishes, and its first page must not shrink a previously paginated list.
+If the viewport changes on return, scroll manually and confirm
+later pages preserve that new position instead of returning to the saved offset.
+In full-text mode, repeat Back several times from deep in a long result list;
+browser scroll anchoring must not move the viewport after the saved offset is
+restored. Restoration waits for responsive row measurement so the temporary wide
+layout cannot clamp a deep mobile offset. Check the same row remains at the same
+position while results reconcile, including the first return after a fresh search.
+Clear with whitespace and check category
 retention; select Projects from full-text mode and confirm it shows name results.
 Repeat opening with a large recent list: results are virtualized, so transferring
 keyboard focus should not mount every cached row. Scroll through later results

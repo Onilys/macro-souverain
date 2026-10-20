@@ -24,6 +24,7 @@ import ChatCircle from '@phosphor/chat-circle.svg';
 import GitMerge from '@phosphor/git-merge.svg';
 import GitPullRequest from '@phosphor/git-pull-request.svg';
 import { useGithubLinkStatusQuery } from '@queries/auth/github-link';
+import { queryReadyGate } from '@queries/gate';
 import {
   usePrMentionQuery,
   usePullRequestByGithubKeyQuery,
@@ -553,8 +554,9 @@ export function PullRequestMention(props: PullRequestMentionDecoratorProps) {
 
   const githubLinkQuery = useGithubLinkStatusQuery({
     enabled: () => !lexicalWrapper?.skipPreviewFetch,
+    // Virtualized rows remount while scrolling; they should not retry failures.
+    retryOnMount: false,
   });
-  const isGithubLinked = () => githubLinkQuery.data?.status === 'linked';
 
   const isSelectedAsNode = () => {
     const sel = selection();
@@ -571,7 +573,15 @@ export function PullRequestMention(props: PullRequestMentionDecoratorProps) {
   // When GitHub is not linked, render as a plain link instead of the fancy mention UI
   const shouldRenderAsPlainLink = () => {
     if (lexicalWrapper?.skipPreviewFetch) return false;
-    return !!(githubLinkQuery.isFetched && !isGithubLinked() && props.url);
+    // An initial failure has no resource value and reading it during a retry
+    // suspends the surrounding surface. Refetch errors retain confirmed data;
+    // Solid Query exposes that value without suspending.
+    return !!(
+      props.url &&
+      !githubLinkQuery.isLoadingError &&
+      queryReadyGate(githubLinkQuery) &&
+      githubLinkQuery.data.status !== 'linked'
+    );
   };
 
   const open = (e: MouseEvent | KeyboardEvent | null) => {

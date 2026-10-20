@@ -3,6 +3,7 @@ import { toEntityActionListState } from '@app/features/next-soup/actions';
 import { openEntityInSplitFromUnifiedList } from '@app/features/next-soup/utils';
 import { SoupEntityContextMenu } from '@app/features/soup';
 import { DEBUG_SETTING_KEYS, useDebugSetting } from '@app/lib/debugSettings';
+import { CHANNEL_ACTION_VIEW_CONTEXT } from '@channel/Channel/channel-actions';
 import { useGlobalNotificationSource } from '@components/app/GlobalAppState';
 import { PullToRefresh } from '@components/app/mobile/PullToRefresh';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
@@ -32,7 +33,6 @@ import type { ChannelsDataSource } from '../queries';
 import { channelMentionsUser } from '../utils';
 import { ChannelsEmptyState } from './ChannelsEmptyState';
 import {
-  CHANNEL_ACTION_VIEW_CONTEXT,
   CONVERSATION_CARD_HEIGHT,
   ConversationCard,
 } from './rail/ChannelRailItems';

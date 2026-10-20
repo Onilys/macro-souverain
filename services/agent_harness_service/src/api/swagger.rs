@@ -27,13 +27,13 @@ use agent_session::inbound::axum_router::pull_requests::{
     SessionPullRequestsResponse,
 };
 use agent_session::inbound::axum_router::{
-    self, AgentSessionLogEntryDto, AgentSessionLogResponse, AgentSessionPreviewData,
-    AgentSessionPreviewDto, AgentSessionQueueResponse, AgentSessionResponse, CodingPreferencesBody,
-    ControlRequest, ControlResponse, ControlStatusDto, CreateAgentSessionRequest,
-    CreateAgentSessionResponse, CreateSessionThread, EditQueuedActionRequest, LogDirectionDto,
-    LogFrameDto, PreviewAgentSessionsRequest, PreviewAgentSessionsResponse, QueuedActionDto,
-    RenameAgentSessionRequest, SandboxSizeBody, SessionStatusDto, SetAgentSessionArchivedRequest,
-    WithAgentSessionId,
+    self, AgentSessionFoldedLogResponse, AgentSessionLogEntryDto, AgentSessionLogResponse,
+    AgentSessionPreviewData, AgentSessionPreviewDto, AgentSessionQueueResponse,
+    AgentSessionResponse, CodingPreferencesBody, ControlRequest, ControlResponse, ControlStatusDto,
+    CreateAgentSessionRequest, CreateAgentSessionResponse, CreateSessionThread,
+    EditQueuedActionRequest, LogDirectionDto, LogFrameDto, PreviewAgentSessionsRequest,
+    PreviewAgentSessionsResponse, QueuedActionDto, RenameAgentSessionRequest, SandboxSizeBody,
+    SessionStatusDto, SetAgentSessionArchivedRequest, WithAgentSessionId,
 };
 use claude_cloud_agents::inbound::auth as claude_auth;
 use utoipa::{
@@ -82,6 +82,7 @@ impl Modify for SecurityAddon {
         axum_router::pull_requests::sessions_for_pull_request,
         axum_router::pull_requests::sessions_for_pull_requests,
         axum_router::get_agent_session_log_handler,
+        axum_router::get_agent_session_folded_log_handler,
         axum_router::control_agent_session_handler,
         axum_router::get_agent_session_queue_handler,
         axum_router::edit_queued_action_handler,
@@ -141,6 +142,7 @@ impl Modify for SecurityAddon {
         PullRequestLinkSource,
         SessionStatusDto,
         AgentSessionLogResponse,
+        AgentSessionFoldedLogResponse,
         AgentSessionLogEntryDto,
         SessionBot,
         LogFrameDto,

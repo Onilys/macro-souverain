@@ -83,6 +83,7 @@ export type PaginationControls = {
 export type CommandContactSource = PaginationControls & {
   contacts: Accessor<CrmContactEntity[]>;
   isLoading: Accessor<boolean>;
+  error: Accessor<Error | undefined>;
 };
 
 function isCommandItem(item: CommandMenuItem): item is CommandItem {

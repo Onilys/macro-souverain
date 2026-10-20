@@ -19,6 +19,9 @@ use serde::{Serialize, Serializer};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
+mod activation;
+pub use activation::install_delegate;
+
 #[cfg(test)]
 mod test;
 
@@ -152,12 +155,27 @@ pub async fn request_macos_notification_permission()
         .ok_or(NotificationError::CallbackDropped)?
 }
 
-fn notification_request(title: &str, body: Option<&str>) -> Retained<UNNotificationRequest> {
+fn notification_request(
+    title: &str,
+    body: Option<&str>,
+    notification_id: Option<&str>,
+) -> Retained<UNNotificationRequest> {
     let content = UNMutableNotificationContent::new();
     content.setTitle(&NSString::from_str(title));
     content.setBody(&NSString::from_str(body.unwrap_or_default()));
     // Reusing an identifier would replace a previously delivered notification.
-    let identifier = NSString::from_str(&Uuid::new_v4().to_string());
+    let delivery_id = Uuid::new_v4().to_string();
+    let identifier = match notification_id {
+        Some(notification_id) => {
+            let mut url =
+                url::Url::parse("macro:///notification").expect("static notification URL");
+            url.query_pairs_mut()
+                .append_pair("notificationId", notification_id)
+                .append_pair("deliveryId", &delivery_id);
+            NSString::from_str(url.as_str())
+        }
+        None => NSString::from_str(&delivery_id),
+    };
     UNNotificationRequest::requestWithIdentifier_content_trigger(&identifier, &content, None)
 }
 
@@ -168,11 +186,12 @@ fn notification_request(title: &str, body: Option<&str>) -> Retained<UNNotificat
 pub async fn send_macos_notification(
     title: String,
     body: Option<String>,
+    notification_id: Option<String>,
 ) -> Result<(), NotificationError> {
     ensure_application_bundle()?;
     let (sender, mut receiver) = mpsc::channel(1);
     {
-        let request = notification_request(&title, body.as_deref());
+        let request = notification_request(&title, body.as_deref(), notification_id.as_deref());
         let callback = RcBlock::new(move |error: *mut NSError| {
             // SAFETY: the optional NSError is valid for this completion handler.
             // Copy its details before the native callback returns.

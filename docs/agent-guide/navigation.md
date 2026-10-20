@@ -121,7 +121,9 @@ successfully rather than hashing the empty JavaScript placeholder.
 | `/app/coders/<uuid>` | Code session with the Agents sidebar |
 | `/app/agents/chat/<uuid>` | Legacy AI chat opened in the Agents workspace (`/app/agent-chats/<uuid>` remains a compatibility alias) |
 | `/app/calls` | Calls list |
-| `/app/companies` | Customers (CRM; needs a team). The selected tab is `sN.crm.tab` |
+| `/app/companies` | Customers (CRM; needs a team). The selected list is `sN.crm.tab` |
+| `/app/companies/<company-or-contact>/<uuid>` | Customers with a company or contact opened inline, keeping its list's `sN.crm.tab`; a record tab other than Overview adds `/<team-emails-files-tasks-or-calls>`. On desktop, `/app/company/<uuid>` and `/app/contact/<uuid>` redirect here, a `comment_id` moving to `sN.crm-record.commentId`; touch devices keep those standalone pages |
+| `/app/companies/pipeline/<uuid>` | Customers on a pipeline; `/<company-or-contact>/<uuid>` after it opens a record from the pipeline. `/app/pipeline/<uuid>` redirects here |
 | `/app/activity` | Activity heatmap + feed |
 | `/app/calendar/<month-or-week-or-day>` | Calendar; the focused event, its occurrence, and the locator range use `sN.calendar.*` |
 | `/app/scheduling` | Scheduling workspace: booking links, availability, bookings, insights, and booking page |
@@ -202,8 +204,8 @@ namespaced query parameters such as `s0.drive.sort=created_at`. Route identity
 and breadcrumb nesting remain in the path. Home, Email, Tasks, Channels, and
 Customers store the selected tab under `sN.home.tab`, `sN.mail.tab`,
 `sN.tasks.tab`, `sN.channels.tab`, and `sN.crm.tab`. Customers uses `people`,
-`pipeline:<uuid>`, `list:<uuid>`, or `hidden`. Companies is the default and
-omits the key. Omitted tab keys mean each view's default. Mobile Channels always opens its
+`list:<uuid>`, or `hidden`; a pipeline is a path instead. Companies is the
+default and omits the key. Omitted tab keys mean each view's default. Mobile Channels always opens its
 Recent conversation feed and ignores legacy mobile-tab selections.
 Changing tabs updates the URL, and browser Back and Forward restore the
 selection independently in each pane. Inline detail links preserve these keys.

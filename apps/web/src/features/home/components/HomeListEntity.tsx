@@ -147,7 +147,10 @@ function HomeThreadTitle(
     const entity = props.entity;
     if (entity.type !== 'channel_thread') return undefined;
     const notification = entity.notifications?.()?.[0];
-    if (notification?.notification_metadata?.tag === 'channel_message_reply') {
+    if (
+      notification?.notification_metadata?.tag === 'channel_message_reply' ||
+      notification?.notification_metadata?.tag === 'channel_mention'
+    ) {
       return {
         id: notification.sender_id,
         displayName:

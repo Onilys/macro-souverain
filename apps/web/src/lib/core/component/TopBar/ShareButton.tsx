@@ -86,6 +86,10 @@ import {
   updateDatabaseSharePermissions,
 } from '@queries/storage/databases';
 import {
+  updateEntitySharePolicy,
+  usesGraphqlSharePolicy,
+} from '@queries/storage/entity-mutations';
+import {
   getFormSharePermissions,
   updateFormSharePermissions,
 } from '@queries/storage/forms';
@@ -1001,7 +1005,23 @@ export function ShareModal(props: ShareModalProps) {
 
   const removeChannelAccess = createCallback(async (channelId: string) => {
     if (recipientPermissions() !== Permissions.OWNER) return;
-    if (props.itemType === 'crm_pipeline') {
+    if (usesGraphqlSharePolicy(props.itemType)) {
+      const result = await updateEntitySharePolicy(props.itemType, props.id, {
+        channelSharePermissions: [{ operation: 'remove', channelId }],
+      });
+      if (result.isOk()) {
+        fireAndForget(refetch(), 'share-modal');
+        toast.success(
+          props.itemType === 'project'
+            ? 'Removed folder access'
+            : 'Removed channel access'
+        );
+      } else {
+        toast.alert('Failed to remove channel access', {
+          subtext: 'Please try again',
+        });
+      }
+    } else if (props.itemType === 'crm_pipeline') {
       const result = await updatePipelineSharePermissions(props.id, {
         channelSharePermissions: [{ operation: 'remove', channelId }],
       });
@@ -1150,7 +1170,13 @@ export function ShareModal(props: ShareModalProps) {
         | Result<any, ResultError<any>[]>
         | Result<void, ResultError<any>[]>
         | null = null;
-      if (props.itemType === 'crm_pipeline') {
+      if (usesGraphqlSharePolicy(props.itemType)) {
+        result = await updateEntitySharePolicy(props.itemType, props.id, {
+          channelSharePermissions: [
+            { operation: 'replace', accessLevel, channelId },
+          ],
+        });
+      } else if (props.itemType === 'crm_pipeline') {
         result = await updatePipelineSharePermissions(props.id, {
           channelSharePermissions: [
             { operation: 'replace', accessLevel, channelId },
@@ -1302,7 +1328,13 @@ export function ShareModal(props: ShareModalProps) {
         getTeamShareScope(sharePermission.teamShareAccessLevel) !== 'NONE';
 
       let result: Result<unknown, ResultError<any>[]>;
-      if (props.itemType === 'crm_pipeline') {
+      if (props.itemType !== 'call' && usesGraphqlSharePolicy(props.itemType)) {
+        result = await updateEntitySharePolicy(
+          props.itemType,
+          props.id,
+          sharePermission
+        );
+      } else if (props.itemType === 'crm_pipeline') {
         result = await updatePipelineTeamShare(props.id, shared);
       } else if (props.itemType === 'agent_session') {
         result = await updateAgentSessionSharePermissions(
@@ -1393,7 +1425,13 @@ export function ShareModal(props: ShareModalProps) {
       const scope = getLinkShareScope(sharePermission.linkShare);
       let result: Result<any, ResultError<any>[]> | undefined;
 
-      if (props.itemType === 'agent_session') {
+      if (usesGraphqlSharePolicy(props.itemType)) {
+        result = await updateEntitySharePolicy(
+          props.itemType,
+          props.id,
+          sharePermission
+        );
+      } else if (props.itemType === 'agent_session') {
         result = await updateAgentSessionSharePermissions(
           props.id,
           sharePermission

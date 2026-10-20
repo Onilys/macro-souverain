@@ -18,15 +18,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .register::<FoldedMessage>()
         .register::<FoldedStreamEvent>()
         .register::<SessionMetadata>();
-    let output = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../apps/web/src/lib/service-clients/service-agent-fold/generated/types.ts");
-
     let generated = Typescript::default().export(&types, specta_serde::Format)?;
     let generated = generated
         .lines()
         .map(str::trim_end)
         .collect::<Vec<_>>()
         .join("\n");
-    fs::write(output, format!("{generated}\n"))?;
+
+    // The web client folds in the browser; the SDK reads the same messages
+    // folded by `GET /agent-sessions/{id}/log/folded`.
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    for output in [
+        "apps/web/src/lib/service-clients/service-agent-fold/generated/types.ts",
+        "packages/sdk/generated/agent-fold/index.ts",
+    ] {
+        let output = root.join(output);
+        if let Some(parent) = output.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(output, format!("{generated}\n"))?;
+    }
     Ok(())
 }

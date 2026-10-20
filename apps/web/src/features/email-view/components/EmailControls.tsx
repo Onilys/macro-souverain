@@ -1,4 +1,7 @@
-import { ListFilterDropdown } from '@app/components/view-shell';
+import {
+  ListFilterCountBadge,
+  ListFilterDropdown,
+} from '@app/components/view-shell';
 import { TOKENS } from '@core/hotkey/tokens';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import ColumnsIcon from '@phosphor/columns.svg';
@@ -42,11 +45,7 @@ export function EmailControls(props: EmailControlsProps) {
           onSelectionChange={filters.setSelected}
           onClear={filters.clear}
         />
-        <Show when={filters.activeCount() > 0}>
-          <span class="pointer-events-none absolute -top-0.5 right-0 z-10 flex size-4 translate-x-1/2 items-center justify-center rounded-full bg-accent text-xxs font-medium leading-none text-surface">
-            {filters.activeCount()}
-          </span>
-        </Show>
+        <ListFilterCountBadge count={filters.activeCount()} />
       </div>
     </div>
   );

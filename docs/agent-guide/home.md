@@ -77,7 +77,11 @@ overrides saved filters. Returning through split history resets navigation to Si
 
 Channel thread replies remain separate Home entries from their parent channel,
 using single-line rows and a reply arrow icon on desktop, labeled
-with the sender and channel (for example, **Peter in #battlefield**). Channel names
+with the sender and channel (for example, **Peter in #battlefield**). Replies and
+mentions name the latest notification's sender, including bots, even after the
+notification is read. To verify, mention yourself from a second account in a
+thread started by someone else: the row must name the mentioner and open their
+message. Channel names
 prefer the current channel cache, then a matching thread notification's name,
 then **Unknown channel** if neither source has a name. Selecting a
 thread opens that thread in the channel preview; Shift-click opens it in a split.

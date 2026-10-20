@@ -145,12 +145,14 @@ vi.mock('../components/crm-sidebar', () => ({
   CrmSidebar: (props: {
     pipelines?: JSX.Element;
     onNavigate: (id: string) => void;
-    onCollapse: () => void;
+    onCollapse?: () => void;
   }) => (
     <nav aria-label="CRM sidebar">
-      <button type="button" onClick={props.onCollapse}>
-        Collapse CRM sidebar
-      </button>
+      <Show when={props.onCollapse}>
+        <button type="button" onClick={props.onCollapse}>
+          Collapse CRM sidebar
+        </button>
+      </Show>
       <button type="button" onClick={() => props.onNavigate('active')}>
         Companies
       </button>
@@ -181,10 +183,11 @@ vi.mock('../components/pipeline-dialog', () => ({
 vi.mock('./record-detail', () => ({
   CrmRecordDetail: (props: {
     viewName: string;
-    record: { type: string; id: string };
+    records: { type: string; id: string }[];
   }) => (
     <div>
-      {props.viewName} record {props.record.type}:{props.record.id}
+      {props.viewName} record{' '}
+      {props.records.map((record) => `${record.type}:${record.id}`).join(' ')}
     </div>
   ),
 }));
@@ -262,21 +265,33 @@ afterEach(() => {
   fixture.setCollapsed.mockReset();
 });
 
+/** A workspace whose route shows another tab's list when the tab changes. */
 function setup(initialTab = 'active') {
-  const [activeTab, setActiveTab] = createSignal<string | undefined>(
-    initialTab
-  );
-  const [pipelineRequest, setPipelineRequest] = createSignal<
-    { pipelineId: string; seek: string } | undefined
-  >();
+  const [activeTab, setTab] = createSignal<string | undefined>(initialTab);
+  const [records, setRecords] = createSignal<
+    readonly { type: 'company' | 'contact'; id: string; name: string }[]
+  >([]);
+  const record = {
+    records,
+    section: () => undefined,
+    commentTarget: () => undefined,
+    open: vi.fn(setRecords),
+    setSection: vi.fn(),
+    close: vi.fn(() => setRecords([])),
+  };
+  const setActiveTab = (tab: string) => {
+    setRecords([]);
+    setTab(tab);
+  };
+  const captureEntryState = vi.fn();
   fixture.workspace = {
     activeTab,
     setActiveTab,
     host: {
       scopeId: 'crm',
       isActive: () => true,
-      captureEntryState: vi.fn(),
-      pipelineRequest,
+      captureEntryState,
+      record,
     },
     source: {},
     queryFilters: { state: { include: {} }, replace: vi.fn() },
@@ -284,7 +299,7 @@ function setup(initialTab = 'active') {
   render(() => (
     <CrmWorkspaceView>{() => <div>Record list</div>}</CrmWorkspaceView>
   ));
-  return { activeTab, setActiveTab, setPipelineRequest };
+  return { activeTab, record, captureEntryState };
 }
 
 it('keeps sidebar destinations in the mobile header when switching records, pipelines and lists', () => {
@@ -325,36 +340,44 @@ it('omits pipelines and lists when those features are disabled', () => {
   ).toEqual(['Companies', 'People']);
 });
 
-it('shows the company of a pipeline row in place of the pipeline on desktop', () => {
+it('opens the company of a pipeline row through the route on desktop', () => {
   fixture.touch = false;
-  setup('pipeline:sales');
+  const { record, captureEntryState } = setup('pipeline:sales');
   fireEvent.click(screen.getByRole('button', { name: 'Open Acme' }));
+  expect(captureEntryState).toHaveBeenCalledBefore(record.open);
+  expect(record.open).toHaveBeenCalledExactlyOnceWith([
+    { type: 'company', id: 'acme', name: '' },
+  ]);
   expect(screen.getByText('Sales record company:acme')).toBeTruthy();
   expect(screen.queryByText('Sales table')).toBeNull();
   expect(fixture.openWithSplit).not.toHaveBeenCalled();
 });
 
-it('shows a pipeline another view asks for, in place of an open record', () => {
+it('returns to the pipeline when its record is open and the pipeline is picked again', () => {
   fixture.touch = false;
-  const { activeTab, setPipelineRequest } = setup('pipeline:sales');
+  const { activeTab, record } = setup('pipeline:sales');
   fireEvent.click(screen.getByRole('button', { name: 'Open Acme' }));
-  expect(screen.queryByText('Sales table')).toBeNull();
-  setPipelineRequest({ pipelineId: 'sales', seek: 'first' });
+  fireEvent.click(screen.getByRole('button', { name: 'Sales' }));
+  expect(record.close).toHaveBeenCalledOnce();
   expect(activeTab()).toBe('pipeline:sales');
   expect(screen.getByText('Sales table')).toBeTruthy();
-  expect(screen.queryByText('Sales record company:acme')).toBeNull();
 });
 
-it('closes the narrow navigation menu on collapse without saving the preference', () => {
+it('keeps the split close in the header and offers no collapse in the narrow navigation menu', () => {
   fixture.touch = false;
   fixture.narrow = true;
   setup('pipeline:sales');
-  const collapses = () =>
-    screen.getAllByRole('button', { name: 'Collapse CRM sidebar' });
-  fireEvent.click(screen.getByRole('button', { name: 'Show CRM navigation' }));
-  expect(collapses()).toHaveLength(2);
-  fireEvent.click(collapses()[1]!);
-  expect(collapses()).toHaveLength(1);
+  const trigger = screen.getByRole('button', { name: 'Show CRM navigation' });
+  expect(
+    screen.getByRole('button', { name: 'Close split' }).nextElementSibling
+  ).toBe(trigger.parentElement);
+  fireEvent.click(trigger);
+  expect(
+    screen.getAllByRole('navigation', { name: 'CRM sidebar' })
+  ).toHaveLength(2);
+  expect(
+    screen.getAllByRole('button', { name: 'Collapse CRM sidebar' })
+  ).toHaveLength(1);
   expect(fixture.setCollapsed).not.toHaveBeenCalled();
 });
 
@@ -377,12 +400,22 @@ it('opens the company of a pipeline row in its own split on touch', () => {
   expect(screen.getByText('Sales table')).toBeTruthy();
 });
 
-it('closes an open record when activeTab changes via history navigation', () => {
+it('returns to the list when the open record’s tab is picked again', () => {
   fixture.touch = false;
-  const { setActiveTab } = setup('pipeline:sales');
+  const { record } = setup('people');
+  record.open([{ type: 'contact', id: 'maya', name: 'Maya' }]);
+  expect(screen.getByText('People record contact:maya')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'People' }));
+  expect(record.close).toHaveBeenCalledOnce();
+  expect(screen.getByText('Record list')).toBeTruthy();
+});
+
+it('shows another tab’s list in place of an open record without closing it first', () => {
+  fixture.touch = false;
+  const { activeTab, record } = setup('pipeline:sales');
   fireEvent.click(screen.getByRole('button', { name: 'Open Acme' }));
-  expect(screen.getByText('Sales record company:acme')).toBeTruthy();
-  setActiveTab('people');
-  expect(screen.queryByText(/record company:acme/)).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'People' }));
+  expect(record.close).not.toHaveBeenCalled();
+  expect(activeTab()).toBe('people');
   expect(screen.getByText('Record list')).toBeTruthy();
 });

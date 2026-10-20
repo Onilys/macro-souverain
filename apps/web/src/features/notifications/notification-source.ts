@@ -35,7 +35,7 @@ import {
   onCleanup,
   untrack,
 } from 'solid-js';
-import { createStore, reconcile } from 'solid-js/store';
+import { createStore } from 'solid-js/store';
 import { fromZodError } from 'zod-validation-error';
 import { nextNotificationState } from './notification-state';
 import { createMutedEntitiesQuery } from './queries/muted-entities-query';
@@ -237,20 +237,25 @@ function withNotificationOverrides(
 
 export function createNotificationSource(
   ws: ConnectionGatewayWebsocket,
-  onNotification?: (notification: UnifiedNotification) => void
+  onNotification?: (notification: UnifiedNotification) => void,
+  enabled: Accessor<boolean> = () => true
 ): NotificationSource {
   const subscriptions: Set<SubscribeFn> = new Set();
 
-  const [mutedEntitiesStore, setMutedEntities] = createStore<UserUnsubscribe[]>(
-    []
+  const notificationsQuery = useUserNotificationsQuery(
+    () => ({ limit: QUERY_LIMIT }),
+    () => ({ enabled: enabled() })
   );
-  const mutedEntities = createMemo(() => [...mutedEntitiesStore]);
-
-  const notificationsQuery = useUserNotificationsQuery(() => ({
-    limit: QUERY_LIMIT,
-  }));
   const usesGraphql = () => notificationsQuery.transport === 'graphql';
-  const mutedEntitiesQuery = createMutedEntitiesQuery({ limit: QUERY_LIMIT });
+  const mutedEntitiesQuery = createMutedEntitiesQuery(
+    { limit: QUERY_LIMIT },
+    enabled
+  );
+  // Read the current query rather than retaining a second copy across sessions.
+  const mutedEntities = createMemo(() => {
+    if (!enabled() || mutedEntitiesQuery.isPending) return [];
+    return mutedEntitiesQuery.data ?? [];
+  });
   const muteItem = useMuteItemMutation();
   const unmuteItem = useUnmuteItemMutation();
 
@@ -264,7 +269,7 @@ export function createNotificationSource(
   // A shell that only needs mute state, local overrides, or realtime callbacks
   // must not instantiate the full GraphQL notification feed at startup.
   const notifications = createLazyMemo(() => {
-    if (notificationsQuery.isLoading) return [];
+    if (!enabled() || notificationsQuery.isLoading) return [];
     const raw = notificationsQuery.data;
     if (!raw) return [];
     return raw.map(withNotificationOverrides);
@@ -275,7 +280,7 @@ export function createNotificationSource(
   // Soup edges. Keep their intent until explicitly cleared, replaced, or rolled
   // back rather than letting pagination resurrect stale edge state.
   createEffect(() => {
-    if (usesGraphql()) return;
+    if (!enabled() || usesGraphql()) return;
     const raw = notificationsQuery.data;
     if (!raw) return;
     const presentIds = new Set(raw.map((n) => n.id));
@@ -294,7 +299,7 @@ export function createNotificationSource(
   // a fetch that is still running may hold a pre-write snapshot that will
   // land later; in both cases the override must survive.
   createEffect(() => {
-    if (usesGraphql()) return;
+    if (!enabled() || usesGraphql()) return;
     const raw = notificationsQuery.data;
     if (!raw) return;
     const seenIds = Object.keys(seenOverrides);
@@ -328,7 +333,7 @@ export function createNotificationSource(
     // TODO(dev-rb/notifications): Remove this legacy eager pagination when the
     // REST notification source is retired. GraphQL consumers should use Soup
     // notification edges or dedicated notification queries instead.
-    if (usesGraphql()) return;
+    if (!enabled() || usesGraphql()) return;
     if (!notificationsQuery.data) return;
     if (notificationsQuery.hasNextPage && !notificationsQuery.isFetching) {
       fireAndForget(notificationsQuery.fetchNextPage(), 'notifications');
@@ -336,14 +341,11 @@ export function createNotificationSource(
   });
 
   const isLoading = () => {
-    return notificationsQuery.isLoading || mutedEntitiesQuery.isLoading;
+    return (
+      enabled() &&
+      (notificationsQuery.isLoading || mutedEntitiesQuery.isLoading)
+    );
   };
-
-  createEffect(() => {
-    const mutedEntities = mutedEntitiesQuery.data;
-    if (!mutedEntities) return;
-    setMutedEntities(reconcile(mutedEntities));
-  });
 
   // TODO(dev-rb/notifications): Verify whether document-mention suppression is
   // still required, and remove this source-based cleanup when it is not.
@@ -361,7 +363,7 @@ export function createNotificationSource(
     createEffect(() => {
       // This flag defaults off in production. Cleanup may observe an activated
       // feed, but must not become the reader that wakes it during startup.
-      if (!notificationsQuery.isStarted) return;
+      if (!enabled() || !notificationsQuery.isStarted) return;
       const toDiscard = notifications().filter(
         (n) =>
           n.notification_event_type === 'document_mention' && n.state !== 'done'
@@ -387,7 +389,8 @@ export function createNotificationSource(
   let graphqlSubscriptionDisposed = false;
 
   const runGraphqlNotificationRefetch = async (): Promise<void> => {
-    if (graphqlSubscriptionDisposed || graphqlRefetchInFlight) return;
+    if (!enabled() || graphqlSubscriptionDisposed || graphqlRefetchInFlight)
+      return;
     graphqlRefetchInFlight = true;
     try {
       do {
@@ -409,7 +412,7 @@ export function createNotificationSource(
   const scheduleGraphqlNotificationRefetch = (): void => {
     // Still dispatch new-notification callbacks below. The first actual feed
     // reader will fetch current data; a patch must not wake an unused feed.
-    if (!notificationsQuery.isStarted) return;
+    if (!enabled() || !notificationsQuery.isStarted) return;
     graphqlRefetchPending = true;
     if (graphqlRefetchScheduled || graphqlRefetchInFlight) return;
     graphqlRefetchScheduled = true;
@@ -421,7 +424,7 @@ export function createNotificationSource(
 
   const unsubscribeFromGraphql = subscribeToGraphqlNotificationPatches(
     (patch) => {
-      if (!usesGraphql()) return;
+      if (!enabled() || !usesGraphql()) return;
       scheduleGraphqlNotificationRefetch();
       if (patch.__typename !== 'GraphqlNewNotification') return;
       const notification = mapGraphqlNotification(patch.notification);
@@ -445,7 +448,11 @@ export function createNotificationSource(
   };
 
   createSocketEffect(ws, (wsData) => {
-    if (wsData.type !== NOTIFICATION_EVENT_TYPE || usesGraphql()) {
+    if (
+      !enabled() ||
+      wsData.type !== NOTIFICATION_EVENT_TYPE ||
+      usesGraphql()
+    ) {
       return;
     }
     let parsedNotification: UnifiedNotification;
@@ -483,7 +490,7 @@ export function createNotificationSource(
   // of whether the entity has notifications, and an empty batch would still
   // POST a no-op mutation.
   const bulkMarkAsDone = async (notifications: UnifiedNotification[]) => {
-    if (notifications.length === 0) return;
+    if (!enabled() || notifications.length === 0) return;
     const ids = notifications.map((n) => n.id);
     const rollback = setDoneOverride(ids, true);
     try {
@@ -497,7 +504,7 @@ export function createNotificationSource(
   };
 
   const bulkMarkAsRead = async (notifications: UnifiedNotification[]) => {
-    if (notifications.length === 0) return;
+    if (!enabled() || notifications.length === 0) return;
     const ids = notifications.map((n) => n.id);
     const rollback = setSeenOverride(ids, new Date().toISOString());
     try {
@@ -524,10 +531,12 @@ export function createNotificationSource(
     muteItemForRef(entity) ?? { item_id: entity.id, item_type: entity.type };
 
   const muteEntity = async (entity: Entity) => {
+    if (!enabled()) return;
     await muteItem.mutateAsync(toMuteItem(entity));
   };
 
   const unmuteEntity = async (entity: Entity) => {
+    if (!enabled()) return;
     await unmuteItem.mutateAsync(toMuteItem(entity));
   };
 

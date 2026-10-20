@@ -79,6 +79,11 @@ visible dialog, and the same Herdr state generation. Sign-in prompts and other
 unknown dialogs require native interaction. Herdr does not offer an atomic
 compare-and-send-key operation, so native interaction remains the authority.
 
+Macro supplies the session's configured MCP connections when macrod binds it:
+owner-connection sessions include enabled connected apps and custom MCP servers;
+explicit agent selections retain their selected apps. All connections use the
+session credential through Macro's egress proxy.
+
 Claude receives MCP configuration in a private file. Codex receives per-launch
 MCP overrides; HTTP credentials come from private environment files sourced in
 the native pane, and stdio servers use private launch scripts. This requires a

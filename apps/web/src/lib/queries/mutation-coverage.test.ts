@@ -52,12 +52,17 @@ const policies = {
     'authoritative: exact affected notification IDs required for undo',
   UndoWorkFeedItemsDone:
     'authoritative: the server returns the restored feed entries',
-  MoveEntities: 'inactive: UI uses other transports',
-  UpdateEntitySharePolicies: 'inactive: UI uses other transports',
-  TrashEntities: 'inactive: UI uses other transports',
-  RestoreEntities: 'inactive: UI uses other transports',
-  DeleteEntitiesPermanently: 'inactive: UI uses other transports',
-  DuplicateEntities: 'inactive: UI uses other transports',
+  MoveEntities:
+    'authoritative: destination authorization and membership refresh',
+  UpdateEntitySharePolicies:
+    'authoritative: permission changes require server confirmation',
+  TrashEntities:
+    'authoritative: existing UI deletion overlay settles per server result',
+  RestoreEntities:
+    'authoritative: server resolves restored ancestry and membership',
+  DeleteEntitiesPermanently:
+    'authoritative: irreversible deletion requires server confirmation',
+  DuplicateEntities: 'authoritative: server assigns the copy identity',
   SetEntityFavorite: 'inactive: UI uses SetFavorite',
 } satisfies Record<
   string,

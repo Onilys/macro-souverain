@@ -221,8 +221,9 @@ impl AgentKind {
     /// Whether this kind's agent is handed the session's whole egress server
     /// list ([`SandboxEgress::acp_servers`]) when it attaches - the list a
     /// live session is refreshed to when the owner's connections change.
-    /// Codex is handed none, and an external runtime only the internal and
-    /// preview servers.
+    /// Codex Cloud is handed none. External runtimes receive the whole list
+    /// through `SandboxEgressProvisioner::external_mcp_servers` when they bind,
+    /// but do not participate in live refresh.
     #[must_use]
     pub fn takes_egress_mcp_servers(self) -> bool {
         !matches!(self, Self::CodexCloud | Self::External)

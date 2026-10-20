@@ -587,10 +587,9 @@ pub struct StoredAgentSessionLog {
 /// With no successful load, history starts at the beginning. Failed attempts
 /// remain in the stream and must be staged/discarded by fold consumers.
 ///
-/// Served rather than the messages it derives: the reader folds it. The web
-/// client runs the same fold compiled to WASM, so a streamed session and a
-/// reloaded one are rendered by one implementation rather than two that have
-/// to be kept agreeing.
+/// The web client folds it itself with the same fold compiled to WASM, so a
+/// streamed session and a reloaded one are rendered by one implementation.
+/// Readers without the fold get [`FoldedSessionLog`] instead.
 #[derive(Debug, Clone)]
 pub struct SessionLog {
     /// The agent whose messages the log derives.
@@ -601,6 +600,16 @@ pub struct SessionLog {
     pub bot: SessionBot,
     /// Every logged frame, oldest first. Folding depends on this order.
     pub entries: Vec<StoredAgentSessionLog>,
+}
+
+/// A session's effective history folded into the messages a reader renders,
+/// oldest first: the same fold the web client runs over [`SessionLog`].
+#[derive(Debug, Clone)]
+pub struct FoldedSessionLog {
+    /// The agent whose messages these are; see [`SessionLog::bot`].
+    pub bot: SessionBot,
+    /// Every message, oldest first.
+    pub messages: Vec<agent_fold::domain::model::FoldedMessage>,
 }
 
 /// How an incoming channel context relates to an agent session.

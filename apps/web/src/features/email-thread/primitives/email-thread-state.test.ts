@@ -1,10 +1,109 @@
 import { createRoot, createSignal } from 'solid-js';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { ArchiveThreadOptions } from '../context/email-thread-context';
 import type { EmailThread } from '../core/email-thread';
 import { createThreadContext, message, thread } from '../tests/fixtures';
 import { createEmailThreadState } from './email-thread-state';
 
 describe('thread state with an injected source', () => {
+  function advancingState(
+    markDone: (
+      archive: (options?: ArchiveThreadOptions) => boolean,
+      threadId?: string
+    ) => Promise<boolean>
+  ) {
+    const archiveThread = vi.fn((_options?: ArchiveThreadOptions) => true);
+    const context = createThreadContext({
+      thread: () => thread([message('last')]),
+    });
+    const state = createEmailThreadState(
+      {
+        ...context,
+        createCommands: (snapshot) => ({
+          ...context.createCommands(snapshot),
+          archiveThread,
+        }),
+      },
+      {
+        listNavigation: {
+          canNext: () => true,
+          canPrevious: () => false,
+          next() {},
+          previous() {},
+          markDone,
+        },
+      }
+    );
+    return { state, archiveThread };
+  }
+
+  it('archives through the host list so done-and-advance keeps its undo', () =>
+    createRoot(async (dispose) => {
+      try {
+        const markDone = vi.fn(
+          async (
+            archive: (options?: ArchiveThreadOptions) => boolean,
+            _threadId?: string
+          ) =>
+            // The host picks the next thread and archives without its own
+            // navigation, as Email's list navigation does.
+            archive({ navigate: false, nextEntityId: 'next' })
+        );
+        const { state, archiveThread } = advancingState(markDone);
+        const onUndoHandle = vi.fn();
+        expect(
+          state.archiveThreadAndAdvance({
+            silent: true,
+            onUndoHandle,
+            navigate: true,
+          })
+        ).toBe(true);
+        await vi.waitFor(() => expect(archiveThread).toHaveBeenCalledOnce());
+        expect(archiveThread).toHaveBeenCalledWith({
+          silent: true,
+          onUndoHandle,
+          navigate: false,
+          nextEntityId: 'next',
+        });
+        // It asks to advance only from the thread it shows.
+        expect(markDone.mock.calls[0][1]).toBe(thread([message('last')]).db_id);
+      } finally {
+        dispose();
+      }
+    }));
+
+  it('marks the thread done in place when the host has moved on', () =>
+    createRoot(async (dispose) => {
+      try {
+        // The send resolved after the user opened another thread.
+        const { state, archiveThread } = advancingState(async () => false);
+        state.archiveThreadAndAdvance({ silent: true, navigate: true });
+        await vi.waitFor(() => expect(archiveThread).toHaveBeenCalledOnce());
+        expect(archiveThread).toHaveBeenCalledWith(
+          expect.objectContaining({ silent: true, navigate: false })
+        );
+      } finally {
+        dispose();
+      }
+    }));
+
+  it('does not mark done a send that was undone first', () =>
+    createRoot(async (dispose) => {
+      try {
+        const { state, archiveThread } = advancingState(async (archive) =>
+          archive({ navigate: false })
+        );
+        state.archiveThreadAndAdvance({
+          navigate: true,
+          cancelled: () => true,
+        });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(archiveThread).not.toHaveBeenCalled();
+      } finally {
+        dispose();
+      }
+    }));
+
   it('does not move an open bottom reply to a newly sent message', () =>
     createRoot((dispose) => {
       try {

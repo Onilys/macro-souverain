@@ -263,6 +263,10 @@ where
     Models: AgentModelsService,
     Changes: AgentChanges,
 {
+    let tool_actions =
+        agent_session::inbound::axum_router::tool_actions::agent_session_tool_actions_router(
+            states.control.clone(),
+        );
     let agent_sessions = agent_session_read_router(states.read.clone())
         .merge(agent_session_control_router(states.control))
         .merge(agent_session_create_router(states.create))
@@ -273,6 +277,7 @@ where
         .merge(agent_changes_router(states.changes));
     Router::new()
         .nest("/agent-sessions", agent_sessions)
+        .merge(tool_actions)
         .merge(agent_sandbox_size_router(states.read.clone()))
         .merge(agent_coding_preferences_router(states.read))
         .merge(agent_models_router(states.models))
