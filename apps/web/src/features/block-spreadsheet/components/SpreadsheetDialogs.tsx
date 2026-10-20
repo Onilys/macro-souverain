@@ -4,7 +4,7 @@ import MagnifyingGlass from '@phosphor/magnifying-glass.svg';
 import Swap from '@phosphor/swap.svg';
 import X from '@phosphor/x.svg';
 import { Button } from '@ui/components/Button';
-import { createEffect, createSignal, on, onCleanup, Show } from 'solid-js';
+import { createEffect, createSignal, on, Show } from 'solid-js';
 import type { FindOptions } from '../core/sheet-operations';
 import { SpreadsheetDialog as Dialog } from './SpreadsheetDialog';
 
@@ -52,20 +52,6 @@ export function SpreadsheetFindDialog(props: SpreadsheetFindDialogProps) {
     props.onRestoreFocus?.();
   };
 
-  const handleKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      close();
-    }
-  };
-
-  createEffect(() => {
-    if (!props.open) return;
-    document.addEventListener('keydown', handleKeyDown);
-    onCleanup(() => document.removeEventListener('keydown', handleKeyDown));
-  });
-
   const status = () => {
     if (!props.query) return '';
     if (!props.matchCount) return 'No results';
@@ -79,7 +65,13 @@ export function SpreadsheetFindDialog(props: SpreadsheetFindDialogProps) {
         role="search"
         aria-label="Find and replace"
         class="absolute top-2 right-3 z-20 flex w-80 max-w-[calc(100%-1.5rem)] flex-col gap-1 rounded-md border border-edge bg-surface p-1 shadow-md focus-within:border-accent touch:top-[calc(var(--mobile-content-inset-top,0)+0.5rem)]"
-        onKeyDown={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          event.stopPropagation();
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            close();
+          }
+        }}
         onPointerDown={(event) => event.stopPropagation()}
       >
         <div class="flex items-center gap-1">
