@@ -408,6 +408,13 @@ async fn drive_turn(
     // turn's model spoke first), `no_verdict` (the
     // fast model failed or answered without one) or `timeout`.
     let use_opener = !summarizing && opener::can_open(&messages, instructions.as_deref());
+    if !use_opener {
+        tracing::info!(
+            %session_id,
+            agent.opener.skip_reason = if summarizing { "summary" } else { "instructions_or_context" },
+            "fast opener skipped"
+        );
+    }
     let opener_span = if !use_opener {
         tracing::Span::none()
     } else {
