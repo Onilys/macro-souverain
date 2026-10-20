@@ -36,6 +36,7 @@ use url::Url;
 mod device;
 mod diagnostics;
 mod logging;
+mod macrod;
 mod share_target;
 mod staged_upload;
 
@@ -261,6 +262,7 @@ pub fn run() {
         .manage(DeepLinkDelivery::default())
         .manage(graphql_cache_plugin::CacheState::default())
         .manage(IsIpad(is_ipad_device))
+        .manage(macrod::MacrodState::default())
         .invoke_handler(tauri::generate_handler![
             diagnostics::read_desktop_diagnostics,
             graphql_cache_plugin::commands::graphql_cache_init,
@@ -297,6 +299,12 @@ pub fn run() {
             read_shared_file_text,
             flush_launch_deep_link,
             staged_upload::upload_staged_file_to_presigned_url,
+            macrod::macrod_support,
+            macrod::macrod_detect_agents,
+            macrod::macrod_inspect,
+            macrod::macrod_start,
+            macrod::macrod_stop,
+            macrod::macrod_status,
         ])
         .setup(move |app| {
             diagnostics::setup(app, diagnostics);
@@ -311,6 +319,7 @@ pub fn run() {
 
             app.chain(attach_deep_link_handler);
             cleanup_stale_staged_files(&app.handle());
+            macrod::autostart(&app.handle());
 
             Ok(())
         })
@@ -372,6 +381,11 @@ pub fn run() {
                 }
             }
             RunEvent::Exit => {
+                if let Some(state) = app_handle.try_state::<macrod::MacrodState>() {
+                    // The daemon also exits on its own when its stdin pipe
+                    // closes with this process; the kill is the fast path.
+                    macrod::kill_now(&state);
+                }
                 if let Some(state) = app_handle.try_state::<graphql_cache_plugin::CacheState>() {
                     state
                         .shutdown()

@@ -104,6 +104,22 @@ pub enum AgentKind {
     Custom,
 }
 
+impl AgentKind {
+    /// Stable id used by `macrod detect-agents` and `macrod service --agent`.
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Hermes => "hermes",
+            Self::ClaudeCode => "claude-code",
+            Self::HerdrClaude => "herdr-claude",
+            Self::HerdrCodex => "herdr-codex",
+            Self::Codex => "codex",
+            Self::OpenClaw => "openclaw",
+            Self::OpenCode => "opencode",
+            Self::Custom => "custom",
+        }
+    }
+}
+
 /// Result of checking one preset against the local machine.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Availability {
@@ -266,6 +282,15 @@ pub fn name_for(harness: &Harness) -> Option<&'static str> {
 /// Preset identity of an existing launch configuration.
 pub fn kind_for(harness: &Harness) -> Option<AgentKind> {
     preset_for(harness).map(|preset| preset.kind())
+}
+
+/// Re-detect the preset an existing launch configuration came from, when its
+/// prerequisites are still installed.
+pub fn detected_for(harness: &Harness, commands: &dyn CommandLookup) -> Option<DetectedAgent> {
+    preset_for(harness).and_then(|preset| match preset.detect(commands) {
+        Availability::Available(agent) => Some(agent),
+        Availability::Unavailable { .. } => None,
+    })
 }
 
 /// Parse a custom command line into an ACP launch specification.

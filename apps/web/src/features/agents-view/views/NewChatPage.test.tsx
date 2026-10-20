@@ -541,7 +541,7 @@ describe('agent-led new conversation', () => {
     });
   });
 
-  it('keeps a disconnected paired agent visible with its availability reason', () => {
+  it('keeps a disconnected paired agent visible and offers to reconnect it', () => {
     page(true, [
       {
         bot: { id: 'paired-agent', name: 'Laptop agent', handle: 'laptop' },
@@ -552,8 +552,11 @@ describe('agent-led new conversation', () => {
     ]);
     openAgents();
     const row = screen.getByRole('menuitem', { name: /Laptop agent/ });
-    expect(row.getAttribute('aria-disabled')).toBe('true');
-    expect(row.textContent).toContain('Its runtime is disconnected');
+    // The row stays clickable: selecting it opens Settings → Runtimes, where
+    // the runtime can be restarted (one click on desktop) or re-paired.
+    expect(row.getAttribute('aria-disabled')).not.toBe('true');
+    expect(row.getAttribute('title')).toBe('Its runtime is disconnected');
+    expect(row.textContent).toContain('Reconnect runtime');
   });
 
   it('focuses model search when hovering an agent submenu', async () => {

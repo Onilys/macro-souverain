@@ -25,6 +25,7 @@ import { ClaudeConnection } from '../claude-connection/claude-connection';
 import { CodexHarness } from './codex/views/CodexHarness';
 import { AgentSettingsDescription } from './components/agent-settings-description';
 import { BringYourOwnAgent } from './components/bring-your-own-agent';
+import { LocalRuntimeCard } from './components/local-runtime-card';
 import { SettingsSelect } from './components/settings-select';
 import { ConnectAction, HarnessIcon, StatusDot } from './integration-ui';
 import { SettingsCard, SettingsPage } from './primitives';
@@ -189,6 +190,7 @@ export function Harness(
         >
           <BringYourOwnAgent onAddRuntime={() => setPairingDialog({})} />
           {props.navigation}
+          <LocalRuntimeCard />
           <div>
             <h2 class="mb-3 px-6 text-sm font-semibold text-ink">
               Built-in runtimes

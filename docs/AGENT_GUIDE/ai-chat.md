@@ -387,6 +387,10 @@ the shimmer.
   above the runtime lists. It links directly to runtime pairing and its setup guide.
   The **Paired runtimes** section appears once you have a paired runtime; an empty
   list does not repeat the pairing action from **Bring your own agent**.
+  On the desktop app, **Runtimes** opens with a **This computer** card that sets
+  up the bundled macrod daemon in one click: **Set up** detects installed agents,
+  then **Start running agents here** configures, pairs (auto-approved, no code),
+  and starts it. The manual flow below remains for pairing other machines.
   **New runtime** shows three steps: install macrod from the linked release,
   run `./macrod` and configure your agent in Quickstart, then enter your pairing
   code and click **Look up**. Review the request and click **Approve** to connect.
