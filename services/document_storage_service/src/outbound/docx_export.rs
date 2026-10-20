@@ -31,7 +31,7 @@ fn export_key(document_id: &str, parts: &[BomPart]) -> String {
     format!("temp_files/{document_id}-{:x}.docx", hash.finalize())
 }
 
-#[tracing::instrument(skip_all, fields(document_id, part_count = parts.len(), cache_hit), err)]
+#[tracing::instrument(skip_all, fields(document_id = %document_id, part_count = parts.len(), cache_hit), err)]
 async fn store_export(
     s3: &S3,
     document_id: &str,
@@ -56,12 +56,12 @@ async fn store_export(
 impl DocxExportStore for ApiContext {
     type Err = DocxExportError;
 
-    #[tracing::instrument(skip_all, fields(document_id), err)]
+    #[tracing::instrument(skip_all, fields(document_id = %document_id), err)]
     async fn parts(&self, document_id: &str) -> Result<Vec<BomPart>, Self::Err> {
         Ok(macro_db_client::document::get_document_bom(self.db.clone(), document_id).await?)
     }
 
-    #[tracing::instrument(skip_all, fields(document_id), err)]
+    #[tracing::instrument(skip_all, fields(document_id = %document_id), err)]
     async fn export_parts(
         &self,
         document_id: &str,
