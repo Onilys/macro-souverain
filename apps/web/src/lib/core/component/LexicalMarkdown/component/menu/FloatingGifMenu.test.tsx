@@ -28,6 +28,17 @@ vi.mock('../../plugins/gif', async (original) => ({
 vi.mock('../../directive/floatWithSelection', () => ({
   floatWithSelection: vi.fn(),
 }));
+vi.mock('@service-connection/websocket', () => ({
+  ws: { send() {}, addEventListener() {}, removeEventListener() {} },
+  state: () => 'closed',
+  createConnectionBlockWebsocketEffect() {},
+  createConnectionWebsocketEffect() {},
+  parseWebsocketPayload: () => undefined,
+}));
+vi.mock('@service-storage/websocket', () => ({
+  storageWS: { send() {}, addEventListener() {}, removeEventListener() {} },
+  createWebSocketJob() {},
+}));
 
 afterEach(() => {
   cleanup();

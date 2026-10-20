@@ -323,6 +323,7 @@
 - [ResyncLinkResponse](type-aliases/ResyncLinkResponse.md)
 - [ResyncLinkResponses](type-aliases/ResyncLinkResponses.md)
 - [ResyncResponse](type-aliases/ResyncResponse.md)
+- [ScheduledSendStatus](type-aliases/ScheduledSendStatus.md)
 - [SendMessageData](type-aliases/SendMessageData.md)
 - [SendMessageError](type-aliases/SendMessageError.md)
 - [SendMessageErrors](type-aliases/SendMessageErrors.md)
