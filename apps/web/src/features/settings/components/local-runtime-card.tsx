@@ -16,7 +16,7 @@ import LaptopIcon from '@phosphor/laptop.svg';
 import SpinnerIcon from '@phosphor/spinner-gap.svg';
 import { useApproveHarnessPairingMutation } from '@queries/harnesses/harnesses';
 import type { UnlistenFn } from '@tauri-apps/api/event';
-import { Button } from '@ui';
+import { Button, ToggleSwitch } from '@ui';
 import {
   createSignal,
   Match,
@@ -403,23 +403,23 @@ export function LocalRuntimeCard() {
                             Where sessions run. Created if it doesn't exist.
                           </p>
                         </div>
-                        <label class="flex w-fit items-start gap-2 text-sm text-ink">
-                          <input
-                            type="checkbox"
-                            class="mt-0.5"
-                            checked={fullAccess()}
-                            onChange={(event) =>
-                              setFullAccess(event.currentTarget.checked)
-                            }
-                          />
-                          <span>
-                            Full access
-                            <span class="block text-xs text-ink-extra-muted">
-                              Let agents run commands and edit files without
-                              asking each time.
+                        <ToggleSwitch
+                          size="md"
+                          class="w-fit items-start"
+                          controlClass="mt-0.5 shrink-0"
+                          labelClass="text-sm text-ink"
+                          checked={fullAccess()}
+                          onChange={setFullAccess}
+                          label={
+                            <span>
+                              Full access
+                              <span class="block text-xs text-ink-extra-muted">
+                                When started, let agents run commands and edit
+                                files without asking each time.
+                              </span>
                             </span>
-                          </span>
-                        </label>
+                          }
+                        />
                         <div class="flex items-center gap-2">
                           <Button
                             type="button"
