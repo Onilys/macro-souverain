@@ -249,7 +249,14 @@ pub(super) async fn write_database<Api: NotionApi, Writer: WorkspaceWriter>(
         .iter()
         .filter_map(planned_column)
         .collect();
-    let page_column = ColumnId::new();
+    let page_column = PageColumn {
+        id: ColumnId::new(),
+        name: page_column_name(&source.properties),
+        // First, then the title and the data source's own columns.
+        order: std::iter::once(created.title_column)
+            .chain(columns.iter().map(|column| column.id))
+            .collect(),
+    };
 
     let mut ops = vec![DatabaseOp::Table {
         table,
@@ -294,22 +301,6 @@ pub(super) async fn write_database<Api: NotionApi, Writer: WorkspaceWriter>(
         });
         after = column.id;
     }
-    ops.push(DatabaseOp::Column {
-        table,
-        column: page_column,
-        change: ColumnChange::Create {
-            definition: NewColumn::New {
-                name: PAGE_COLUMN.to_string(),
-                kind: ColumnKind::Entity {
-                    target: EntityKind::Document,
-                    multi: false,
-                },
-                options: Vec::new(),
-                infer_type: false,
-            },
-            after: Some(after),
-        },
-    });
     writer
         .apply_database_ops(user, created.database_id, ops)
         .await?;
@@ -449,7 +440,7 @@ async fn write_row_bodies<Api: NotionApi, Writer: WorkspaceWriter>(
     folder: Uuid,
     rows: &[NotionPage],
     written: &WrittenDatabase,
-    page_column: ColumnId,
+    page_column: PageColumn,
     cancel: &Cancel,
 ) -> anyhow::Result<()> {
     let bodies_folder: tokio::sync::OnceCell<Uuid> = tokio::sync::OnceCell::new();
@@ -487,7 +478,7 @@ async fn write_row_bodies<Api: NotionApi, Writer: WorkspaceWriter>(
                 Ok(Some(RowChange {
                     row: written_row.row,
                     cells: vec![CellWrite {
-                        column: page_column,
+                        column: page_column.id,
                         value: CellValue::Entities(vec![EntityRef {
                             entity_type: EntityKind::Document,
                             entity_id: document,
@@ -512,6 +503,43 @@ async fn write_row_bodies<Api: NotionApi, Writer: WorkspaceWriter>(
     let Some(table) = written.table else {
         return Ok(());
     };
+    if changes.is_empty() {
+        return Ok(());
+    }
+    // Only a database whose rows have content gets the column, and it goes
+    // first so the row's page is one click away.
+    writer
+        .apply_database_ops(
+            user,
+            written.database_id,
+            vec![
+                DatabaseOp::Column {
+                    table,
+                    column: page_column.id,
+                    change: ColumnChange::Create {
+                        definition: NewColumn::New {
+                            name: page_column.name.clone(),
+                            kind: ColumnKind::Entity {
+                                target: EntityKind::Document,
+                                multi: false,
+                            },
+                            options: Vec::new(),
+                            infer_type: false,
+                        },
+                        after: None,
+                    },
+                },
+                DatabaseOp::Table {
+                    table,
+                    change: TableChange::ReorderColumns {
+                        order: std::iter::once(page_column.id)
+                            .chain(page_column.order.iter().copied())
+                            .collect(),
+                    },
+                },
+            ],
+        )
+        .await?;
     for batch in owned_batches(&changes) {
         cancel.ensure_running()?;
         writer
@@ -528,6 +556,34 @@ async fn write_row_bodies<Api: NotionApi, Writer: WorkspaceWriter>(
             .await?;
     }
     Ok(())
+}
+
+/// The column linking each row to its page document.
+#[derive(Debug, Clone)]
+pub(super) struct PageColumn {
+    /// The column id, minted before the column exists.
+    id: ColumnId,
+    /// Its name, distinct from the data source's own columns.
+    name: String,
+    /// The table's other columns, in order; the page column goes before them.
+    order: Vec<ColumnId>,
+}
+
+/// "Page", or the first variant no Notion column of the same data source is
+/// already called (case-insensitively).
+pub(super) fn page_column_name(
+    properties: &[import_notion::domain::model::NotionPropertySchema],
+) -> String {
+    let taken = |name: &str| {
+        properties
+            .iter()
+            .any(|property| property.name.trim().eq_ignore_ascii_case(name))
+    };
+    std::iter::once(PAGE_COLUMN.to_string())
+        .chain(std::iter::once(format!("{PAGE_COLUMN} (Notion)")))
+        .chain((2..).map(|index| format!("{PAGE_COLUMN} {index}")))
+        .find(|name| !taken(name))
+        .unwrap_or_else(|| PAGE_COLUMN.to_string())
 }
 
 /// `items` in insert-sized batches, owned so no borrow is held across the

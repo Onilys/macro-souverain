@@ -330,8 +330,8 @@ async fn a_data_source_becomes_a_database_with_typed_columns_rows_bodies_and_pen
     .unwrap();
 
     let batches = writer.batches.lock().unwrap();
-    // Schema first: rename the starter table and title, add the select and
-    // the Page column; the relation waits.
+    // Schema first: rename the starter table and title and add the select;
+    // the relation waits, and the Page column comes once a row has content.
     let schema = &batches[0];
     assert!(matches!(
         &schema[0],
@@ -357,16 +357,7 @@ async fn a_data_source_becomes_a_database_with_typed_columns_rows_bodies_and_pen
         .collect();
     assert_eq!(
         created,
-        [
-            ("Severity".to_string(), ColumnKind::Select { multi: false }),
-            (
-                "Page".to_string(),
-                ColumnKind::Entity {
-                    target: EntityKind::Document,
-                    multi: false
-                }
-            ),
-        ]
+        [("Severity".to_string(), ColumnKind::Select { multi: false })]
     );
 
     // Then the rows, title first.
@@ -398,15 +389,47 @@ async fn a_data_source_becomes_a_database_with_typed_columns_rows_bodies_and_pen
     assert_eq!(documents.len(), 1);
     assert_eq!(documents[0].0, "Login fails");
     assert!(documents[0].1.contains("Steps to reproduce"));
+    // The Page column is created first in the table...
+    let DatabaseOp::Column {
+        column: page_column,
+        change:
+            ColumnChange::Create {
+                definition: NewColumn::New { name, kind, .. },
+                ..
+            },
+        ..
+    } = &batches[2][0]
+    else {
+        panic!("expected the Page column, got {:?}", batches[2]);
+    };
+    assert_eq!(name, "Page");
+    assert_eq!(
+        *kind,
+        ColumnKind::Entity {
+            target: EntityKind::Document,
+            multi: false
+        }
+    );
+    let DatabaseOp::Table {
+        change: TableChange::ReorderColumns { order },
+        ..
+    } = &batches[2][1]
+    else {
+        panic!("expected the column order, got {:?}", batches[2]);
+    };
+    assert_eq!(order[0], *page_column);
+    assert_eq!(order[1], ColumnId::from_uuid(TITLE_COLUMN));
+    assert_eq!(order.len(), 3);
+    // ...then filled with the row's document.
     let DatabaseOp::Rows {
         change:
             RowsChange::Update {
                 changes: RowChanges::PerRow { rows: linked },
             },
         ..
-    } = &batches[2][0]
+    } = &batches[3][0]
     else {
-        panic!("expected the Page links, got {:?}", batches[2]);
+        panic!("expected the Page links, got {:?}", batches[3]);
     };
     assert_eq!(linked.len(), 1);
     assert_eq!(linked[0].row, RowId::from_uuid(Uuid::from_u128(700)));
@@ -468,4 +491,54 @@ async fn a_cancelled_import_stops_before_writing_rows() {
             .iter()
             .any(|op| matches!(op, DatabaseOp::Rows { .. }))
     );
+}
+
+#[test]
+fn the_page_column_never_takes_a_name_the_data_source_already_uses() {
+    let property = |name: &str| NotionPropertySchema {
+        id: name.to_string(),
+        name: name.to_string(),
+        kind: NotionPropertyKind::RichText,
+    };
+    assert_eq!(page_column_name(&[property("Status")]), "Page");
+    assert_eq!(page_column_name(&[property("page")]), "Page (Notion)");
+    assert_eq!(
+        page_column_name(&[property("Page"), property("Page (Notion)")]),
+        "Page 2"
+    );
+}
+
+#[tokio::test]
+async fn a_database_whose_rows_have_no_content_gets_no_page_column() {
+    let notion = FakeNotion {
+        source: NotionDataSource {
+            id: id('e'),
+            database_id: id('f'),
+            title: "Partners".to_string(),
+            database_parent: NotionParent::Workspace,
+            in_trash: false,
+            properties: Vec::new(),
+        },
+        rows: vec![notion_row('1', "Acme", vec![])],
+        bodies: HashMap::new(),
+    };
+    let writer = FakeWriter::default();
+    let mut source_item = item(1, None, "Partners");
+    source_item.kind = ImportKind::DataSource;
+
+    write_database(
+        &notion,
+        &writer,
+        &user(),
+        &source_item,
+        Uuid::from_u128(42),
+        &PeopleMap::new(),
+        &Cancel::default(),
+    )
+    .await
+    .unwrap();
+
+    let batches = writer.batches.lock().unwrap();
+    assert_eq!(batches.len(), 2, "schema and rows only");
+    assert!(writer.folders.lock().unwrap().is_empty());
 }
