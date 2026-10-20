@@ -362,6 +362,8 @@ the shimmer.
   **Add connections** opens Discover; **Manage connections** opens Connected.
   Disabled connections remain available to manage. A partial loading failure
   offers Retry without hiding uploads, references, or skills.
+- Empty conversation greetings use Roboto Slab with the Macro mark to the left,
+  including the Chat and Code starting headings, legacy Home, and the conversation preview empty state.
 - The starting page has **Chat / Code** in the composer’s inset bar, below the input on
   desktop and above it on phones. On desktop, the borderless footer is inset 12px
   from the 32px-radius input; Chat / Code share one track with a softly raised

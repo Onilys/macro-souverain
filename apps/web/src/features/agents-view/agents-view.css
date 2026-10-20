@@ -331,15 +331,6 @@
 		margin-bottom: 12px;
 	}
 
-	:where(.agents-view, .agents-view-portal) .greeting h2 {
-		margin: 0;
-		font-size: 28px;
-		font-weight: 500;
-		letter-spacing: -0.03em;
-		line-height: 1.2;
-		text-wrap: balance;
-	}
-
 	:where(.agents-view, .agents-view-portal) .composer-drawer {
 		position: relative;
 		display: grid;

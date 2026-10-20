@@ -12,6 +12,7 @@ import {
   speedForModel,
 } from '@core/component/AI/constant/speed';
 import { fastModeEnabled } from '@core/component/AI/signal/speed';
+import { ComposerGreeting } from '@core/component/ComposerGreeting';
 import { useSettingsState } from '@core/constant/SettingsState';
 import { useUserId } from '@core/context/user';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
@@ -486,9 +487,9 @@ export function NewChatPage(props: {
       <section class="page newchat" data-active aria-label="New conversation">
         <div ref={tourTarget(AGENTS_TOUR.composer)} class="col">
           <div class="greeting">
-            <h2>
+            <ComposerGreeting>
               {coding() ? 'What should we build?' : 'What should we work on?'}
-            </h2>
+            </ComposerGreeting>
           </div>
           <FloatRegionOrInline
             region="accessory"

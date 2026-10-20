@@ -38,6 +38,7 @@ import {
 import { routineContent } from '../../routines/routine-navigation';
 import { RoutinesPage } from '../../routines/routines-page';
 import '../agents-view.css';
+import { ComposerGreeting } from '@core/component/ComposerGreeting';
 import { fireAndForget } from '@core/util/fireAndForget';
 import { AgentSessionPane } from '../components/AgentSessionPane';
 import { AgentsSidebar } from '../components/AgentsSidebar';
@@ -435,9 +436,9 @@ function AgentsWorkspace(props: { initialRoute?: AgentsRoute }) {
                               <ChatEmptyStateContext.Provider
                                 value={() => (
                                   <div class="px-4 py-16 text-center">
-                                    <h2 class="text-[28px] font-medium tracking-[-0.03em] text-ink">
+                                    <ComposerGreeting>
                                       What should we work on?
-                                    </h2>
+                                    </ComposerGreeting>
                                   </div>
                                 )}
                               >
