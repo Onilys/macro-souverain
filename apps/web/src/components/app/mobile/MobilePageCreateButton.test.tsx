@@ -35,6 +35,24 @@ vi.mock('@app/features/crm/creation-adapter', () => ({
   openCreateCompanyModal: sources.openCompany,
 }));
 vi.mock('@core/mobile/haptics', () => ({ hapticImpact: vi.fn() }));
+vi.mock('@app/features/agents-view/core/route', () => ({
+  agentsRouteId: (route: {
+    mode: string;
+    conversation: { type: string; id: string };
+  }) => `agents-session~agents~${route.conversation.id}`,
+}));
+vi.mock('@app/features/block-agent/context/pending-session', () => ({
+  startPendingSession: () => 'mock-session-id',
+}));
+vi.mock('@app/signal/splitLayout', () => ({
+  globalSplitManager: () => ({
+    replaceAllSplits: vi.fn(),
+    openWithSplit: vi.fn(),
+  }),
+}));
+vi.mock('@core/mobile/isNativeMobilePlatform', () => ({
+  isNativeMobilePlatform: () => false,
+}));
 vi.mock('@ui', () => ({
   cn: (...values: unknown[]) => values.filter(Boolean).join(' '),
 }));
@@ -153,5 +171,11 @@ describe('mobile create availability', () => {
       fireEvent.click(await screen.findByRole('button', { name: label }));
       await vi.waitFor(() => expect(action).toHaveBeenCalledOnce());
     }
+  });
+
+  it('shows Ask AI option in the home quick menu', () => {
+    setup('home');
+    fireEvent.click(screen.getByRole('button', { name: 'New' }));
+    expect(screen.getByRole('button', { name: 'Ask AI' })).toBeTruthy();
   });
 });

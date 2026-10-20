@@ -1,3 +1,5 @@
+import { agentsRouteId } from '@app/features/agents-view/core/route';
+import { startPendingSession } from '@app/features/block-agent/context/pending-session';
 import { useCalendarUiFlag } from '@app/features/calendar/hooks/use-calendar-ui-flag';
 import { useOpenEventComposer } from '@app/features/calendar-view/components/use-open-event-composer';
 import {
@@ -5,7 +7,9 @@ import {
   useCreateMenuBlocks,
 } from '@app/features/command/Launcher';
 import { openCreateCompanyModal } from '@app/features/crm/creation-adapter';
+import { globalSplitManager } from '@app/signal/splitLayout';
 import { hapticImpact } from '@core/mobile/haptics';
+import { isNativeMobilePlatform } from '@core/mobile/isNativeMobilePlatform';
 import { virtualKeyboardVisible } from '@core/mobile/virtualKeyboard';
 import CalendarIcon from '@phosphor/calendar-blank.svg';
 import MessageIcon from '@phosphor/chat-circle.svg';
@@ -15,6 +19,7 @@ import DocumentIcon from '@phosphor/file-text.svg';
 import TaskIcon from '@phosphor/list-checks.svg';
 import PhoneIcon from '@phosphor/phone.svg';
 import CreateIcon from '@phosphor/plus.svg';
+import SparkleIcon from '@phosphor/sparkle.svg';
 import { Show } from 'solid-js';
 import {
   MobileCreateMenu,
@@ -32,6 +37,25 @@ const QUICK_CREATE_VIEWS = [
   { view: 'calendar', icon: CalendarIcon },
   { view: 'tasks', icon: TaskIcon },
 ] as const;
+
+function openAskAi() {
+  const id = startPendingSession();
+  const content = {
+    type: 'component' as const,
+    id: agentsRouteId({
+      mode: 'chat',
+      conversation: { type: 'agent_session', id },
+    }),
+  };
+  const manager = globalSplitManager();
+  if (!manager) return;
+
+  if (isNativeMobilePlatform()) {
+    manager.replaceAllSplits(content);
+  } else {
+    manager.openWithSplit(content, { mergeHistory: true });
+  }
+}
 
 /** The current non-AI view's New action above the navigation dock. */
 export function MobilePageCreateButton() {
@@ -57,6 +81,7 @@ export function MobilePageCreateButton() {
   };
 
   const quickActions = (): MobileCreateMenuItem[] => [
+    { label: 'Ask AI', icon: SparkleIcon, onSelect: openAskAi },
     ...QUICK_CREATE_VIEWS.flatMap(({ view, icon }) => {
       const action = actionForView(view);
       return action ? [{ ...action, icon }] : [];
