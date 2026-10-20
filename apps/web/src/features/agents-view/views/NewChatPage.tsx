@@ -390,7 +390,7 @@ export function NewChatPage(props: {
         }))}
         value={mode()}
         onChange={(value) => setMode(value === 'code' ? 'code' : 'chat')}
-        class="h-9 w-56 touch:w-24 rounded-full bg-ink/3 light-mode:bg-[rgb(246_246_246)] [&>[role=presentation]]:border-ink/10 [&>[role=presentation]]:bg-composer light-mode:[&>[role=presentation]]:bg-panel [&>[role=presentation]]:shadow-[0_1px_6px_0_color-mix(in_srgb,var(--color-ink)_5%,transparent)] light-mode:[&>[role=presentation]]:border light-mode:[&>[role=presentation]]:border-ink/10 light-mode:[&>[role=presentation]]:[background-image:none] light-mode:[&>[role=presentation]]:shadow-[0_1px_6px_0_color-mix(in_srgb,var(--color-ink)_5%,transparent)]"
+        class="h-9 w-56 touch:w-24 rounded-full bg-ink/3 light-mode:bg-[rgb(246_246_246)] [&>[role=presentation]]:border-ink/10 [&>[role=presentation]]:bg-composer light-mode:[&>[role=presentation]]:bg-[rgb(250_250_250)] [&>[role=presentation]]:shadow-[0_1px_6px_0_color-mix(in_srgb,var(--color-ink)_5%,transparent)] light-mode:[&>[role=presentation]]:border light-mode:[&>[role=presentation]]:border-ink/10 light-mode:[&>[role=presentation]]:[background-image:none] light-mode:[&>[role=presentation]]:shadow-[0_1px_6px_0_color-mix(in_srgb,var(--color-ink)_5%,transparent)]"
         labelClass="h-9 px-4 text-sm touch:px-2.5"
       />
     </div>
