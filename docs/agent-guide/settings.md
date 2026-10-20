@@ -76,6 +76,14 @@ With a composer open, save a changed signature or reply-signature preference and
 verify its preview updates. Once the account refresh completes, reopen a composer
 offline and confirm it uses the saved settings.
 
+### Notification permission prompt
+
+After onboarding, an eligible desktop app user sees **Enable Desktop
+Notifications**. Select **Enable** to request permission through the native
+notification provider; macOS uses its system permission dialog. The web prompt
+continues to say **Enable Browser Notifications** and uses browser permissions.
+Select **Hide** to dismiss the prompt.
+
 ### Notification snoozes
 
 Open **Settings → Notifications** to see **Snoozed items** and their local resume

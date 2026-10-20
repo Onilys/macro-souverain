@@ -239,6 +239,7 @@ describe('maybeHandlePlatformNotification', () => {
     expect(showNotification).toHaveBeenCalledWith(
       expect.objectContaining({
         title: 'Someone <General>',
+        notificationId: 'notification-1',
         options: expect.objectContaining({
           body: 'invited you to',
         }),

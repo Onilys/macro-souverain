@@ -30,6 +30,8 @@ The independent `@macro-inc/sdk-docs` package uses TypeDoc and its Markdown plug
 hierarchy and an HTML site from one reflection model. Backend entity sections
 and namespace overviews use those Markdown pages. Compact overviews include
 linked local option types and enums; full sections also include linked wire types.
+Discovery uses at most 32 topics; agent and host setup share a topic. New SDK
+services must also be registered in the generated operation-label catalog.
 There is no separate declaration parser. Private, protected and internal members
 are excluded. `DescribeCodeTools` provides the compact catalog, generated API
 documentation and workflow guides. See [documentation hosting](../sdk-docs/README.md). Jev

@@ -9673,6 +9673,347 @@ export const getDatabaseQueryResponse = zod
   .describe('A stored, immutable query. Editing a question saves a new one.');
 
 /**
+ * @summary Run one statement as the authenticated user. The viewer's catalog authorizes reads;
+the SQL domain service obtains an edit receipt for every written database.
+ */
+export const queryDatabasesBody = zod
+  .object({
+    baseVersions: zod
+      .record(
+        zod.string(),
+        zod
+          .number()
+          .describe(
+            "Monotonic per-table version, bumped once by every committed change to a\ntable's schema or rows. Schema edits name the version they were made\nagainst, and change events carry the new one."
+          )
+      )
+      .optional()
+      .describe(
+        'Expected version for each table a subsequent statement writes.'
+      ),
+    databaseId: zod
+      .union([
+        zod.null(),
+        zod
+          .uuid()
+          .describe(
+            'Identifier of reusable database storage. Its optional Macro entity uses\nthe same identity, so existing routes and grants keep their IDs.'
+          ),
+      ])
+      .optional(),
+    sql: zod
+      .string()
+      .describe(
+        'One supported SQL statement. Writes execute once, without automatic retries.'
+      ),
+  })
+  .describe(
+    'One SQL statement with an optional default database and optimistic write guards.'
+  );
+
+export const queryDatabasesResponseChangesAppliedMin = 0;
+
+export const queryDatabasesResponse = zod
+  .object({
+    changesApplied: zod
+      .number()
+      .min(queryDatabasesResponseChangesAppliedMin)
+      .describe('How many rows a write changed.'),
+    insertedRowIds: zod
+      .array(zod.uuid().describe('Identifier of a row.'))
+      .describe('The rows an `INSERT` created, in statement order.'),
+    newVersions: zod
+      .record(
+        zod.string(),
+        zod
+          .number()
+          .describe(
+            "Monotonic per-table version, bumped once by every committed change to a\ntable's schema or rows. Schema edits name the version they were made\nagainst, and change events carry the new one."
+          )
+      )
+      .describe('The new version of every table written.'),
+    readVersions: zod
+      .record(
+        zod.string(),
+        zod
+          .number()
+          .describe(
+            "Monotonic per-table version, bumped once by every committed change to a\ntable's schema or rows. Schema edits name the version they were made\nagainst, and change events carry the new one."
+          )
+      )
+      .describe(
+        'The version of every table read, for a follow-up write to guard on.'
+      ),
+    result: zod
+      .union([
+        zod.null(),
+        zod
+          .object({
+            columns: zod
+              .array(
+                zod
+                  .object({
+                    kind: zod
+                      .enum([
+                        'text',
+                        'number',
+                        'boolean',
+                        'date',
+                        'select',
+                        'entity',
+                        'row',
+                      ])
+                      .describe('The value kind of a result column.'),
+                    name: zod
+                      .string()
+                      .describe('The name or alias the statement gave it.'),
+                    options: zod
+                      .array(
+                        zod
+                          .object({
+                            id: zod
+                              .uuid()
+                              .describe(
+                                'Identifier of an option of a select or tag column.'
+                              ),
+                            label: zod
+                              .string()
+                              .describe('The label users type in SQL.'),
+                          })
+                          .describe('One option of a select column.')
+                      )
+                      .optional()
+                      .describe(
+                        'For a select column, its options: its cells hold their ids.'
+                      ),
+                    relatedTable: zod
+                      .union([
+                        zod.null(),
+                        zod
+                          .uuid()
+                          .describe(
+                            'Identifier of one table (tab) within a database.'
+                          ),
+                      ])
+                      .optional(),
+                    target: zod
+                      .union([
+                        zod.null(),
+                        zod
+                          .enum([
+                            'USER',
+                            'DOCUMENT',
+                            'TASK',
+                            'COMPANY',
+                            'CONTACT',
+                            'CALL_RECORD',
+                            'CHANNEL',
+                            'CHAT',
+                            'PROJECT',
+                            'THREAD',
+                            'CALENDAR_EVENT',
+                            'INITIATIVE',
+                            'DATABASE_ROW',
+                          ])
+                          .describe(
+                            "What an entity column's references point at: a kind of Macro entity, or\nthe rows of another table for a relation.\n\nSpelled as the properties system spells entity types (`USER`,\n`DATABASE_ROW`), on the wire and in SQL, where it parses\ncase-insensitively."
+                          ),
+                      ])
+                      .optional(),
+                  })
+                  .describe('One result column, with what its cells mean.')
+              )
+              .describe('The columns, in select-list order.'),
+            rowIds: zod
+              .array(zod.uuid().describe('Identifier of a row.'))
+              .describe(
+                'For a row-shaped result, the id of the row behind each result row;\nempty for an aggregate.'
+              ),
+            rows: zod
+              .array(
+                zod.array(
+                  zod.union([
+                    zod.null(),
+                    zod
+                      .union([
+                        zod
+                          .object({
+                            type: zod.enum(['text']),
+                            value: zod.string().describe('Text or link.'),
+                          })
+                          .describe('Text or link.'),
+                        zod
+                          .object({
+                            type: zod.enum(['number']),
+                            value: zod.number().describe('A number.'),
+                          })
+                          .describe('A number.'),
+                        zod
+                          .object({
+                            type: zod.enum(['bool']),
+                            value: zod.boolean().describe('A checkbox.'),
+                          })
+                          .describe('A checkbox.'),
+                        zod
+                          .object({
+                            type: zod.enum(['date']),
+                            value: zod.iso
+                              .datetime({})
+                              .describe('A date-time.'),
+                          })
+                          .describe('A date-time.'),
+                        zod
+                          .object({
+                            type: zod.enum(['options']),
+                            value: zod
+                              .array(
+                                zod
+                                  .uuid()
+                                  .describe(
+                                    'Identifier of an option of a select or tag column.'
+                                  )
+                              )
+                              .describe(
+                                'The selected option ids; one for single-select columns.'
+                              ),
+                          })
+                          .describe(
+                            'The selected option ids; one for single-select columns.'
+                          ),
+                        zod
+                          .object({
+                            type: zod.enum(['entities']),
+                            value: zod
+                              .array(zod.string())
+                              .describe(
+                                'The referenced entity ids; one for single-valued columns.'
+                              ),
+                          })
+                          .describe(
+                            'The referenced entity ids; one for single-valued columns.'
+                          ),
+                        zod
+                          .object({
+                            type: zod.enum(['row']),
+                            value: zod.uuid().describe('Identifier of a row.'),
+                          })
+                          .describe(
+                            "A table row's own id, the `row_id` column."
+                          ),
+                      ])
+                      .describe(
+                        'A cell as fetched. An absent cell is `NULL`; an absent multi-valued cell\nis the empty set.'
+                      ),
+                  ])
+                )
+              )
+              .describe(
+                'One cell per column per row; `null` is an empty cell.'
+              ),
+            sourceTable: zod
+              .union([
+                zod.null(),
+                zod
+                  .uuid()
+                  .describe('Identifier of one table (tab) within a database.'),
+              ])
+              .optional(),
+          })
+          .describe("A `SELECT`'s rows, as the engine's typed cells."),
+      ])
+      .optional(),
+    statement: zod
+      .union([
+        zod
+          .object({
+            databaseId: zod
+              .uuid()
+              .describe(
+                'Identifier of reusable database storage. Its optional Macro entity uses\nthe same identity, so existing routes and grants keep their IDs.'
+              ),
+            kind: zod.enum(['schema']),
+            summary: zod
+              .string()
+              .describe('What changed and how to read the resulting schema.'),
+          })
+          .describe(
+            'A committed schema command. IDs remain available even without a follow-up read.'
+          ),
+        zod
+          .object({
+            kind: zod.enum(['select']),
+          })
+          .describe('A `SELECT`.'),
+        zod
+          .object({
+            kind: zod.enum(['insert']),
+            tableId: zod
+              .uuid()
+              .describe('Identifier of one table (tab) within a database.'),
+            tableName: zod.string().describe('Its name.'),
+          })
+          .describe('An `INSERT`.'),
+        zod
+          .object({
+            kind: zod.enum(['update']),
+            tableId: zod
+              .uuid()
+              .describe('Identifier of one table (tab) within a database.'),
+            tableName: zod.string().describe('Its name.'),
+          })
+          .describe('An `UPDATE`.'),
+        zod
+          .object({
+            kind: zod.enum(['delete']),
+            tableId: zod
+              .uuid()
+              .describe('Identifier of one table (tab) within a database.'),
+            tableName: zod.string().describe('Its name.'),
+          })
+          .describe('A `DELETE`.'),
+        zod
+          .object({
+            columnId: zod
+              .uuid()
+              .describe('Identifier of a column placement within a table.'),
+            columnName: zod.string().describe("The column's name."),
+            kind: zod.enum(['alterColumnType']),
+            tableId: zod
+              .uuid()
+              .describe('Identifier of one table (tab) within a database.'),
+            tableName: zod.string().describe('Its name.'),
+            to: zod
+              .string()
+              .describe(
+                'The type it became, as SQL spells it, e.g. `select[]`.'
+              ),
+          })
+          .describe('An `ALTER COLUMN … TYPE`.'),
+      ])
+      .describe(
+        'The statement that ran: a read, or the table (and for a type change, the\ncolumn) it wrote.'
+      ),
+    tableDatabases: zod
+      .record(
+        zod.string(),
+        zod
+          .uuid()
+          .describe(
+            'Identifier of reusable database storage. Its optional Macro entity uses\nthe same identity, so existing routes and grants keep their IDs.'
+          )
+      )
+      .describe(
+        'Owning database of each visible table referenced by this outcome.'
+      ),
+    truncatedTables: zod
+      .array(zod.string())
+      .describe(
+        "Every table the statement read, when any read hit the engine's row\ncap: the engine reports the cap per statement, so aggregates over any\nof them may be partial."
+      ),
+  })
+  .describe('The answer to one statement.');
+
+/**
  * @summary Create a small example once for the authenticated user, if they have no databases.
  */
 export const ensureStarterHandlerResponse = zod

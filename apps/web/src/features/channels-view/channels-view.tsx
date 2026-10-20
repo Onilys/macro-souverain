@@ -1,5 +1,4 @@
 import { ViewShell } from '@app/components/view-shell';
-import { useAgentDmSearchPool } from '@app/features/agent-dms/queries/search-pool';
 import { SearchState } from '@app/features/command/mobile/mobileSearchState';
 import { markChannelNotificationsSeenOnOpen } from '@app/features/next-soup/utils';
 import { MaybeSoupEntityActionDrawerManager } from '@app/features/soup';
@@ -35,6 +34,7 @@ import {
   useChannelsSources,
 } from './queries';
 import { createChannelDetailSource } from './queries/channel-detail-source';
+import { useChannelListSearchPool } from './queries/channel-list-search-pool';
 import { createChannelSearchSource } from './queries/channel-search-source';
 import { channelsTour } from './tour';
 
@@ -50,10 +50,10 @@ export type ChannelsViewProps = {
 
 // Mounted inside the mobile list's Suspense boundary.
 function MobileChannelsList(props: { sources: ChannelsSources }) {
-  const agentDms = useAgentDmSearchPool();
+  const listChannels = useChannelListSearchPool();
   const mobileSearchText = () => '';
   const mobileSearchSource = createChannelSearchSource({
-    additionalLocalChannels: agentDms,
+    additionalLocalChannels: listChannels,
     text: mobileSearchText,
     scope: () => 'recents',
     source: () => props.sources.recents,
@@ -72,10 +72,10 @@ function DesktopChannelsRail(props: {
   searchOpen: boolean;
   onSearchOpenChange: (open: boolean) => void;
 }) {
-  const agentDms = useAgentDmSearchPool();
+  const listChannels = useChannelListSearchPool();
   const [searchQuery, setSearchQuery] = createSignal('');
   const searchSource = createChannelSearchSource({
-    additionalLocalChannels: agentDms,
+    additionalLocalChannels: listChannels,
     text: searchQuery,
     enabled: () => props.searchOpen,
     scope: () => 'search',

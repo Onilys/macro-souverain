@@ -2403,3 +2403,6 @@ pub async fn warm_agent_session_handler<
         session: session.map(|session| AgentSessionResponse::new(session, true)),
     }))
 }
+
+/// Internal service controls used by AI tools.
+pub mod tool_actions;

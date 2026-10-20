@@ -217,6 +217,18 @@ sender. Before publishing this frontend in a desktop OTA archive, set
 binaries show an update-required notice instead of falling back to the legacy
 notification API, which macOS rejects after UserNotifications has been used.
 
+macOS notification activation additionally requires the retained
+UserNotifications response delegate, installed before the event loop starts.
+`send_macos_notification` embeds the optional `notificationId` in each unique
+request identifier. A click restores/focuses the main window and sends the
+destination through the existing buffered deep-link bridge. The frontend queues
+it until notification navigation is ready, including on cold launch. Dismissal
+does not navigate. Ship this native change with the frontend and raise the macOS
+`MIN_NATIVE_BUILD` to that release before publishing an OTA archive; older native
+builds ignore the added ID and cannot navigate. Previously delivered alerts have
+no destination to recover. Verify the [notification walkthrough](../../../../docs/agent-guide/notifications.md)
+in an installed macOS bundle before release.
+
 Linux notification activation requires `send_linux_notification` and
 `close_linux_notification`. Ship a full native AppImage containing these commands;
 a frontend-only update cannot add clickable system notifications. Before publishing

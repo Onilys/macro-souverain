@@ -22,7 +22,7 @@ macro, session and execution are real SDK handles. You can instead import {Macro
 
 ## Useful workflows
 
-- For a workspace overview, run small per-category macro.workspace.page({includeTypes:[type], limit:3}) requests concurrently in one execution. Return compact metadata and each page.hasMore. A mixed page can be dominated by one category; a sample is not a category total. Exact workspace types include calendar_event, ai_chat and channel_thread. Tasks use includeTypes:["document"], df:{l:{dst:"task"}}. AST & and | are binary; a single filter stays a leaf.
+- For a workspace overview, use the direct ListEntities tool, including agent_session when the user asks about agent work. Use NameSearch for mixed-entity name searches and ContentSearch for session history. Return compact metadata and preserve pagination and source-scope limits. A sample is not a category total. Tasks use includeTypes:["document"], df:{l:{dst:"task"}}. AST & and | are binary; a single filter stays a leaf.
 - Search several precise phrases concurrently, read relevant documents, then calculate an aggregate in one execution. Preserve query attribution, source IDs and sampling limits.
 - Collect a bounded recent-email batch, fetch relevant content, then map macro.ai.decide over it with bounded parallelism. Retain every error and distinguish probability estimates from facts. The ai guide has a complete example.
 - Generate structured extraction with macro.ai.structuredCompletion and toolset:{type:'none'}, using source text already fetched; check the returned outcome rather than assuming success.

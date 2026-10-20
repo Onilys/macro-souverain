@@ -27,8 +27,14 @@ import { MacroApiError, MacroError, unwrap } from '../../utils';
 import type { MacroClient } from '../../utils/client';
 import { MacroEntity } from '../entity';
 import type { PropertyDefinition } from '../properties/property-definition';
+import { EntityAccess } from '../sharing/access';
 import { User } from '../users/user';
 import { DatabaseColumn } from './column';
+import {
+  type DatabaseQueryOptions,
+  type DatabaseQueryResult,
+  queryDatabases,
+} from './query';
 import type { DatabaseRow } from './row';
 import { DatabaseTable } from './table';
 import type { DatabaseView } from './view';
@@ -130,10 +136,13 @@ export type InferColumnTypeOptions = {
 export class MacroOpRefusedError extends MacroApiError {
   /** The refused op's index in the batch. */
   readonly op: number;
+
   /** The row's index within the op, when one row is at fault. */
   readonly row: number | null;
+
   /** The column placement at fault, when one is. */
   readonly column: string | null;
+
   /** The minted id that is already taken, when that is the reason. */
   readonly taken: TakenId | null;
 
@@ -241,6 +250,9 @@ function soleResult<
  * loads lazily on first field access and is dropped after any mutation.
  */
 export class Database extends MacroEntity<DatabaseDetail> {
+  /** Access requests and direct user grants. */
+  readonly access = new EntityAccess(this.client, 'database', this);
+
   protected async fetch(): Promise<DatabaseDetail> {
     return unwrap(
       await this.client.storage.getDatabase({ path: { id: this.id } }),
@@ -272,6 +284,22 @@ export class Database extends MacroEntity<DatabaseDetail> {
   static async list(client: MacroClient): Promise<Database[]> {
     const listed = unwrap(await client.storage.listDatabases());
     return listed.map((entry) => new Database(client, entry.database.id));
+  }
+
+  /** Run one SQL statement with this database as the default name scope. */
+  query(
+    sql: string,
+    options?: Omit<DatabaseQueryOptions, 'database'>,
+  ): Promise<DatabaseQueryResult> {
+    return queryDatabases(this.client, Database.byId, sql, {
+      ...options,
+      database: this,
+    });
+  }
+
+  /** @internal Drop the schema snapshot after a successful SQL write. */
+  invalidateSchema(): void {
+    this.detail.clear();
   }
 
   /**

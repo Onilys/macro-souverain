@@ -38,6 +38,7 @@ function deferred<T>() {
 
 const notification = {
   title: 'New message',
+  notificationId: '01a1561c-62b1-7ee4-99d5-1fa5988dbf5d',
   options: { body: 'A teammate mentioned you', icon: 'macro-icon.svg' },
 };
 
@@ -72,6 +73,7 @@ describe('desktop notification delivery', () => {
       expect(mocks.invoke).toHaveBeenCalledWith('send_macos_notification', {
         title: notification.title,
         body: notification.options.body,
+        notificationId: notification.notificationId,
       });
     });
     expect(completed).toBe(false);
@@ -92,6 +94,7 @@ describe('desktop notification delivery', () => {
     expect(mocks.invoke).toHaveBeenCalledWith('send_macos_notification', {
       title: 'Reminder',
       body: undefined,
+      notificationId: undefined,
     });
     expect(mocks.sendNotification).not.toHaveBeenCalled();
   });

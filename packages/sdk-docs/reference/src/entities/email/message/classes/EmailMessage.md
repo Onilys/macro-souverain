@@ -7,6 +7,10 @@ record loads lazily on first field access.
 
 - [`MacroEntity`](../../../entity/classes/MacroEntity.md)\<[`EmailMessageData`](../type-aliases/EmailMessageData.md)\>
 
+## Extended by
+
+- [`EmailDraft`](../../draft/classes/EmailDraft.md)
+
 ## Properties
 
 | Property | Modifier | Type | Description | Inherited from |

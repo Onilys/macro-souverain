@@ -14,6 +14,12 @@ import {
 } from '@service-cognition/generated/tools/tool';
 import { createMemo, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
+import {
+  createAgentSessionHandler,
+  manageAgentSessionHandler,
+  readAgentSessionSharingHandler,
+  updateAgentSessionSharingHandler,
+} from './AgentSessionActions';
 import { configureAgentHandler, listAgentsHandler } from './Agents';
 import { bashCodeExecutionHandler } from './BashCodeExecution';
 import {
@@ -133,6 +139,7 @@ import {
   setEntityPropertyHandler,
 } from './Properties';
 import { readActivityHandler } from './ReadActivity';
+import { readAgentSessionHandler } from './ReadAgentSession';
 import { readCallRecordHandler } from './ReadCallRecord';
 import {
   readChannelMessageContextHandler,
@@ -293,6 +300,11 @@ const toolHandlers: ToolHandlerMap<RenderContext> = {
   ReadChannelMessages: readChannelMessagesHandler,
   ReadChannelThread: readChannelThreadHandler,
   ReadChat: readChatHandler,
+  ReadAgentSession: readAgentSessionHandler,
+  CreateAgentSession: createAgentSessionHandler,
+  ManageAgentSession: manageAgentSessionHandler,
+  ReadAgentSessionSharing: readAgentSessionSharingHandler,
+  UpdateAgentSessionSharing: updateAgentSessionSharingHandler,
   ReadThread: readThreadHandler,
   ReadContent: readContentHandler,
   ReadMetadata: readMetadataHandler,

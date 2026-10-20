@@ -50,6 +50,10 @@ rows, initiatives, ...) and get back a single unified, paginated result.
 - Change what the work feed/Signal surfaces: `src/domain/service/tests/work_feed.rs`
   → `src/outbound/pg_soup_repo/work_feed.rs`.
 
+## Tool contracts
+
+- The AI `ListEntities` adapter includes agent sessions and excludes legacy chats; public feed contracts retain historical chat support.
+
 ## Checks
 
 - `cargo test -p soup` (`SQLX_OFFLINE` unset; needs local MacroDB).
