@@ -77,6 +77,8 @@ function Root(
     defaultOpen?: boolean;
     persistKey?: string;
     floating?: boolean;
+    /** False while the panel's content is hidden, so `]` toggles another. */
+    keyboard?: boolean;
   }>
 ) {
   const splitPanel = useSplitPanel();
@@ -135,10 +137,10 @@ function Root(
   };
 
   const hasSections = createMemo(() => sections().length > 0);
-  if (splitPanel?.splitHotkeyScope) {
+  const ToggleHotkey = (hotkeyProps: { scopeId: string }) => {
     registerHotkey({
       hotkey: ']',
-      scopeId: splitPanel.splitHotkeyScope,
+      scopeId: hotkeyProps.scopeId,
       hotkeyToken: TOKENS.block.toggleSidePanel,
       description: 'Toggle Side Panel',
       keyDownHandler: () => {
@@ -147,7 +149,8 @@ function Root(
         return true;
       },
     });
-  }
+    return null;
+  };
 
   const ctx: SidePanelContextType = {
     headerActionsMount,
@@ -168,6 +171,9 @@ function Root(
 
   return (
     <SidePanelContext.Provider value={ctx}>
+      <Show when={props.keyboard !== false && splitPanel?.splitHotkeyScope}>
+        {(scopeId) => <ToggleHotkey scopeId={scopeId()} />}
+      </Show>
       {props.children}
     </SidePanelContext.Provider>
   );

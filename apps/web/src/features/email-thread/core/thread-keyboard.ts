@@ -22,3 +22,55 @@ export interface EmailThreadKeyboardHandlers {
   navigateToPreviousMessage: () => boolean;
   navigateToNextMessage: () => boolean;
 }
+
+type ThreadAction = Exclude<
+  keyof EmailThreadKeyboardHandlers,
+  | 'cancel'
+  | 'isThreadDone'
+  | 'canMarkNotDone'
+  | 'isThreadMarkedUnread'
+  | 'navigateToPreviousMessage'
+  | 'navigateToNextMessage'
+>;
+
+/**
+ * Keyboard handlers that act on whichever thread `current` returns, so a
+ * thread's keys are registered once even though its handlers arrive after it
+ * mounts. While `ready` is false the actions are held: their keys are
+ * swallowed so they neither act on this thread nor fall through to another.
+ * Escape, the state gates and message navigation always pass through. With no
+ * handlers yet, every key falls through.
+ */
+export function delegateThreadKeyboard(
+  current: () => EmailThreadKeyboardHandlers | undefined,
+  ready: () => boolean
+): EmailThreadKeyboardHandlers {
+  const action = (name: ThreadAction) => (): boolean => {
+    const handler = current()?.[name];
+    if (!handler) return false;
+    return ready() ? handler() : true;
+  };
+  const pass =
+    (name: Exclude<keyof EmailThreadKeyboardHandlers, ThreadAction>) =>
+    (): boolean =>
+      current()?.[name]() ?? false;
+  return {
+    activate: action('activate'),
+    cancel: pass('cancel'),
+    replyToFocusedMessage: action('replyToFocusedMessage'),
+    replyAllToFocusedMessage: action('replyAllToFocusedMessage'),
+    forwardFocusedMessage: action('forwardFocusedMessage'),
+    blockSender: action('blockSender'),
+    markDone: action('markDone'),
+    markNotDone: action('markNotDone'),
+    isThreadDone: pass('isThreadDone'),
+    canMarkNotDone: pass('canMarkNotDone'),
+    markUnread: action('markUnread'),
+    markRead: action('markRead'),
+    isThreadMarkedUnread: pass('isThreadMarkedUnread'),
+    markSenderSignal: action('markSenderSignal'),
+    markSenderNoise: action('markSenderNoise'),
+    navigateToPreviousMessage: pass('navigateToPreviousMessage'),
+    navigateToNextMessage: pass('navigateToNextMessage'),
+  };
+}

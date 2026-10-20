@@ -19,7 +19,7 @@ import { type EntityData, isEmailEntity, isTaskEntity } from '@entity';
 import { Telemetry } from '@macro-inc/observability';
 import { SYSTEM_PROPERTY_IDS } from '@property/constants';
 import type { Property, PropertyDefinitionDomain } from '@property/types';
-import { createEffect, onCleanup } from 'solid-js';
+import { type Accessor, createEffect, onCleanup } from 'solid-js';
 import type { EntityActionNavigationEvent } from './entity-action-context';
 import {
   makeAddTagAction,
@@ -54,7 +54,8 @@ const reportEntityActionError = (error: unknown) =>
  * query must not suspend.
  */
 export type UseBlockEntityCommandsOptions = {
-  id?: string;
+  /** An accessor when the view swaps the entity it shows in place. */
+  id?: string | Accessor<string>;
   scopeId?: string;
   resolveEntity?: () => EntityData | undefined;
   onDeleted?: () => void;
@@ -64,13 +65,14 @@ export type UseBlockEntityCommandsOptions = {
 export const useBlockEntityCommands = (
   options: UseBlockEntityCommandsOptions = {}
 ) => {
-  const blockId = options.id ?? useMaybeBlockId();
+  const id = options.id ?? useMaybeBlockId();
 
-  if (!blockId) {
+  if (!id) {
     throw new Error(
       'useBlockEntityCommands requires an explicit id or an enclosing block'
     );
   }
+  const blockId = typeof id === 'function' ? id : () => id;
 
   const quickAccess = useQuickAccess();
   const userId = useUserId();
@@ -111,7 +113,7 @@ export const useBlockEntityCommands = (
   const getEntity = (): EntityData | undefined => {
     const provided = options.resolveEntity?.();
     if (provided) return provided;
-    const item = quickAccess.getById(blockId);
+    const item = quickAccess.getById(blockId());
     if (item?.kind === 'entity') return item.data;
     return undefined;
   };
@@ -488,7 +490,9 @@ export const useBlockEntityCommands = (
       scopeId,
       description: 'Copy ID',
       keyDownHandler: () => {
-        copyEntityIdAction.executeById(blockId).catch(reportEntityActionError);
+        copyEntityIdAction
+          .executeById(blockId())
+          .catch(reportEntityActionError);
         return true;
       },
       displayPriority: 10,
