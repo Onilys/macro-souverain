@@ -2642,7 +2642,8 @@
     "/email/sync": {
       "delete": {
         "tags": ["Sync"],
-        "summary": "Disables inbox syncing for user.",
+        "summary": "Disables inbox syncing for the selected inbox.",
+        "description": "The inbox is the caller's primary, or the one named by `X-Email-Link-Id`,\nwhich may be an inbox the caller only reaches through delegation. Removal\ntherefore follows the same policy as `DELETE /email/links/{link_id}`: an\nowner's inbox is torn down, while a delegate only loses their\n`macro_user_links` edge and the owner's data stays intact.",
         "operationId": "disable_sync",
         "responses": {
           "204": {
@@ -2666,6 +2667,36 @@
             }
           },
           "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
             "description": "",
             "content": {
               "application/json": {

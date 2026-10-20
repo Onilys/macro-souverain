@@ -2874,7 +2874,12 @@ export const mailboxSettingsOperations = async (
 };
 
 /**
- * @summary Disables inbox syncing for user.
+ * The inbox is the caller's primary, or the one named by `X-Email-Link-Id`,
+which may be an inbox the caller only reaches through delegation. Removal
+therefore follows the same policy as `DELETE /email/links/{link_id}`: an
+owner's inbox is torn down, while a delegate only loses their
+`macro_user_links` edge and the owner's data stays intact.
+ * @summary Disables inbox syncing for the selected inbox.
  */
 export type disableSyncResponse204 = {
   data: EmptyResponse;
@@ -2891,6 +2896,21 @@ export type disableSyncResponse401 = {
   status: 401;
 };
 
+export type disableSyncResponse403 = {
+  data: ErrorResponse;
+  status: 403;
+};
+
+export type disableSyncResponse404 = {
+  data: ErrorResponse;
+  status: 404;
+};
+
+export type disableSyncResponse409 = {
+  data: ErrorResponse;
+  status: 409;
+};
+
 export type disableSyncResponse500 = {
   data: ErrorResponse;
   status: 500;
@@ -2902,6 +2922,9 @@ export type disableSyncResponseSuccess = disableSyncResponse204 & {
 export type disableSyncResponseError = (
   | disableSyncResponse400
   | disableSyncResponse401
+  | disableSyncResponse403
+  | disableSyncResponse404
+  | disableSyncResponse409
   | disableSyncResponse500
 ) & {
   headers: Headers;
