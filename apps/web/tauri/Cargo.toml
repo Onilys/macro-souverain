@@ -32,7 +32,8 @@ reqwest = "0.13"
 rootcause = "0.12"
 semver = "1"
 serde = "1"
-tauri = { git = "https://github.com/macro-inc/tauri", rev = "957785f5" }
+# Resolved through the crates-io patch below, so desktop-cef/ can repoint it.
+tauri = "2.11"
 thiserror = "2"
 tokio = "1"
 tracing = "0.1"

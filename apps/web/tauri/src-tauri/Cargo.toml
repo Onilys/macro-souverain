@@ -26,6 +26,8 @@ tauri = { workspace = true, features = ["test"] }
 # ios-build-no-update) so the embedded bundle / dev server is always served.
 auto_apply_update = []
 default = ["auto_apply_update"]
+# Set only by the macOS Chromium build in ../desktop-cef; adds no dependencies.
+cef = []
 
 [dependencies]
 http = "1"

@@ -208,6 +208,12 @@ Build and copy the agent-fold JavaScript glue and WASM before Vite runs, and
 check that both appear in the output. Without them, Vite leaves the worker's
 relative imports unchanged and Tauri can serve HTML for the missing module.
 
+## macOS desktop runtime: Chromium (CEF), experimental
+`tauri/desktop-cef` builds the macOS app with Chromium in its own Cargo workspace;
+the shipped builds of every platform still come from `tauri/src-tauri` on the
+system webview. See `tauri/desktop-cef/AGENTS.md` before changing Tauri
+dependencies or the app's served origin.
+
 ## macOS desktop gotcha: third-party iframes
 WKWebView asks the desktop navigation plugin about iframe loads as well as page loads, and the plugin cannot tell them apart. A third-party iframe is classified as external: its load is cancelled and the page opens in the browser, leaving an empty frame in the app. List a third-party page the app frames in `EMBEDDED_DOCUMENTS` in `tauri/src-tauri/src/lib.rs`.
 
