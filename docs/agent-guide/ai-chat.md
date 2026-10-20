@@ -364,7 +364,7 @@ the shimmer.
   offers Retry without hiding uploads, references, or skills.
 - The starting page has **Chat / Code** in the composer’s inset bar, below the input on
   desktop and above it on phones. On desktop, the borderless footer is inset 12px
-  from the 28px-radius input; Chat / Code share one track with a softly raised
+  from the 32px-radius input; Chat / Code share one track with a softly raised
   selected segment and equal 8px insets in the 52px footer. Its bottom corners
   follow the toggle's curve. The choice limits the offered agents and is
   remembered per user. Switching modes preserves the draft and attachments and
