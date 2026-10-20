@@ -407,7 +407,7 @@ const WORLD_ROWS: WorldRow[] = [
   },
   {
     feature: 'Email, tasks, and chat in one inbox',
-    href: `${DOCS}/product/inbox`,
+    href: `${DOCS}/product/home`,
     external: true,
     cells: [true, false, false, false, false, false],
   },
