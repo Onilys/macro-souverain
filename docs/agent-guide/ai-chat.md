@@ -356,7 +356,8 @@ the shimmer.
 - The starting page has **Chat / Code** in the composer’s inset bar, below the input on
   desktop and above it on phones. On desktop, the borderless footer is inset 12px
   from the 28px-radius input; Chat / Code share one track with a softly raised
-  selected segment. The choice limits the offered agents and is
+  selected segment and equal 8px insets in the 52px footer. Its bottom corners
+  follow the toggle's curve. The choice limits the offered agents and is
   remembered per user. Switching modes preserves the draft and attachments and
   clears model and effort overrides from the previous mode. It does not filter
   the conversation sidebar. Session composers start at one line and grow with
@@ -435,7 +436,7 @@ the shimmer.
   with the repository bar below the input on desktop and above it on mobile.
   The plus attachment button stays at the far left: before the
   text in the compact row, and on the bottom control row when expanded. The editor sits above the controls, with attachments
-  on the left and the agent/model and Send on the right. On mobile, Chat/Code sits at the top left and repository controls at the top right; repository and branch selection open in standard bottom drawers. These controls sit inside the same continuous surface as the input with no inset or dividing border. On desktop, an inset bar aligned to the full input width holds Chat/Code with rounded outer corners and a subtle border, with a darker surface in dark mode. The settings row keeps a stable height when changing modes: 44 px on desktop, with 2 px more top and side padding on mobile.
+  on the left and the agent/model and Send on the right. On mobile, Chat/Code sits at the top left and repository controls at the top right; repository and branch selection open in standard bottom drawers. These controls sit inside the same continuous surface as the input with no inset or dividing border. On desktop, the borderless bar sits 12px inside each input edge and gives the 36px Chat/Code toggle equal 8px insets, with concentric bottom corners and a darker fill. The settings row keeps a stable height when changing modes: 52px on desktop and a 46px minimum on mobile.
   Selecting Chat hides the repository controls and keeps the mode switch in
   the settings row, without remounting the editor or losing the draft. Reduced-motion
   preferences disable the animation. The hidden drawer is inert. **Repository**
