@@ -365,9 +365,11 @@ the shimmer.
 - Empty conversation greetings use Roboto Slab with the Macro mark to the left,
   at weight 360 in light mode and 315 in dark mode, including the Chat and Code
   starting headings, legacy Home, and the conversation preview empty state.
+- The desktop input uses 28px corners with an 18px horizontal text inset and
+  16px top padding when expanded; its existing border and shadow are unchanged.
 - The starting page has **Chat / Code** in the composer’s inset bar, below the input on
   desktop and above it on phones. On desktop, the borderless footer is inset 12px
-  from the 32px-radius input; Chat / Code share one track with a softly raised
+  from the 28px-radius input; Chat / Code share one track with a softly raised
   selected segment and equal 8px insets in the 52px footer. Its bottom corners
   follow the toggle's curve. The choice limits the offered agents and is
   remembered per user. Switching modes preserves the draft and attachments and

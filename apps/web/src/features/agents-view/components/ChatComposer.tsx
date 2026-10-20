@@ -274,7 +274,7 @@ export function ChatComposer(props: {
         'max-h-6 overflow-hidden': !!collapsed(),
         'max-h-[min(15rem,30dvh)]': !collapsed(),
       }}
-      class="min-w-0 flex-1 self-center overflow-y-auto px-[9.375px] group-data-[composer-compact=true]/composer:px-0 group-data-[composer-coding=true]/composer:min-h-[58px] touch:group-data-[composer-compact=false]/composer:min-h-18 group-data-[composer-compact=false]/composer:flex-none group-data-[composer-compact=false]/composer:basis-full"
+      class="min-w-0 flex-1 self-center overflow-y-auto px-[9.375px] not-touch:group-data-[composer-compact=false]/composer:px-1.5 group-data-[composer-compact=true]/composer:px-0 group-data-[composer-coding=true]/composer:min-h-[58px] touch:group-data-[composer-compact=false]/composer:min-h-18 group-data-[composer-compact=false]/composer:flex-none group-data-[composer-compact=false]/composer:basis-full"
     >
       <MarkdownShell
         class="h-auto min-h-6 text-base leading-6 [&_[data-markdown-editable]]:min-h-6 [&_[data-markdown-editable]]:outline-none [&_[data-markdown-editable]>.md-p]:my-0 [&_[data-markdown-placeholder]]:max-w-full [&_[data-markdown-placeholder]>p]:m-0 [&_[data-markdown-placeholder]>p]:truncate"
@@ -365,7 +365,7 @@ export function ChatComposer(props: {
           data-composer-expanded={
             (isTouchDevice() && !collapsed()) || undefined
           }
-          class="relative z-10 min-w-0 rounded-[32px] transition-[height] duration-200 ease-[cubic-bezier(0.77,0,0.175,1)] motion-reduce:transition-none"
+          class="relative z-10 min-w-0 rounded-[28px] touch:rounded-[32px] transition-[height] duration-200 ease-[cubic-bezier(0.77,0,0.175,1)] motion-reduce:transition-none"
           style={{
             height: height() === undefined ? undefined : `${height()}px`,
           }}
@@ -378,7 +378,7 @@ export function ChatComposer(props: {
           >
             <Show when={canAttach()}>
               <Input.DropOverlay
-                class="rounded-[32px]"
+                class="rounded-[28px] touch:rounded-[32px]"
                 hint="Drop files here to send them to the agent"
               />
             </Show>
@@ -390,14 +390,14 @@ export function ChatComposer(props: {
             >
               <Input.Attachments kind="media" class="pb-0" />
               <Input.Attachments kind="document" class="pb-0" />
-              {/* Expanded text keeps the compact row's vertical inset:
-                  7.5px padding + half the button/line-height difference. */}
+              {/* Desktop expanded text uses an 18px horizontal inset and 16px
+                  top padding; touch keeps the compact row's vertical inset. */}
               <div
                 ref={setLayout}
                 data-composer-compact={!drawerOpen() && isCompact()}
                 data-composer-coding={drawerOpen() || undefined}
                 data-composer-collapsed={collapsed() || undefined}
-                class="group/composer flex min-w-0 data-[composer-compact=false]:flex-wrap items-end gap-2 p-[7.5px] pl-3 data-[composer-compact=false]:pb-2.5 data-[composer-compact=false]:px-3 data-[composer-compact=false]:pt-[calc(7.5px_+_(33.75px_-_1.5rem)/2)] data-[composer-collapsed=true]:h-(--mobile-chrome-button-size) data-[composer-collapsed=true]:items-center data-[composer-collapsed=true]:py-0 data-[composer-collapsed=true]:pl-3.5 data-[composer-collapsed=true]:pr-[9.5px]"
+                class="group/composer flex min-w-0 data-[composer-compact=false]:flex-wrap items-end gap-2 p-[7.5px] pl-3 data-[composer-compact=false]:pb-2.5 data-[composer-compact=false]:px-3 data-[composer-compact=false]:pt-[calc(7.5px_+_(33.75px_-_1.5rem)/2)] not-touch:data-[composer-compact=false]:pt-4 data-[composer-collapsed=true]:h-(--mobile-chrome-button-size) data-[composer-collapsed=true]:items-center data-[composer-collapsed=true]:py-0 data-[composer-collapsed=true]:pl-3.5 data-[composer-collapsed=true]:pr-[9.5px]"
               >
                 <Show when={props.onAttachFiles}>
                   <div
