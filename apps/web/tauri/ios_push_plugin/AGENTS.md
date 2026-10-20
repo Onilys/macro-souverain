@@ -26,6 +26,8 @@ and owns durable notification-tap delivery across cold launches/WebView reloads.
 - A neutral view covers the WebView while inactive and during notification
   navigation. Auth/error screens use `release_notification_cover` without
   consuming the intent. A hidden bootstrap must never wait for foregrounding.
+  Failed tap delivery releases the cover only after frontend bootstrap; keep
+  the intent available for a replacement listener.
 - Gate new frontend commands on `__MACRO_IOS_NOTIFICATION_LAUNCH__`; older native
   binaries retain the existing push behavior when receiving an OTA web bundle.
   Pass `launchAware: true` when watching. Older web bundles omit that flag and

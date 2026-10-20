@@ -126,7 +126,6 @@ final class NotificationsPlugin: Plugin, UNUserNotificationCenterDelegate {
                 reveal()
                 return
             }
-            guard notificationChannel != nil else { return }
             // A previous route may have committed while its durable ack failed.
             // Re-delivery lets the live frontend retry that same delivery ID.
             deliverTap(event)
@@ -258,8 +257,13 @@ final class NotificationsPlugin: Plugin, UNUserNotificationCenterDelegate {
     }
 
     private func deliverTap(_ event: PendingPush) {
-        guard notificationChannel != nil else { return }
-        guard send(event) else { return }
+        guard send(event) else {
+            // A live frontend may lose its listener without remounting. Keep
+            // the intent for reconnect, but do not leave its UI covered. A new
+            // WebView still waits for bootstrap before revealing any content.
+            if frontendReady { reveal() }
+            return
+        }
         if !launchAware {
             // Older frontend bundles cannot acknowledge. Preserve their
             // historical delivery contract without leaving a native cover up.
