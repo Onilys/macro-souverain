@@ -116,6 +116,10 @@ impl GraphqlSoupEmailMessage {
 /// An adaptively hydrated email content projection for Soup queries.
 #[Object]
 impl GraphqlSoupEmailMessage {
+    /// Generation required when editing a draft after send/cancellation.
+    async fn draft_generation(&self) -> i32 {
+        self.parsed().draft_generation
+    }
     /// Immutable scheduling snapshots; JSON keeps both transports identical.
     async fn calendar_invitations(
         &self,
@@ -653,6 +657,7 @@ mod tests {
     fn message(thread_id: Uuid) -> ParsedMessage {
         let now = Utc::now();
         ParsedMessage {
+            draft_generation: 0,
             db_id: Uuid::from_u128(1),
             link_id: Uuid::from_u128(3),
             thread_db_id: thread_id,

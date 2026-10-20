@@ -6,7 +6,8 @@ mod loaders;
 mod mutation;
 mod send;
 pub use send::{
-    EmailSendAttemptInput, EmailSendAttemptPayload, GraphqlEmailSendMutation, load_send_attempt,
+    EmailSendAttemptInput, EmailSendAttemptPayload, GraphqlEmailSendMutation, PendingEmailSends,
+    load_pending_sends, load_send_attempt,
 };
 mod objects;
 mod operation;

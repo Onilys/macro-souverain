@@ -6,7 +6,13 @@ use email_db_client::messages::scheduled::delivery::{
 
 async fn admit_and_claim(pool: &Pool<Postgres>) -> anyhow::Result<(SendAttemptId, DeliveryClaim)> {
     let attempt = SendAttemptId(macro_uuid::generate_uuid_v7());
-    let mut input = prepared();
+    let generation = sqlx::query_scalar!(
+        "SELECT draft_generation FROM email_messages WHERE id=$1",
+        message()
+    )
+    .fetch_one(pool)
+    .await?;
+    let mut input = prepared_generation(generation);
     input.undo_delay_secs = 0;
     EmailPgRepo::new(pool.clone())
         .admit_send(&actor(), link(), attempt, input)
@@ -100,13 +106,18 @@ async fn schedule_cancellation_fences_managed_preparation_during_backoff(
                 message(),
                 &actor(),
                 ScheduleChange::Set(Utc::now() + chrono::Duration::hours(1)),
-                None
+                None,
+                0
             )
             .await,
             Err(EmailErr::MessageDeliveryConflict(_))
         ));
-        repo.change_schedule(link(), message(), &actor(), ScheduleChange::Cancel, None)
-            .await?;
+        assert!(
+            repo.change_schedule(link(), message(), &actor(), ScheduleChange::Cancel, None, 0)
+                .await
+                .is_err()
+        );
+        repo.cancel_send(&actor(), link(), attempt).await?;
         assert!(!begin_submission(&pool, &claim, 300).await?);
         assert_eq!(
             repo.read_send_attempt(&actor(), link(), attempt, None)
@@ -135,7 +146,7 @@ async fn submitted_delivery_remains_locked_after_lease_expiry(
         SendAttemptStatus::Sending
     );
     assert!(matches!(
-        repo.change_schedule(link(), message(), &actor(), ScheduleChange::Cancel, None)
+        repo.change_schedule(link(), message(), &actor(), ScheduleChange::Cancel, None, 0)
             .await,
         Err(EmailErr::MessageDeliveryConflict(_))
     ));
@@ -174,7 +185,7 @@ async fn expired_legacy_claim_cannot_be_mistaken_for_safe_preparation(
         SendAttemptStatus::Sending
     );
     assert!(matches!(
-        repo.change_schedule(link(), message(), &actor(), ScheduleChange::Cancel, None)
+        repo.change_schedule(link(), message(), &actor(), ScheduleChange::Cancel, None, 0)
             .await,
         Err(EmailErr::MessageDeliveryConflict(_))
     ));

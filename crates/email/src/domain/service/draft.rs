@@ -244,6 +244,8 @@ where
         &self,
         macro_id: macro_user_id::user_id::MacroUserIdStr<'_>,
         draft_id: Uuid,
+
+        expected_generation: i32,
     ) -> Result<DeletedUserDraft, EmailErr> {
         let accessible_link_ids: Vec<Uuid> = self
             .email_repo
@@ -293,8 +295,11 @@ where
             });
         };
 
-        if msg.is_sent || !msg.is_draft {
+        if msg.is_sent {
             return Err(EmailErr::MessageAlreadySent(draft_id));
+        }
+        if !msg.is_draft {
+            return Err(EmailErr::MessageDeliveryConflict(draft_id));
         }
 
         let deletion = self
@@ -304,6 +309,7 @@ where
                 msg.thread_db_id,
                 &accessible_link_ids,
                 Some(macro_id.as_ref()),
+                expected_generation,
             )
             .await
             .map_err(anyhow::Error::from)?;
@@ -320,8 +326,11 @@ where
                 .get_simple_message(msg.db_id, &accessible_link_ids)
                 .await
                 .map_err(anyhow::Error::from)?;
-            if raced.as_ref().is_some_and(|m| m.is_sent || !m.is_draft) {
+            if raced.as_ref().is_some_and(|m| m.is_sent) {
                 return Err(EmailErr::MessageAlreadySent(draft_id));
+            }
+            if raced.as_ref().is_some_and(|m| !m.is_draft) {
+                return Err(EmailErr::MessageDeliveryConflict(draft_id));
             }
             if self
                 .email_repo
@@ -394,8 +403,11 @@ where
                 .get_simple_message(rejected_id, &accessible_link_ids)
                 .await
                 .map_err(anyhow::Error::from)?;
-            if rejected.as_ref().is_some_and(|m| m.is_sent || !m.is_draft) {
+            if rejected.as_ref().is_some_and(|m| m.is_sent) {
                 return Err(EmailErr::MessageAlreadySent(rejected_id));
+            }
+            if rejected.as_ref().is_some_and(|m| !m.is_draft) {
+                return Err(EmailErr::MessageDeliveryConflict(rejected_id));
             }
             if rejected.is_some()
                 && self
@@ -411,6 +423,7 @@ where
         };
 
         Ok(CreatedDraft {
+            draft_generation: resolved.draft_generation,
             db_id: settled.message_db_id,
             provider_id: resolved.provider_id,
             replying_to_id: resolved.replying_to_id,
@@ -504,13 +517,14 @@ where
 
         // Start the undo window only after provider validation and preparation.
         // A slow send-as lookup must not consume the user's cancellation window.
-        if !is_draft {
+        if !is_draft && input.send_time.is_none() {
             input.send_time = Some(
                 chrono::Utc::now()
                     + chrono::Duration::seconds(i64::from(self.sent_undo_delay_secs)),
             );
         }
         let resolved = ResolvedDraftInput {
+            draft_generation: input.draft_generation,
             db_id: message_db_id,
             provider_id: input.provider_id,
             replying_to_id: input.replying_to_id,
@@ -538,6 +552,21 @@ where
     /// forwards (a `replying_to_id` is present) require
     /// `signature_on_replies_forwards`. Best-effort — any failure just skips.
     async fn maybe_inject_signature(&self, link: &Link, input: &mut CreateDraftInput) {
+        if let Some(signature) = &input.frozen_signature_html {
+            super::signature::SignaturePreparation {
+                settings: Some(crate::domain::ports::LinkEmailSettings {
+                    signature: Some(email_utils::sanitize_authored_html(signature)),
+                    signature_on_replies_forwards: true,
+                }),
+                include_signature: Some(!signature.trim().is_empty()),
+            }
+            .apply(
+                input.replying_to_id.is_some(),
+                &mut input.body_html,
+                &mut input.body_text,
+            );
+            return;
+        }
         let settings = if input.include_signature == Some(false)
             || input
                 .body_html
@@ -587,8 +616,11 @@ where
             return Err(EmailErr::MessageNotFound(db_id));
         };
 
-        if msg.is_sent || !msg.is_draft {
+        if msg.is_sent {
             return Err(EmailErr::MessageAlreadySent(db_id));
+        }
+        if !msg.is_draft {
+            return Err(EmailErr::MessageDeliveryConflict(db_id));
         }
 
         if msg.link_id != link_id {
@@ -630,6 +662,7 @@ where
                     msg.thread_db_id,
                     &accessible_link_ids,
                     input.actor.as_ref().map(|actor| actor.as_ref()),
+                    input.draft_generation,
                 )
                 .await
                 .map_err(anyhow::Error::from)?;
@@ -640,7 +673,7 @@ where
                     .await
                     .map_err(anyhow::Error::from)?
             {
-                if retained.is_sent || !retained.is_draft {
+                if retained.is_sent {
                     return Err(EmailErr::MessageAlreadySent(msg.db_id));
                 }
                 return Err(EmailErr::MessageDeliveryConflict(msg.db_id));

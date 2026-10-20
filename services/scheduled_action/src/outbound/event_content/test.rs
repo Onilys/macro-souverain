@@ -25,6 +25,7 @@ fn event(name: &str, message_id: Option<Uuid>) -> EventReference {
 fn email() -> ParsedMessage {
     let at = Utc.with_ymd_and_hms(2026, 10, 5, 9, 30, 0).unwrap();
     ParsedMessage {
+        draft_generation: 0,
         db_id: Uuid::nil(),
         link_id: Uuid::nil(),
         thread_db_id: Uuid::nil(),

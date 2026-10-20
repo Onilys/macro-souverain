@@ -143,20 +143,49 @@ pub(super) async fn insert_message_in_transaction(
     // Serialize with schedule/cancel/claim before checking editability. The
     // domain's earlier read cannot protect a save waiting on this transaction.
     let existing = sqlx::query!(
-        "SELECT link_id, is_sent, is_draft, (EXISTS (SELECT 1 FROM email_mailbox_drafts d WHERE d.message_id = email_messages.id AND d.delete_requested) OR EXISTS(SELECT 1 FROM email_draft_transfers t WHERE t.source_id=email_messages.id AND t.state<>'preparing')) AS \"deleted!\" FROM email_messages WHERE id = $1 FOR UPDATE",
+        "SELECT link_id, draft_generation, is_sent, is_draft, (EXISTS (SELECT 1 FROM email_mailbox_drafts d WHERE d.message_id = email_messages.id AND d.delete_requested) OR EXISTS(SELECT 1 FROM email_draft_transfers t WHERE t.source_id=email_messages.id AND t.state<>'preparing')) AS \"deleted!\" FROM email_messages WHERE id = $1 FOR UPDATE",
         message_db_id,
     )
     .fetch_optional(&mut **tx)
     .await
     .map_err(anyhow::Error::from)?;
     let was_missing = existing.is_none();
+    if was_missing {
+        let retired = sqlx::query_scalar!(
+            r#"SELECT EXISTS(SELECT 1 FROM email_send_attempts WHERE (link_id=$1 OR $1=ANY(draft_link_ids))
+               AND ($2=ANY(draft_handles) OR $3=ANY(draft_handles))) AS "retired!""#,
+            link_id, message_db_id, input.draft_client_id,
+        ).fetch_one(&mut **tx).await.map_err(anyhow::Error::from)?;
+        if retired {
+            return Err(EmailErr::DraftGenerationConflict(message_db_id));
+        }
+    }
     if let Some(existing) = existing {
-        if existing.link_id != link_id || existing.is_sent || !existing.is_draft || existing.deleted
-        {
+        if existing.link_id != link_id || existing.is_sent || existing.deleted {
             return Ok(None);
         }
+        if existing.draft_generation != input.draft_generation {
+            return Err(EmailErr::DraftGenerationConflict(message_db_id));
+        }
+        if !existing.is_draft {
+            return Err(EmailErr::MessageDeliveryConflict(message_db_id));
+        }
+        if !is_draft {
+            // Older Gmail trash paths removed delivery without retiring its
+            // attempt. A fresh, generation-matched Send may replace that safely
+            // revoked authority. Outlook failure rows can still own provider
+            // work without a schedule, so leave those to explicit cancellation.
+            sqlx::query!(
+                r#"UPDATE email_send_attempts a SET cancelled=true
+                   WHERE a.message_id=$1 AND a.link_id=$2
+                     AND NOT a.cancelled AND NOT a.sent AND NOT a.delivery_unconfirmed
+                     AND EXISTS(SELECT 1 FROM email_links WHERE id=$2 AND provider='GMAIL')
+                     AND NOT EXISTS(SELECT 1 FROM email_scheduled_messages WHERE message_id=$1 AND link_id=$2)"#,
+                message_db_id, link_id,
+            ).execute(&mut **tx).await.map_err(anyhow::Error::from)?;
+        }
         let scheduled = sqlx::query_scalar!(
-            "SELECT EXISTS(SELECT 1 FROM email_scheduled_messages WHERE message_id = $1 AND link_id = $2) AS \"exists!\"",
+            "SELECT (EXISTS(SELECT 1 FROM email_scheduled_messages WHERE message_id = $1 AND link_id = $2) OR EXISTS(SELECT 1 FROM email_send_attempts WHERE message_id = $1 AND link_id = $2 AND NOT cancelled AND NOT sent)) AS \"exists!\"",
             message_db_id, link_id,
         ).fetch_one(&mut **tx).await.map_err(anyhow::Error::from)?;
         if scheduled {
@@ -195,7 +224,7 @@ pub(super) async fn insert_message_in_transaction(
             return Err(EmailErr::MessageNotFound(message_db_id));
         }
         let scheduled = sqlx::query_scalar!(
-            "SELECT EXISTS(SELECT 1 FROM email_scheduled_messages WHERE message_id = $1 AND link_id = $2) AS \"exists!\"",
+            "SELECT (EXISTS(SELECT 1 FROM email_scheduled_messages WHERE message_id = $1 AND link_id = $2) OR EXISTS(SELECT 1 FROM email_send_attempts WHERE message_id = $1 AND link_id = $2 AND NOT cancelled AND NOT sent)) AS \"exists!\"",
             message_db_id, link_id,
         ).fetch_one(&mut **tx).await.map_err(anyhow::Error::from)?;
         if scheduled {
@@ -282,9 +311,9 @@ pub(crate) async fn upsert_draft(
             replying_to_id, subject, from_contact_id, sent_at,
             has_attachments, is_read, is_starred, is_sent, is_draft,
             body_text, body_html_sanitized, body_macro, headers_jsonb,
-            created_at, updated_at
+            created_at, updated_at, draft_generation
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
         ON CONFLICT (id) DO UPDATE SET
             provider_id = COALESCE(email_messages.provider_id, EXCLUDED.provider_id),
             thread_id = EXCLUDED.thread_id,
@@ -303,9 +332,11 @@ pub(crate) async fn upsert_draft(
             headers_jsonb = EXCLUDED.headers_jsonb,
             updated_at = NOW()
         WHERE email_messages.link_id = EXCLUDED.link_id
+          AND email_messages.draft_generation = $21
           AND email_messages.is_draft AND NOT email_messages.is_sent
           AND NOT EXISTS (SELECT 1 FROM email_mailbox_drafts d WHERE d.message_id = EXCLUDED.id AND d.delete_requested)
           AND NOT EXISTS (SELECT 1 FROM email_scheduled_messages WHERE message_id = EXCLUDED.id AND link_id = EXCLUDED.link_id)
+          AND NOT EXISTS (SELECT 1 FROM email_send_attempts WHERE message_id = EXCLUDED.id AND link_id = EXCLUDED.link_id AND NOT cancelled AND NOT sent)
         "#,
         message_db_id,
         input.provider_id,
@@ -327,6 +358,7 @@ pub(crate) async fn upsert_draft(
         input.headers_json,
         now,
         now,
+        input.draft_generation,
     )
     .execute(&mut *tx)
     .await?;

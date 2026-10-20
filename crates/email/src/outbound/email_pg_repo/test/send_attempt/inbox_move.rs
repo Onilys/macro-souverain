@@ -79,6 +79,7 @@ async fn offline_inbox_change_moves_uploaded_attachments_with_admission(
             .status,
         SendAttemptStatus::Cancelled
     );
+    input.message.draft_generation = 2;
     let second = service
         .send_email(
             actor(),
@@ -272,6 +273,38 @@ async fn inbox_move_does_not_replace_an_existing_destination_reply(
         .fetch_one(&pool)
         .await?,
         Some(0)
+    );
+    Ok(())
+}
+
+#[sqlx::test(
+    migrator = "MACRO_DB_MIGRATIONS",
+    fixtures(path = "../../../../../fixtures", scripts("email_draft"))
+)]
+async fn deleted_moved_send_keeps_the_source_inbox_autosave_fence(
+    pool: Pool<Postgres>,
+) -> anyhow::Result<()> {
+    service(pool.clone())
+        .send_email(
+            actor(),
+            destination(),
+            SendAttemptId(macro_uuid::generate_uuid_v7()),
+            send_snapshot(),
+        )
+        .await?;
+    email_db_client::messages::delete::delete_db_message(&pool, message()).await?;
+    let stale = prepared();
+    let repo = EmailPgRepo::new(pool);
+    assert!(matches!(
+        repo.insert_message(&stale.message, &stale.contacts, link(), None, true)
+            .await,
+        Err(EmailErr::DraftGenerationConflict(_))
+    ));
+    assert!(repo.send_message_row(link(), message()).await?.is_none());
+    assert!(
+        repo.send_message_row(destination(), message())
+            .await?
+            .is_none()
     );
     Ok(())
 }

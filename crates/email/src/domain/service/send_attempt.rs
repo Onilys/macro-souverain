@@ -29,6 +29,66 @@ where
     B: MacroEventBroker,
     anyhow::Error: From<T::Err> + From<E::Err>,
 {
+    #[tracing::instrument(skip_all, err)]
+    async fn pending_email_sends(
+        &self,
+        actor: MacroUserIdStr<'static>,
+        after: Option<crate::domain::send_attempt::SendAttemptCursor>,
+    ) -> Result<crate::domain::send_attempt::SendAttemptPage, EmailErr> {
+        use crate::domain::send_attempt::{ListedSendAttempt, SendAttemptPage};
+        let inboxes = self
+            .email_repo
+            .inboxes_for_macro_id(actor.clone())
+            .await
+            .map_err(anyhow::Error::from)?;
+        let ids: Vec<_> = inboxes.iter().map(|link| link.id).collect();
+        let mut rows = self
+            .email_repo
+            .pending_send_attempts(&actor, &ids, after.as_ref())
+            .await?;
+        let next_cursor = if rows.len() > 50 {
+            rows.truncate(50);
+            rows.last().map(|(cursor, _)| cursor.clone())
+        } else {
+            None
+        };
+        let pairs: Vec<_> = rows
+            .iter()
+            .filter_map(|(cursor, attempt)| attempt.message_id.map(|id| (id, cursor.link_id)))
+            .collect();
+        let message_ids: Vec<_> = pairs.iter().map(|(id, _)| *id).collect();
+        let message_links: Vec<_> = pairs.iter().map(|(_, link)| *link).collect();
+        let messages = self
+            .email_repo
+            .send_message_rows(&message_ids, &message_links)
+            .await?;
+        let (senders, recipients, labels) = tokio::try_join!(
+            self.email_repo.senders_by_message_ids(&message_ids),
+            self.email_repo.recipients_by_message_ids(&message_ids),
+            self.email_repo.labels_by_message_ids(&message_ids),
+        )
+        .map_err(anyhow::Error::from)?;
+        let mut hydrated: std::collections::HashMap<_, _> = self
+            .hydrate_full_messages(messages, senders, recipients, labels, true)
+            .await?
+            .into_iter()
+            .map(|message| (message.db_id, message))
+            .collect();
+        let attempts = rows
+            .into_iter()
+            .map(|(cursor, mut attempt)| {
+                attempt.message = attempt.message_id.and_then(|id| hydrated.remove(&id));
+                ListedSendAttempt {
+                    link_id: cursor.link_id,
+                    attempt,
+                }
+            })
+            .collect();
+        Ok(SendAttemptPage {
+            attempts,
+            next_cursor,
+        })
+    }
     #[tracing::instrument(skip_all, fields(%link_id, attempt_id = %attempt_id.0, phase = "authorization"), err)]
     async fn send_email(
         &self,
@@ -53,11 +113,6 @@ where
             log_attempt_outcome("send", &attempt, started);
             return self.hydrate_send_attempt(link_id, attempt).await;
         }
-        if link.provider != crate::domain::models::UserProvider::Gmail {
-            return Err(EmailErr::InvalidSendSnapshot(
-                "Queued sends require a Gmail inbox; send this draft through its provider".into(),
-            ));
-        }
         tracing::Span::current().record("phase", "prepare");
         let prepare = async {
             if snapshot.message.db_id.is_none()
@@ -74,8 +129,9 @@ where
             self.resolve_client_handles(&mut input, &accessible_ids)
                 .await?;
             input.actor = Some(actor.clone());
-            input.send_time =
-                Some(Utc::now() + Duration::seconds(self.sent_undo_delay_secs.into()));
+            input.send_time = input
+                .send_time
+                .or_else(|| Some(Utc::now() + Duration::seconds(self.sent_undo_delay_secs.into())));
             let (message, contacts, new_thread, source_inbox) = self
                 .prepare_message(link, &inboxes, input, false, true)
                 .await?;
@@ -152,7 +208,7 @@ where
                     message_id,
                     thread_id,
                     scheduled_send_at: send_time,
-                    is_scheduled: false,
+                    is_scheduled: snapshot.message.send_time.is_some(),
                 },
             ));
         }
@@ -237,6 +293,13 @@ fn log_attempt_outcome(operation: &'static str, attempt: &SendAttempt, started: 
 }
 
 impl EmailSendService for crate::domain::ports::NoOpEmailService {
+    async fn pending_email_sends(
+        &self,
+        _: MacroUserIdStr<'static>,
+        _: Option<crate::domain::send_attempt::SendAttemptCursor>,
+    ) -> Result<crate::domain::send_attempt::SendAttemptPage, EmailErr> {
+        Err(EmailErr::Unauthorized)
+    }
     async fn send_email(
         &self,
         _: MacroUserIdStr<'static>,

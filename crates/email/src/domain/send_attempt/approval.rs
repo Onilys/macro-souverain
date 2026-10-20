@@ -10,7 +10,7 @@ use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 const FINGERPRINT_FIELD: &str = "_send_approval";
-const APPROVAL_VERSION: u8 = 1;
+const APPROVAL_VERSION: u8 = 2;
 
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -111,12 +111,25 @@ impl ApprovalV1 {
 }
 
 impl SendSnapshot {
+    fn approval_v2_digest(&self) -> Result<String, serde_json::Error> {
+        let mut canonical = serde_json::json!({
+            "content": ApprovalV1::from(self).digest()?,
+            "draft_generation": self.message.draft_generation,
+            "send_time": self.message.send_time,
+            "signature_html": self.message.frozen_signature_html,
+        });
+        canonical.sort_all_objects();
+        Ok(format!(
+            "{:x}",
+            Sha256::digest(serde_json::to_vec(&canonical)?)
+        ))
+    }
     /// Retain the delivery snapshot and a stable identity for replay comparison.
     pub(crate) fn persisted_request(&self) -> Result<Value, serde_json::Error> {
         let mut request = serde_json::to_value(self)?;
         request[FINGERPRINT_FIELD] = serde_json::to_value(Fingerprint {
             version: APPROVAL_VERSION,
-            digest: ApprovalV1::from(self).digest()?,
+            digest: self.approval_v2_digest()?,
         })?;
         Ok(request)
     }
@@ -127,11 +140,26 @@ impl SendSnapshot {
         &self,
         request: &Value,
     ) -> Result<bool, serde_json::Error> {
-        let expected = ApprovalV1::from(self).digest()?;
         if let Some(fingerprint) = request.get(FINGERPRINT_FIELD) {
             let fingerprint: Fingerprint = serde_json::from_value(fingerprint.clone())?;
-            return Ok(fingerprint.version == APPROVAL_VERSION && fingerprint.digest == expected);
+            return match fingerprint.version {
+                2 => Ok(fingerprint.digest == self.approval_v2_digest()?),
+                1 if self.message.draft_generation == 0
+                    && self.message.send_time.is_none()
+                    && self.message.frozen_signature_html.is_none() =>
+                {
+                    Ok(fingerprint.digest == ApprovalV1::from(self).digest()?)
+                }
+                _ => Ok(false),
+            };
         }
+        if self.message.draft_generation != 0
+            || self.message.send_time.is_some()
+            || self.message.frozen_signature_html.is_some()
+        {
+            return Ok(false);
+        }
+        let expected = ApprovalV1::from(self).digest()?;
         let legacy: ApprovalV1 = serde_json::from_value(request.clone())?;
         Ok(legacy.digest()? == expected)
     }

@@ -4,6 +4,7 @@ use crate::domain::{
     send_attempt::*,
 };
 
+mod independent_outbox;
 mod preparation_cancel;
 mod provider_draft_trash;
 mod retention;
@@ -21,6 +22,8 @@ fn message() -> Uuid {
 fn snapshot() -> SendSnapshot {
     SendSnapshot {
         message: CreateDraftInput {
+            frozen_signature_html: None,
+            draft_generation: 0,
             sender_email: None,
             db_id: Some(message()),
             thread_db_id: Some(Uuid::parse_str("11111111-1111-1111-1111-111111111111").unwrap()),
@@ -55,6 +58,7 @@ fn prepared() -> PreparedSend {
         source_inbox: None,
         undo_delay_secs: 5,
         message: ResolvedDraftInput {
+            draft_generation: 0,
             db_id: message(),
             thread_db_id: input.thread_db_id.unwrap(),
             provider_id: None,
@@ -83,6 +87,13 @@ fn prepared() -> PreparedSend {
         restore_macro: snapshot.restore_body_macro.clone(),
         snapshot,
     }
+}
+
+fn prepared_generation(generation: i32) -> PreparedSend {
+    let mut input = prepared();
+    input.message.draft_generation = generation;
+    input.snapshot.message.draft_generation = generation;
+    input
 }
 
 #[sqlx::test(
@@ -121,7 +132,7 @@ async fn concurrent_replay_preserves_one_message_and_undo_deadline(
             prepared()
         )
         .await,
-        Err(EmailErr::MessageDeliveryConflict(_))
+        Err(EmailErr::DraftGenerationConflict(_))
     ));
     Ok(())
 }
@@ -178,8 +189,13 @@ async fn cancellation_restores_body_and_cannot_cancel_a_later_resend(
     assert!(restored.is_draft);
     assert_eq!(restored.body_text.as_deref(), Some("Editable body"));
     let second = SendAttemptId(macro_uuid::generate_uuid_v7());
-    repo.admit_send(&actor(), link(), second, prepared())
-        .await?;
+    repo.admit_send(&actor(), link(), second, {
+        let mut next = prepared();
+        next.message.draft_generation = 2;
+        next.snapshot.message.draft_generation = 2;
+        next
+    })
+    .await?;
     repo.cancel_send(&actor(), link(), first).await?;
     assert_eq!(
         repo.read_send_attempt(&actor(), link(), second, None)
@@ -279,7 +295,15 @@ impl frecency::domain::ports::FrecencyQueryService for UnusedFrecency {
     }
 }
 
-fn service(pool: Pool<Postgres>) -> impl EmailSendService {
+fn service(
+    pool: Pool<Postgres>,
+) -> crate::domain::service::EmailServiceImpl<
+    EmailPgRepo,
+    UnusedFrecency,
+    crate::domain::ports::NoOpEnqueuer,
+    crm::domain::service::NoOpCrmService,
+    (),
+> {
     crate::domain::service::EmailServiceImpl {
         email_repo: EmailPgRepo::new(pool),
         frecency_service: UnusedFrecency,
@@ -500,7 +524,8 @@ async fn delivery_remains_terminal_after_provider_deletes_the_message(
         .await?;
     repo.cancel_send(&actor(), link(), cancelled).await?;
     let sent = SendAttemptId(macro_uuid::generate_uuid_v7());
-    repo.admit_send(&actor(), link(), sent, prepared()).await?;
+    repo.admit_send(&actor(), link(), sent, prepared_generation(2))
+        .await?;
     email_db_client::messages::update::mark_message_as_sent(
         &mut *pool.acquire().await?,
         "provider-message",
@@ -531,7 +556,7 @@ async fn delivery_remains_terminal_after_provider_deletes_the_message(
         SendAttemptStatus::Sent
     );
     assert_eq!(
-        repo.admit_send(&actor(), link(), sent, prepared())
+        repo.admit_send(&actor(), link(), sent, prepared_generation(2))
             .await?
             .status,
         SendAttemptStatus::Sent
@@ -769,7 +794,7 @@ async fn uncertain_delivery_stays_locked_on_cancel_and_schedule_changes(
         SendAttemptStatus::DeliveryUnconfirmed
     );
     assert!(matches!(
-        repo.change_schedule(link(), message(), &actor(), ScheduleChange::Cancel, None)
+        repo.change_schedule(link(), message(), &actor(), ScheduleChange::Cancel, None, 0)
             .await,
         Err(EmailErr::MessageDeliveryConflict(_))
     ));

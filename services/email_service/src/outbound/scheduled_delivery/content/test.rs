@@ -26,6 +26,7 @@ async fn admit(pool: &PgPool) -> anyhow::Result<SendAttemptId> {
         photo_url: None,
     };
     let message = ResolvedDraftInput {
+        draft_generation: 0,
         db_id: message(),
         provider_id: Some("provider-draft".into()),
         replying_to_id: None,
@@ -46,6 +47,8 @@ async fn admit(pool: &PgPool) -> anyhow::Result<SendAttemptId> {
     };
     let snapshot = SendSnapshot {
         message: CreateDraftInput {
+            frozen_signature_html: None,
+            draft_generation: 0,
             sender_email: None,
             db_id: Some(message.db_id),
             provider_id: message.provider_id.clone(),

@@ -98,7 +98,7 @@ async fn preserve_replacement(
     let (repo, first) = echo_then_trash(&pool, legacy).await?;
     // A second device sees an editable, unscheduled draft and explicitly sends new content.
     let second = SendAttemptId(macro_uuid::generate_uuid_v7());
-    let mut newer = prepared();
+    let mut newer = prepared_generation(1);
     // Delivery deadlines do not define ownership: newer sends may have shorter delays.
     newer.undo_delay_secs = 5;
     newer.message.subject = "Second explicit send".into();

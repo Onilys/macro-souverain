@@ -38,6 +38,8 @@ pub trait EmailSchedulingRepo: Send + Sync {
         actor: &MacroUserIdStr<'_>,
         change: ScheduleChange,
         signature: Option<&SignaturePreparation>,
+
+        expected_generation: i32,
     ) -> impl Future<Output = Result<Option<Uuid>, EmailErr>> + Send;
 }
 
@@ -51,6 +53,8 @@ pub trait EmailSchedulingService: Send + Sync {
         message_id: Uuid,
         change: ScheduleChange,
         include_signature: Option<bool>,
+
+        expected_generation: i32,
     ) -> impl Future<Output = Result<(), EmailErr>> + Send;
 }
 
@@ -71,6 +75,8 @@ where
         message_id: Uuid,
         change: ScheduleChange,
         include_signature: Option<bool>,
+
+        expected_generation: i32,
     ) -> Result<(), EmailErr> {
         let link = self
             .email_repo
@@ -94,7 +100,14 @@ where
         };
         let Some(thread_id) = self
             .email_repo
-            .change_schedule(link_id, message_id, &actor, change, signature.as_ref())
+            .change_schedule(
+                link_id,
+                message_id,
+                &actor,
+                change,
+                signature.as_ref(),
+                expected_generation,
+            )
             .await?
         else {
             return Ok(());

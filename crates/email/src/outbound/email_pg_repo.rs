@@ -368,8 +368,18 @@ impl EmailRepo for EmailPgRepo {
         thread_db_id: Uuid,
         link_ids: &[Uuid],
         actor: Option<&str>,
+
+        expected_generation: i32,
     ) -> Result<Option<DraftDeletion>, Self::Err> {
-        message::delete_draft_message(&self.pool, message_id, thread_db_id, link_ids, actor).await
+        message::delete_draft_message(
+            &self.pool,
+            message_id,
+            thread_db_id,
+            link_ids,
+            actor,
+            expected_generation,
+        )
+        .await
     }
 
     async fn upsert_contacts(

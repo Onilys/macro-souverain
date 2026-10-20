@@ -528,6 +528,10 @@ Input for deleting an email draft.
 """
 input DeleteEmailDraftInput {
 	"""
+	Generation from the last loaded draft.
+	"""
+	draftGeneration: Int
+	"""
 	Draft handle to delete: a client-generated ID or a server ID, resolved
 	like a save's. A handle that is already gone (or was never bound — a
 	discard can replay before its draft's first save ever committed)
@@ -7920,6 +7924,10 @@ An adaptively hydrated email content projection for Soup queries.
 """
 type GraphqlSoupEmailMessage {
 	"""
+	Generation required when editing a draft after send/cancellation.
+	"""
+	draftGeneration: Int!
+	"""
 	Immutable scheduling snapshots; JSON keeps both transports identical.
 	"""
 	calendarInvitations: JSON!
@@ -8912,6 +8920,10 @@ type GraphqlUser {
 	"""
 	Inspect a queued send after reconnect or restart without resending it.
 	"""
+	pendingEmailSends(after: String): PendingEmailSends!
+	"""
+	Inspect a queued send after reconnect or restart without resending it.
+	"""
 	emailSendAttempt(input: EmailSendAttemptInput!): EmailSendAttemptPayload
 	"""
 	Fetch one accessible email thread by its canonical identifier.
@@ -9278,6 +9290,34 @@ enum NotificationUpdateOperation {
 }
 
 """
+An unresolved send owned by the authenticated actor, possibly from another device.
+"""
+type PendingEmailSend {
+	"""
+	Inbox needed to address the attempt, including after message deletion.
+	"""
+	linkId: ID!
+	"""
+	Current authoritative status.
+	"""
+	attempt: EmailSendAttemptPayload!
+}
+
+"""
+A bounded page of unresolved sends, newest first.
+"""
+type PendingEmailSends {
+	"""
+	Authorized sends.
+	"""
+	attempts: [PendingEmailSend!]!
+	"""
+	Opaque cursor for the next page.
+	"""
+	nextCursor: String
+}
+
+"""
 Input for recording authenticated channel activity.
 """
 input RecordChannelActivityInput {
@@ -9405,6 +9445,10 @@ existing draft.
 """
 input SaveEmailDraftInput {
 	"""
+	Generation from the last loaded draft. Omitted by legacy clients.
+	"""
+	draftGeneration: Int
+	"""
 	Verified sender address for the selected inbox. Absent selects its primary address.
 	"""
 	senderEmail: String
@@ -9501,11 +9545,15 @@ Immutable content approved by the user.
 """
 input SendEmailAttemptInput {
 	"""
+	Saved signature HTML captured at Send; empty means no signature.
+	"""
+	signatureHtml: String
+	"""
 	Stable attempt and sending inbox.
 	"""
 	attempt: EmailSendAttemptInput!
 	"""
-	Full message snapshot; scheduled time is ignored for immediate Send.
+	Full message snapshot; optional send time preserves Send Later across retries.
 	"""
 	message: SaveEmailDraftInput!
 	"""

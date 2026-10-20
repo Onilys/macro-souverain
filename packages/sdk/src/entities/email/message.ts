@@ -118,12 +118,16 @@ export class EmailMessage extends MacroEntity<EmailMessageData> {
     );
   }
 
-  /** Verify an uploaded draft attachment before it can be sent. */
-  async completeDraftAttachment(attachmentId: string): Promise<void> {
+  /** Verify an uploaded attachment using the draft generation captured when its upload began. */
+  async completeDraftAttachment(
+    attachmentId: string,
+    draftGeneration = 0,
+  ): Promise<void> {
     const link = await this.link();
     await this.mutate((c) =>
       c.email.completeDraftAttachment({
         path: { id: this.id, attachment_id: attachmentId },
+        query: { draft_generation: draftGeneration },
         headers: { 'X-Email-Link-Id': link.id },
       }),
     );

@@ -84,6 +84,33 @@ pub struct SendAttempt {
     pub send_time: Option<DateTime<Utc>>,
 }
 
+/// Stable keyset cursor, scoped to the authenticated actor by the service.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SendAttemptCursor {
+    /// Admission timestamp.
+    pub created_at: DateTime<Utc>,
+    /// Inbox identity, for deterministic ordering.
+    pub link_id: Uuid,
+    /// Attempt identity, for deterministic ordering.
+    pub attempt_id: Uuid,
+}
+
+/// An authorized pending attempt from any of the actor's devices.
+pub struct ListedSendAttempt {
+    /// Authorized inbox.
+    pub link_id: Uuid,
+    /// Current send state.
+    pub attempt: SendAttempt,
+}
+
+/// Bounded result with a cursor for older unresolved sends.
+pub struct SendAttemptPage {
+    /// Authorized attempts.
+    pub attempts: Vec<ListedSendAttempt>,
+    /// Continuation when more attempts remain.
+    pub next_cursor: Option<SendAttemptCursor>,
+}
+
 /// Validated data for atomic admission. Preparation performs no delivery writes.
 pub struct PreparedSend {
     /// Authorized source inbox to move atomically with admission, if changed.
@@ -117,6 +144,19 @@ pub struct SendSourceInbox {
 
 /// Persistence operations serialize admission/cancellation and message delivery locks.
 pub trait EmailSendRepo: Send + Sync {
+    /// Return at most 51 unresolved attempts for authorized inboxes, newest first.
+    fn pending_send_attempts(
+        &self,
+        actor: &MacroUserIdStr<'_>,
+        link_ids: &[Uuid],
+        after: Option<&SendAttemptCursor>,
+    ) -> impl Future<Output = Result<Vec<(SendAttemptCursor, SendAttempt)>, EmailErr>> + Send;
+    /// Fetch a bounded set of authorized message/inbox pairs for list hydration.
+    fn send_message_rows(
+        &self,
+        message_ids: &[Uuid],
+        link_ids: &[Uuid],
+    ) -> impl Future<Output = Result<Vec<super::models::MessageRow>, EmailErr>> + Send;
     /// Fetch the authorized attempt's current message for response hydration.
     fn send_message_row(
         &self,
@@ -154,6 +194,12 @@ pub trait EmailSendRepo: Send + Sync {
 
 /// Authenticated user-facing delivery capability.
 pub trait EmailSendService: Send + Sync {
+    /// List the actor's unresolved sends across currently accessible inboxes.
+    fn pending_email_sends(
+        &self,
+        actor: MacroUserIdStr<'static>,
+        after: Option<SendAttemptCursor>,
+    ) -> impl Future<Output = Result<SendAttemptPage, EmailErr>> + Send;
     /// Authorize the selected inbox and durably admit the approved snapshot.
     fn send_email(
         &self,

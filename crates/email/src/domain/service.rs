@@ -335,8 +335,11 @@ where
         &self,
         macro_id: macro_user_id::user_id::MacroUserIdStr<'_>,
         draft_id: uuid::Uuid,
+
+        expected_generation: i32,
     ) -> Result<crate::domain::models::DeletedUserDraft, EmailErr> {
-        self.delete_draft_for_user_impl(macro_id, draft_id).await
+        self.delete_draft_for_user_impl(macro_id, draft_id, expected_generation)
+            .await
     }
 
     async fn send_message_for_user(

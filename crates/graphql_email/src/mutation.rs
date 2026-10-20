@@ -120,6 +120,8 @@ pub trait EmailMutationService: Send + Sync + 'static {
         &self,
         user_id: MacroUserIdStr<'static>,
         draft_id: Uuid,
+
+        expected_generation: i32,
     ) -> impl Future<Output = Result<DeletedUserDraft, EmailErr>> + Send;
 }
 
@@ -201,8 +203,11 @@ where
         &self,
         user_id: MacroUserIdStr<'static>,
         draft_id: Uuid,
+
+        expected_generation: i32,
     ) -> Result<DeletedUserDraft, EmailErr> {
-        self.delete_draft_for_user(user_id, draft_id).await
+        self.delete_draft_for_user(user_id, draft_id, expected_generation)
+            .await
     }
 }
 
@@ -332,6 +337,8 @@ impl From<SaveEmailDraftContactInput> for ContactInfo {
 /// existing draft.
 #[derive(InputObject)]
 pub struct SaveEmailDraftInput {
+    /// Generation from the last loaded draft. Omitted by legacy clients.
+    pub draft_generation: Option<i32>,
     /// Verified sender address for the selected inbox. Absent selects its primary address.
     pub sender_email: Option<String>,
     /// Draft handle: a client-generated ID, or a server ID from a fetched
@@ -374,6 +381,8 @@ pub struct SaveEmailDraftInput {
 /// Input for deleting an email draft.
 #[derive(InputObject)]
 pub struct DeleteEmailDraftInput {
+    /// Generation from the last loaded draft.
+    pub draft_generation: Option<i32>,
     /// Draft handle to delete: a client-generated ID or a server ID, resolved
     /// like a save's. A handle that is already gone (or was never bound — a
     /// discard can replay before its draft's first save ever committed)
@@ -475,6 +484,7 @@ fn saved_draft_message(saved: SavedUserDraft) -> Message {
         draft.body_text.as_deref(),
     );
     Message {
+        draft_generation: draft.draft_generation,
         operation_status,
         db_id: draft.db_id,
         provider_id: draft.provider_id,
@@ -529,6 +539,10 @@ pub fn draft_mutation_error(error: &EmailErr) -> async_graphql::Error {
         EmailErr::InvalidSendSnapshot(_) => (
             "review the message and attachments before sending",
             "INVALID",
+        ),
+        EmailErr::DraftGenerationConflict(_) => (
+            "draft changed on another device; preserve your edits and reload before retrying",
+            "DRAFT_VERSION_CONFLICT",
         ),
         EmailErr::MessageAlreadySent(_) => {
             ("email draft has already been sent", "DRAFT_ALREADY_SENT")
@@ -847,7 +861,11 @@ where
         let service = ctx.data::<Arc<S>>()?;
 
         let deleted = service
-            .delete_email_draft(user_id.clone(), draft_id)
+            .delete_email_draft(
+                user_id.clone(),
+                draft_id,
+                input.draft_generation.unwrap_or(0),
+            )
             .await
             .map_err(|error| {
                 tracing::error!(
@@ -894,6 +912,8 @@ pub(crate) fn draft_input_from_graphql(
         .transpose()?;
 
     Ok(CreateDraftInput {
+        frozen_signature_html: None,
+        draft_generation: input.draft_generation.unwrap_or(0),
         sender_email: input
             .sender_email
             .map(|address| {

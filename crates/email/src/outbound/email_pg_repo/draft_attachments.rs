@@ -54,6 +54,8 @@ impl DraftAttachmentRepository for EmailPgRepo {
         link: Uuid,
         draft: Uuid,
         change: AttachmentChange,
+
+        expected_generation: i32,
     ) -> Result<(), AttachmentError> {
         let mut tx = self.pool.begin().await.map_err(db_error)?;
         // Serialize attachment edits without blocking the schedule foreign key's
@@ -61,10 +63,10 @@ impl DraftAttachmentRepository for EmailPgRepo {
         let mailbox=sqlx::query!(r#"SELECT provider::text AS "provider!",sync_generation,
             (macro_id = $2 OR EXISTS (SELECT 1 FROM macro_user_links u WHERE u.link_id = l.id AND u.primary_macro_id = $2)) AS "authorized!"
             FROM email_links l WHERE id = $1 FOR NO KEY UPDATE"#,link,actor).fetch_optional(&mut *tx).await.map_err(db_error)?.ok_or(AttachmentError::NotFound)?;
-        let message=sqlx::query!(r#"SELECT thread_id,is_draft,is_sent,
+        let message=sqlx::query!(r#"SELECT thread_id,draft_generation,is_draft,is_sent,
             (EXISTS (SELECT 1 FROM email_mailbox_drafts d WHERE d.message_id = m.id AND d.delete_requested) OR EXISTS(SELECT 1 FROM email_draft_transfers t WHERE t.source_id=m.id AND t.state<>'preparing')) AS "deleted!"
             FROM email_messages m WHERE id = $1 AND link_id = $2 FOR UPDATE"#,draft,link).fetch_optional(&mut *tx).await.map_err(db_error)?.ok_or(AttachmentError::NotFound)?;
-        let scheduled = sqlx::query_scalar!("SELECT EXISTS(SELECT 1 FROM email_scheduled_messages WHERE message_id=$1 AND link_id=$2) AS \"exists!\"", draft, link).fetch_one(&mut *tx).await.map_err(db_error)?;
+        let scheduled = sqlx::query_scalar!("SELECT (EXISTS(SELECT 1 FROM email_scheduled_messages WHERE message_id=$1 AND link_id=$2) OR EXISTS(SELECT 1 FROM email_send_attempts WHERE message_id=$1 AND link_id=$2 AND NOT cancelled AND NOT sent)) AS \"exists!\"", draft, link).fetch_one(&mut *tx).await.map_err(db_error)?;
         let provider = match mailbox.provider.as_str() {
             "GMAIL" => UserProvider::Gmail,
             "OUTLOOK" => UserProvider::Outlook,
@@ -118,6 +120,7 @@ impl DraftAttachmentRepository for EmailPgRepo {
                 authorized: mailbox.authorized,
                 editable: (message.is_draft || scheduled) && !message.is_sent && !message.deleted,
                 scheduled,
+                generation_matches: message.draft_generation == expected_generation,
                 provider,
                 total_bytes: total.max(0) as u64,
             },

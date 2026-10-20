@@ -784,6 +784,16 @@
         "operationId": "upsert_scheduled_message",
         "parameters": [
           {
+            "name": "draft_generation",
+            "in": "query",
+            "description": "Generation from the last loaded draft. Legacy clients use zero.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
             "name": "id",
             "in": "path",
             "description": "The ID of the draft message to schedule",
@@ -875,6 +885,16 @@
         "operationId": "delete_scheduled_draft",
         "parameters": [
           {
+            "name": "draft_generation",
+            "in": "query",
+            "description": "Generation from the last loaded draft. Legacy clients use zero.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
             "name": "message_id",
             "in": "path",
             "description": "The ID of the draft",
@@ -948,6 +968,16 @@
         "summary": "Delete a draft.",
         "operationId": "delete_draft",
         "parameters": [
+          {
+            "name": "draft_generation",
+            "in": "query",
+            "description": "Generation from the last loaded draft. Legacy clients use zero.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
           {
             "name": "id",
             "in": "path",
@@ -1027,6 +1057,16 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "draft_generation",
+            "in": "query",
+            "description": "Generation from the last loaded draft. Legacy clients use zero.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
             }
           }
         ],
@@ -1119,6 +1159,16 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "draft_generation",
+            "in": "query",
+            "description": "Generation from the last loaded draft. Legacy clients use zero.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
           }
         ],
         "responses": {
@@ -1182,6 +1232,16 @@
         "operationId": "complete_draft_attachment",
         "parameters": [
           {
+            "name": "draft_generation",
+            "in": "query",
+            "description": "Generation from the last loaded draft. Legacy clients use zero.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
             "name": "id",
             "in": "path",
             "required": true,
@@ -1236,6 +1296,16 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "draft_generation",
+            "in": "query",
+            "description": "Generation from the last loaded draft. Legacy clients use zero.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
             }
           }
         ],
@@ -1307,6 +1377,16 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "draft_generation",
+            "in": "query",
+            "description": "Generation from the last loaded draft. Legacy clients use zero.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
             }
           }
         ],
@@ -3716,6 +3796,11 @@
             "format": "uuid",
             "description": "Existing message DB ID (for updating an existing draft)."
           },
+          "draft_generation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Generation from the last loaded draft; legacy clients begin at zero."
+          },
           "headers_json": {
             "oneOf": [
               {
@@ -3765,7 +3850,7 @@
       "ApiDraftOutput": {
         "type": "object",
         "description": "The draft output matching the current `MessageToSend` JSON shape for backward compat.",
-        "required": ["link_id", "subject"],
+        "required": ["draft_generation", "link_id", "subject"],
         "properties": {
           "bcc": {
             "type": ["array", "null"],
@@ -3797,6 +3882,11 @@
             "type": ["string", "null"],
             "format": "uuid",
             "description": "Message DB ID."
+          },
+          "draft_generation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Generation required for subsequent edits."
           },
           "headers_json": {
             "oneOf": [
@@ -3928,6 +4018,7 @@
         "type": "object",
         "description": "API representation of a fully assembled email message.",
         "required": [
+          "draft_generation",
           "db_id",
           "thread_db_id",
           "link_id",
@@ -4002,6 +4093,11 @@
           "db_id": {
             "type": "string",
             "format": "uuid"
+          },
+          "draft_generation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Draft edit generation; changes at send and cancellation boundaries."
           },
           "from": {
             "oneOf": [
@@ -6780,6 +6876,11 @@
           "destination_link_id": {
             "type": "string",
             "format": "uuid"
+          },
+          "draft_generation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Generation captured with the source draft."
           },
           "operation_id": {
             "type": "string",

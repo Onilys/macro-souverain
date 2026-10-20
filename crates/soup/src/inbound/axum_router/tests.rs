@@ -363,6 +363,7 @@ impl EmailService for MockEmail {
         &self,
         _macro_id: macro_user_id::user_id::MacroUserIdStr<'_>,
         _draft_id: uuid::Uuid,
+        _expected_generation: i32,
     ) -> Result<email::domain::models::DeletedUserDraft, EmailErr> {
         Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
     }
@@ -856,6 +857,7 @@ impl EmailService for MockEmailLinkResult {
         &self,
         _macro_id: macro_user_id::user_id::MacroUserIdStr<'_>,
         _draft_id: uuid::Uuid,
+        _expected_generation: i32,
     ) -> Result<email::domain::models::DeletedUserDraft, EmailErr> {
         Err(EmailErr::RepoErr(anyhow::anyhow!("Not implemented")))
     }

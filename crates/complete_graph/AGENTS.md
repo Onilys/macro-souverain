@@ -112,3 +112,7 @@ The exported `static_assets/schema.graphql` feeds both the client codegen
 (`apps/web && bun gen-graphql`) and the cache metadata codegen. Additive changes
 keep persisted client caches; a change that makes stored records unsafe needs a
 bump of `CACHE_SCHEMA_COMPATIBILITY_EPOCH` in `crates/client/cache-core/src/codec.rs`.
+
+Email send admission, cancellation and status are exposed by `graphql_email`;
+`GraphqlUser.pendingEmailSends` lists authorized inbox attempts with cursor pagination.
+Keep this viewer-scoped listing independent of normalized-cache initialization.

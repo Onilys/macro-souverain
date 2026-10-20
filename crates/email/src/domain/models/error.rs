@@ -52,6 +52,9 @@ pub enum EmailErr {
     /// The referenced message has already been sent and cannot be modified.
     #[error("Message with id {0} has already been sent")]
     MessageAlreadySent(Uuid),
+    /// An older browser edit must not replace a newer send/cancel generation.
+    #[error("Draft changed on another device; reload before applying this edit: {0}")]
+    DraftGenerationConflict(Uuid),
     /// Delivery has been committed, claimed, or completed and cannot be edited.
     #[error("Message with id {0} is scheduled, processing, or already sent")]
     MessageDeliveryConflict(Uuid),

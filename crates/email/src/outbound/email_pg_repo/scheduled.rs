@@ -14,8 +14,19 @@ impl EmailSchedulingRepo for EmailPgRepo {
         actor: &MacroUserIdStr<'_>,
         change: ScheduleChange,
         signature: Option<&SignaturePreparation>,
+
+        expected_generation: i32,
     ) -> Result<Option<Uuid>, EmailErr> {
-        change_schedule(&self.pool, link_id, message_id, actor, change, signature).await
+        change_schedule(
+            &self.pool,
+            link_id,
+            message_id,
+            actor,
+            change,
+            signature,
+            expected_generation,
+        )
+        .await
     }
 }
 
@@ -26,6 +37,8 @@ async fn change_schedule(
     actor: &MacroUserIdStr<'_>,
     change: ScheduleChange,
     signature: Option<&SignaturePreparation>,
+
+    expected_generation: i32,
 ) -> Result<Option<Uuid>, EmailErr> {
     let mut tx = pool.begin().await.map_err(anyhow::Error::from)?;
     let outlook = sqlx::query!(r#"
@@ -37,7 +50,7 @@ async fn change_schedule(
     }
     // Every mutator locks message before schedule; no locks cross provider work.
     let message = sqlx::query!(
-        "SELECT thread_id, is_draft, is_sent, replying_to_id, body_html_sanitized, body_text FROM email_messages WHERE id = $1 AND link_id = $2 FOR UPDATE",
+        "SELECT thread_id, draft_generation, is_draft, is_sent, replying_to_id, body_html_sanitized, body_text FROM email_messages WHERE id = $1 AND link_id = $2 FOR UPDATE",
         message_id, link_id,
     ).fetch_optional(&mut *tx).await.map_err(anyhow::Error::from)?
         .ok_or(EmailErr::MessageNotFound(message_id))?;
@@ -45,7 +58,10 @@ async fn change_schedule(
         "SELECT sent, processing, delivery_status, delivery_started_at, delivery_claim_id FROM email_scheduled_messages WHERE message_id = $1 AND link_id = $2 FOR UPDATE",
         message_id, link_id,
     ).fetch_optional(&mut *tx).await.map_err(anyhow::Error::from)?;
+    let protected = sqlx::query_scalar!(r#"SELECT EXISTS(SELECT 1 FROM email_send_attempts WHERE message_id=$1 AND link_id=$2 AND NOT cancelled AND NOT sent) AS "protected!""#, message_id, link_id).fetch_one(&mut *tx).await.map_err(anyhow::Error::from)?;
     if message.is_sent
+        || protected
+        || message.draft_generation != expected_generation
         || schedule.as_ref().is_some_and(|row| {
             row.sent
                 || (row.delivery_status != "failed"

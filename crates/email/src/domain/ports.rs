@@ -358,6 +358,8 @@ pub trait EmailRepo: Send + Sync + 'static {
         thread_db_id: Uuid,
         link_ids: &[Uuid],
         actor: Option<&str>,
+
+        expected_generation: i32,
     ) -> impl Future<Output = Result<Option<DraftDeletion>, Self::Err>> + Send;
 
     /// Upsert contacts from the parsed addresses. Must be called outside a transaction
@@ -819,6 +821,8 @@ pub trait EmailService: Send + Sync + 'static {
         &self,
         macro_id: MacroUserIdStr<'_>,
         draft_id: Uuid,
+
+        expected_generation: i32,
     ) -> impl Future<Output = Result<DeletedUserDraft, EmailErr>> + Send;
 
     /// Send a message: persist it and enqueue for scheduled delivery.
@@ -1061,6 +1065,8 @@ pub trait DraftSendService: Send + Sync + 'static {
         &self,
         macro_id: MacroUserIdStr<'_>,
         draft_id: Uuid,
+
+        expected_generation: i32,
     ) -> impl Future<Output = Result<DeletedUserDraft, EmailErr>> + Send;
 }
 
@@ -1087,8 +1093,10 @@ impl<T: EmailService> DraftSendService for T {
         &self,
         macro_id: MacroUserIdStr<'_>,
         draft_id: Uuid,
+
+        expected_generation: i32,
     ) -> impl Future<Output = Result<DeletedUserDraft, EmailErr>> + Send {
-        EmailService::delete_draft_for_user(self, macro_id, draft_id)
+        EmailService::delete_draft_for_user(self, macro_id, draft_id, expected_generation)
     }
 }
 
@@ -1323,6 +1331,8 @@ impl EmailService for NoOpEmailService {
         &self,
         _macro_id: MacroUserIdStr<'_>,
         _draft_id: Uuid,
+
+        _expected_generation: i32,
     ) -> Result<DeletedUserDraft, EmailErr> {
         Err(no_op_email_err())
     }

@@ -46,6 +46,8 @@ the gateway `/email` prefix.
 
 ## Gotchas
 
+- Draft edit routes carry `draft_generation` from the editing lifetime, including attachments, deletion, transfer, and schedules; regenerate OpenAPI clients when this contract changes.
+
 - The Gmail delivery adapter freezes approved upload/provider-file IDs before
   loading bytes through the authorized reader; Outlook uses its own coordinator.
 

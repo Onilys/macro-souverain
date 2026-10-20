@@ -21,6 +21,22 @@ fn attempt(id: SendAttemptId, status: SendAttemptStatus) -> SendAttempt {
     }
 }
 impl EmailSendService for Service {
+    async fn pending_email_sends(
+        &self,
+        actor: MacroUserIdStr<'static>,
+        _after: Option<email::domain::send_attempt::SendAttemptCursor>,
+    ) -> Result<email::domain::send_attempt::SendAttemptPage, EmailErr> {
+        self.calls.lock().unwrap().push((
+            actor.to_string(),
+            Uuid::nil(),
+            SendAttemptId(Uuid::nil()),
+            None,
+        ));
+        Ok(email::domain::send_attempt::SendAttemptPage {
+            attempts: vec![],
+            next_cursor: None,
+        })
+    }
     async fn send_email(
         &self,
         actor: MacroUserIdStr<'static>,
@@ -62,6 +78,18 @@ impl EmailSendService for Service {
 struct Query;
 #[Object]
 impl Query {
+    async fn pending(
+        &self,
+        ctx: &Context<'_>,
+        after: Option<String>,
+    ) -> async_graphql::Result<PendingEmailSends> {
+        load_pending_sends(
+            ctx.data::<Arc<Service>>()?.as_ref(),
+            require_authenticated_user(ctx)?,
+            after,
+        )
+        .await
+    }
     async fn status(
         &self,
         ctx: &Context<'_>,
@@ -202,4 +230,35 @@ async fn cancel_and_status_use_the_same_scoped_attempt() {
     assert_eq!(calls[0].0, calls[1].0);
     assert_eq!(calls[0].1, calls[1].1);
     assert_eq!(calls[0].2, calls[1].2);
+}
+
+#[tokio::test]
+async fn pending_sends_require_authentication_and_reject_malformed_cursors() {
+    let service = Arc::new(Service::default());
+    assert!(
+        !schema(service.clone(), false)
+            .execute("{pending{attempts{linkId}}}")
+            .await
+            .errors
+            .is_empty()
+    );
+    assert!(
+        !schema(service.clone(), true)
+            .execute(r#"{pending(after:"invalid"){attempts{linkId}}}"#)
+            .await
+            .errors
+            .is_empty()
+    );
+    assert!(service.calls.lock().unwrap().is_empty());
+    assert!(
+        schema(service.clone(), true)
+            .execute("{pending{attempts{linkId} nextCursor}}")
+            .await
+            .errors
+            .is_empty()
+    );
+    assert_eq!(
+        service.calls.lock().unwrap()[0].0,
+        "macro|viewer@example.com"
+    );
 }

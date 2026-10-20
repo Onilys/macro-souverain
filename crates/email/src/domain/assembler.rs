@@ -35,6 +35,7 @@ pub fn message_from_row(
     calendar_invitations: Vec<CalendarInvitation>,
 ) -> Message {
     Message {
+        draft_generation: row.draft_generation,
         operation_status: None,
         calendar_invitations,
         db_id: row.db_id,

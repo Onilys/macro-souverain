@@ -49,7 +49,8 @@ tools — hexagonal, heavily feature-gated.
 
 ## Gotchas
 
-- Durable send attempts are Gmail-only; Outlook uses its provider draft coordinator.
+- Durable send admission supports Gmail and Outlook; Outlook delivery stays with its provider coordinator.
+- Carry the captured `draft_generation` through every draft mutation; advance it on send acceptance/cancellation under the message lock and preserve attempt tombstones after message deletion.
 
 - Forwarded attachments register through `domain/draft_attachments.rs` and resolve
   bytes through `domain/attachment_access.rs`; scheduled delivery also rechecks

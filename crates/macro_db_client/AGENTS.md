@@ -63,3 +63,7 @@ queries used across Rust services.
 
 - Rules: `.agents/rules/rust/db.md`, `.agents/rules/rust/architecture.md` ·
   Docs: `docs/development/database.md` · Skill: `dump-schema`
+
+Email send migrations add `email_messages.draft_generation` and attempt handle/inbox
+fences. Deploy the additive migrations and all generation-aware writers before
+enabling the independent email outbox; old writers do not enforce these fences.

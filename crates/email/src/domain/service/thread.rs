@@ -534,6 +534,7 @@ fn parsed_message_from_row(
     );
 
     ParsedMessage {
+        draft_generation: row.draft_generation,
         db_id: row.db_id,
         link_id: row.link_id,
         thread_db_id: row.thread_db_id,

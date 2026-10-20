@@ -407,6 +407,8 @@ pub(crate) async fn delete_draft_message(
     thread_db_id: Uuid,
     link_ids: &[Uuid],
     actor: Option<&str>,
+
+    expected_generation: i32,
 ) -> Result<Option<DraftDeletion>, sqlx::Error> {
     let mut tx = pool.begin().await?;
 
@@ -419,12 +421,18 @@ pub(crate) async fn delete_draft_message(
 
     // Sender migration must not delete a draft whose delivery was committed
     // after the service's initial validation. Match the shared lock order.
-    sqlx::query!(
-        "SELECT id FROM email_messages WHERE id = $1 FOR UPDATE",
+    let locked = sqlx::query!(
+        r#"SELECT id, draft_generation, EXISTS(SELECT 1 FROM email_send_attempts WHERE message_id=$1 AND NOT cancelled AND NOT sent) AS "send_active!" FROM email_messages WHERE id = $1 FOR UPDATE"#,
         message_id
     )
     .fetch_optional(&mut *tx)
     .await?;
+
+    if locked.is_none_or(|message| {
+        message.draft_generation != expected_generation || message.send_active
+    }) {
+        return Ok(None);
+    }
 
     let retired=sqlx::query_scalar!(r#"SELECT EXISTS(SELECT 1 FROM email_draft_transfers WHERE source_id=$1 AND state<>'preparing') AS "retired!""#,message_id).fetch_one(&mut *tx).await?;
     if retired {

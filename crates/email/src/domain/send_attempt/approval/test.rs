@@ -27,7 +27,6 @@ fn legacy_optional_defaults_and_operational_fields_do_not_change_approval() {
     assert!(snapshot.matches_approved_request(&legacy).unwrap());
     let mut replay = snapshot.clone();
     replay.message.to[0].photo_url = Some("https://photo.invalid/new".into());
-    replay.message.send_time = Some(chrono::Utc::now());
     replay.message.draft_client_binding = Some(Uuid::new_v4());
     assert!(
         replay
@@ -45,6 +44,9 @@ fn approved_content_changes_conflict_for_both_legacy_and_versioned_requests() {
     ];
     for change in [
         |s: &mut SendSnapshot| s.message.subject.push('!'),
+        |s: &mut SendSnapshot| s.message.draft_generation = 2,
+        |s: &mut SendSnapshot| s.message.send_time = Some(chrono::Utc::now()),
+        |s: &mut SendSnapshot| s.message.frozen_signature_html = Some("Frozen signature".into()),
         |s: &mut SendSnapshot| s.message.body_text = Some("Changed body".into()),
         |s: &mut SendSnapshot| s.message.to[0].email = "other@example.invalid".into(),
         |s: &mut SendSnapshot| s.message.to[0].name = Some("Other name".into()),
@@ -86,7 +88,7 @@ fn versioned_approval_survives_snapshot_representation_changes() {
 fn unknown_or_malformed_approval_versions_never_authorize_replay() {
     let snapshot = snapshot();
     let mut request = snapshot.persisted_request().unwrap();
-    request[FINGERPRINT_FIELD]["version"] = json!(2);
+    request[FINGERPRINT_FIELD]["version"] = json!(99);
     assert!(!snapshot.matches_approved_request(&request).unwrap());
     request[FINGERPRINT_FIELD] = json!({"version": 1});
     assert!(snapshot.matches_approved_request(&request).is_err());
@@ -107,10 +109,12 @@ fn object_key_and_attachment_order_do_not_change_approval() {
 
 #[test]
 fn approval_v1_fingerprint_is_stable_across_deployments() {
-    let request = snapshot().persisted_request().unwrap();
-    assert_eq!(request[FINGERPRINT_FIELD]["version"], 1);
+    let snapshot = snapshot();
+    let digest = ApprovalV1::from(&snapshot).digest().unwrap();
     assert_eq!(
-        request[FINGERPRINT_FIELD]["digest"],
+        digest,
         "5ddf3b96f8989d91e1deb409f896fa594a848854483e093239176fe1107e6caf"
     );
+    let legacy = json!({"_send_approval": {"version": 1, "digest": digest}});
+    assert!(snapshot.matches_approved_request(&legacy).unwrap());
 }

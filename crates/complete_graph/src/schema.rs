@@ -855,6 +855,17 @@ where
     }
 
     /// Inspect a queued send after reconnect or restart without resending it.
+    async fn pending_email_sends(
+        &self,
+        ctx: &Context<'_>,
+        after: Option<String>,
+    ) -> async_graphql::Result<graphql_email::PendingEmailSends> {
+        let state = ctx.data::<St>()?;
+        let service = EmailRouterState::<E>::from_ref(state).service();
+        graphql_email::load_pending_sends(service.as_ref(), self.user_id.clone(), after).await
+    }
+
+    /// Inspect a queued send after reconnect or restart without resending it.
     async fn email_send_attempt(
         &self,
         ctx: &Context<'_>,

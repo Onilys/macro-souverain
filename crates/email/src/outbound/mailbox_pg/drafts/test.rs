@@ -518,7 +518,7 @@ async fn cancellation_that_wins_before_submission_prevents_delivery(db: PgPool) 
 async fn deletion_retains_a_fenced_remote_cleanup_intent(db: PgPool) {
     let (sync, repo, input, link) = setup(&db, true).await;
     assert!(
-        repo.delete_draft_message(input.db_id, input.thread_db_id, &[link], Some(ACTOR))
+        repo.delete_draft_message(input.db_id, input.thread_db_id, &[link], Some(ACTOR), 0)
             .await
             .unwrap()
             .is_some()

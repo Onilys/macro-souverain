@@ -38,3 +38,7 @@ explicitly classified in `src/coverage/skipped.ts`.
 - Handles must serialize identity or loaded detail, never authenticated clients.
 - Email sends and other writes against hosted data are real actions; use mocks
   for automated SDK mutation tests.
+
+Email draft mutations carry the generation read with the draft. Preserve it across
+attachment completion, transfer and save; a rejected stale generation requires a
+fresh draft read rather than replaying the old edit.

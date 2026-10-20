@@ -24,9 +24,11 @@ pub struct EmailSendAttemptInput {
 /// Immutable content approved by the user.
 #[derive(InputObject)]
 pub struct SendEmailAttemptInput {
+    /// Saved signature HTML captured at Send; empty means no signature.
+    pub signature_html: Option<String>,
     /// Stable attempt and sending inbox.
     pub attempt: EmailSendAttemptInput,
-    /// Full message snapshot; scheduled time is ignored for immediate Send.
+    /// Full message snapshot; optional send time preserves Send Later across retries.
     pub message: SaveEmailDraftInput,
     /// Per-message signature preference.
     pub include_signature: Option<bool>,
@@ -136,8 +138,8 @@ impl<S: EmailSendService + 'static, O: EmailThreadMutationOutput> GraphqlEmailSe
         let link = parse_id(input.attempt.link_id, "linkId")?;
         let attempt = SendAttemptId(parse_id(input.attempt.attempt_id, "attemptId")?);
         let mut message = draft_input_from_graphql(input.message)?;
-        message.send_time = None;
         message.include_signature = input.include_signature;
+        message.frozen_signature_html = input.signature_html;
         let snapshot = SendSnapshot {
             message,
             attachment_ids: input
@@ -221,6 +223,59 @@ pub async fn load_send_attempt<S: EmailSendService>(
         .await
         .map(|result| result.map(EmailSendAttemptPayload))
         .map_err(|error| draft_mutation_error(&error))
+}
+
+/// An unresolved send owned by the authenticated actor, possibly from another device.
+#[derive(async_graphql::SimpleObject)]
+pub struct PendingEmailSend {
+    /// Inbox needed to address the attempt, including after message deletion.
+    pub link_id: ID,
+    /// Current authoritative status.
+    pub attempt: EmailSendAttemptPayload,
+}
+
+/// A bounded page of unresolved sends, newest first.
+#[derive(async_graphql::SimpleObject)]
+pub struct PendingEmailSends {
+    /// Authorized sends.
+    pub attempts: Vec<PendingEmailSend>,
+    /// Opaque cursor for the next page.
+    pub next_cursor: Option<String>,
+}
+
+/// Parse the cursor and delegate ownership/access policy to the email domain.
+pub async fn load_pending_sends<S: EmailSendService>(
+    service: &S,
+    actor: MacroUserIdStr<'static>,
+    after: Option<String>,
+) -> async_graphql::Result<PendingEmailSends> {
+    let cursor = after
+        .map(|value| {
+            if value.len() > 512 {
+                return Err(async_graphql::Error::new("Invalid email send cursor"));
+            }
+            serde_json::from_str(&value)
+                .map_err(|_| async_graphql::Error::new("Invalid email send cursor"))
+        })
+        .transpose()?;
+    let page = service
+        .pending_email_sends(actor, cursor)
+        .await
+        .map_err(|error| draft_mutation_error(&error))?;
+    Ok(PendingEmailSends {
+        attempts: page
+            .attempts
+            .into_iter()
+            .map(|entry| PendingEmailSend {
+                link_id: ID(entry.link_id.to_string()),
+                attempt: EmailSendAttemptPayload(entry.attempt),
+            })
+            .collect(),
+        next_cursor: page
+            .next_cursor
+            .map(|cursor| serde_json::to_string(&cursor))
+            .transpose()?,
+    })
 }
 
 #[cfg(test)]

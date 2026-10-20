@@ -345,6 +345,7 @@ fn a_received_email_carries_its_headers_and_reply_free_body() {
     .unwrap();
     let received_at = Utc.with_ymd_and_hms(2026, 10, 5, 9, 30, 0).unwrap();
     let content = EventContent::Email(Some(ParsedMessage {
+        draft_generation: 0,
         db_id: Uuid::parse_str("01928f3e-6a2b-7c3d-8e4f-00000000e3e5").unwrap(),
         link_id: Uuid::nil(),
         thread_db_id: Uuid::parse_str("01928f3e-6a2b-7c3d-8e4f-00000000e7a1").unwrap(),

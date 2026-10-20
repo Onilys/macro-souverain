@@ -396,6 +396,14 @@ fn test_email_err() -> EmailErr {
 }
 
 impl email::domain::send_attempt::EmailSendService for CountingEmailService {
+    async fn pending_email_sends(
+        &self,
+        _: MacroUserIdStr<'static>,
+        _: Option<email::domain::send_attempt::SendAttemptCursor>,
+    ) -> Result<email::domain::send_attempt::SendAttemptPage, EmailErr> {
+        Err(test_email_err())
+    }
+
     async fn send_email(
         &self,
         _: MacroUserIdStr<'static>,
@@ -616,6 +624,7 @@ impl EmailService for CountingEmailService {
         &self,
         _macro_id: MacroUserIdStr<'_>,
         _draft_id: Uuid,
+        _expected_generation: i32,
     ) -> Result<email::domain::models::DeletedUserDraft, EmailErr> {
         Err(test_email_err())
     }
@@ -959,6 +968,7 @@ impl graphql_activity::ActivityFeedReader for RecordingActivityReader {
 
 fn parsed_message(thread_id: Uuid) -> ParsedMessage {
     ParsedMessage {
+        draft_generation: 0,
         db_id: Uuid::from_u128(100),
         link_id: Uuid::from_u128(200),
         thread_db_id: thread_id,
@@ -990,6 +1000,7 @@ fn full_message(thread_id: Uuid) -> Message {
     let message_id = Uuid::from_u128(100);
     let draft_attachment_id = Uuid::from_u128(102);
     Message {
+        draft_generation: 0,
         operation_status: None,
         calendar_invitations: Default::default(),
         db_id: message_id,

@@ -9,7 +9,7 @@ async fn assert_compacted(pool: &Pool<Postgres>, attempt: SendAttemptId) -> anyh
         .request
         .expect("admitted attempt retains its approval digest");
     assert_eq!(request.as_object().unwrap().len(), 1);
-    assert_eq!(request["_send_approval"]["version"], 1);
+    assert_eq!(request["_send_approval"]["version"], 2);
     assert!(row.prepared_content.is_none());
     assert!(row.restore_body_html.is_none());
     assert!(row.restore_body_text.is_none());
@@ -45,7 +45,8 @@ async fn cancellation_and_delivery_clear_content_without_losing_replay_identity(
     );
 
     let sent = SendAttemptId(macro_uuid::generate_uuid_v7());
-    repo.admit_send(&actor(), link(), sent, prepared()).await?;
+    repo.admit_send(&actor(), link(), sent, prepared_generation(2))
+        .await?;
     email_db_client::messages::update::mark_message_as_sent(
         &mut *pool.acquire().await?,
         "provider-message",
@@ -56,7 +57,7 @@ async fn cancellation_and_delivery_clear_content_without_losing_replay_identity(
     .await?;
     assert_compacted(&pool, sent).await?;
     assert_eq!(
-        repo.admit_send(&actor(), link(), sent, prepared())
+        repo.admit_send(&actor(), link(), sent, prepared_generation(2))
             .await?
             .status,
         SendAttemptStatus::Sent
