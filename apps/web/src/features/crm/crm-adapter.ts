@@ -42,6 +42,7 @@ import {
 import { createAppCrmDisplayOptions } from './display-adapter';
 import { downloadCrmCsv } from './download-adapter';
 import {
+  copyCrmPipelineLink,
   copyCrmRecordLink,
   copyCrmViewLink,
   createAppCrmNavigation,
@@ -86,6 +87,7 @@ import {
   useResetCrmStagesMutation,
 } from './queries/stages';
 import { useTeamCrmConfig } from './queries/team-config';
+import { useQuickAccessCrmContactsQuery } from './record-adapter';
 import { createAppDealStages } from './stage-adapter';
 import { crmTaskComposerContext } from './task-composer';
 
@@ -203,6 +205,7 @@ export function createAppCrmContext(): CrmContext {
     createNavigation: createAppCrmNavigation,
     copyRecordLink: copyCrmRecordLink,
     copyViewLink: copyCrmViewLink,
+    copyPipelineLink: copyCrmPipelineLink,
     listsEnabled() {
       const flag = useFeatureFlag(enableCrmLists);
       return () => flag().enabled;
@@ -254,6 +257,7 @@ export function createAppCrmContext(): CrmContext {
     exportCompanies: (...args) =>
       fetchCrmExportCompanies(deps.storage, ...args),
     createCompanySuggestions: useQuickAccessCrmCompaniesQuery,
+    createContactSuggestions: useQuickAccessCrmContactsQuery,
     hydrateCompany(company) {
       if (company.properties) return company;
       const cached = getSoupEntityById(company.id);

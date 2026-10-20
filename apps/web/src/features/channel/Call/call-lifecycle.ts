@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import { thrownResultErrorHasCode } from '@core/util/result';
 import {
   type Cleanup,
@@ -30,21 +31,22 @@ function sameCall(first: CallIdentity | undefined, second: CallIdentity) {
   );
 }
 
-function deferred() {
-  let resolve!: () => void;
+function deferred<T = void>() {
+  let resolve!: (value: T) => void;
   let reject!: (error: unknown) => void;
-  const promise = new Promise<void>((yes, no) => {
+  const promise = new Promise<T>((yes, no) => {
     resolve = yes;
     reject = no;
   });
   return { promise, resolve, reject };
 }
-type Join = ReturnType<typeof deferred> & {
+type Join = ReturnType<typeof deferred<void>> & {
   channelId: string;
   onJoin?: () => void;
   restoredCall?: CallIdentity;
 };
-type Leave = ReturnType<typeof deferred> & {
+type LeaveResult = { callEnded: boolean } | void;
+type Leave = ReturnType<typeof deferred<LeaveResult>> & {
   channelId: string;
   startedAt: number;
   options?: CallSessionDisconnectOptions;
@@ -167,7 +169,7 @@ export function createCallLifecycle(options: {
   requestToken: (channelId: string) => Promise<CallTokenResponse>;
   connect: (token: CallTokenResponse) => Promise<void>;
   disconnect: (options?: CallSessionDisconnectOptions) => Promise<void>;
-  leave: (channelId: string) => Promise<unknown>;
+  leave: (channelId: string) => Promise<LeaveResult>;
   lookup: (channelId: string) => Promise<ActiveCallLookup>;
   currentCall: () => CallIdentity | undefined;
   beginJoin: (channelId: string) => void;
@@ -188,7 +190,7 @@ export function createCallLifecycle(options: {
     const pending = options.leave(channelId);
     pendingServerLeaves.add(pending);
     try {
-      await pending;
+      return await pending;
     } finally {
       pendingServerLeaves.delete(pending);
     }
@@ -338,7 +340,7 @@ export function createCallLifecycle(options: {
             releasePreparation();
           }
         }
-        void connect();
+        fireAndForget(connect(), 'channel-call');
         return () => {
           active = false;
           releasePreparation();
@@ -360,7 +362,11 @@ export function createCallLifecycle(options: {
             if (!retry) notifyLeft(call.channelId);
           },
           () => {
-            if (active) void leaveEndedNativeSession(call.channelId);
+            if (active)
+              fireAndForget(
+                leaveEndedNativeSession(call.channelId),
+                'channel-call'
+              );
           }
         );
         return () => {
@@ -417,7 +423,7 @@ export function createCallLifecycle(options: {
             options.reportError(error);
           }
         }
-        void recover();
+        fireAndForget(recover(), 'channel-call');
         return () => {
           active = false;
         };
@@ -444,7 +450,7 @@ export function createCallLifecycle(options: {
             options.reportError(error);
           }
         }
-        void cleanUpFailedJoin();
+        fireAndForget(cleanUpFailedJoin(), 'channel-call');
         return () => {
           active = false;
         };
@@ -456,11 +462,11 @@ export function createCallLifecycle(options: {
         notifyLeft(request.channelId);
         options.rollbackJoin();
         options.setError(null);
-        const finish = (error?: unknown) => {
+        const finish = (error?: unknown, result?: LeaveResult) => {
           if (!active) return;
           settled = true;
           if (error) request.reject(error);
-          else request.resolve();
+          else request.resolve(result);
           dispatch({ t: 'finish' });
         };
         const timeout = setTimeout(
@@ -468,6 +474,7 @@ export function createCallLifecycle(options: {
           LEAVE_TIMEOUT_MS
         );
         async function disconnect() {
+          let result: LeaveResult = undefined;
           try {
             try {
               await options.disconnect(request.options);
@@ -475,15 +482,15 @@ export function createCallLifecycle(options: {
               options.onLeft(request.channelId);
             } finally {
               if (active && !request.skipServerLeave)
-                await leaveServer(request.channelId);
+                result = await leaveServer(request.channelId);
             }
-            finish();
+            finish(undefined, result);
           } catch (error) {
             if (active) finish(error);
             else options.reportError(error);
           }
         }
-        void disconnect();
+        fireAndForget(disconnect(), 'channel-call');
         return () => {
           active = false;
           clearTimeout(timeout);
@@ -531,7 +538,7 @@ export function createCallLifecycle(options: {
   function leave(
     channelId: string,
     leaveOptions?: CallSessionDisconnectOptions
-  ): Promise<void> {
+  ): Promise<LeaveResult> {
     if (disposed) return Promise.reject(new Error('Call lifecycle disposed'));
     const state = machine.getState();
     if (state.t === 'leaving') {
@@ -551,7 +558,7 @@ export function createCallLifecycle(options: {
     skipServerLeave = false
   ) {
     const request: Leave = {
-      ...deferred(),
+      ...deferred<LeaveResult>(),
       channelId,
       startedAt: Date.now(),
       options: leaveOptions,
@@ -623,7 +630,7 @@ export function createCallLifecycle(options: {
         ) {
           // The native transport may already be restored, but the old DELETE
           // is still authoritative for membership until it settles.
-          void restoreAfterLeave(call);
+          fireAndForget(restoreAfterLeave(call), 'channel-call');
           return;
         }
         machine.dispatch({ t: 'adopt', call });
@@ -633,7 +640,10 @@ export function createCallLifecycle(options: {
       if (state.t === 'joining') {
         // Requesting a token can register a server participant before media
         // connects. Clean up unless a new session supersedes this attempt.
-        void leaveEndedNativeSession(state.request.channelId);
+        fireAndForget(
+          leaveEndedNativeSession(state.request.channelId),
+          'channel-call'
+        );
         return;
       }
       const channelId = match(state)

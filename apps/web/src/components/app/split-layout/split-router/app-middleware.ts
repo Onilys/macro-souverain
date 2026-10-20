@@ -6,7 +6,7 @@ import {
 } from '@app/features/calendar-view/calendar-url';
 import { CALENDAR_VIEW_ID } from '@app/features/calendar-view/types';
 import { channelsSearch } from '@app/features/channels-view/channels-route';
-import { crmPipelineSearch } from '@app/features/crm/crm-route';
+import { legacyCrmPipelineId } from '@app/features/crm/crm-route';
 import {
   driveDocumentFromContent,
   drivePath,
@@ -34,6 +34,28 @@ import { decodeLegacyPair } from './legacy-route';
 type AppMiddlewareState = {
   isTouchDevice: () => boolean;
 };
+
+function crmPipelinePath(pipelineId: string): string {
+  return `/companies/pipeline/${encodeURIComponent(pipelineId)}`;
+}
+
+/** Customers showed a pipeline as a list tab before it had its own route. */
+function redirectLegacyCrmPipeline({
+  to,
+  cause,
+  externalSearch,
+  redirect,
+}: SplitRouterMiddlewareContext): SplitRouterMiddlewareResult | undefined {
+  if (to.location.route.matches.at(-1)?.id !== 'view-companies') return;
+
+  const pipelineId = legacyCrmPipelineId(
+    to.location.search,
+    cause === 'initial' || cause === 'external' ? externalSearch : undefined
+  );
+  if (!pipelineId) return;
+
+  return redirect(crmPipelinePath(pipelineId));
+}
 
 /** Upgrade legacy component and block URLs when supported; on touch, keep
  * document details in their full-block routes instead of inline Drive views. */
@@ -85,12 +107,8 @@ function redirectLegacyRoutes(
     .with({ type: 'component' }, ({ id }) =>
       routes.byId.has(`view-${id}`) ? `/${id}` : undefined
     )
-    // A pipeline has no view of its own; Customers opens on it, on touch too.
-    .with({ type: 'pipeline' }, ({ id }) => {
-      const query = new URLSearchParams();
-      replacePaneSearchParams(query, [crmPipelineSearch(id)]);
-      return `/companies?${query}`;
-    })
+    // A pipeline opens in Customers, on touch too.
+    .with({ type: 'pipeline' }, ({ id }) => crmPipelinePath(id))
     .when(
       () => isTouch,
       () => undefined
@@ -231,6 +249,7 @@ export function createAppSplitRouterMiddleware(
 ): readonly SplitRouterMiddleware[] {
   return [
     (context) => redirectLegacyRoutes(context, state),
+    redirectLegacyCrmPipeline,
     migrateLegacySearch,
   ];
 }

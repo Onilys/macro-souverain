@@ -16,9 +16,11 @@ import { UnifiedFilterDropdown } from '@app/features/next-soup/soup-view/filters
 import { useFilterRefinements } from '@app/features/next-soup/soup-view/filters-bar/use-filter-refinements';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { usePreference } from '@app/preferences/use-preference';
+import { SplitPanel } from '@components/app/split-panel';
 import { enableCrmActivity } from '@core/constant/featureFlags';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { debounce } from '@core/util/debounce';
+import { fireAndForget } from '@core/util/fireAndForget';
 import {
   type EntityData,
   isCrmCompanyEntity,
@@ -52,13 +54,14 @@ import {
   pipelineIdOfTab,
   pipelineTab,
 } from '../core/navigation';
+import type { CrmRecordRef } from '../core/record';
 import { createCrmExportLoader } from '../primitives/export-source';
 import { CrmActivityView } from './activity';
 import { useApplyCrmView } from './apply-view';
 import { CrmExport } from './export-companies';
 import { CrmImport } from './import-companies';
 import { PipelineView } from './pipeline';
-import { CrmRecordDetail, type CrmRecordRef } from './record-detail';
+import { CrmRecordDetail } from './record-detail';
 import { CompanyDisplayMenu, CompanyViewsMenu } from './saved-views-menu';
 import {
   useCrmLists,
@@ -68,7 +71,7 @@ import {
 
 function NavigationToggle(props: {
   onExpand: () => void;
-  children: import('solid-js').JSX.Element;
+  children: JSX.Element;
 }) {
   const shell = useViewShell();
   const [open, setOpen] = createSignal(false);
@@ -76,45 +79,52 @@ function NavigationToggle(props: {
   const toggleTarget = tourTarget(VIEW_SHELL_TOUR.sidebarToggle);
   return (
     <Show when={!isTouchDevice() && shell.aside.isCollapsed()}>
-      <Show
-        when={shell.breakpoints.narrow?.()}
-        fallback={
-          <Tooltip label="Expand CRM sidebar">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              label="Expand CRM sidebar"
-              ref={toggleTarget}
-              onClick={props.onExpand}
-            >
-              <ListIcon class="size-4" />
-            </Button>
-          </Tooltip>
-        }
-      >
-        <Dropdown open={open()} onOpenChange={setOpen} placement="bottom-start">
-          <Tooltip label="Show CRM navigation">
-            <Dropdown.Trigger
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Show CRM navigation"
-              ref={toggleTarget}
-            >
-              <ListIcon class="size-4" />
-            </Dropdown.Trigger>
-          </Tooltip>
-          <Dropdown.Content class="w-55 max-h-[80vh] overflow-auto p-0">
-            <div
-              onClick={(event) => {
-                if ((event.target as HTMLElement).closest('nav button'))
-                  setOpen(false);
-              }}
-            >
-              {props.children}
-            </div>
-          </Dropdown.Content>
-        </Dropdown>
-      </Show>
+      <SplitPanel.ControlGroup>
+        <SplitPanel.CloseButton />
+        <Show
+          when={shell.breakpoints.narrow?.()}
+          fallback={
+            <Tooltip label="Expand CRM sidebar">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                label="Expand CRM sidebar"
+                ref={toggleTarget}
+                onClick={props.onExpand}
+              >
+                <ListIcon class="size-4" />
+              </Button>
+            </Tooltip>
+          }
+        >
+          <Dropdown
+            open={open()}
+            onOpenChange={setOpen}
+            placement="bottom-start"
+          >
+            <Tooltip label="Show CRM navigation">
+              <Dropdown.Trigger
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Show CRM navigation"
+                ref={toggleTarget}
+              >
+                <ListIcon class="size-4" />
+              </Dropdown.Trigger>
+            </Tooltip>
+            <Dropdown.Content class="w-55 max-h-[80vh] overflow-auto p-0">
+              <div
+                onClick={(event) => {
+                  if ((event.target as HTMLElement).closest('nav button'))
+                    setOpen(false);
+                }}
+              >
+                {props.children}
+              </div>
+            </Dropdown.Content>
+          </Dropdown>
+        </Show>
+      </SplitPanel.ControlGroup>
     </Show>
   );
 }
@@ -215,25 +225,16 @@ export function CrmWorkspaceView(props: {
     openCreateContact: openCreateContactModal,
     exportCompanies: fetchCrmExportCompanies,
     PipelineEditor,
-    copyViewLink,
+    copyPipelineLink,
   } = useCrmContext();
   const view = useCrmWorkspace();
   const { openWithSplit } = useCrmContext().createNavigation();
-  const [selectedRecord, setSelectedRecord] = createSignal<CrmRecordRef>();
-  const closeRecord = () => setSelectedRecord(undefined);
-  // Back and Forward change the tab without going through sidebar navigation.
-  createEffect(
-    on(
-      view.activeTab,
-      () => {
-        closeRecord();
-      },
-      { defer: true }
-    )
-  );
+  const records = view.host.record.records;
+  const recordOpen = () => records().length > 0;
   const showRecord = (record: CrmRecordRef) => {
+    // The list unmounts; its entry keeps the scroll position for the return.
     view.host.captureEntryState();
-    setSelectedRecord(record);
+    view.host.record.open([record]);
   };
   const openRecord = (entity: EntityData) => {
     const type = isCrmCompanyEntity(entity)
@@ -275,20 +276,11 @@ export function CrmWorkspaceView(props: {
     pipelinesEnabled() ? pipelineIdOfTab(view.activeTab()) : undefined;
   const activePipeline = () =>
     pipelines.pipelines().find((pipeline) => pipeline.id === pipelineId());
+  // Another tab's list replaces an open record; the same tab returns to its list.
   const selectPipeline = (id: string) => {
-    closeRecord();
-    view.setActiveTab(pipelineTab(id));
+    if (pipelineTab(id) === view.activeTab()) view.host.record.close();
+    else view.setActiveTab(pipelineTab(id));
   };
-  // The first request already chose the initial tab.
-  createEffect(
-    on(
-      view.host.pipelineRequest,
-      (request) => {
-        if (request) selectPipeline(request.pipelineId);
-      },
-      { defer: true }
-    )
-  );
   const listsEnabled = useCrmContext().listsEnabled();
   const lists = useCrmLists(() => (listsEnabled() ? teamId() : undefined));
   const [editing, setEditing] = createSignal<{
@@ -346,7 +338,9 @@ export function CrmWorkspaceView(props: {
   const navigate = (id: string) => {
     if (!listsEnabled() && id.startsWith('list:')) id = 'active';
     if (!activityFlag().enabled && isCrmActivityTab(id)) id = 'active';
-    closeRecord();
+    if (id !== 'people' && !id.startsWith('list:') && !isCrmActivityTab(id))
+      id = 'active';
+    if (id === active()) view.host.record.close();
     if (isCrmActivityTab(id)) {
       view.setActiveTab(id);
       return;
@@ -363,7 +357,6 @@ export function CrmWorkspaceView(props: {
       });
       return;
     }
-    if (!id.startsWith('list:')) id = 'active';
     const preset = getViewPreset('companies');
     const list = lists.lists().find((list) => `list:${list.id}` === id);
     const filters = structuredClone(preset?.filters ?? {});
@@ -394,7 +387,7 @@ export function CrmWorkspaceView(props: {
       }
     )
   );
-  const sidebar = () => (
+  const sidebar = (onCollapse?: () => void) => (
     <CrmSidebar
       pipelines={
         <Show when={pipelinesEnabled()}>
@@ -406,7 +399,7 @@ export function CrmWorkspaceView(props: {
             canCreate={canCreatePipeline()}
             onCreate={() => setCreatingPipeline(true)}
             onSelect={selectPipeline}
-            onRetry={() => void pipelines.refresh()}
+            onRetry={() => fireAndForget(pipelines.refresh(), 'crm')}
           />
         </Show>
       }
@@ -435,7 +428,7 @@ export function CrmWorkspaceView(props: {
       onImport={() => setImporting(true)}
       onExport={() => setExporting(true)}
       onSettings={view.host.openSettings}
-      onCollapse={() => setCollapsed(true)}
+      onCollapse={onCollapse}
     />
   );
   return (
@@ -444,11 +437,11 @@ export function CrmWorkspaceView(props: {
         <Suspense
           fallback={<div class="p-4 text-sm text-ink-muted">Loading CRM…</div>}
         >
-          {sidebar()}
+          {sidebar(() => setCollapsed(true))}
         </Suspense>
       </ViewShell.Aside>
       <ViewShell.Main>
-        <Show when={isTouchDevice() && !selectedRecord()}>
+        <Show when={isTouchDevice() && !recordOpen()}>
           <ViewShell.Header>
             <CrmMobileTabs
               active={activeRecord()}
@@ -474,22 +467,23 @@ export function CrmWorkspaceView(props: {
             </Suspense>
           </Show>
         </Show>
-        <Show when={selectedRecord()} keyed>
-          {(record) => (
-            <CrmRecordDetail
-              record={record}
-              viewName={activePipeline()?.name ?? title()}
-              onClose={closeRecord}
-              onOpenPipeline={selectPipeline}
-              navigation={
-                <NavigationToggle onExpand={() => setCollapsed(false)}>
-                  <Suspense>{sidebar()}</Suspense>
-                </NavigationToggle>
-              }
-            />
-          )}
+        <Show when={recordOpen()}>
+          <CrmRecordDetail
+            records={records()}
+            section={view.host.record.section()}
+            viewName={activePipeline()?.name ?? title()}
+            onOpen={view.host.record.open}
+            onSectionChange={view.host.record.setSection}
+            onClose={view.host.record.close}
+            onOpenPipeline={selectPipeline}
+            navigation={
+              <NavigationToggle onExpand={() => setCollapsed(false)}>
+                <Suspense>{sidebar()}</Suspense>
+              </NavigationToggle>
+            }
+          />
         </Show>
-        <Show when={!selectedRecord() && pipelineId()} keyed>
+        <Show when={!recordOpen() && pipelineId()} keyed>
           {(id) => (
             <Show when={activePipeline()}>
               {(pipeline) => (
@@ -502,12 +496,7 @@ export function CrmWorkspaceView(props: {
                   }}
                   Sharing={useCrmContext().PipelineSharing}
                   Editor={PipelineEditor}
-                  onCopyLink={() =>
-                    copyViewLink({
-                      kind: 'crm',
-                      activeTab: pipelineTab(id),
-                    })
-                  }
+                  onCopyLink={() => copyPipelineLink(id)}
                   onTrashed={() => navigate('active')}
                   onOpenRecord={openPipelineRecord}
                   navigation={
@@ -536,10 +525,10 @@ export function CrmWorkspaceView(props: {
             </Button>
           </div>
         </Show>
-        <Show when={!selectedRecord() && activityPending()}>
+        <Show when={!recordOpen() && !pipelineId() && activityPending()}>
           <div class="p-4 text-sm text-ink-muted">Loading CRM activity…</div>
         </Show>
-        <Show when={!selectedRecord() && activityTab()} keyed>
+        <Show when={!recordOpen() && !pipelineId() && activityTab()} keyed>
           {(tab) => (
             <>
               <Show when={!isTouchDevice()}>
@@ -566,7 +555,7 @@ export function CrmWorkspaceView(props: {
         </Show>
         <Show
           when={
-            !selectedRecord() &&
+            !recordOpen() &&
             !pipelineId() &&
             !activityTab() &&
             !activityPending()

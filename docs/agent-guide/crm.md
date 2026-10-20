@@ -26,11 +26,13 @@ focus or record changes do not reset an open composer; reopen to use the new
 context. If an embedded record shows a loading error, global task creation still
 targets the selected record until you close its details.
 
-The selected Customers tab is stored on the pane as `sN.crm.tab`. People uses
-`people`, activity tabs use `tasks`, `email`, `notes`, or `calls`, a pipeline uses
-`pipeline:<uuid>`, a list uses `list:<uuid>`, and hidden companies use `hidden`.
-Companies is the default and omits the key. Choosing any tab updates that parameter.
-Browser Back and Forward restore the tab and close an open record.
+The selected Customers list is stored on the pane as `sN.crm.tab`. People uses
+`people`, activity tabs use `tasks`, `email`, `notes`, or `calls`, a list uses
+`list:<uuid>`, and hidden companies use `hidden`. Companies is the default and
+omits the key. A pipeline has its own path, `/app/companies/pipeline/<uuid>`;
+older `sN.crm.tab=pipeline:<uuid>` URLs and shared `crmView` links that show a
+pipeline redirect there. Choosing Companies, People, an activity tab, a pipeline,
+or a list updates the URL, and browser Back and Forward restore it.
 
 The four activity tabs show CRM-linked content, not the whole app: Tasks and
 Calls require a Companies or Contacts reference; Notes are linked Markdown
@@ -92,17 +94,24 @@ row navigates in place.
 
 On desktop, clicking a company or a person in the list (or pressing Enter on a
 focused row) opens its details inside the CRM workspace, keeping the left
-navigation visible. The top breadcrumb reads `<Companies, People or list> >
-<record>`; click the first segment to return with the same filters and list
-scroll position. Selecting another sidebar entry closes the details. Shift-click
-still opens the record in a separate split. Direct company and contact links use
-the standalone pages.
-Each record opened from the details appends a breadcrumb: a contact from a
-company's Team tab gives `Companies > <company> > <contact>`, and a person's
-Company link gives `People > <contact> > <company>`. Opening a record already in
-the trail (such as the contact's own company from `Companies > <company> >
-<contact>`) returns to it instead of adding a duplicate. The CRM sidebar stays
-visible throughout.
+navigation visible. Each record has its own URL: `/app/companies/company/<uuid>`
+or `/app/companies/contact/<uuid>`, keeping the list's `sN.crm.tab`, and
+`/app/companies/pipeline/<uuid>/company/<uuid>` (or `/contact/<uuid>`) for a
+record opened from a pipeline. A record tab other than Overview adds its name,
+as in `/app/companies/company/<uuid>/team`. Browser Back returns to the list
+with the same filters and list scroll position, and Forward reopens the record.
+The top breadcrumb reads `<Companies, People, list or pipeline> > <record>`;
+click the first segment to return the same way. Selecting another sidebar entry
+shows that list in place of the details; selecting the record's own list returns
+to it. Shift-click still opens the record in a separate split. Direct company and
+contact links use the standalone pages.
+Each record opened from the details appends a breadcrumb and a history entry: a
+contact from a company's Team tab gives `Companies > <company> > <contact>`, and
+a person's Company link gives `People > <contact> > <company>`. Opening a record
+already in the trail (such as the contact's own company from `Companies >
+<company> > <contact>`) returns to it instead of adding a duplicate. Back and
+Forward restore the trail; a reloaded or shared record URL shows only `<list> >
+<record>`. The CRM sidebar stays visible throughout.
 Company and contact headers have `Copy link` beside the side-panel toggle.
 Their information panel starts closed and opens as a floating bubble at every
 width, without shrinking the record content. Click outside the bubble or use
@@ -199,7 +208,12 @@ the entity actions menu and command menu with stage requests delayed; cancel the
 editors without changing hosted data.
 
 `Collapse CRM sidebar` persists across visits; `Expand CRM sidebar` restores it.
-At narrow widths, `Show CRM navigation` opens the same navigation in a menu.
+At narrow widths, `Show CRM navigation` opens the same navigation in a menu
+without **Close** or `Collapse CRM sidebar`; picking a destination or clicking
+outside closes it.
+While the sidebar is collapsed or shown as a menu, the split's **Close** sits
+before either toggle, including on a pipeline, and stays hidden when the split
+cannot close.
 The sidebar's Records and Lists sections can also collapse independently.
 
 **Pipelines** in the CRM sidebar hold company or contact entries in the shared
@@ -219,8 +233,9 @@ Pick people or channels and an access level, and the message carries the pipelin
 The **People** list changes or removes their access. A teammate who receives a private
 pipeline sees it in their Customers sidebar. Only the owner sees **Team access**:
 choose **Edit** to share with the team or **None** to make the pipeline private.
-Viewers see only **Copy Link**. **Copy Link** copies a CRM link that opens this pipeline for
-anyone who has access; pasted into an editor it becomes a pipeline mention (see
+Viewers see only **Copy Link**. **Copy Link** copies the pipeline's
+`/app/companies/pipeline/<uuid>` URL, which opens it for anyone who has access;
+pasted into an editor it becomes a pipeline mention (see
 [CRM pipeline mentions](documents.md#crm-pipeline-mentions)). On mobile, team
 access is in the **Team** tab.
 
@@ -244,9 +259,23 @@ tabs. Its header shows the name, edited in place by editors, a **Pipeline
 actions** menu (**Rename** and **Import CSV** for editors, **Export CSV** for
 anyone who can open it, **Trash pipeline** for the owner) and **Share**. The
 toolbar below has **All records**, the pipeline's stored views and **New view**
-(Table or Board), plus Group by (boards), Filter and Sort, then **Add company**
-or **Add contact** (by the pipeline's record type) for editors, which starts a
-row whose reference cell picks the record.
+(Table or Board), plus Group by (boards), Filter and Sort, then **Add deal**
+(company pipelines) or **Add contact** (contact pipelines) for editors. It opens
+a dialog titled **Add deal** (or **Add contact**) with the pipeline's name in a
+chip beside it and Close. Below the header, each field has its label stacked
+above a full-width bordered box: **Company** (or the contact column) first, with
+a **Find or add a company…** (or contact) search, then every pipeline field with
+the table's own cell editors (unset ones read **Empty**). The body scrolls while
+the footer stays pinned with **Cancel** (Esc) and **Add deal**. Select
+fields can create a new option. Choosing **Add company “…”** creates the company
+with the row: a searched domain fills the domain and the name. **Add contact “…”**
+works the same way, and a new contact's email must use a company's domain.
+**Add deal** stays disabled until a record is chosen, and Command-Enter submits.
+The form makes one row with every value set. A board lane's **New record** opens
+the same dialog with the lane's stage filled in. The table's blank row at the
+bottom still adds a row inline. On mobile the dialog is a bottom drawer. To verify
+the person picker, choose an **Owner** in the dialog: its menu must accept the
+click.
 Stored views are everyone's and are written through the pipeline, so changing one
 changes it for all viewers; All records is each viewer's own. A board can move a
 card to another group from its card menu or by dragging, which sets the row's
@@ -287,8 +316,11 @@ message and keep the last saved membership. With no lists, create one in the CRM
 `Domain` (or `Domains`, `Website`) column and an optional `Name` or `Company`
 column, such as a Companies export (up to 10,000 rows, at most 5 MB). Each row
 takes its first valid domain; rows without one or repeating an earlier domain are
-skipped. The explicit Import button writes the previewed companies four at a
-time; domains the team already tracks count as already in the CRM. Partial
+skipped. **Choose file** opens the CSV picker; the selected filename appears
+beside it (wrapping on narrow screens), and **Change file** opens it again.
+Cancelling the picker keeps the selection. The explicit Import button writes the
+previewed companies four at a time; domains the team already tracks count as
+already in the CRM. Partial
 failures retain only failed rows for retry. Stage, Owner, and Revenue live on
 pipeline rows, not companies: when the file has values in those columns and
 pipelines are available, a picker chooses where they go: **New private

@@ -111,7 +111,8 @@ public feature and blog routes, `/download`, and `/start`;
 `/onboarding-preview.html` remains a development review entry. It does not host
 the authenticated `/app/*` routes.
 
-`/download` says “Available for macOS and Linux” and has one download button.
+`/download` is headed “Download Macro Alpha”, says “Available for macOS and
+Linux”, and has one download button.
 Desktop Linux browsers receive the x86_64 AppImage; other browsers default to
 the Apple silicon DMG, with the selected platform named in the button.
 It searches recent stable GitHub releases for each installer, skipping CLI-only

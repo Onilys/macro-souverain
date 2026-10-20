@@ -270,6 +270,29 @@ fn make_invite() -> InviteToMacro {
 }
 
 #[test]
+fn invitation_logos_keep_the_png_aspect_ratio() {
+    let team_invite = InviteToTeamMetadata {
+        team_name: "Acme".to_string(),
+        team_id: Uuid::nil(),
+        team_invite_id: Uuid::nil(),
+        invited_by: MacroUserIdStr::try_from_email("sender@example.com").unwrap(),
+        role: None,
+        sender_profile_picture_url: None,
+    };
+    for email in [
+        make_invite().format_email(),
+        make_channel_invite().format_email(),
+        team_invite.format_email(),
+        make_colleague_joined().format_email(),
+    ] {
+        let body = email.body.split_whitespace().collect::<Vec<_>>().join(" ");
+        assert!(body.contains(
+            r#"src="https://static-file-service.macro.com/file/b911aba9-94a6-435c-aa16-8404739f13b0" width="54" height="36""#
+        ));
+    }
+}
+
+#[test]
 fn referral_url_does_not_panic() {
     let invite = make_invite();
     let _url = invite.referral_url();

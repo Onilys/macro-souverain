@@ -45,6 +45,9 @@ sessions: agent-session trigger events in, sandboxed coding agent sessions
 - `just run-local` — needs `DAYTONA_API_KEY`, `DAYTONA_SNAPSHOT`,
   `GITHUB_TOKEN` in the environment or a local `.env`.
 
+Code-mode credentials sign the authenticated session bot identity for SDK
+message attribution after owner approval, while retaining user authentication.
+
 ## Gotchas
 
 - Two managed bots run on different runtimes: `@coder` (`HARNESS_BOT_ID`) in a

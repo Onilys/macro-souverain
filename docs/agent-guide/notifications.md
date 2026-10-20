@@ -43,6 +43,11 @@ Also verify logout and notification opt-out while registration is pending: late
 backend or native completions must leave the receiver disabled. If a new account
 signs in before cleanup finishes, its registration must remain active afterward.
 
+Mute indicators must use the current account's query data, not a retained copy
+from the previous session. Verify a same-tab sign-out/sign-in with the second
+account's muted-items request delayed: show no previous-account mute indicators
+while that query is pending, then apply only the second account's response.
+
 Toast regions are labeled `Notifications (alt+T)`; seven empty live regions always exist in
 the a11y tree (ignore them when parsing snapshots).
 
@@ -59,13 +64,14 @@ input without a surface background, rounded frame, or shadow. Attachment and
 formatting actions stay available.
 On mobile, open documents and tasks put their new-comment composer in the
 accessory dock above navigation, using the channel input's compact pill and
-expanded surface. Ask AI and New are hidden in these open views only when the
-comment composer is available; their list screens keep those controls. Users
-without comment permission have no comment composer, so Ask AI remains visible.
+expanded surface. New is hidden when the comment composer is available; list
+screens keep New. Users without comment permission have no comment composer.
+The floating Ask AI input appears only on the AI/Agents view.
 
 On touch devices, an email thread's floating action bar has Previous email and
 Next email arrows beside the larger Mark done checkmark. The arrows follow the
 source list's filtered order, skip non-email items, and disable at its ends.
+They keep working from the thread's former neighbours after it leaves the list.
 `J` / `ArrowRight` and `K` / `ArrowLeft` use that same order in the Email view.
 Arrow keys in a reply editor or other text input keep their normal editing behavior. They do not wrap; a thread
 opened without a source list has disabled arrows.

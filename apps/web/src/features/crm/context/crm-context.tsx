@@ -52,6 +52,7 @@ export type CrmContext = {
   contactInitials(name: string | null | undefined, email: string): string;
   userEmail(id: string): string;
   copyViewLink(config: import('../core/saved-view').CrmViewConfig): void;
+  copyPipelineLink(pipelineId: string): void;
   copyRecordLink(target: {
     type: 'company' | 'contact';
     id: string;
@@ -114,6 +115,10 @@ export type CrmContext = {
     companies: Accessor<
       { id: string; name: string; domains: { domain: string }[] }[]
     >;
+    query: { readonly isLoading: boolean };
+  };
+  createContactSuggestions(): {
+    contacts: Accessor<{ id: string; name: string; email: string }[]>;
     query: { readonly isLoading: boolean };
   };
   exportCompanies(

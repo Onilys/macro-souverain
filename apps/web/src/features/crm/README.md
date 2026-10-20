@@ -18,7 +18,9 @@ crm/
   crm-create.tsx / crm-link.tsx
   crm-actions.ts / crm-hide-action.ts / crm-action-items.ts / crm-user-action.tsx
   crm-search.ts / crm-tool-renderers.tsx
-  route.tsx     Authenticated route and shared-view decoding
+  crm-route.ts  Route params, record trail, and legacy pipeline link decoding
+  route-views.tsx  Authenticated route and shared-view decoding
+  crm-hosted-content.ts  Split content that opens Customers on a pipeline
   *-adapter.*   Production sources, navigation, persistence, download, collection wiring
 ```
 

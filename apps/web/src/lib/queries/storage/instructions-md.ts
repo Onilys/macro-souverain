@@ -4,6 +4,7 @@ import {
   initializeEditorWithState,
 } from '@core/component/LexicalMarkdown/utils';
 
+import { useIsAuthenticated } from '@core/context/user';
 import { storageServiceClient } from '@service-storage/client';
 import { syncServiceClient } from '@service-sync/client';
 import { useQuery } from '@tanstack/solid-query';
@@ -50,7 +51,11 @@ function instructionsMdIdQueryOptions() {
  * Returns null if not yet created, throws otherwise.
  */
 export function useInstructionsMdIdQuery() {
-  return useQuery(() => instructionsMdIdQueryOptions());
+  const authenticated = useIsAuthenticated();
+  return useQuery(() => ({
+    ...instructionsMdIdQueryOptions(),
+    enabled: authenticated() === true,
+  }));
 }
 
 const getInstructionsMdText = async (id: string | null | undefined) => {
@@ -96,10 +101,14 @@ function instructionsMdTextQueryOptions(
 
 /** useQuery hook for retrieving the instructions md document text content */
 export function useInstructionsMdTextQuery() {
+  const authenticated = useIsAuthenticated();
   const idQuery = useInstructionsMdIdQuery();
 
   return useQuery(() =>
-    instructionsMdTextQueryOptions(idQuery.data, idQuery.isSuccess)
+    instructionsMdTextQueryOptions(
+      authenticated() === true && idQuery.isSuccess ? idQuery.data : undefined,
+      authenticated() === true && idQuery.isSuccess
+    )
   );
 }
 

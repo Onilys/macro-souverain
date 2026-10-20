@@ -11,6 +11,7 @@ import { useIsAuthenticated } from '@core/auth';
 import { ImperativeDialogHost } from '@ui';
 import { type JSX, onCleanup, onMount, type ParentProps, Show } from 'solid-js';
 import { LIKELY_NEXT_VIEWS } from './lazy-route-views';
+import { PublicBookingShell } from './public-booking-shell';
 
 /** Takes over from index.html's boot shell once this shell has drawn. */
 function useDismissBootShell() {
@@ -38,12 +39,14 @@ function FocusedPage(props: ParentProps) {
   );
 }
 
-/** Booking links: a scrolling page on the page background, without app chrome. */
+/** Booking links keep a native exit outside the lazy page/loading boundary. */
 export function FocusedShell(): JSX.Element {
+  useDismissBootShell();
   return (
-    <FocusedPage>
+    <PublicBookingShell>
+      <ImperativeDialogHost />
       <SplitRouter.Outlet />
-    </FocusedPage>
+    </PublicBookingShell>
   );
 }
 

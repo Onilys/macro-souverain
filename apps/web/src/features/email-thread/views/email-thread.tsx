@@ -64,9 +64,9 @@ export function EmailThreadView(props: EmailThreadViewProps) {
           }
         >
           {(draft) => (
-            // The email block is bottom-anchored (no default panel inset),
-            // so the compose branch pads around the chrome itself.
-            <div class="size-full touch:pt-(--mobile-content-inset-top) touch:pb-(--mobile-content-inset-bottom)">
+            // The compose view carries the mobile chrome insets itself, so
+            // this branch only has to hand it the full frame.
+            <div class="size-full">
               <EmailComposeView
                 context={viewContext.compose}
                 host={{
@@ -100,6 +100,7 @@ export function EmailThreadView(props: EmailThreadViewProps) {
             <div class="size-full select-none overscroll-none overflow-hidden flex flex-col">
               {props.header}
               {props.actions}
+              {viewContext.rendering.renderOrganizationStatus?.()}
               {/* Measure message gutters against the thread, excluding the side panel. */}
               <div
                 class="@container w-full flex-1 flex flex-col items-center overflow-hidden"

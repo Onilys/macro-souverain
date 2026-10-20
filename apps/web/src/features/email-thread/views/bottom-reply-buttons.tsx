@@ -3,6 +3,7 @@ import type { EmailMessage } from '@app/features/email-message/core/email-messag
 import { FloatRegionOrInline } from '@components/app/mobile/float-regions/FloatRegion';
 import { inboxIconProps } from '@core/component/inboxIcon';
 import { UserIcon } from '@core/component/UserIcon';
+import { fireAndForget } from '@core/util/fireAndForget';
 import ArrowBendUpLeft from '@phosphor/arrow-bend-up-left.svg';
 import ArrowBendUpRight from '@phosphor/arrow-bend-up-right.svg';
 import ArrowDown from '@phosphor/arrow-down.svg';
@@ -88,7 +89,10 @@ export function BottomReplyButtons(props: {
     if (isDone()) {
       ctx.markThreadNotDone();
     } else if (props.navigation) {
-      props.navigation.markDone(ctx.archiveThread);
+      fireAndForget(
+        props.navigation.markDone(ctx.archiveThread),
+        'email-thread'
+      );
     } else {
       ctx.archiveThread();
     }

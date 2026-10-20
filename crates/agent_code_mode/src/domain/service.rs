@@ -312,6 +312,7 @@ impl SessionCodeMode for CodeModeService {
         let identity = ExecutionIdentity {
             execution,
             session: session.id,
+            agent_id: session.bot_id,
             owner,
             turn: self
                 .0

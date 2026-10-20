@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import { type JSX, onMount } from 'solid-js';
 import { InsightsPanel } from '../components/insights-panel';
 import type { SchedulingSource } from '../context/scheduling-context';
@@ -13,7 +14,7 @@ export function InsightsView(props: {
   scopeSelector?: JSX.Element;
 }) {
   const state = createInsightsState(props.source, props.timeZone);
-  onMount(() => void state.load());
+  onMount(() => fireAndForget(state.load(), 'scheduling'));
   return (
     <InsightsPanel
       scopeSelector={props.scopeSelector}
@@ -26,8 +27,10 @@ export function InsightsView(props: {
       error={state.error()}
       from={state.range().from}
       to={state.range().to}
-      onRangeChange={(from, to) => void state.load(from, to)}
-      onRetry={() => void state.load()}
+      onRangeChange={(from, to) =>
+        fireAndForget(state.load(from, to), 'scheduling')
+      }
+      onRetry={() => fireAndForget(state.load(), 'scheduling')}
     />
   );
 }

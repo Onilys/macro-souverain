@@ -73,6 +73,9 @@ key issuance, and account merge/link flows.
 - Deploy the eligibility endpoint before web clients that require it; otherwise
   the clients keep Pro checkout disabled until the lookup can succeed.
 
+API-token exchange preserves verified incoming agent attribution; query/body
+inputs cannot select an agent, and ordinary user credentials remain unattributed.
+
 ## Gotchas
 
 - The signup allowlist has a temporary Develop-only bypass

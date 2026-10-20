@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import PlusIcon from '@phosphor/plus.svg';
 import { Button } from '@ui';
 import { createSignal, Show } from 'solid-js';
@@ -52,7 +53,7 @@ export function CrmActivityView(props: { tab: CrmActivityTab }) {
               <Button
                 variant="outline"
                 disabled={retrying()}
-                onClick={() => void retry()}
+                onClick={() => fireAndForget(retry(), 'crm')}
               >
                 {retrying() ? 'Retrying…' : 'Try again'}
               </Button>
