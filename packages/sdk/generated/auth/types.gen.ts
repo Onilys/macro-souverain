@@ -419,6 +419,14 @@ export type CursorModelsResponse = {
 export type DenyReason = 'allowance_exhausted' | 'free_allowance_exhausted' | 'overage_limit_reached' | 'overage_payment_failed';
 
 /**
+ * Actual deployment availability for the provider selector.
+ */
+export type EmailConnectionProviders = {
+    gmail: boolean;
+    outlook: boolean;
+};
+
+/**
  * Empty response is required due to custom fetch forcing `response.json()`
  */
 export type EmptyResponse = {
@@ -1391,7 +1399,7 @@ export type PublicGtmInviteLink = {
  */
 export type PutCursorApiKeyRequest = {
     /**
-     * A `crsr_…` Cursor API key.
+     * A Cursor API key: `grok_…`, or `crsr_…` for older keys.
      */
     apiKey: string;
 };
@@ -1661,7 +1669,7 @@ export type TeamWithMembers = {
     members: Array<TeamMember>;
     /**
      * Provider-confirmed pending seat changes, keyed by member user ID.
-     * Only available to paid-team admins and owners; empty means no pending changes.
+     * Empty when no changes apply to this viewer; absent when the lookup fails.
      */
     scheduled_seat_plans?: {
         [key: string]: ScheduledSeatPlan;
@@ -1692,6 +1700,20 @@ export type ToggleNonAdminInvitesResponse = {
      * toggle.
      */
     allow_non_admin_invites: boolean;
+};
+
+/**
+ * Whether the authenticated customer can receive the introductory Pro trial.
+ */
+export type TrialEligibility = {
+    /**
+     * Confirmed against the same subscription history used during checkout.
+     */
+    eligible: boolean;
+    /**
+     * An existing subscription requires management instead of a new checkout.
+     */
+    existingSubscription: boolean;
 };
 
 /**
@@ -2695,6 +2717,19 @@ export type CreateInProgressLinkResponses = {
 
 export type CreateInProgressLinkResponse2 = CreateInProgressLinkResponses[keyof CreateInProgressLinkResponses];
 
+export type EmailConnectionProvidersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/link/email/providers';
+};
+
+export type EmailConnectionProvidersResponses = {
+    200: EmailConnectionProviders;
+};
+
+export type EmailConnectionProvidersResponse = EmailConnectionProvidersResponses[keyof EmailConnectionProvidersResponses];
+
 export type DeleteGithubLinkData = {
     body?: never;
     path?: never;
@@ -2774,6 +2809,10 @@ export type InitGmailLinkData = {
          */
         original_url: string;
         /**
+         * Existing accessible Gmail inbox being reconnected; does not consume an additional inbox slot.
+         */
+        reconnect_link_id?: string;
+        /**
          * **OPTIONAL**. Which capabilities to request consent for: `gmail` (default), `gmail_and_calendar`, or `calendar`. The calendar variants are only honored when the deployment allows calendar scope requests.
          */
         scopes?: string;
@@ -2827,6 +2866,14 @@ export type InitOutlookLinkData = {
          * **OPTIONAL**. The original URL to redirect to.
          */
         original_url?: string;
+        /**
+         * mail (default) or mail_and_calendar. Calendar requests obey the deployment calendar consent switch.
+         */
+        scopes?: string;
+        /**
+         * Existing accessible inbox being reconnected or granted calendar consent.
+         */
+        reconnect_link_id?: string;
     };
     url: '/link/outlook';
 };
@@ -2834,6 +2881,7 @@ export type InitOutlookLinkData = {
 export type InitOutlookLinkErrors = {
     400: ErrorResponse;
     401: ErrorResponse;
+    402: ErrorResponse;
     404: ErrorResponse;
     429: ErrorResponse;
     500: ErrorResponse;
@@ -4010,6 +4058,27 @@ export type CreatePortalSessionResponses = {
 };
 
 export type CreatePortalSessionResponse = CreatePortalSessionResponses[keyof CreatePortalSessionResponses];
+
+export type GetTrialEligibilityData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/user/stripe/trial_eligibility';
+};
+
+export type GetTrialEligibilityErrors = {
+    400: ErrorResponse;
+    401: ErrorResponse;
+    500: ErrorResponse;
+};
+
+export type GetTrialEligibilityError = GetTrialEligibilityErrors[keyof GetTrialEligibilityErrors];
+
+export type GetTrialEligibilityResponses = {
+    200: TrialEligibility;
+};
+
+export type GetTrialEligibilityResponse = GetTrialEligibilityResponses[keyof GetTrialEligibilityResponses];
 
 export type PatchUserTutorialData = {
     body: PatchUserTutorialRequest;

@@ -43,6 +43,7 @@ vi.mock('@core/context/quickAccess', () => ({
         hasMore: () => false,
         isLoading: () => false,
         isLoadingMore: () => false,
+        error: () => undefined,
         loadMore: async () => {},
       } satisfies QuickAccessList;
     },
@@ -130,7 +131,7 @@ function setup(initialCategory: CategoryFilter = 'dms') {
     const [dms, setDms] = createSignal<EntityItem[]>([]);
     const [hasMore, setHasMore] = createSignal(false);
     const [loading, setLoading] = createSignal(false);
-    mocks.lists = { person: users, dm: dms };
+    mocks.lists = { person: users, dm: dms, category: dms };
     const discovery = {
       search: undefined as Accessor<string> | undefined,
       active: undefined as Accessor<boolean> | undefined,
@@ -146,6 +147,7 @@ function setup(initialCategory: CategoryFilter = 'dms') {
           isLoading: loading,
           hasMore,
           isLoadingMore: () => false,
+          error: () => undefined,
           loadMore: discovery.loadMore,
         };
       },
@@ -188,6 +190,32 @@ describe('command menu contact discovery', () => {
     t.setQuery('pat doe');
     expect(t.ids()).toContain('crm-pat');
   });
+
+  it.each(['all', 'dms'] as const)(
+    'keeps existing DMs ahead of recent CRM contacts in %s as server results arrive',
+    (category) => {
+      const t = setup(category);
+      const dm = directMessage(
+        'dm-jack',
+        'Jackson Kustec',
+        'macro|jack@macro.com'
+      );
+      t.setDms([dm]);
+      t.setQuery('jack');
+      expect(t.ids()).toEqual([`search:${category}:jack`, dm.id]);
+
+      t.setContacts([
+        {
+          ...contact('crm-jack', 'Jack Healey', 'jack@external.com'),
+          lastInteraction: new Date().toISOString(),
+        },
+      ]);
+      expect(t.ids()).toEqual([`search:${category}:jack`, dm.id, 'crm-jack']);
+
+      t.setQuery('');
+      expect(t.ids()).toEqual([dm.id]);
+    }
+  );
 
   it('keeps contacts out of unrelated categories', () => {
     const t = setup('documents');

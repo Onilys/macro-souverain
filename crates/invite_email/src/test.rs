@@ -125,6 +125,140 @@ fn colleague_joined_serde_round_trip_keeps_the_wire_shape() {
     assert_eq!(String::from(parsed.recipient_email), "bob@acme.com");
 }
 
+fn make_channel_invite() -> ChannelInviteMetadata {
+    ChannelInviteMetadata {
+        invited_by: MacroUserIdStr::try_from_email("sender@example.com").unwrap(),
+        channel_name: "general".to_string(),
+        is_direct_message: false,
+        message_content: None,
+        sender_profile_picture_url: None,
+    }
+}
+
+#[test]
+fn dm_invite_names_the_sender_not_the_recipient() {
+    let invite = ChannelInviteMetadata {
+        channel_name: "julia+scribbington".to_string(),
+        is_direct_message: true,
+        message_content: Some("Hey".to_string()),
+        ..make_channel_invite()
+    };
+    let email = invite.format_email();
+    assert_eq!(
+        email.subject,
+        "sender@example.com sent you a message on Macro"
+    );
+    assert!(
+        email
+            .body
+            .contains("sender@example.com sent you a message on Macro.")
+    );
+    assert!(email.body.contains("Hey"));
+    assert!(email.body.contains(">View message</a"));
+    assert!(email.body.contains("/app/signup\""));
+    assert!(!email.body.contains("julia+scribbington"));
+    assert!(!email.body.contains("invited"));
+    assert!(!email.body.contains("Join channel"));
+    assert_eq!(
+        invite.format_title(None).unwrap(),
+        "sender@example.com sent you a message"
+    );
+}
+
+#[test]
+fn dm_invite_without_message_content_keeps_dm_wording() {
+    let email = ChannelInviteMetadata {
+        is_direct_message: true,
+        ..make_channel_invite()
+    }
+    .format_email();
+    assert!(email.body.contains("Sign up to read and reply."));
+    assert!(!email.body.contains("general"));
+    assert!(!email.body.contains("A shared space for your team"));
+}
+
+#[test]
+fn named_channel_invite_keeps_channel_wording_with_or_without_a_message() {
+    for message_content in [None, Some("Hey".to_string())] {
+        let invite = ChannelInviteMetadata {
+            message_content,
+            ..make_channel_invite()
+        };
+        let email = invite.format_email();
+        assert_eq!(
+            email.subject,
+            "sender@example.com has invited you to join #general"
+        );
+        assert!(email.body.contains("<strong>#general</strong> on Macro."));
+        assert!(email.body.contains(">Join channel</a"));
+        assert!(!email.body.contains("sent you a message"));
+        assert_eq!(
+            invite.format_title(None).unwrap(),
+            "sender@example.com invited you to join #general"
+        );
+    }
+}
+
+#[test]
+fn invite_email_escapes_message_content_and_channel_names() {
+    for is_direct_message in [false, true] {
+        let email = ChannelInviteMetadata {
+            channel_name: "<script>channel</script>".to_string(),
+            is_direct_message,
+            message_content: Some("<script>message</script>".to_string()),
+            ..make_channel_invite()
+        }
+        .format_email();
+        assert!(!email.body.contains("<script>"));
+        assert!(
+            email
+                .body
+                .contains("&#60;script&#62;message&#60;/script&#62;")
+        );
+        if !is_direct_message {
+            assert!(
+                email
+                    .body
+                    .contains("&#60;script&#62;channel&#60;/script&#62;")
+            );
+        }
+    }
+}
+
+#[test]
+fn legacy_channel_invites_default_to_channel_wording() {
+    for wire in [
+        serde_json::json!({
+            "invitedBy": "macro|sender@example.com",
+            "channelName": "general",
+        }),
+        serde_json::json!({
+            "invited_by": "macro|sender@example.com",
+            "channel_name": "general",
+        }),
+    ] {
+        let invite: ChannelInviteMetadata = serde_json::from_value(wire).unwrap();
+        assert!(!invite.is_direct_message);
+        assert_eq!(
+            invite.format_email().subject,
+            "sender@example.com has invited you to join #general"
+        );
+    }
+}
+
+#[test]
+fn dm_invite_serde_round_trip_preserves_dm_wording() {
+    let invite = ChannelInviteMetadata {
+        is_direct_message: true,
+        ..make_channel_invite()
+    };
+    let wire = serde_json::to_value(&invite).unwrap();
+    assert_eq!(wire["isDirectMessage"], true);
+    let parsed: ChannelInviteMetadata = serde_json::from_value(wire).unwrap();
+    assert!(parsed.is_direct_message);
+    assert_eq!(parsed.format_email().subject, invite.format_email().subject);
+}
+
 fn make_invite() -> InviteToMacro {
     InviteToMacro {
         recipient_email: EmailStr::try_from("recipient@example.com".to_string()).unwrap(),
@@ -132,6 +266,29 @@ fn make_invite() -> InviteToMacro {
         sender_profile_picture_url: None,
         sender_name: Some("Test User".to_string()),
         sender_email: Some("sender@example.com".to_string()),
+    }
+}
+
+#[test]
+fn invitation_logos_keep_the_png_aspect_ratio() {
+    let team_invite = InviteToTeamMetadata {
+        team_name: "Acme".to_string(),
+        team_id: Uuid::nil(),
+        team_invite_id: Uuid::nil(),
+        invited_by: MacroUserIdStr::try_from_email("sender@example.com").unwrap(),
+        role: None,
+        sender_profile_picture_url: None,
+    };
+    for email in [
+        make_invite().format_email(),
+        make_channel_invite().format_email(),
+        team_invite.format_email(),
+        make_colleague_joined().format_email(),
+    ] {
+        let body = email.body.split_whitespace().collect::<Vec<_>>().join(" ");
+        assert!(body.contains(
+            r#"src="https://static-file-service.macro.com/file/b911aba9-94a6-435c-aa16-8404739f13b0" width="54" height="36""#
+        ));
     }
 }
 

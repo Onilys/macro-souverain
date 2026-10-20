@@ -12,6 +12,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 mod explain;
+mod hidden_sessions;
 mod latest;
 
 const USER_1: &str = "macro|user-1@test.com";

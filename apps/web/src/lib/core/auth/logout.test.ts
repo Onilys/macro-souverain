@@ -4,8 +4,9 @@ import { isCancelledError, QueryClient } from '@tanstack/solid-query';
 import { createRoot } from 'solid-js';
 import { describe, expect, it, vi } from 'vitest';
 
-const { client, navigate } = vi.hoisted(() => ({
+const { client, isTauri, navigate } = vi.hoisted(() => ({
   client: { current: undefined as QueryClient | undefined },
+  isTauri: vi.fn(() => false),
   navigate: vi.fn(),
 }));
 vi.mock('@queries/client', () => ({
@@ -28,13 +29,19 @@ vi.mock('@queries/email/local-drafts', () => ({
   flushLocalDrafts: vi.fn(async () => {}),
   listLocalDrafts: vi.fn(async () => []),
 }));
-vi.mock('@core/constant/servers', () => ({ SERVER_HOSTS: {} }));
-vi.mock('@core/mobile/isNativeMobilePlatform', () => ({
-  isNativeMobilePlatform: vi.fn(() => false),
+vi.mock('@core/constant/servers', () => ({
+  SERVER_HOSTS: { 'auth-logout': 'https://auth.example.com/oauth2/logout' },
+}));
+vi.mock('@core/util/platform', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@core/util/platform')>()),
+  isTauri,
 }));
 vi.mock('@core/util/cookies', () => ({ syncLoginStorage: vi.fn() }));
 vi.mock('@graphql-cache/lifecycle', () => ({
   clearRegisteredCaches: vi.fn(async () => {}),
+}));
+vi.mock('@service-storage/graphql-soup', () => ({
+  setGraphqlSoupSessionActive: vi.fn(),
 }));
 vi.mock('@queries/auth/user-info', () => ({
   authKeys: {
@@ -52,15 +59,33 @@ vi.mock('./push-registration-lifecycle', () => ({
   unregisterPushRegistrationsForLogout: vi.fn(async () => {}),
 }));
 
-import { isNativeMobilePlatform } from '@core/mobile/isNativeMobilePlatform';
+import { clearRegisteredCaches } from '@graphql-cache/lifecycle';
 import {
   clearLocalDrafts,
   flushLocalDrafts,
   listLocalDrafts,
 } from '@queries/email/local-drafts';
 import { authServiceClient } from '@service-auth/client';
+import { setGraphqlSoupSessionActive } from '@service-storage/graphql-soup';
 import { confirmDialog } from '@ui';
 import { clearLocalAuthSession, useLogout } from './logout';
+
+describe('logout GraphQL session teardown', () => {
+  it('ends the GraphQL session only after the cache wipe', async () => {
+    client.current = new QueryClient();
+    const order: string[] = [];
+    vi.mocked(clearRegisteredCaches).mockImplementationOnce(async () => {
+      order.push('wipe');
+    });
+    vi.mocked(setGraphqlSoupSessionActive).mockImplementationOnce(() => {
+      order.push('teardown');
+    });
+    await clearLocalAuthSession();
+    expect(order).toEqual(['wipe', 'teardown']);
+    expect(setGraphqlSoupSessionActive).toHaveBeenCalledWith(false);
+    client.current.clear();
+  });
+});
 
 describe('logout notification cache isolation', () => {
   it('retires pending Done buckets and rotates the display-intent session', async () => {
@@ -130,10 +155,13 @@ describe('logout notification cache isolation', () => {
 });
 
 describe('local draft logout warning', () => {
-  it('reloads the native login document only after local cleanup and navigation', async () => {
+  // The Tauri shell, desktop included: a webview navigation to the identity
+  // provider would be handed to the system browser by the navigation plugin,
+  // leaving the app itself signed in.
+  it('reloads the Tauri login document only after local cleanup and navigation', async () => {
     const order: string[] = [];
     client.current = new QueryClient();
-    vi.mocked(isNativeMobilePlatform).mockReturnValue(true);
+    isTauri.mockReturnValue(true);
     vi.mocked(clearLocalDrafts).mockImplementationOnce(async () => {
       order.push('clear');
     });
@@ -143,11 +171,9 @@ describe('local draft logout warning', () => {
     const reload = vi.fn(() => {
       order.push('reload');
     });
+    const fetchMock = vi.fn(async () => new Response());
     vi.stubGlobal('window', { location: { reload } });
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => new Response())
-    );
+    vi.stubGlobal('fetch', fetchMock);
     const { logout, dispose } = createRoot((dispose) => ({
       logout: useLogout(),
       dispose,
@@ -155,11 +181,15 @@ describe('local draft logout warning', () => {
     try {
       await logout();
       expect(order).toEqual(['clear', 'navigate', 'reload']);
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://auth.example.com/oauth2/logout',
+        expect.objectContaining({ credentials: 'include', mode: 'no-cors' })
+      );
       expect(navigate).toHaveBeenLastCalledWith('/login');
       expect(reload).toHaveBeenCalledOnce();
     } finally {
       dispose();
-      vi.mocked(isNativeMobilePlatform).mockReturnValue(false);
+      isTauri.mockReturnValue(false);
       vi.mocked(authServiceClient.logout).mockClear();
       vi.unstubAllGlobals();
       client.current.clear();

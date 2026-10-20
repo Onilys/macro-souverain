@@ -17,12 +17,14 @@ import {
   groupCalendarInvitations,
 } from '../core/calendar-invitation';
 import type { EmailAttachment } from '../core/email-message';
+import { inlineContentIds, normalizeContentId } from '../core/inline-images';
 export interface EmailMessageViewProps {
   message: EmailMessage;
   renderInvitation?: (
     message: EmailMessage,
     invitation: CalendarInvitation
   ) => JSX.Element;
+  renderOperation?: (message: EmailMessage) => JSX.Element;
   renderAvatar?: (message: EmailMessage) => JSX.Element;
   viewerEmail?: string;
   isTouch: boolean;
@@ -74,23 +76,16 @@ export function EmailMessageView(props: EmailMessageViewProps) {
   );
 
   // Hide attachments that are referenced in inline images
-  const inlineContentIds = createMemo(() => {
-    const set = new Set<string>();
-    const html = props.message.body_html_sanitized ?? '';
-    for (const match of html.matchAll(/src=["']cid:([^"']+)["']/gi)) {
-      const normalized = match[1].replace(/[<>]/g, '').trim();
-      if (normalized) set.add(normalized);
-    }
-    return set;
-  });
+  const shownInline = createMemo(() =>
+    inlineContentIds(props.message.body_html_sanitized ?? '')
+  );
 
   const visibleAttachments = createMemo(() => {
     return props.message.attachments.filter((a) => {
       if (!a.db_id) return false;
       const contentId = a.content_id?.toString();
       if (!contentId) return true;
-      const normalized = contentId.replace(/[<>]/g, '').trim();
-      return !inlineContentIds().has(normalized);
+      return !shownInline().has(normalizeContentId(contentId));
     });
   });
 
@@ -160,6 +155,7 @@ export function EmailMessageView(props: EmailMessageViewProps) {
               </div>
             }
           />
+          {props.renderOperation?.(props.message)}
           {/* Keyed by component so thread refreshes keep each card's state. */}
           <Key each={invitationGroups()} by={(group) => group.primary.id}>
             {(group) => {

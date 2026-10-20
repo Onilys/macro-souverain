@@ -27,7 +27,7 @@ use graphql_channel::{
     ChannelActivityAuthorizer, ChannelActivityMutationService, ChannelMutationRoot,
     NoOpChannelActivityMutationService,
 };
-use graphql_common::{parse_id, require_authorized_user};
+use graphql_common::{GraphqlSoupEntityType, parse_id, require_authorized_user};
 use graphql_email::{
     GraphqlEmailMutation, GraphqlEmailQuery, NoOpSoupEmailContentEdgeReader, SoupEmailEdgeReader,
 };
@@ -53,10 +53,11 @@ use graphql_properties::{
 };
 use graphql_scheduled_action::{GraphqlScheduledAction, resolve_scheduled_actions};
 use graphql_soup::{
-    GraphqlSoupAgentSession, GraphqlSoupEmailThread, GraphqlSoupInitiative, GroupedSoup,
-    GroupedSoupInput, SoupEmailThreadMutationOutput, SoupEntityEdges, SoupInput, SoupPage,
-    SoupPatch, resolve_grouped_soup, resolve_soup, resolve_soup_agent_session,
-    resolve_soup_email_thread, resolve_soup_updates,
+    GraphqlSoupAgentSession, GraphqlSoupEmailThread, GraphqlSoupEntity, GraphqlSoupInitiative,
+    GraphqlSoupProject, GroupedSoup, GroupedSoupInput, SoupEmailThreadMutationOutput,
+    SoupEntityEdges, SoupInput, SoupPage, SoupPatch, resolve_folders, resolve_grouped_soup,
+    resolve_soup, resolve_soup_agent_session, resolve_soup_email_thread, resolve_soup_entity,
+    resolve_soup_updates,
 };
 use graphql_work_feed::{
     GraphqlWorkFeedPage, WorkFeedInput, WorkFeedMutationRoot, WorkFeedSubscriptionRoot,
@@ -317,6 +318,15 @@ pub struct GraphqlUser<S, E, EAS, Auth, St, NR, PR, ER, FR, AR, AcR> {
 pub struct EmailThreadInput {
     /// The canonical email thread identifier.
     thread_id: ID,
+}
+
+/// Input for fetching one Soup entity by its type and identifier.
+#[derive(async_graphql::InputObject)]
+pub struct SoupEntityInput {
+    /// The Soup type of the entity.
+    entity_type: GraphqlSoupEntityType,
+    /// The entity identifier.
+    entity_id: ID,
 }
 
 /// Build a GraphQL schema for Soup suitable for SDL export or introspection.
@@ -752,6 +762,17 @@ where
         resolve_favorites::<FR>(ctx, &self.user_id, filter.unwrap_or_default().into_model()).await
     }
 
+    /// Non-deleted projects the authenticated user can access, as a flat list.
+    ///
+    /// Clients build the Drive sidebar tree from `parentId`. Membership is
+    /// gated by `entity_access` (not view history).
+    async fn folders(
+        &self,
+        ctx: &Context<'_>,
+    ) -> async_graphql::Result<Vec<GraphqlSoupProject<SoupEdges<NR, PR, ER, FR, AR, AcR>>>> {
+        resolve_folders(ctx, &self.user_id).await
+    }
+
     /// A page of the authenticated user's own activity, newest first.
     /// Delegated actions performed on the user's behalf are included.
     async fn activity(
@@ -861,6 +882,22 @@ where
             session_id,
         )
         .await
+    }
+
+    /// Fetch one accessible Soup entity, read from the primary so an entity
+    /// opened right after it is created or edited reflects that write.
+    async fn soup_entity(
+        &self,
+        ctx: &Context<'_>,
+        input: SoupEntityInput,
+    ) -> async_graphql::Result<Option<GraphqlSoupEntity<SoupEdges<NR, PR, ER, FR, AR, AcR>>>> {
+        let entity_id = parse_id(input.entity_id, "entityId")?;
+        let entity = input
+            .entity_type
+            .into_model()
+            .with_entity_string(entity_id.to_string());
+        resolve_soup_entity::<SoupEdges<NR, PR, ER, FR, AR, AcR>>(ctx, self.user_id.clone(), entity)
+            .await
     }
 
     /// Fetch Soup items nested into grouping bins.

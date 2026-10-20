@@ -6,9 +6,9 @@ import {
 import { FavoriteContextMenu } from '@app/features/favorites/FavoriteContextMenu';
 import { FavoriteIcon } from '@app/features/favorites/FavoriteIcon';
 import { useFavoriteDisplayName } from '@app/util/favorites';
+import { fireAndForget } from '@core/util/fireAndForget';
 import FolderIcon from '@phosphor/folder.svg';
 import SearchIcon from '@phosphor/magnifying-glass.svg';
-import { SidebarTagsSection } from '@property/tags/SidebarTagsSection';
 import type { Favorite } from '@service-storage/generated/schemas/favorite';
 import { Button } from '@ui';
 import { createMemo, createSignal, For, Show } from 'solid-js';
@@ -164,7 +164,9 @@ export function DriveSidebarContent(props: { onNavigate?: () => void }) {
                       Folders couldn’t be loaded.
                       <Button
                         variant="ghost"
-                        onClick={() => void sidebar.retryFolders()}
+                        onClick={() =>
+                          fireAndForget(sidebar.retryFolders(), 'drive-view')
+                        }
                       >
                         Try again
                       </Button>
@@ -193,13 +195,6 @@ export function DriveSidebarContent(props: { onNavigate?: () => void }) {
           </ViewSidebar.Nav>
         </CollapsibleSection.Content>
       </CollapsibleSection.Root>
-      <SidebarTagsSection
-        activeIds={state.value().facets.tags ?? []}
-        onActiveIdsChange={state.setTags}
-        open={state.value().tagsOpen}
-        onOpenChange={state.setTagsOpen}
-        onNavigate={props.onNavigate}
-      />
     </>
   );
 }

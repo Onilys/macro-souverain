@@ -10,7 +10,7 @@ Upgrades the AI model used in the chat app. There are two model slots:
 - **fast** (Enter): default/fallback model (first entry in `CHAT_MODELS`)
 - **good** (Cmd+Enter): smart mode model (second entry in `CHAT_MODELS`)
 
-The user must specify which slot to upgrade and the new model name (e.g. `Codex-opus-4-6`).
+The user must specify which slot to upgrade and the new model name (e.g. `claude-opus-4-6`).
 
 ## Steps
 
@@ -18,14 +18,14 @@ The user must specify which slot to upgrade and the new model name (e.g. `Codex-
 
 Ask the user (if not already provided):
 - Which slot: `fast` or `good`?
-- What is the new model name? (e.g. `Codex-opus-4-6`)
+- What is the new model name? (e.g. `claude-opus-4-6`)
 
 Derive from the model name:
-- `SERDE_NAME`: the kebab-case model ID sent over the wire (e.g. `Codex-opus-4-6`)
+- `SERDE_NAME`: the kebab-case model ID sent over the wire (e.g. `claude-opus-4-6`)
 - `ENUM_VARIANT`: PascalCase variant name (e.g. `Claude46Opus`)
 - `CONST_NAME`: SCREAMING_SNAKE constant name (e.g. `CLAUDE_46_OPUS`)
-- `CONST_VALUE`: display string used by the frontend/provider (e.g. `Codex-4.6-opus`)
-- `PRETTY_NAME`: human-readable name (e.g. `Codex Opus 4.6`)
+- `CONST_VALUE`: display string used by the frontend/provider (e.g. `claude-4.6-opus`)
+- `PRETTY_NAME`: human-readable name (e.g. `Claude Opus 4.6`)
 
 ### 2. Add model to AI crate (if it doesn't already exist)
 
@@ -82,6 +82,16 @@ File: `services/document_cognition_service/src/core/model.rs`
 File: `services/document_cognition_service/src/api/ws/chat_message/mod.rs`
 
 Search for the old model variant being used in the model selection logic (e.g. `Model::Claude45Opus`). Update it to the new variant.
+
+### 4b. Move stored models off the replaced one
+
+Routines (`scheduled_action.task->>'model'`) and in-memory agents
+(`agent_configs.default_model`) freeze their model at creation and nothing
+upgrades them at runtime. When a model replaces an older one of the same tier,
+add a migration that rewrites those rows, modeled on
+`crates/macro_db_client/migrations/20261019221542_upgrade_retired_claude_models.sql`:
+update its tier targets, keep the Macro-runtime scope, and bump the routine's
+`configuration_revision`.
 
 ### 5. Verify Rust compiles
 

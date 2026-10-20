@@ -20,7 +20,6 @@ interface CalendarPreferences {
   showWeekends: boolean;
   weekStartsOn: CalendarWeekStart;
   timeFormat: CalendarTimeFormat;
-  showTeamCalendars: boolean;
 }
 
 /** One persisted store, so preference changes reach invitation cards outside the calendar. */
@@ -33,7 +32,6 @@ export const useCalendarPreferences = createSharedRoot(() => {
     showWeekends: true,
     weekStartsOn: 0,
     timeFormat: getDefaultCalendarTimeFormat(),
-    showTeamCalendars: false,
   };
   const [preferences, setPreferences] = makePersisted(
     createStore<CalendarPreferences>(defaultPreferences),

@@ -94,6 +94,7 @@ use model::user::{
                 link::gmail::init_gmail_link_handler,
                 link::gmail::check_gmail_link_status_handler,
                 link::outlook::init_outlook_link_handler,
+                link::outlook::email_connection_providers,
 
                 // Cursor API key (settings -> Connections). Fully qualified:
                 // the `cursor_api_key` crate shadows the module of the same
@@ -147,6 +148,7 @@ use model::user::{
                 user::stripe::create_portal_session::create_portal_session,
                 user::stripe::change_plan::change_plan,
                 user::stripe::subscription_status::subscription_status,
+                user::stripe::trial_eligibility::trial_eligibility,
 
                 /// /ai-billing
                 ai_billing::inbound::axum_router::get_summary_handler::<crate::api::context::AiBillingServiceType, crate::api::context::AuthorizationService>,

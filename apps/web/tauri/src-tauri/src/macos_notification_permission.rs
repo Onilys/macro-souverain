@@ -1,19 +1,26 @@
-//! Read and request this app's notification authorization from macOS.
+//! Authorize and deliver this app's notifications through macOS UserNotifications.
 //!
 //! The cross-platform notification plugin always reports permission granted on
-//! desktop. Its delivery transport remains in use; these commands provide the
-//! actual system permission without prompting during a permission read.
+//! desktop and delivers through the legacy NSUserNotificationCenter API. macOS
+//! rejects legacy delivery after this app has connected to UserNotifications,
+//! so permission reads, authorization, and delivery must all use the modern API.
 
-use std::ptr::NonNull;
+use std::{fmt, ptr::NonNull};
 
 use block2::RcBlock;
+use objc2::rc::Retained;
 use objc2::runtime::Bool;
-use objc2_foundation::{NSBundle, NSError};
+use objc2_foundation::{NSBundle, NSError, NSString};
 use objc2_user_notifications::{
-    UNAuthorizationOptions, UNAuthorizationStatus, UNNotificationSettings, UNUserNotificationCenter,
+    UNAuthorizationOptions, UNAuthorizationStatus, UNMutableNotificationContent,
+    UNNotificationRequest, UNNotificationSettings, UNUserNotificationCenter,
 };
 use serde::{Serialize, Serializer};
 use tokio::sync::mpsc;
+use uuid::Uuid;
+
+mod activation;
+pub use activation::install_delegate;
 
 #[cfg(test)]
 mod test;
@@ -27,30 +34,55 @@ pub enum NotificationPermission {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum NotificationPermissionError {
-    #[error("macOS notification permissions require an application bundle; use the installed app")]
+pub enum NotificationError {
+    #[error("macOS notifications require an application bundle; use the installed app")]
     MissingBundleIdentifier,
-    #[error("macOS notification permission callback was dropped")]
+    #[error("macOS notification callback was dropped")]
     CallbackDropped,
-    #[error("macOS notification authorization failed ({domain} {code}): {description}")]
+    #[error("macOS notification {operation} failed ({domain} {code}): {description}")]
     Native {
+        operation: NotificationOperation,
         domain: String,
         code: isize,
         description: String,
     },
 }
 
-fn ensure_application_bundle() -> Result<(), NotificationPermissionError> {
+#[derive(Debug)]
+pub enum NotificationOperation {
+    Authorization,
+    Delivery,
+}
+
+impl fmt::Display for NotificationOperation {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            Self::Authorization => "authorization",
+            Self::Delivery => "delivery",
+        })
+    }
+}
+
+fn ensure_application_bundle() -> Result<(), NotificationError> {
     NSBundle::mainBundle()
         .bundleIdentifier()
         .filter(|identifier| !identifier.is_empty())
-        .ok_or(NotificationPermissionError::MissingBundleIdentifier)?;
+        .ok_or(NotificationError::MissingBundleIdentifier)?;
     Ok(())
 }
 
-impl Serialize for NotificationPermissionError {
+impl Serialize for NotificationError {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(&self.to_string())
+    }
+}
+
+fn native_error(operation: NotificationOperation, error: &NSError) -> NotificationError {
+    NotificationError::Native {
+        operation,
+        domain: error.domain().to_string(),
+        code: error.code(),
+        description: error.localizedDescription().to_string(),
     }
 }
 
@@ -66,8 +98,8 @@ fn permission_from_status(status: UNAuthorizationStatus) -> NotificationPermissi
 }
 
 #[tauri::command]
-pub async fn get_macos_notification_permission()
--> Result<NotificationPermission, NotificationPermissionError> {
+pub async fn get_macos_notification_permission() -> Result<NotificationPermission, NotificationError>
+{
     // UserNotifications raises an Objective-C exception for unbundled dev/test
     // executables. Fail explicitly before asking it to create a center.
     ensure_application_bundle()?;
@@ -87,12 +119,12 @@ pub async fn get_macos_notification_permission()
     receiver
         .recv()
         .await
-        .ok_or(NotificationPermissionError::CallbackDropped)
+        .ok_or(NotificationError::CallbackDropped)
 }
 
 #[tauri::command]
 pub async fn request_macos_notification_permission()
--> Result<NotificationPermission, NotificationPermissionError> {
+-> Result<NotificationPermission, NotificationError> {
     ensure_application_bundle()?;
     let (sender, mut receiver) = mpsc::channel(1);
     {
@@ -100,11 +132,7 @@ pub async fn request_macos_notification_permission()
             // SAFETY: the optional NSError belongs to macOS and remains valid
             // during the callback. Copy its details before returning.
             let result = match unsafe { error.as_ref() } {
-                Some(error) => Err(NotificationPermissionError::Native {
-                    domain: error.domain().to_string(),
-                    code: error.code(),
-                    description: error.localizedDescription().to_string(),
-                }),
+                Some(error) => Err(native_error(NotificationOperation::Authorization, error)),
                 None => Ok(if granted.as_bool() {
                     NotificationPermission::Granted
                 } else {
@@ -124,5 +152,60 @@ pub async fn request_macos_notification_permission()
     receiver
         .recv()
         .await
-        .ok_or(NotificationPermissionError::CallbackDropped)?
+        .ok_or(NotificationError::CallbackDropped)?
+}
+
+fn notification_request(
+    title: &str,
+    body: Option<&str>,
+    notification_id: Option<&str>,
+) -> Retained<UNNotificationRequest> {
+    let content = UNMutableNotificationContent::new();
+    content.setTitle(&NSString::from_str(title));
+    content.setBody(&NSString::from_str(body.unwrap_or_default()));
+    // Reusing an identifier would replace a previously delivered notification.
+    let delivery_id = Uuid::new_v4().to_string();
+    let identifier = match notification_id {
+        Some(notification_id) => {
+            let mut url =
+                url::Url::parse("macro:///notification").expect("static notification URL");
+            url.query_pairs_mut()
+                .append_pair("notificationId", notification_id)
+                .append_pair("deliveryId", &delivery_id);
+            NSString::from_str(url.as_str())
+        }
+        None => NSString::from_str(&delivery_id),
+    };
+    UNNotificationRequest::requestWithIdentifier_content_trigger(&identifier, &content, None)
+}
+
+/// Deliver immediately through the same framework used for authorization.
+/// Completion means macOS accepted the request; system presentation settings
+/// still determine whether it appears as a banner.
+#[tauri::command]
+pub async fn send_macos_notification(
+    title: String,
+    body: Option<String>,
+    notification_id: Option<String>,
+) -> Result<(), NotificationError> {
+    ensure_application_bundle()?;
+    let (sender, mut receiver) = mpsc::channel(1);
+    {
+        let request = notification_request(&title, body.as_deref(), notification_id.as_deref());
+        let callback = RcBlock::new(move |error: *mut NSError| {
+            // SAFETY: the optional NSError is valid for this completion handler.
+            // Copy its details before the native callback returns.
+            let result = match unsafe { error.as_ref() } {
+                Some(error) => Err(native_error(NotificationOperation::Delivery, error)),
+                None => Ok(()),
+            };
+            let _ = sender.try_send(result);
+        });
+        UNUserNotificationCenter::currentNotificationCenter()
+            .addNotificationRequest_withCompletionHandler(&request, Some(&callback));
+    }
+    receiver
+        .recv()
+        .await
+        .ok_or(NotificationError::CallbackDropped)?
 }

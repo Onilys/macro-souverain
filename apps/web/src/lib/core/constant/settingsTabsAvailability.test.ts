@@ -53,3 +53,27 @@ describe('Desktop App settings rollout', () => {
     }
   );
 });
+
+describe('Notifications settings', () => {
+  // The page used to sit behind a remote flag, so the desktop app and the
+  // browser could disagree on where the notification switch lived.
+  it.each(['web', 'desktop', 'ios', 'android'])(
+    'is a standing Personal tab on %s with every remote flag off',
+    (host) => {
+      platform.current = host;
+      const tabs = createRoot((cleanup) => {
+        dispose = cleanup;
+        flagEnabled = () => false;
+        return useSettingsTabs();
+      });
+
+      expect(tabs.isAvailable('Notifications')).toBe(true);
+      const personal = tabs
+        .groups()
+        .find((group) => group.label === 'Personal');
+      expect(personal?.items.map((item) => item.tab)).toContain(
+        'Notifications'
+      );
+    }
+  );
+});

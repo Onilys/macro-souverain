@@ -1768,6 +1768,24 @@
         }
       }
     },
+    "/link/email/providers": {
+      "get": {
+        "tags": ["link::outlook"],
+        "operationId": "email_connection_providers",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailConnectionProviders"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/link/github": {
       "post": {
         "tags": ["link::github"],
@@ -1960,6 +1978,16 @@
             }
           },
           {
+            "name": "reconnect_link_id",
+            "in": "query",
+            "description": "Existing accessible Gmail inbox being reconnected; does not consume an additional inbox slot.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
             "name": "scopes",
             "in": "query",
             "description": "**OPTIONAL**. Which capabilities to request consent for: `gmail` (default), `gmail_and_calendar`, or `calendar`. The calendar variants are only honored when the deployment allows calendar scope requests.",
@@ -2106,6 +2134,25 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "scopes",
+            "in": "query",
+            "description": "mail (default) or mail_and_calendar. Calendar requests obey the deployment calendar consent switch.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "reconnect_link_id",
+            "in": "query",
+            "description": "Existing accessible inbox being reconnected or granted calendar consent.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "responses": {
@@ -2130,6 +2177,16 @@
             }
           },
           "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "402": {
             "description": "",
             "content": {
               "application/json": {
@@ -2588,7 +2645,7 @@
     "/mobile-welcome-email": {
       "post": {
         "tags": ["mobile_welcome_email"],
-        "summary": "Enrolls a mobile lead in the Loops nurture sequence, which sends the welcome\nemail inviting them to register on desktop. No-ops if the address was already\nenrolled, and rejects blocked addresses.",
+        "summary": "Emails a mobile lead a link to continue onboarding on desktop and enrolls\nthem in the Loops welcome sequence. No-ops if the address was already\ncaptured, and rejects blocked addresses.",
         "operationId": "send_mobile_welcome_email",
         "requestBody": {
           "content": {
@@ -4982,6 +5039,55 @@
         }
       }
     },
+    "/user/stripe/trial_eligibility": {
+      "get": {
+        "tags": ["user::stripe::trial_eligibility"],
+        "summary": "Read the caller's eligibility; checkout revalidates before granting a trial.",
+        "operationId": "get_trial_eligibility",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrialEligibility"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/user/tutorial": {
       "patch": {
         "tags": ["user::patch_tutorial"],
@@ -5533,6 +5639,19 @@
           "overage_limit_reached",
           "overage_payment_failed"
         ]
+      },
+      "EmailConnectionProviders": {
+        "type": "object",
+        "description": "Actual deployment availability for the provider selector.",
+        "required": ["gmail", "outlook"],
+        "properties": {
+          "gmail": {
+            "type": "boolean"
+          },
+          "outlook": {
+            "type": "boolean"
+          }
+        }
       },
       "EmptyResponse": {
         "type": "object",
@@ -6838,7 +6957,7 @@
         "properties": {
           "apiKey": {
             "type": "string",
-            "description": "A `crsr_…` Cursor API key."
+            "description": "A Cursor API key: `grok_…`, or `crsr_…` for older keys."
           }
         }
       },
@@ -7192,7 +7311,7 @@
           },
           "scheduled_seat_plans": {
             "type": ["object", "null"],
-            "description": "Provider-confirmed pending seat changes, keyed by member user ID.\nOnly available to paid-team admins and owners; empty means no pending changes.",
+            "description": "Provider-confirmed pending seat changes, keyed by member user ID.\nEmpty when no changes apply to this viewer; absent when the lookup fails.",
             "additionalProperties": {
               "$ref": "#/components/schemas/ScheduledSeatPlan"
             },
@@ -7224,6 +7343,21 @@
           "allow_non_admin_invites": {
             "type": "boolean",
             "description": "Whether non-admin members may invite users to the team after the\ntoggle."
+          }
+        }
+      },
+      "TrialEligibility": {
+        "type": "object",
+        "description": "Whether the authenticated customer can receive the introductory Pro trial.",
+        "required": ["eligible", "existingSubscription"],
+        "properties": {
+          "eligible": {
+            "type": "boolean",
+            "description": "Confirmed against the same subscription history used during checkout."
+          },
+          "existingSubscription": {
+            "type": "boolean",
+            "description": "An existing subscription requires management instead of a new checkout."
           }
         }
       },

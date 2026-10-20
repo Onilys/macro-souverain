@@ -1,4 +1,5 @@
 import { ViewShell } from '@app/components/view-shell';
+import { useAnalytics } from '@app/lib/analytics/analytics-context';
 import { createSearchParams } from '@app/lib/split-router';
 import { SidePanel } from '@components/app/side-panel';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
@@ -7,6 +8,7 @@ import { getPermissions } from '@core/component/SharePermissions';
 import { ShareTrigger } from '@core/component/TopBar/ShareButton';
 import { useShareModal } from '@core/component/TopBar/shareModal';
 import { isMobile } from '@core/mobile/isMobile';
+import { fireAndForget } from '@core/util/fireAndForget';
 import PhoneCallIcon from '@phosphor/phone-call.svg';
 import SpinnerIcon from '@phosphor/spinner.svg';
 import { useCallRecordQuery } from '@queries/call/call';
@@ -20,6 +22,7 @@ import { Button } from '@ui';
 import {
   type Accessor,
   createMemo,
+  type JSX,
   Match,
   onMount,
   type ParentProps,
@@ -111,7 +114,7 @@ function LoadedCallContent(props: {
   onMount(() => {
     optimisticUpdateSoupItemViewedAt(props.callId);
     if (!hasSoupEntity(props.callId)) {
-      void refetchSoupEntity(props.callId, 'call');
+      fireAndForget(refetchSoupEntity(props.callId, 'call'), 'call-detail');
     }
   });
   return (
@@ -169,7 +172,9 @@ export function CallDetailContent(props: {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => void props.query.refetch()}
+                    onClick={() =>
+                      fireAndForget(props.query.refetch(), 'call-detail')
+                    }
                   >
                     Retry
                   </Button>
@@ -204,22 +209,40 @@ export function CallDetailContent(props: {
   );
 }
 
-export function StandaloneCallDetail(props: {
+export function CallDetailView(props: {
   callId: string;
   transcriptId?: string;
   messageId?: string;
   seek?: string;
+  header?: (data: Accessor<CallDetailData | undefined>) => JSX.Element;
 }) {
   const detail = useCallDetail(() => props.callId);
+  const analytics = useAnalytics();
+  onMount(() => {
+    analytics.pageView('call');
+    analytics.track('open_entity', {
+      entityType: 'call',
+      entityId: props.callId,
+    });
+  });
   return (
     <CallDetailRoot callId={props.callId}>
       <div class="flex size-full min-h-0 min-w-0 flex-col overflow-hidden @container">
         <ViewShell.TopBar class="touch:flex">
           <SplitPanel.CloseButton class="hidden shrink-0 touch:flex" />
-          <PhoneCallIcon class="size-4 shrink-0 text-ink-muted" />
-          <span class="min-w-0 truncate text-sm font-semibold">
-            {detail.data()?.name ?? 'Call Recording'}
-          </span>
+          <Show
+            when={props.header}
+            fallback={
+              <>
+                <PhoneCallIcon class="size-4 shrink-0 text-ink-muted" />
+                <span class="min-w-0 truncate text-sm font-semibold">
+                  {detail.data()?.name ?? 'Call Recording'}
+                </span>
+              </>
+            }
+          >
+            {(header) => header()(detail.data)}
+          </Show>
           <Show when={detail.data()}>
             {(data) => (
               <CallDetailActions

@@ -1,5 +1,6 @@
 import { openCalendarView } from '@app/features/calendar-view/calendar-navigation';
 import { createCalendarRange } from '@app/features/calendar-view/calendar-range';
+import { crmRecordContent } from '@app/features/crm/crm-hosted-content';
 import {
   getChannelParams,
   navigateToChannelMessage,
@@ -11,7 +12,9 @@ import type {
   SplitManager,
 } from '@components/app/split-layout/layoutManager';
 import type { BlockAlias, BlockName } from '@core/block';
-import { resolveBlockAlias } from '@core/constant/allBlocks';
+import { getPermissions } from '@core/component/SharePermissions';
+import { toast } from '@core/component/Toast/Toast';
+import { itemToBlockName, resolveBlockAlias } from '@core/constant/allBlocks';
 import {
   enableCalendarUi,
   enableProjects,
@@ -19,11 +22,15 @@ import {
   USE_MACRO_PR_SUMMARY_BLOCK,
 } from '@core/constant/featureFlags';
 import { COMMENT_LINK_PARAM } from '@core/messages/comment-link';
+import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import type { NotificationType } from '@core/types';
+import { catchToResult } from '@core/util/result';
 import { openExternalUrl } from '@core/util/url';
+import { Telemetry } from '@macro-inc/observability';
 import { getNotificationById } from '@queries/notification/user-notifications';
 import { errAsync, ResultAsync } from 'neverthrow';
 import { match, P } from 'ts-pattern';
+import { shareEntity } from '../access-requests/core/types';
 import { projectRouteId } from '../projects/core/route';
 import {
   getDocumentCommentLocation,
@@ -93,7 +100,9 @@ function openSplitIfNotOpen(
     reportImmediateResult(result);
   }
   if (options.params && type !== 'component') {
-    goToLocationInSplit(layoutManager, type, id, options.params);
+    goToLocationInSplit(layoutManager, type, id, options.params).catch(
+      (error) => Telemetry.error(error, { surface: 'notification-navigation' })
+    );
   }
 }
 
@@ -234,6 +243,130 @@ function getSupportedHandler(
               onApplied,
             })
       )
+      .with('entity_access_requested', 'entity_access_granted', () => {
+        const meta = notification.notification_metadata;
+        if (
+          meta.tag !== 'entity_access_requested' &&
+          meta.tag !== 'entity_access_granted'
+        )
+          return null;
+        const target = shareEntity(
+          notification.entity_type,
+          notification.entity_id
+        );
+        if (!target) return null;
+        return async (lm: SplitManager, newSplit = false) =>
+          Telemetry.span('access_requests.notification.open', async (span) => {
+            span.setAttr('entity.id', target.entityId);
+            span.setAttr('entity.type', target.entityType);
+            span.setAttr('notification.id', notification.id);
+            span.setAttr('notification.type', meta.tag);
+            span.setAttr('access_request.id', meta.content.requestId);
+            try {
+              const [{ fetchAccessRequestState }, { openShareModal }] =
+                await Promise.all([
+                  import('@queries/access-requests/requests'),
+                  import('@core/component/TopBar/shareModal'),
+                ]);
+              const state = await span.span(
+                'access_requests.notification.state',
+                async (phase) => {
+                  try {
+                    const state = await fetchAccessRequestState(target);
+                    phase.setAttr('access_requests.outcome', 'loaded');
+                    return state;
+                  } catch (error) {
+                    phase.setAttr('access_requests.outcome', 'error');
+                    phase.error('Access-request state could not be loaded');
+                    throw error;
+                  }
+                }
+              );
+              const document =
+                target.entityType === 'document'
+                  ? await span.span(
+                      'access_requests.notification.metadata',
+                      async (phase) => {
+                        if (state.accessLevel == null) {
+                          phase.setAttr(
+                            'access_requests.outcome',
+                            'skipped_no_access'
+                          );
+                          return;
+                        }
+                        const result = await catchToResult(async () =>
+                          (
+                            await import('@queries/storage/document-metadata')
+                          ).fetchDocumentMetadata(target.entityId)
+                        );
+                        phase.setAttr(
+                          'access_requests.outcome',
+                          result.isOk() ? 'loaded' : 'fallback'
+                        );
+                        if (result.isErr()) {
+                          phase.error(
+                            'Document metadata unavailable; using notification routing'
+                          );
+                          return;
+                        }
+                        return result.value;
+                      }
+                    )
+                  : undefined;
+              const block =
+                target.entityType === 'initiative'
+                  ? 'initiative'
+                  : itemToBlockName({
+                      type:
+                        target.entityType === 'email_thread'
+                          ? 'email'
+                          : target.entityType,
+                      fileType:
+                        document?.fileType ??
+                        entity?.fileType ??
+                        meta.content.fileType ??
+                        undefined,
+                      subType:
+                        document?.subType &&
+                        document.subType !== 'initiative_description'
+                          ? { type: document.subType }
+                          : undefined,
+                    });
+              const applied = () => {
+                onApplied?.();
+                if (meta.tag === 'entity_access_requested')
+                  openShareModal({
+                    id: target.entityId,
+                    itemType:
+                      target.entityType === 'email_thread'
+                        ? 'email'
+                        : target.entityType,
+                    blockAlias: block,
+                    name: meta.content.entityName,
+                    owner: state.owner ?? undefined,
+                    userPermissions: getPermissions(
+                      state.accessLevel ?? undefined
+                    ),
+                  });
+              };
+              span.setAttr('access_requests.outcome', 'navigation_requested');
+              openSplitIfNotOpen(
+                lm,
+                block === 'initiative' ? 'component' : block,
+                block === 'initiative'
+                  ? projectRouteId({ id: target.entityId, section: 'overview' })
+                  : target.entityId,
+                { newSplit, sourceHandle, onApplied: applied }
+              );
+            } catch {
+              span.setAttr('access_requests.outcome', 'error');
+              span.error('Access-request notification could not be opened');
+              toast.failure(
+                'Could not open sharing. You may no longer have access.'
+              );
+            }
+          });
+      })
       .with('invite_to_team', () => null)
       .with(
         'call_started',
@@ -407,13 +540,40 @@ function getSupportedHandler(
         if (meta.tag !== 'crm_discussion') return null;
         const blockName =
           notification.entity_type === 'crm_contact' ? 'contact' : 'company';
-        return async (lm: SplitManager, newSplit: boolean = false) =>
+        return async (lm: SplitManager, newSplit: boolean = false) => {
+          // Desktop shows records in Customers, which takes the message from its route.
+          if (!isTouchDevice()) {
+            let pending = onApplied;
+            const reportApplied = () => {
+              const callback = pending;
+              pending = undefined;
+              callback?.();
+            };
+            const result = lm.openWithSplit(
+              crmRecordContent(
+                { type: blockName, id: notification.entity_id },
+                meta.content.messageId
+              ),
+              {
+                activate: true,
+                referredFrom: null,
+                preferNewSplit: newSplit,
+                handle: sourceHandle,
+                allowDuplicate: true,
+                ...(onApplied ? { onApplied: reportApplied } : {}),
+              }
+            );
+            if (result.status === 'opened' || result.status === 'reused')
+              reportApplied();
+            return;
+          }
           openSplitIfNotOpen(lm, blockName, notification.entity_id, {
             newSplit,
             params: { [COMMENT_LINK_PARAM]: meta.content.messageId },
             sourceHandle,
             onApplied,
           });
+        };
       })
       .with('inbox_reauth_required', () => null)
       .exhaustive()

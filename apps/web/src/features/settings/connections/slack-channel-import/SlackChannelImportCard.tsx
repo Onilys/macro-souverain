@@ -1,5 +1,7 @@
+import { hideSlackImportPromotion } from '@app/features/slack-import/primitives/promotion';
 import { toast } from '@core/component/Toast/Toast';
 import { useUserId } from '@core/context/user';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { buildSimpleEntityUrl } from '@core/util/url';
 import SpinnerIcon from '@phosphor/spinner-gap.svg';
 import {
@@ -8,6 +10,7 @@ import {
   useImportQuery,
   useRunImportMutation,
 } from '@queries/import';
+import { useCurrentTeamQuery } from '@queries/team/teams';
 import { Button } from '@ui';
 import {
   createEffect,
@@ -15,6 +18,7 @@ import {
   createSignal,
   For,
   type JSX,
+  on,
   Show,
 } from 'solid-js';
 import { SettingsCard, SettingsSection } from '../../primitives';
@@ -98,8 +102,11 @@ function ChannelRow(props: ChannelRowProps): JSX.Element {
   );
 }
 
-export function SlackChannelImportCard(): JSX.Element {
+export function SlackChannelImportCard(
+  props: { autoDiscover?: boolean } = {}
+): JSX.Element {
   const userId = useUserId();
+  const team = useCurrentTeamQuery();
   const query = useImportQuery();
   const discover = useDiscoverMutation();
   const importChannels = useRunImportMutation();
@@ -110,6 +117,16 @@ export function SlackChannelImportCard(): JSX.Element {
   const state = () => (query.isSuccess ? query.data : EMPTY_STATE);
   const run = () => state().runs.find((run) => run.source === 'slack');
   const rows = createMemo(() => buildRows(state(), userId()));
+  // The run mutation only queues work; wait for a server-confirmed import.
+  createEffect(() => {
+    if (
+      query.isSuccess &&
+      team.isSuccess &&
+      rows().some((row) => row.status === 'imported')
+    ) {
+      hideSlackImportPromotion(userId(), team.data?.team.id);
+    }
+  });
   const visible = createMemo(() =>
     filterRows(rows(), {
       search: search(),
@@ -146,6 +163,21 @@ export function SlackChannelImportCard(): JSX.Element {
       onError: () => toast.failure('Failed to find Slack channels'),
     });
   }
+
+  let discoveryRequested = false;
+  createEffect(
+    on(
+      () =>
+        Boolean(
+          props.autoDiscover && query.isSuccess && !query.isPlaceholderData
+        ),
+      (ready) => {
+        if (!ready || discoveryRequested) return;
+        discoveryRequested = true;
+        if (!discovering()) findChannels();
+      }
+    )
+  );
 
   function startImport(): void {
     const ids = importIds();
@@ -190,7 +222,7 @@ export function SlackChannelImportCard(): JSX.Element {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => void query.refetch()}
+                onClick={() => fireAndForget(query.refetch(), 'slack-import')}
               >
                 Retry
               </Button>

@@ -62,7 +62,7 @@ export default function HomepagePullRequest() {
           },
           {
             person: 'cursor',
-            text: '',
+            text: 'On it. I’ll work on your branch, fix the failures, and run the tests.',
             reply: (
               <>
                 <div class="homepage-agent-chip">
@@ -92,9 +92,6 @@ export default function HomepagePullRequest() {
                     onOpen={() => open('trace')}
                   />
                 </div>
-                <span class="homepage-agent-trace-hint">
-                  Open to explore the full agent trace
-                </span>
               </>
             ),
           },

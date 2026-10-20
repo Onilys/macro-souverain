@@ -8,6 +8,11 @@ import type { OperationResult } from '@urql/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const auth = vi.hoisted(() => ({ user: { authenticated: true, id: 'owner' } }));
+const telemetry = vi.hoisted(() => ({
+  track: vi.fn(),
+  posthog: { captureException: vi.fn() },
+}));
+vi.mock('@app/lib/analytics', () => ({ analytics: telemetry }));
 const stagedUpload = vi.hoisted(() =>
   vi.fn<() => { previewSrc: string; size: number } | undefined>()
 );
@@ -50,15 +55,43 @@ beforeEach(async () => {
   queue.length = 0;
   auth.user = { authenticated: true, id: 'owner' };
   stagedUpload.mockReset();
+  telemetry.track.mockClear();
+  telemetry.posthog.captureException.mockClear();
   runtime = await import('./local-drafts');
   await runtime.localDraftStore.clear();
 });
 afterEach(async () => {
   vi.unstubAllGlobals();
   await runtime.localDraftStore.close();
+  vi.restoreAllMocks();
 });
 
 describe('draft queue recovery', () => {
+  it('reports caught storage failures and recovery with lifecycle context, without draft content', async () => {
+    const error = new DOMException('Storage unavailable', 'UnknownError');
+    vi.spyOn(IDBDatabase.prototype, 'transaction').mockImplementationOnce(
+      () => {
+        throw error;
+      }
+    );
+    await expect(runtime.saveLocalDraft(input('Private content'))).rejects.toBe(
+      error
+    );
+    const context = {
+      storage: 'email-working-copies',
+      visibility: document.visibilityState,
+      online: navigator.onLine,
+    };
+    expect(telemetry.posthog.captureException).toHaveBeenCalledExactlyOnceWith(
+      error,
+      context
+    );
+    await runtime.saveLocalDraft(input('Private content'));
+    expect(telemetry.track).toHaveBeenCalledExactlyOnceWith(
+      'email_draft_storage_recovered',
+      context
+    );
+  });
   it('rejects an old editor generation after discard and Undo reuse the server identity', async () => {
     const serverInput = (subject: string) => ({
       draft: { db_id: 'server', subject },
@@ -184,6 +217,37 @@ describe('draft queue recovery', () => {
     await runtime.beginDraftAttempt(draft, 'save');
     await runtime.localDraftQueueLifecycle(host).prepareMutationQueue!();
     expect((await runtime.readLocalDraft('local'))?.status).toBe('dirty');
+  });
+  it('defers recovery without a session and reconciles once signed in', async () => {
+    const draft = await runtime.saveLocalDraft(input());
+    const attempt = await runtime.beginDraftAttempt(draft, 'save');
+    await runtime.markDraftAttemptQueued(attempt);
+    const lifecycle = runtime.localDraftQueueLifecycle(host);
+    for (const user of [undefined, { authenticated: false, id: '' }]) {
+      auth.user = user as never;
+      await expect(lifecycle.prepareMutationQueue!()).resolves.toBe(false);
+    }
+    auth.user = { authenticated: true, id: 'owner' };
+    expect((await runtime.readLocalDraft('local'))?.status).toBe('queued');
+    await expect(lifecycle.prepareMutationQueue!()).resolves.toBeUndefined();
+    expect((await runtime.readLocalDraft('local'))?.status).toBe('unconfirmed');
+  });
+  it('defers a queued draft without a session instead of rejecting it', async () => {
+    const draft = await runtime.saveLocalDraft(input());
+    const attempt = await runtime.beginDraftAttempt(draft, 'save');
+    const lifecycle = runtime.localDraftQueueLifecycle(host);
+    for (const mutation of [claimed(attempt), claimed(undefined)]) {
+      for (const user of [undefined, { authenticated: false, id: '' }]) {
+        auth.user = user as never;
+        await expect(lifecycle.beforeMutationAttempt!(mutation)).resolves.toBe(
+          'defer'
+        );
+      }
+    }
+    auth.user = { authenticated: true, id: 'owner' };
+    await expect(
+      lifecycle.beforeMutationAttempt!(claimed(attempt))
+    ).resolves.toBe(true);
   });
   it('marks an abandoned queued intent recoverable after restart', async () => {
     const draft = await runtime.saveLocalDraft(input());

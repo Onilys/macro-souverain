@@ -111,6 +111,7 @@ async fn sent_or_claimed_delivery_rejects_update_cancel_and_migration(
             message,
             Uuid::parse_str("11111111-1111-1111-1111-111111111111")?,
             &[link],
+            None
         )
         .await?
         .is_none()
@@ -143,6 +144,9 @@ async fn service_authorizes_actor_and_validates_future_time(
     pool: Pool<Postgres>,
 ) -> anyhow::Result<()> {
     let service = EmailServiceImpl {
+        sender_provider: std::sync::Arc::new(
+            crate::domain::senders::UnavailableEmailSenderProvider,
+        ),
         email_repo: EmailPgRepo::new(pool),
         frecency_service: (),
         enqueuer: (),
@@ -195,6 +199,9 @@ async fn scheduled_source_rejects_delete_and_migration_into_existing_reply(
     };
 
     let service = EmailServiceImpl {
+        sender_provider: std::sync::Arc::new(
+            crate::domain::senders::UnavailableEmailSenderProvider,
+        ),
         email_repo: EmailPgRepo::new(pool.clone()),
         frecency_service: FrecencyQueryServiceImpl::new(FrecencyPgStorage::new(pool.clone())),
         enqueuer: NoOpEnqueuer,
@@ -214,6 +221,7 @@ async fn scheduled_source_rejects_delete_and_migration_into_existing_reply(
     let target_link = Uuid::parse_str("cccccccc-cccc-cccc-cccc-cccccccccccc")?;
     let target_draft = Uuid::parse_str("ee000005-0000-0000-0000-000000000005")?;
     let input = CreateDraftInput {
+        sender_email: None,
         db_id: Some(message),
         provider_id: None,
         replying_to_id: Some(Uuid::parse_str("ee000001-0000-0000-0000-000000000001")?),
@@ -234,8 +242,10 @@ async fn scheduled_source_rejects_delete_and_migration_into_existing_reply(
         thread_client_binding: None,
     };
     assert!(matches!(
-        service.save_draft_for_user_impl(actor(), Some(target_link), input).await,
-        Err(EmailErr::MessageDeliveryConflict(id)) if id == message
+        service
+            .save_draft_for_user_impl(actor(), Some(target_link), input)
+            .await,
+        Err(EmailErr::InvalidDraft(_))
     ));
     let subject = sqlx::query_scalar!(
         "SELECT subject FROM email_messages WHERE id = $1",
@@ -490,6 +500,9 @@ async fn initial_schedule_prepares_signature_but_time_updates_preserve_content(
     sqlx::query!("UPDATE email_messages SET body_html_sanitized = '<p>Hello</p>', body_text = 'Hello' WHERE id = $1", message)
         .execute(&pool).await?;
     let service = EmailServiceImpl {
+        sender_provider: std::sync::Arc::new(
+            crate::domain::senders::UnavailableEmailSenderProvider,
+        ),
         email_repo: EmailPgRepo::new(pool.clone()),
         frecency_service: (),
         enqueuer: (),

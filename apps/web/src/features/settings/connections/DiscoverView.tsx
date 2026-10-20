@@ -4,6 +4,7 @@ import {
   createPipedreamCatalogConnect,
   createPipedreamCatalogSearch,
 } from '@core/pipedream/catalog';
+import { fireAndForget } from '@core/util/fireAndForget';
 import CaretRightIcon from '@phosphor/caret-right.svg';
 import CheckIcon from '@phosphor/check.svg';
 import PlusIcon from '@phosphor/plus.svg';
@@ -17,7 +18,7 @@ import { IntegrationRow, SettingsCard, SettingsSection } from '../primitives';
 import { AddCustomMcpDialog } from './add-custom-mcp-dialog';
 import type { ConnectionsModel } from './model';
 import {
-  availableStarters,
+  EMPTY_STARTERS,
   PIPEDREAM_BROWSE_HIDDEN_SLUGS,
   providerIcon,
 } from './provider-meta';
@@ -42,7 +43,7 @@ export function DiscoverView(props: { model: ConnectionsModel }) {
 
   const featured = createMemo(() => {
     const query = catalog.searchInput().trim().toLowerCase();
-    return availableStarters().filter((item) => {
+    return EMPTY_STARTERS.filter((item) => {
       const haystack = `${item.name} ${item.note}`.toLowerCase();
       return !query || haystack.includes(query);
     });
@@ -169,7 +170,12 @@ export function DiscoverView(props: { model: ConnectionsModel }) {
                   variant="outline"
                   size="sm"
                   depth={3}
-                  onClick={() => void catalog.query.fetchNextPage()}
+                  onClick={() =>
+                    fireAndForget(
+                      catalog.query.fetchNextPage(),
+                      'connections-settings'
+                    )
+                  }
                 >
                   Load more
                 </Button>
@@ -261,7 +267,7 @@ function CatalogRow(props: {
         aria-describedby={descriptionId}
         aria-busy={busy()}
         disabled={busy()}
-        onClick={() => void connect()}
+        onClick={() => fireAndForget(connect(), 'connections-settings')}
       >
         {row()}
       </button>

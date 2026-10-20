@@ -13,7 +13,7 @@ use crate::domain::models::{
 use crate::domain::models::{
     ChannelMessage, ChannelWithLatest, ChannelWithParticipants, GetChannelsParams,
     GetChannelsRequest, GetThreadReplyRowsParams, GetThreadReplyRowsRequest, LatestMessage,
-    UserName,
+    ReferenceSource, ReferenceTarget, UserName,
 };
 use crate::domain::side_effects::{
     ChannelDocumentMention, ChannelNotificationEffect, ChannelRealtimeEffect,
@@ -33,9 +33,11 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use uuid::Uuid;
 
-/// Verified channel administration access required to change a channel picture.
-pub type ChannelPictureAccess =
-    EntityAccessReceipt<entity_access::domain::models::AdminParticipantRole>;
+/// Verified channel participation required to change a channel picture.
+///
+/// The picture is part of the channel identity any participant may edit, so it
+/// carries the same requirement as renaming rather than an admin-only one.
+pub type ChannelPictureAccess = EntityAccessReceipt<MemberParticipantRole>;
 
 /// Repository for channel list persistence and query data.
 #[cfg(feature = "list")]
@@ -63,6 +65,14 @@ pub trait ChannelListRepo: Send + Sync + 'static {
         &self,
         req: GetThreadReplyRowsParams,
     ) -> impl Future<Output = Result<Vec<ChannelMessage>, rootcause::Report>> + Send;
+
+    /// Distinct documents and undeleted messages that currently mention or
+    /// attach any of `targets`. Unauthorized: callers must apply the reading
+    /// user's access to every returned source.
+    fn get_reference_sources(
+        &self,
+        targets: &[ReferenceTarget],
+    ) -> impl Future<Output = Result<Vec<ReferenceSource>, rootcause::Report>> + Send;
 }
 
 /// Repository for user display names needed by channel list rendering.
@@ -95,6 +105,15 @@ pub trait ChannelListService: Send + Sync + 'static {
         &self,
         req: GetThreadReplyRowsRequest,
     ) -> impl Future<Output = Result<Vec<ChannelMessage>, rootcause::Report>> + Send;
+
+    /// Distinct documents and undeleted messages that currently mention or
+    /// attach any of `targets`. The result is not authorized for any user:
+    /// callers must apply the reader's access to each source before
+    /// exposing it.
+    fn get_reference_sources(
+        &self,
+        targets: &[ReferenceTarget],
+    ) -> impl Future<Output = Result<Vec<ReferenceSource>, rootcause::Report>> + Send;
 
     /// Fetch names for user ids.
     fn get_names(
@@ -200,6 +219,13 @@ pub trait ChannelRepo: Send + Sync + 'static {
         &self,
         channel_id: Uuid,
     ) -> impl Future<Output = Result<ChannelInfo, Self::Err>> + Send;
+
+    /// Whether a channel is a direct agent conversation: one user's private
+    /// channel with an agent persona.
+    fn is_direct_agent_conversation(
+        &self,
+        channel_id: Uuid,
+    ) -> impl Future<Output = Result<bool, Self::Err>> + Send;
 
     /// Atomically assign a channel join code if absent and return the persisted code.
     fn get_or_create_channel_join_code(
@@ -395,7 +421,7 @@ pub trait ChannelRepo: Send + Sync + 'static {
 
 /// Service for channel reads and mutations.
 pub trait ChannelService: Send + Sync + 'static {
-    /// Set a channel picture using verified channel administration access.
+    /// Set a channel picture using verified channel participation.
     fn set_channel_picture(
         &self,
         access: ChannelPictureAccess,

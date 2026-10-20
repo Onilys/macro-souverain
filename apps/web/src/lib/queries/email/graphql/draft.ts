@@ -45,8 +45,8 @@ import {
  * becoming a primary key. `threadDbId` is a stable local handle for new
  * standalone drafts, or the existing conversation ID for replies.
  *
- * The `sender*` and `optimistic*` fields are client-only — they feed the
- * optimistic draft entity and are stripped from the mutation variables.
+ * Sender email is persisted on the wire as well as the optimistic entity.
+ * Sender metadata and optimistic-only fields are stripped from the variables.
  */
 export type GraphqlSaveEmailDraftArgs = Omit<
   SaveEmailDraftInput,
@@ -56,7 +56,7 @@ export type GraphqlSaveEmailDraftArgs = Omit<
   /** Sending inbox id for the optimistic entity's `linkId` — the input's
    * `linkId` is deliberately absent when sending from the primary inbox. */
   senderLinkId: string;
-  /** Sending address for the optimistic entity's `from`. */
+  /** Verified sending address, persisted and used by the optimistic entity. */
   senderEmail: string;
   /** Plain (non-base64) editor HTML for the optimistic entity's
    * `bodyHtmlSanitized` — responses carry that field unencoded. Unsanitized
@@ -96,6 +96,9 @@ export type SaveEmailDraftFailureCode =
   | 'INBOX_NOT_FOUND'
   | 'UNAUTHORIZED'
   | 'INVALID'
+  | 'INVALID_SENDER'
+  | 'NEEDS_REAUTH'
+  | 'SEND_AS_UNAVAILABLE'
   | 'INTERNAL'
   | 'NETWORK';
 
@@ -119,6 +122,9 @@ export function draftFailureCode(
     case 'INBOX_NOT_FOUND':
     case 'UNAUTHORIZED':
     case 'INVALID':
+    case 'INVALID_SENDER':
+    case 'NEEDS_REAUTH':
+    case 'SEND_AS_UNAVAILABLE':
       return code;
     default:
       return 'INTERNAL';
@@ -194,6 +200,7 @@ function optimisticDraftEntity(
   const existing = args.existingDraft;
   return {
     __typename: 'GraphqlSoupEmailMessage',
+    operationStatus: existing?.operationStatus ?? null,
     id: String(args.draftId),
     providerId: args.providerId ?? existing?.providerId ?? null,
     threadId: args.threadDbId,
@@ -234,8 +241,8 @@ function optimisticDraftEntity(
  * full message entity spliced into the thread page's message list — so a
  * reopened composer (or a relaunched app) sees the draft through the
  * ordinary thread read. On commit the layer is replaced by the server's
- * records, and the persisted thread-page revalidation reconciles list
- * membership and any attachment state this record cannot know.
+ * records. Soup revalidation reconciles list membership; the thread page
+ * only needs a separate read when its message list cannot be patched.
  */
 export async function executeGraphqlSaveEmailDraft(
   client: Client,
@@ -244,7 +251,6 @@ export async function executeGraphqlSaveEmailDraft(
   // Strip the client-only fields; only schema fields may reach the wire.
   const {
     senderLinkId: _senderLinkId,
-    senderEmail: _senderEmail,
     optimisticBodyHtml: _optimisticBodyHtml,
     existingDraft: _existingDraft,
     existingThread: _existingThread,
@@ -345,10 +351,17 @@ export async function executeGraphqlSaveEmailDraft(
         : [],
       revalidations: [
         ...getActiveGraphqlSoupRevalidations(),
-        {
-          document: EmailThreadPageDocument,
-          variables: threadPageVariables,
-        },
+        // Ordinary autosaves already return the draft and thread records.
+        // Refetch only when a missing snapshot or inbox move prevents the
+        // message-list patch; otherwise a save can reset the open thread.
+        ...(canPatchThread
+          ? []
+          : [
+              {
+                document: EmailThreadPageDocument,
+                variables: threadPageVariables,
+              },
+            ]),
       ],
     }
   ).toPromise();

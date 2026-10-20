@@ -239,3 +239,10 @@ html:has(.dummy-route[data-embedded=true]), html:has(.dummy-route[data-embedded=
 .chat-sidebar-conversations .chat-sidebar-group[data-open=true] { flex:1; min-height:0; }
 .chat-sidebar-conversations .chat-sidebar-group nav { min-height:0; flex-shrink:1; overflow:auto; }
 .chat-sidebar-group-heading { flex-shrink:0; }
+
+/* The homepage sidebar is a fixed preview; wheel gestures belong to the page. */
+.dummy-route[data-embedded=true] .dummy-sidebar [data-view-sidebar-content],
+.dummy-route[data-embedded=true] .dummy-sidebar .dummy-scroll,
+.dummy-route[data-embedded=true] .dummy-sidebar .chat-sidebar-group nav {
+  overflow: clip;
+}

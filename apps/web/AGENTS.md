@@ -5,7 +5,11 @@
 - `bun run lint`: lint with biome 
 - `bun run format`: format changes with biome 
 - `bun run knip`: to check for dead code
+- `bun run lint:oxlint` (repository root): type-aware oxlint. `typescript/no-floating-promises` is an error with no suppressions and `ignoreVoid: false` (FE-13), enforced in `just check` and CI; start detached work with `fireAndForget` from `@core/util/fireAndForget`, not `void`. Plain `oxlint` without `--type-aware` skips that rule silently. The ast-grep rule `ts-no-expression-void` covers `() => void p()`, which the lint can't see.
 - Email rendering is isolated in `packages/email-renderer` at the repository root. Run `just test-email-rendering` for its Node and Chromium suites. Add fixtures under `packages/email-renderer/tests/fixtures`, run `just test-email-rendering-update`, and review changed images. These are renderer tests, not inbox e2e.
+- The app does not register a service worker. Keep `public/sw.js` as a retirement
+  endpoint for existing installations; see the [startup bundle rule](../../.agents/rules/web/startup-bundle.md).
+  Loro uses async WASM loading and HTML preloads independently of service workers.
 
 ## Verifying a change in a real browser
 
@@ -19,7 +23,7 @@ cd apps/web && PORT=3003 bun run dev   # any free port in 3000-3009
 
 `import.meta.env.MODE === 'development'` resolves the service clients to `https://dev.macro.com` through Vite’s same-origin development proxy. Sign in on the development hostname; existing `.macro.com` cookies are separate. Vite prints `https://<hostname>:<port>/app/`; `https://localhost:<port>/app/` also works. Trust `infra/local/certs/ca.pem` once in the visiting browser (see `infra/local/certs/README.md`). `MACRO_DEV_HTTPS=false` restores HTTP for workflows that require it. Notes:
 
-- On a remote devbox, open the app through Tailscale Serve rather than `https://<hostname>:<port>`. Vite drops to HTTP/1.1 while its development proxy is on, so the browser fetches the ~7k dev modules six at a time and pays a round trip for each (about 45 s at 30 ms). Run `sudo tailscale serve --bg --https=443 https+insecure://localhost:<port>` on the devbox and open `https://<devbox>.<tailnet>.ts.net/app/`, which serves HTTP/2 with a trusted certificate. Sign in again there. Serve offers HTTPS ports 443, 8443, and 10000.
+- On a remote devbox, open `https://<hostname>:<port>/app/` directly. The dev server serves HTTP/2, gzips modules and links source maps instead of inlining them, so a cold load of the ~7k dev modules moves ~13 MB instead of ~100 MB. Trust the CA on the visiting machine: Chrome caches nothing from a site whose certificate warning was clicked through, so every reload re-downloads every module. Tailscale Serve is an alternative that needs no CA: `sudo tailscale serve --bg --https=443 https+insecure://localhost:<port>`, then open `https://<devbox>.<tailnet>.ts.net/app/` and sign in again there (Serve offers HTTPS ports 443, 8443, and 10000). `MACRO_DEV_COMPRESSION=false` and `MACRO_DEV_INLINE_SOURCEMAPS=true` restore Vite's defaults.
 - Never assume port 3000 or 3002 is yours. Check with `lsof -nP -iTCP:<port> -sTCP:LISTEN -t` and confirm the owner's worktree via `lsof -p <pid> | awk '$4=="cwd"'`. Take a free port instead of killing another session's server, and reuse one only if its cwd is this worktree.
 - The `.cursor/*.sh` scripts and the `run-app` skill are **Cursor Cloud** entry points. On a local machine they prompt for sudo and are the wrong tool. Only backend (Rust) changes need the local stack.
 
@@ -35,7 +39,7 @@ nix develop --command just run_local --instance <name>
 - `--instance <name>` gives an isolated Compose project, volumes, and a deterministic per-name port window, so it never clashes with another worktree's stack. `just status_local --instance <name>` prints the endpoints without starting anything; `just stop_local --instance <name>` stops it (volumes kept) and `just destroy_local --instance <name>` removes it.
 - First bring-up is slow (zigbuild of every service plus the agent-harness sandbox image); later runs reuse the caches. While attached, press `r` to rebuild changed Rust services in place and `q` to stop cleanly.
 - No accounts are pre-created: passwordless login registers any email on demand, and the one-time code lands in the instance's Mailpit (endpoint in `just status_local`). `just seed-scenario apply --file seed/scenarios/team-perms.json` seeds multi-user team fixtures with printed login links.
-- Full details, Doppler vs no-Doppler modes, and port-conflict debugging: `docs/RUNNING_LOCALLY.md`.
+- Full details, Doppler vs no-Doppler modes, and port-conflict debugging: `docs/development/running-locally.md`.
 - First run in a fresh worktree spends a few minutes on `just ensure-cache-wasm` / `just ensure-agent-fold-wasm` before Vite serves.
 - That tab is pointed at **real dev data**. Treat creates, edits, and deletes as real, and discard drafts you open.
 
@@ -62,91 +66,88 @@ Then trigger the interaction and read `window.__inst.log`. `'1,2,3' → '' → '
 
 ## Development Patterns
 
+### Pipedream native authorization
+
+Keep native Pipedream consent in the system browser: the desktop navigation
+plugin redirects external popups and breaks the embedded iframe's return path.
+`pipedream-connect.html` is a separate Vite entry, served at
+`/app/pipedream-connect.html`, without a Macro browser login. The Connect token
+and one-time state travel only in its URL fragment, which the page removes on
+load. Its **Return to Macro** link is consumed by the Tauri navigation bridge
+without changing the active route. Backend registration still verifies account
+ownership. Cancel, logout, and the ten-minute timeout retire pending callbacks.
+
 ### General
+- Keep bot setup focused on the token-and-SDK workflow; Agent and Ownership
+  controls live under collapsed Advanced settings. See the
+  [Bots walkthrough](../../docs/agent-guide/settings.md#bots).
+- Label the notification permission toast **Enable Desktop Notifications** in
+  the desktop app and keep its Enable action on the native notification provider.
+- Keep signed-out Drive document routes on the shared detail viewer without
+  mounting private list/sidebar sources; let document access checks decide visibility.
+- Gate account-only queries, comment readers, and account WebSockets on confirmed
+  authentication; keep public document loading independent of those services
+  and distinguish unresolved identity from confirmed sign-out in UI prompts.
+- Probe identity on deploy-preview origins even without a local login hint;
+  shared HttpOnly dev cookies are not visible to JavaScript or localStorage.
+- Disable GraphQL cache sessions and clear login hints on confirmed auth 401s,
+  even with retained user data; preserve session state on transient failures.
+- Mobile dock customization shares the navigation island’s measured capacity; persist ordering per user with `mobile-dock-order.ts`, preserve gated destinations, and keep Search and More fixed. Reorder handles drag without a hold delay; the rest of each row scrolls.
+- Share sidebar and mobile dock unread presence through `components/app/use-navigation-unread.ts`; keep badges reactive to read/done changes and avoid fetching extra pages for counts.
+- Mobile dock search owns transient category/mode state in `features/command/mobile`; reuse the shared entity source and explicit full-text adapter rather than overlaying the dock query on view tabs or saved facets. See `docs/agent-guide/search.md` at the repository root.
+- Keep mobile search sessions, result order, loaded rows, and scroll state with their Search history entry; preserve order before opening a result so viewedAt updates cannot move it on Back. Refresh row data in place and append later pages. Scope saved rows and scroll measurements to their account and reset result adapters/scrollers on account changes. Query/category changes rerank; a fresh dock search supplies a new session ID in Search's route state, including when reusing a native pane.
+- Keep Quick Access cache availability reactive to the GraphQL rollout flag; it can arrive after the provider mounts, and email has no legacy source fallback.
+- Virtualize mobile name results like desktop Command Menu; local Quick Access sources are unbounded, and mounting them all stalls iOS keyboard focus during layout. Load additional search pages near the scroll end instead of reserving a paging bar.
+- Reconcile mobile full-text rows by entity ID so appending a page preserves DOM rows and scroll position; restore after responsive row measurement and disable browser scroll anchoring so layout changes cannot override the saved history offset.
+- Reserve the safe area plus the category row above mobile Search, and only the safe area above Channels; their hidden split headers must not add another blank strip.
+- Follow [mobile layout and chrome](../../.agents/rules/web/mobile.md#layout-and-chrome) for full-frame views and record tabs; verify their first controls below the navigation with a nonzero safe area on phones and tablets.
+- Show only the Recent conversation feed in mobile Channels, without view tabs or a persisted mobile tab selection.
+- Mount the mobile search input before focusing it inside the dock tap; keep navigation in that handler so focus does not trigger a second navigation or lose iOS keyboard activation.
+- Preserve focused chrome editors during deferred split insertion/removal autofocus; explicit return-focus commands may still focus the pane.
+- Reconcile global focus when focused DOM subtrees are removed; iOS can omit blur events, otherwise floating creation actions stay hidden after search or editor teardown.
+- Mount the floating mobile AI composer only on the Agents view; other views keep their New action or their own reply/comment composer.
+- Passive PR mentions must not retry initial GitHub status failures on remount; preserve confirmed status through refetch errors and keep pending data reads out of their parent Suspense boundary.
+- Keep native booking exit navigation in the route shell, outside page loading boundaries, and use the router so the native hash route stays intact.
+- Diagnose native full reloads with `native_webview_started` and native launch/termination/update counters; termination coverage is iOS/macOS only, and a pageview alone also includes SPA navigation. See `tauri/src-tauri/README.md`.
 - All API/network calls live in service-clients.
+- Route explicit call exits using the server's `callEnded` result: ended calls
+  open their record; ongoing channel and scheduled calls return to the channel
+  and Calendar. Preserve the session ID before disconnecting.
+- Diagnose browser call media with `call.media.*` spans and the `meeting.setup.id`
+  on `meeting.join`; keep provider messages, device labels/IDs, and call-link
+  tokens out of telemetry. See [call diagnostics](../../docs/agent-guide/calls.md#browser-call-diagnostics).
+- Keep desktop Gmail and Outlook inbox consent in the system browser with a
+  `macro:///inbox-link-callback` return; webview origins are not desktop callbacks.
+- Touch email replies and forwards use the full-screen composer with the shared new-email header actions; preserve thread state underneath and flush local edits before closing.
+- Draft autosaves preserve active email thread messages; evict inactive legacy
+  caches on save and the active cache on thread exit. Revalidate GraphQL thread
+  pages only when a save cannot patch the message list (missing snapshot or a
+  move between inboxes).
+- Keep email card resize motion on its content wrapper so message and inline
+  reply transitions preserve the card's focus target and return to natural height.
 - Shared server-state queries and mutations live in `src/lib/queries`; keep
   feature-specific query orchestration with its owning feature.
+- Refresh the channel list's bounded unread edge when opening a conversation,
+  including an empty unread result after a read on another device.
+- Route supported move, trash, restore, permanent-delete, duplicate, and share-policy
+  writes through `queries/storage/entity-mutations` when GraphQL Soup is enabled;
+  never retry failed GraphQL writes through REST. Preserve non-owner history removal
+  and version-specific markdown forks on their existing paths. Confirmed restores
+  clear earlier deletion markers without clearing a newer delete's intent.
+- Preserve loaded block content on initial access confirmation when its loader
+  supplies no permissions; reload only on a later confirmed permission change.
+  Apply shared access in place only after a successful permissionless load.
 - Reactive GraphQL reads use `createLiveQuery` for a document and
   `useSoupAstItemsQuery` (backed by `createSoupLiveQuery`) for Soup lists; see
   [choosing a reactive read](docs/graphql-normalized-cache-plan.md#choosing-a-reactive-read).
-- When adding or changing a feature flag, follow the `define-feature-flag` skill.
+- When adding or changing a feature flag, follow the `feature-flags` skill.
 - When adding or changing a view's feature tour, follow the `add-tour` skill.
 
-### Startup bundle
-- Everything statically reachable from `src/index.tsx` downloads and runs before the first screen. Views, block components, and modals load through `lazy()` / `lazyNamed` (`@core/util/lazyNamed`) inside a `<Suspense>`; never statically import one into a shared hub (`Root`, `Layout`, `AppProviders`, `componentRegistry`, `app-router-view`, `routes/shells.tsx`, block `definition.ts`, Lexical `init.ts`).
-- Each top-level route picks its shell in `app-router-view.tsx` (`routes/shells.tsx`): `authRoute` pages and booking links render without app chrome, and `appRoute` renders `AppShell` — the app's providers (`AppProviders`), chrome (`AppChrome` in `Layout.tsx`), and the split layout. Put state only the app's views use in `AppProviders`, not `Root`; `Root` keeps what every page or a call needs.
-- `index.html` paints a boot shell before any JS runs: the saved theme's background, the rail column, and the desktop app's content card — no app content. The first shell to mount dismisses it (`dismissBootShell`). Keep its rail width and desktop inset in step with `SidebarRail` and `SplitLayout`.
-- Production web builds register `public/sw.js`: it serves the cached `index.html` and content-hashed assets from Cache Storage and moves tabs to newer builds. Set localStorage `macro:sw` to `off` to bypass it while debugging.
-- The build fails if any emitted file exceeds CloudFront's 10 MB compression limit; split it rather than raising the limit.
+## Rules
 
-### Query callback lifetimes
-
-Query options can remain cached after their UI unmounts, including for disabled
-queries. Callbacks created inside hooks can retain component accessors, Solid
-owners, and detached DOM through shared closure environments—even when a callback
-only references a locally resolved ID. This does not mean every closure captures
-every local variable.
-
-- Create cached callbacks in module-scope query factories accepting resolved IDs,
-  flags, and plain data. Resolve reactive inputs inside the `useQuery` /
-  `useInfiniteQuery` options accessor, e.g. `useQuery(() => itemQueryOptions(id()))`,
-  so inputs still update reactively.
-- Keep pure selectors and polling policies at module scope, or inside those
-  factories. Check **all** retained callbacks: `queryFn`, `select`,
-  `refetchInterval`, pagination, placeholder callbacks, and functions in `meta`.
-- Do not pass component accessors, props getters, or query proxies into the
-  factory. For reactive selection, pass plain snapshots of the needed values
-  (such as channel names or a resolved document ID). Naming a function or copying
-  an ID inside the hook does not isolate its closure from the hook.
-- Use `keepPreviousData` from `@tanstack/solid-query` instead of an inline
-  `placeholderData: (p) => p`.
-- The same rule applies to callers of wrapper hooks such as `useSoupAstItemsQuery`
-  and `createGroupedSoupQueries`: `meta.itemFilter` / `meta.insertFilter` passed
-  from a component or view context are cached too, so build them with a
-  module-scope factory over plain snapshots (see
-  [drive-data-source](src/features/drive-view/queries/drive-data-source.ts)).
-- Query hooks in `src/lib/urql-solid` are exempt: their observers are created per
-  mount and destroyed on cleanup, so nothing outlives the component.
-
-Examples: [session query factory](src/lib/queries/agent-session/session.ts) and
-[search query factories](src/lib/queries/soup/search.ts).
-
-### SolidJs
-- Avoid createEffect. Legitimate uses: syncing with external/imperative systems (DOM APIs, third-party libs). If you're using it to derive state or trigger updates, use a derived signal or wrap the setter instead.
-- Prefer wrapping the setter over `createEffect(() => { if (signal()) sideEffect() })`. When setting focus/selection should also clear another stop, blur a control, or scroll, put that work in the setter (or a named helper the setter calls) so the action is explicit at the call site — not a distant effect watching the signal.
-- Use createMemo only when you need referential stability or the derivation is expensive. Cheap derivations (() => a() + b()) don't need it regardless of subscriber count.
-- Before rolling your own reactive utility, check solid-primitives first.
-- Never read a solid-query `query.data` unguarded from a component body or an eager `createMemo`. `data` is a resource read: while the query is pending it suspends the caller's nearest `<Suspense>`, which detaches and re-attaches that whole subtree — a blank flash, lost scroll position, remounted editors. Gate the read on status (`query.isSuccess ? query.data : fallback`, or `queryReadyGate` from `src/lib/queries/gate.ts`); an `isLoading` check is not enough, because a disabled or paused query is pending without loading and its data read still suspends. Every other field is a plain store read and is safe. Remember `createMemo` runs immediately, so a guard inside a `<Show>`/`<Match>` further down does not save you. This has blanked the calendar grid twice — see `focusTarget` in `src/features/block-calendar/CalendarBlockAdapter.tsx` and `useSystemSkillsQuery`.
-
-## UI / Components
-- Prefer composition over configurability. Follow slot-based patterns (see src/features/channel, src/features/entity, or Kobalte).
-- Keep reusable components small, atomic, and decoupled from queries/complex state. Push data-fetching and mutations up to use-case-specific composed components.
-- Context should be scoped to a component subtree — Message.Content consuming a MessageContext is fine because the ownership boundary is clear.
-- Composed primitives must not depend on use-case-specific context — a RecipientsSelector should never require an EmailComposeContext.
-- New features and feature restructures use the layered layout in [docs/FRONTEND_FEATURE_ARCHITECTURE.md](../../docs/FRONTEND_FEATURE_ARCHITECTURE.md), summarized by FE-33 (`core / queries / primitives / components / views` plus an injected `context/`). Keep production wiring in an app-facing entry point and give reactive logic narrow feature-owned contracts. `src/features/activity` illustrates the layers but still has documented composition and contract migration gaps.
-
-### Porting shadcn-solid primitives
-- Use the upstream structure and behavior as a starting point, then reshape exports to match the local slot-based, compound-component API.
-- Replace upstream palette, surface, border, and status classes with the existing semantic tokens; inputs normally use `bg-input`, `border-edge-muted`, `text-ink`, and `text-ink-placeholder`.
-- Preserve Kobalte semantics, state attributes, and polymorphic prop types. Keep accessibility relationships inside the primitive instead of recreating them at call sites.
-- Add a co-located `*.docs.tsx` gallery page and focused `*.test.tsx` coverage for every ported component.
-- Keep `Input` a thin native control. Use `InputGroup` for icons, clear actions, inline Buttons, and shared ButtonGroup framing instead of adding composition props to `Input`.
-- In `InputGroup`, keep the input as the single control and place surrounding content in `Addon` slots. Use `align` for visual placement so accessible DOM order stays independent of layout.
-
-## Styling
-- Use semantic color tokens, not raw Tailwind color classes.
-- Do not add cursor-pointer to clickable elements.
-- Prefer styling in the component (Tailwind classes on the markup) so styling lives next to structure. Reserve `@utility` in `index.css` for styles that are widely shared across many components — not one-off or two-component layouts.
-
-## TS
-- For exhaustive switch statements use `match` from `ts-pattern`.
-
-### Misc
-- If you create a Lexical Node or make breaking changes to a Lexical Node, you must increment the lexical version counter (in src/lib/core/component/LexicalMarkdown/version.ts) along with a brief note about changes.
-- Do not add dependencies on the legacy block state system. Read it only at an
-  existing block-adapter boundary, then pass identity, permissions, state, and
-  lifecycle through feature context or explicit props; see FE-34 in
-  `docs/STYLE_GUIDE.md`.
+Conventions for this app live in `.agents/rules/web/` and load when you touch
+matching files: data fetching, Solid reactivity, architecture, UI, UI primitives,
+the startup bundle, and Lexical nodes.
 
 ### Good Reference
 - https://github.com/solidjs-community/solid-primitives
@@ -160,8 +161,65 @@ Examples: [session query factory](src/lib/queries/agent-session/session.ts) and
 - `src/features/block-channel`
 - `src/features/block-pdf`
 
+## PDF markup
+
+Keep the signature canvas backing bitmap aligned with its CSS size and device
+pixel ratio; keep dialog centering separate from animated transforms. Verify the
+[signature walkthrough](../../docs/agent-guide/documents.md#pdf-signatures) after
+changing this editor.
+
 ## Notes
 - Don't shy away from pulling good examples into context. In the case of solid-primtiives/kobalte try reading documentation, or just temp clone into /tmp to reference
+
+## iOS release signing
+
+Follow [`docs/ios-releases.md`](docs/ios-releases.md) for App Store signing and
+provisioning, including both extensions. The release script temporarily selects
+manual export when a distribution certificate path is supplied.
+
+## macOS notification activation
+
+Carry the notification ID through native delivery and the buffered `navigate`
+bridge, so clicks survive app restarts and wait for the split layout to be ready.
+Install and retain the UserNotifications delegate before the native event loop
+starts. Clicking restores and focuses the main window; receipt and dismissal do
+not navigate. Preserve iOS and Android `createPushApi` tap navigation when changing
+desktop delivery, including buffered launch taps before device registration.
+This requires a native macOS release; see the
+[notification walkthrough](../../docs/agent-guide/notifications.md).
+
+## Desktop file drops
+
+Keep `app.windows[].dragDropEnabled` false in `tauri/src-tauri/tauri.macos.conf.json`.
+Markdown editors and attachment inputs use browser events through `fileFolderDrop`
+and `fileDrop`; Tauri's native handler intercepts Finder drops before those handlers
+receive them. This config change requires a rebuilt macOS app; a frontend bundle
+update alone does not apply it.
+
+Tauri replaces arrays when merging platform configuration. Keep the other macOS
+window settings aligned with `tauri/src-tauri/tauri.conf.json` when changing the
+shared window. Verify with the [Finder-drop walkthrough](../../docs/agent-guide/documents.md#desktop-file-drops).
+
+## Subscription offers
+
+Use `useTrialEligibilityQuery` for trial copy and checkout terms in Billing,
+paywall, and onboarding. Never infer first-subscription eligibility from Free
+access or legacy `hasTrialed`; show trial copy only for confirmed eligibility,
+and keep Pro checkout disabled while eligibility is unknown. Refresh the offer
+on focus/reconnect; route existing subscriptions to billing management. Keep
+known management access through refetch failures, but hide unconfirmed trials.
+Reset rejected checkout offers before refetching eligibility.
+
+## Desktop release builds: generated WASM
+
+Keep `nix/tauri-desktop.nix` in sync with generated WASM dependencies: desktop
+releases run Vite directly and do not call `just build-tauri` or `build-wasm`.
+Build and copy the agent-fold JavaScript glue and WASM before Vite runs, and
+check that both appear in the output. Without them, Vite leaves the worker's
+relative imports unchanged and Tauri can serve HTML for the missing module.
+
+## macOS desktop gotcha: third-party iframes
+WKWebView asks the desktop navigation plugin about iframe loads as well as page loads, and the plugin cannot tell them apart. A third-party iframe is classified as external: its load is cancelled and the page opens in the browser, leaving an empty frame in the app. List a third-party page the app frames in `EMBEDDED_DOCUMENTS` in `tauri/src-tauri/src/lib.rs`.
 
 ## iOS gotcha: Web Workers must be lazy
 On iOS WKWebView, eagerly constructing an ES module Web Worker (`new Worker(url, { type: 'module' })`) whose script is served via the `tauri://` custom URL scheme **deadlocks the WebContent process**. The worker thread parks in WebKit's sync module loader waiting for an IPC response that never wakes it; JS execution silently stops after that point.

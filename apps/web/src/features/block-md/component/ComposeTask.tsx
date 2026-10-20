@@ -27,8 +27,10 @@ import type { PortalScope } from '@core/component/ScopedPortal';
 import { toast } from '@core/component/Toast/Toast';
 import { useUserId } from '@core/context/user';
 import { registerHotkey, useHotkeyDOMScope } from '@core/hotkey/hotkeys';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { buildSimpleEntityUrl } from '@core/util/url';
 import { mergeRegister } from '@lexical/utils';
+import { Telemetry } from '@macro-inc/observability';
 import ArrowSquareOutIcon from '@phosphor/arrow-square-out.svg';
 import ArrowsOutIcon from '@phosphor/arrows-out.svg';
 import PaperclipIcon from '@phosphor/paperclip.svg';
@@ -349,6 +351,8 @@ export interface ComposeTaskProps {
   initialAssigneeIds?: string[];
   /** Start in this project, e.g. when composing from the project's page. */
   initialProjectId?: string;
+  /** Prefill the visible Due Date control when creating from a timeline. */
+  initialDueDate?: Date;
   /**
    * When provided, replaces the default success behavior (auto-copy link +
    * toast) so the caller can handle the created task however it needs.
@@ -383,18 +387,24 @@ export function ComposeTask(props: ComposeTaskProps) {
     return defaultTaskPropertyValues(ids);
   };
 
-  // A project the composer opens in applies on top of a restored draft too.
-  const withInitialProject = (
+  // Contextual project and date values apply without discarding a restored draft.
+  const withInitialProperties = (
     values: Record<string, PropertyApiValues>
-  ): Record<string, PropertyApiValues> =>
-    props.initialProjectId
-      ? {
-          ...values,
-          [SYSTEM_PROPERTY_IDS.PROJECT]: taskComposerProjectValue(
-            props.initialProjectId
-          ),
-        }
-      : values;
+  ): Record<string, PropertyApiValues> => {
+    const next = { ...values };
+    if (props.initialProjectId) {
+      next[SYSTEM_PROPERTY_IDS.PROJECT] = taskComposerProjectValue(
+        props.initialProjectId
+      );
+    }
+    if (props.initialDueDate) {
+      next[SYSTEM_PROPERTY_IDS.DUE_DATE] = {
+        valueType: 'DATE',
+        value: props.initialDueDate,
+      };
+    }
+    return next;
+  };
 
   // draft init logic
   const initializeFromDraft = () => {
@@ -409,7 +419,7 @@ export function ComposeTask(props: ComposeTaskProps) {
           title: draft.title,
           content: draft.content,
           editorState: draft.editorState,
-          propertyValues: withInitialProject(draft.propertyValues),
+          propertyValues: withInitialProperties(draft.propertyValues),
           isDraftLoaded: true,
         };
       }
@@ -418,7 +428,7 @@ export function ComposeTask(props: ComposeTaskProps) {
       title: props.initialTitle ?? '',
       content: props.initialContent ?? '',
       editorState: undefined,
-      propertyValues: withInitialProject(getDefaultPropertyValues()),
+      propertyValues: withInitialProperties(getDefaultPropertyValues()),
       isDraftLoaded: false,
     };
   };
@@ -656,7 +666,10 @@ export function ComposeTask(props: ComposeTaskProps) {
       if (props.onSuccess) {
         props.onSuccess({ documentId, title: taskTitle, content: taskContent });
       } else {
-        showTaskCreatedToast(documentId, initialSnapshot);
+        fireAndForget(
+          showTaskCreatedToast(documentId, initialSnapshot),
+          'compose-task'
+        );
       }
       props.onCreateTask?.(taskTitle, taskContent);
       return;
@@ -687,7 +700,10 @@ export function ComposeTask(props: ComposeTaskProps) {
     if (props.onSuccess) {
       props.onSuccess({ documentId, title: taskTitle, content: taskContent });
     } else {
-      showTaskCreatedToast(documentId, initialSnapshot);
+      fireAndForget(
+        showTaskCreatedToast(documentId, initialSnapshot),
+        'compose-task'
+      );
     }
     props.onCreateTask?.(taskTitle, taskContent);
   };
@@ -790,7 +806,7 @@ export function ComposeTask(props: ComposeTaskProps) {
     setTitle('');
     setContent('');
     setPropertyValues(
-      reconcile(withInitialProject(getDefaultPropertyValues()))
+      reconcile(withInitialProperties(getDefaultPropertyValues()))
     );
     setTagLayoutMode('bottom');
     setIsDraftLoaded(false);
@@ -840,7 +856,9 @@ export function ComposeTask(props: ComposeTaskProps) {
     scopeId: composeHotkeyScope,
     description: 'Create task',
     keyDownHandler: () => {
-      handleCreateTask();
+      handleCreateTask().catch((error) =>
+        Telemetry.error(error, { surface: 'compose-task' })
+      );
       return true;
     },
     runWithInputFocused: true,
@@ -853,7 +871,10 @@ export function ComposeTask(props: ComposeTaskProps) {
       applyTargetLabel: 'Task',
       isApplied: (tag) => composerTags.isApplied(tag.optionId),
       onCreate: (tag) => {
-        void composerTags.applyTag(tag.scope, tag.optionId);
+        fireAndForget(
+          composerTags.applyTag(tag.scope, tag.optionId),
+          'compose-task'
+        );
       },
     })
     .withEmojis()
@@ -943,7 +964,10 @@ export function ComposeTask(props: ComposeTaskProps) {
             }}
             onTagSelected={(tag) => {
               setTagLayoutMode('title');
-              void composerTags.applyTag(tag.scope, tag.optionId);
+              fireAndForget(
+                composerTags.applyTag(tag.scope, tag.optionId),
+                'compose-task'
+              );
             }}
             onDeleteTagsAtStart={deleteTitleTagsAtStart}
             portalScope={portalScope()}

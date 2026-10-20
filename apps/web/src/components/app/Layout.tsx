@@ -54,11 +54,10 @@ import { useUserInfoQuery } from '@queries/auth/user-info';
 import { queryClient } from '@queries/client';
 import { useLocation, useNavigate } from '@solidjs/router';
 import { type as osType } from '@tauri-apps/plugin-os';
-import { cn, ImperativeDialogHost } from '@ui';
+import { cn } from '@ui';
 import {
   createEffect,
   createMemo,
-  createSignal,
   lazy,
   onCleanup,
   onMount,
@@ -66,7 +65,6 @@ import {
   Show,
   Suspense,
 } from 'solid-js';
-import { ViewNavigationSlotContext } from '../view-shell/navigation-slot';
 import { AppProviders } from './AppProviders';
 import { BundleUpdateProgressBar } from './BundleUpdateProgressBar';
 import { DesktopTitleBar } from './DesktopTitleBar';
@@ -77,7 +75,6 @@ import { FloatRegion } from './mobile/float-regions/FloatRegion';
 import { FloatRegionHost } from './mobile/float-regions/FloatRegionHost';
 import { installGlassPress } from './mobile/glassPress';
 import { MobileDockRow } from './mobile/MobileDockRow';
-import { MobileViewsRow } from './mobile/MobileViewsRow';
 import { SwipeDownDismissKeyboard } from './mobile/SwipeDownDismissKeyboard';
 import { SessionExpiredRedirect } from './SessionExpiredRedirect';
 import { useAppSquishHandlers } from './useAppSquishHandlers';
@@ -125,7 +122,6 @@ function hasOpened(opened: () => boolean) {
  */
 export function RootFrame(props: ParentProps) {
   const hasOverlayTitleBar = isPlatform('desktop') && osType() === 'macos';
-  const [navigationSlot, setNavigationSlot] = createSignal<HTMLElement>();
   const { paywallOpen, showPaywall } = usePaywallState();
   const { usageLimitOpen } = useAiUsageLimitState();
   const location = useLocation();
@@ -164,35 +160,32 @@ export function RootFrame(props: ParentProps) {
 
   return (
     <MobileSettingsProvider>
-      <ViewNavigationSlotContext.Provider value={navigationSlot}>
-        <div
-          class={cn(
-            'relative flex flex-col justify-between not-touch:bg-panel w-dvw h-[calc(var(--dvh,1dvh)*100)] pl-(--safe-left) pr-(--safe-right)',
-            hasOverlayTitleBar && 'pt-[40px]'
-          )}
-        >
-          <Show when={hasOverlayTitleBar}>
-            <DesktopTitleBar navigationRef={setNavigationSlot} />
-          </Show>
-          <ImperativeDialogHost />
-          <BundleUpdateProgressBar />
-          <Show when={paywallOpen()}>
-            <Suspense>
-              <Paywall />
-            </Suspense>
-          </Show>
-          <Show when={usageLimitOpen()}>
-            <AiUsageLimitDialog />
-          </Show>
-          <div class="min-h-0 flex-1 flex flex-col">
-            {/* Route loading must not detach the frame. Routes draw their own
+      <div
+        class={cn(
+          'relative flex flex-col justify-between not-touch:bg-panel w-dvw h-[calc(var(--dvh,1dvh)*100)] pl-(--safe-left) pr-(--safe-right)',
+          hasOverlayTitleBar && 'pt-[40px]'
+        )}
+      >
+        <Show when={hasOverlayTitleBar}>
+          <DesktopTitleBar />
+        </Show>
+        <BundleUpdateProgressBar />
+        <Show when={paywallOpen()}>
+          <Suspense>
+            <Paywall />
+          </Suspense>
+        </Show>
+        <Show when={usageLimitOpen()}>
+          <AiUsageLimitDialog />
+        </Show>
+        <div class="min-h-0 flex-1 flex flex-col">
+          {/* Route loading must not detach the frame. Routes draw their own
                 loading state, so the frame adds none. */}
-            <Suspense>{props.children}</Suspense>
-          </div>
-          <SwipeDownDismissKeyboard />
-          <DevStatusBar />
+          <Suspense>{props.children}</Suspense>
         </div>
-      </ViewNavigationSlotContext.Provider>
+        <SwipeDownDismissKeyboard />
+        <DevStatusBar />
+      </div>
     </MobileSettingsProvider>
   );
 }
@@ -333,7 +326,12 @@ export function AppChrome(props: ParentProps) {
               <MobileSettings />
             </Suspense>
           </Show>
-          <MobileViewsRow />
+          {/* Search owns its filters at the top; suppress background composers. */}
+          <FloatRegion
+            region="accessory"
+            priority={100}
+            active={SearchState.isOpen}
+          />
           <FloatRegion
             region="dock"
             active={() => !virtualKeyboardVisible() || SearchState.isOpen()}

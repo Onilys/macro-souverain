@@ -2,21 +2,30 @@
 title: "Bring your own agent"
 sidebarTitle: "Bring your own agent"
 icon: "terminal"
-tag: "Coming soon"
 description: "Bring Claude Code, OpenCode, OpenClaw, or Hermes into your Macro workspace with macrod."
 ---
 
+## Agents and runtimes
+
+An **agent** combines a name, instructions, a default model, and a runtime.
+
+A **runtime** is the harness that powers it: Macro AI, a built-in coding harness, or an agent running on your own machine, like your very own Claude Code.
+
 <Info>
-  Bring Your Own Agent will be available soon.
+Soon, you will be able to bring your own local coding agents to Macro via the Macro Desktop App. You'll be able to @claude and this will route to a Claude Code running on your own computer automatically. In the meantime, you can use `macrod`, a CLI based tool to bring your local agents to Macro.
 </Info>
+
+Manage both in **Settings → General → Agents**. Connect your machine in **Runtimes**, then create an agent that uses it in **Agents**.
+
+## Macro daemon
 
 Use your local coding agent from Macro. `macrod` runs on your computer, connects your agent to Macro, and keeps its sessions available from your workspace.
 
-## Agents and runtimes
+<Info>
+  Macro Daemon is for advanced users that want to connect agents running in your terminal. For example, if you run Claude Code on your server.
+</Info>
 
-An **agent** combines a name, instructions, a default model, and a runtime. A **runtime** is the harness that powers it: Macro AI, a built-in coding harness, or an agent running on your own machine.
-
-Manage both in **Settings → General → Agents**. Connect your machine in **Runtimes**, then create an agent that uses it in **Agents**.
+Run the Macro daemon (`macrod`) on your computer or server.
 
 ## Before you start
 

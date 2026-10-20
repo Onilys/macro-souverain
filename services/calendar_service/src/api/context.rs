@@ -29,6 +29,7 @@ pub type SchedulingService = calendar_scheduling::domain::service::Service<
     calendar_scheduling::outbound::macro_services::MacroCalendars<
         CalendarGrantService,
         CalendarMutationSvc,
+        calendar_scheduling::outbound::meeting_links::HttpMeetingLinks,
     >,
     calendar_scheduling::outbound::macro_services::MacroDirectory<
         teams::outbound::team_repo::TeamRepositoryImpl,
@@ -37,7 +38,10 @@ pub type SchedulingService = calendar_scheduling::domain::service::Service<
 /// User-initiated calendar mutation service.
 pub type CalendarMutationSvc = CalendarMutationServiceImpl<
     PgCalendarRepository,
-    GoogleCalendarClient<RedisCalendarRequestGate>,
+    calendar_events::domain::providers::CalendarProviders<
+        GoogleCalendarClient<RedisCalendarRequestGate>,
+        email_api_client::OutlookApiClientRepository,
+    >,
     CalendarTokenProviderAdapter,
     CalendarEventBroker,
     ConnectionGatewayCalendarRefresh,
@@ -58,4 +62,6 @@ pub struct ApiContext {
     pub calendar_team_service: Arc<CalendarTeamSvc>,
     /// Personal and team scheduling service.
     pub scheduling_service: Arc<SchedulingService>,
+    /// Meeting-link client minting the Macro calls new events carry.
+    pub meeting_links: Arc<calendar_scheduling::outbound::meeting_links::HttpMeetingLinks>,
 }

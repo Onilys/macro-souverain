@@ -21,7 +21,7 @@ type BoardMenuItemProps = {
 export function BoardMenu(props: BoardMenuItemProps) {
   return (
     <Dropdown>
-      <Dropdown.Trigger variant="ghost" size="icon-sm" aria-label="Board menu">
+      <Dropdown.Trigger variant="ghost" size="md" square label="Board menu">
         <DotsIcon class="size-4" />
       </Dropdown.Trigger>
       <Dropdown.Content class="min-w-48">
@@ -108,12 +108,16 @@ function HideEmptyLanesItem(props: BoardMenuItemProps) {
   return (
     <Dropdown.CheckboxItem
       checked={props.layout.hideEmptyLanes}
+      indicator={false}
       onChange={(hideEmptyLanes) =>
         props.onChange({ ...props.layout, hideEmptyLanes })
       }
       closeOnSelect={false}
     >
-      Hide empty lanes
+      <span class="flex-1">Hide empty lanes</span>
+      <Dropdown.ItemIndicator>
+        <CheckIcon class="size-3.5" />
+      </Dropdown.ItemIndicator>
     </Dropdown.CheckboxItem>
   );
 }

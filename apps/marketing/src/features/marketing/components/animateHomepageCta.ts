@@ -22,6 +22,8 @@ export function animateHomepageCta(
   const originalOpacity = button.style.opacity;
   const originalTransition = button.style.transition;
   const originalWillChange = button.style.willChange;
+  const originalLanding = button.style.getPropertyValue('--cta-landing');
+  const originalFooter = button.hasAttribute('data-cta-footer');
   const closing = destination.closest('footer') ?? destination;
   let maxScroll = 0;
   let startScroll = 0;
@@ -83,6 +85,8 @@ export function animateHomepageCta(
     // The arc descends along the right margin, then turns into the closing
     // space. Grow with the inward motion so the button stays small beside work.
     const inward = progress ** 6;
+    button.style.setProperty('--cta-landing', String(inward));
+    button.toggleAttribute('data-cta-footer', inward >= 0.98);
     const downward = 1 - (1 - progress) ** 3;
     button.style.transform = `translate(${dx * inward}px, ${dy * downward}px) scale(${1 + (scale - 1) * inward})`;
     let opacity = 1 - 0.55 * Math.sin(Math.PI * progress) ** 2;
@@ -131,7 +135,11 @@ export function animateHomepageCta(
     );
     startScroll = Math.min(startScroll, maxScroll - 1);
     travel = Math.max(1, maxScroll - startScroll);
-    scale = Math.min(3, (viewport.width - 48) / start.width);
+    const landingWidth =
+      Number.parseFloat(
+        getComputedStyle(button).getPropertyValue('--cta-footer-width')
+      ) || start.width;
+    scale = Math.min(3, (viewport.width - 48) / landingWidth);
     dx = (end.left + end.width / 2 - start.left - start.width / 2) / cssScale;
     dy =
       (end.top +
@@ -167,5 +175,9 @@ export function animateHomepageCta(
     button.style.transform = originalTransform;
     button.style.transformOrigin = originalOrigin;
     button.style.opacity = originalOpacity;
+    if (originalLanding)
+      button.style.setProperty('--cta-landing', originalLanding);
+    else button.style.removeProperty('--cta-landing');
+    button.toggleAttribute('data-cta-footer', originalFooter);
   };
 }

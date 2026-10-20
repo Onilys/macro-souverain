@@ -11,6 +11,9 @@ use super::link::Link;
 /// Input for creating a draft message. Mirrors the fields from `MessageToSend`.
 #[derive(Debug, Clone)]
 pub struct CreateDraftInput {
+    /// Requested sender. Absent selects the inbox's primary address. The domain
+    /// verifies alternate addresses against the selected inbox's provider grant.
+    pub sender_email: Option<macro_user_id::email::EmailStr<'static>>,
     /// Existing message DB ID (for updating an existing draft).
     pub db_id: Option<Uuid>,
     /// Provider message ID.
@@ -61,7 +64,7 @@ pub struct CreateDraftInput {
 
 /// A draft input with all IDs resolved, ready for database insertion.
 /// Created from `CreateDraftInput` after validation and ID generation.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ResolvedDraftInput {
     /// The resolved message DB ID.
     pub db_id: Uuid,
@@ -118,6 +121,8 @@ pub struct SettledDraftIds {
 /// Simplified message info used for validation queries.
 #[derive(Debug, Clone)]
 pub struct SimpleMessageInfo {
+    /// Immutable provider message identity, resolved from storage.
+    pub provider_id: Option<String>,
     /// Database ID of the message.
     pub db_id: Uuid,
     /// The inbox (link) the message belongs to.
@@ -141,6 +146,10 @@ pub struct SimpleMessageInfo {
 /// returns an error instead of an incomplete saved draft.
 #[derive(Clone)]
 pub struct SavedUserDraft {
+    /// Persisted provider write state after this save.
+    pub operation_status: Option<super::mailbox_operation::MessageOperationStatus>,
+    /// Persisted sender, including an approved alias when selected.
+    pub sender: ContactInfo,
     /// The created or updated draft.
     pub draft: CreatedDraft,
     /// The inbox the draft was saved into.

@@ -22,6 +22,10 @@ pub enum TriggerContext {
     Mentioned(DiscussionContext),
     /// A further message in the discussion of a session that is already running.
     FollowUp(FollowUpContext),
+    /// A message in the agent's private conversation with the person, who
+    /// reads the reply there as it is written. Earlier turns are the
+    /// session's own history, so the discussion carries no channel activity.
+    Conversation(DiscussionContext),
     /// The agent was assigned a task.
     TaskAssigned(TaskAssignedContext),
     /// Someone opened the session from the composer. Their prompt arrives
@@ -485,6 +489,80 @@ pub enum RoutineEvent {
         /// Its id.
         entity_id: String,
     },
+    /// A call the routine's owner started began.
+    CallStarted {
+        /// The call as it stands at the start.
+        call: CallStartedSnapshot,
+    },
+    /// A call the routine's owner joined ended.
+    CallEnded {
+        /// The call.
+        call: CallSnapshot,
+    },
+}
+
+/// A call that just started, read under the routine owner's access.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CallStartedSnapshot {
+    /// Call id.
+    pub id: Uuid,
+    /// The call's name, when it has one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    /// The channel the call is in; absent for meetings outside one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub channel_id: Option<Uuid>,
+    /// That channel's name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub channel_name: Option<String>,
+    /// When it started.
+    pub started_at: DateTime<Utc>,
+    /// Who started it.
+    pub started_by: ContextPerson,
+    /// Everyone who has joined so far, people and guests.
+    pub participants: Vec<ContextPerson>,
+}
+
+/// An ended call, read under the routine owner's access.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CallSnapshot {
+    /// Call id.
+    pub id: Uuid,
+    /// The call's name, when it has one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    /// The channel the call was held in; absent for meetings outside one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub channel_id: Option<Uuid>,
+    /// That channel's name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub channel_name: Option<String>,
+    /// When it started.
+    pub started_at: DateTime<Utc>,
+    /// When it ended.
+    pub ended_at: DateTime<Utc>,
+    /// Everyone who joined, people and guests.
+    pub participants: Vec<ContextPerson>,
+    /// AI summary of the call, once one has been written.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    /// What was said, oldest first.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub transcript: Vec<TranscriptLine>,
+    /// Whether the end of the transcript was left out.
+    pub transcript_omitted: bool,
+}
+
+/// One stretch of speech in a call transcript.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TranscriptLine {
+    /// Who spoke, as a reader would name them. Attributed by audio track, so
+    /// people sharing a device share a speaker.
+    pub speaker: String,
+    /// What they said.
+    pub text: String,
+    /// When they started speaking.
+    pub at: DateTime<Utc>,
 }
 
 /// A document, read under the routine owner's access.

@@ -8,7 +8,10 @@ import {
 } from '@solidjs/testing-library';
 import { createSignal, type JSX } from 'solid-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { AgentsMode } from '../core/mode';
+import {
+  type ConversationFilters,
+  EMPTY_CONVERSATION_FILTERS,
+} from '../core/conversation-filters';
 import {
   type AgentConversationEntity,
   partitionArchived,
@@ -105,14 +108,9 @@ vi.mock('@app/features/soup', () => ({
 vi.mock('@components/app/split-panel', () => ({
   SplitPanel: { CloseButton: () => null },
 }));
-vi.mock('@app/components/view-shell/SidebarCreateButton', () => ({
-  SidebarCreateButton: (props: { label: string; onCreate: () => void }) => (
-    <button onClick={props.onCreate}>{props.label}</button>
-  ),
-}));
 
 describe('mixed Agents sidebar', () => {
-  it('lists only the conversations of the chosen mode and switches between Work and Code', async () => {
+  it('lists chat and code conversations together until a filter narrows them', async () => {
     const conversations: AgentConversationEntity[] = [
       {
         type: 'agent_session',
@@ -122,6 +120,7 @@ describe('mixed Agents sidebar', () => {
         isArchived: false,
         botId: 'cursor',
         status: 'acp_ready',
+        turnState: 'blocked',
       },
       { type: 'chat', id: 'chat', name: 'Plan launch', ownerId: 'me' },
       {
@@ -134,15 +133,18 @@ describe('mixed Agents sidebar', () => {
         status: 'disconnected',
       },
     ];
-    const [mode, setMode] = createSignal<AgentsMode>('chat');
-    const changeMode = vi.fn(setMode);
+    const [filters, setFilters] = createSignal<ConversationFilters>(
+      EMPTY_CONVERSATION_FILTERS
+    );
     const open = vi.fn();
-    const create = vi.fn();
     const openPage = vi.fn();
     render(() => (
       <AgentsSidebar
-        mode={mode()}
-        onModeChange={changeMode}
+        filters={filters()}
+        grouping="status"
+        onFilterChange={vi.fn()}
+        onClearFilters={vi.fn()}
+        onGroupingChange={vi.fn()}
         activePage="new"
         onOpenPage={openPage}
         {...partitionArchived(conversations)}
@@ -155,7 +157,6 @@ describe('mixed Agents sidebar', () => {
         error={false}
         hasNextPage={false}
         loadingNextPage={false}
-        onNewConversation={create}
         onSearchChange={vi.fn()}
         onOpenConversation={open}
         onRetry={vi.fn()}
@@ -167,40 +168,50 @@ describe('mixed Agents sidebar', () => {
       expect(openPage).toHaveBeenLastCalledWith(label.toLowerCase());
     }
 
-    const work = screen.getByRole('radio', {
-      name: 'Work',
-    }) as HTMLInputElement;
-    expect(work.checked).toBe(true);
+    expect(screen.queryByRole('radio', { name: 'Work' })).toBeNull();
+    expect(
+      screen
+        .getAllByRole('heading', { level: 3 })
+        .map((heading) => heading.textContent)
+    ).toEqual(['Needs you1', 'Recent1', 'Archived']);
     const chat = screen.getByRole('button', { name: /Plan launch/ });
     expect(chat.getAttribute('data-kind')).toBe('chat');
     expect(chat.getAttribute('aria-current')).toBe('page');
-    expect(screen.queryByRole('button', { name: /Fix build/ })).toBeNull();
-    expect(screen.queryByText('Archived')).toBeNull();
+    expect(screen.getByRole('button', { name: /Fix build/ })).toBeTruthy();
     fireEvent.click(chat);
     expect(open).toHaveBeenLastCalledWith(conversations[1], expect.anything());
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Code' }));
-    expect(changeMode).toHaveBeenCalledWith('code');
+    setFilters({ ...EMPTY_CONVERSATION_FILTERS, type: ['code'] });
     const code = await screen.findByRole('button', { name: /Fix build/ });
     expect(code.closest('[data-kind]')?.getAttribute('data-kind')).toBe('code');
     expect(screen.queryByRole('button', { name: /Plan launch/ })).toBeNull();
-    expect(screen.getByText('Archived')).toBeTruthy();
     expect(screen.getByRole('button', { name: /Old spike/ })).toBeTruthy();
     fireEvent.click(code, { shiftKey: true });
     expect(open).toHaveBeenLastCalledWith(
       conversations[0],
       expect.objectContaining({ shiftKey: true })
     );
-    fireEvent.click(screen.getByRole('button', { name: 'New conversation' }));
-    expect(create).toHaveBeenCalledOnce();
+
+    setFilters({ ...EMPTY_CONVERSATION_FILTERS, status: ['waiting'] });
+    expect(screen.getByRole('button', { name: /Fix build/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Plan launch/ })).toBeNull();
+    expect(screen.queryByText('Archived')).toBeNull();
+
+    expect(
+      screen.queryByRole('button', { name: 'New conversation' })
+    ).toBeNull();
   });
 
-  it('keeps paging while the chosen mode has too few conversations to scroll', () => {
+  it('keeps paging while filters leave too few conversations to scroll', () => {
     const loadMore = vi.fn();
+    const clear = vi.fn();
     render(() => (
       <AgentsSidebar
-        mode="code"
-        onModeChange={vi.fn()}
+        filters={{ ...EMPTY_CONVERSATION_FILTERS, type: ['code'] }}
+        grouping="none"
+        onFilterChange={vi.fn()}
+        onClearFilters={clear}
+        onGroupingChange={vi.fn()}
         activePage="new"
         onOpenPage={vi.fn()}
         conversations={[
@@ -214,7 +225,6 @@ describe('mixed Agents sidebar', () => {
         error={false}
         hasNextPage
         loadingNextPage={false}
-        onNewConversation={vi.fn()}
         onSearchChange={vi.fn()}
         onOpenConversation={vi.fn()}
         onRetry={vi.fn()}
@@ -222,14 +232,21 @@ describe('mixed Agents sidebar', () => {
       />
     ));
     expect(loadMore).toHaveBeenCalledOnce();
-    expect(screen.getByText('No coding conversations yet.')).toBeTruthy();
+    expect(
+      screen.getByText('No conversations match these filters.')
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(clear).toHaveBeenCalledOnce();
   });
 
   it('opens rename and delete on a session or chat right-click', async () => {
     render(() => (
       <AgentsSidebar
-        mode="chat"
-        onModeChange={vi.fn()}
+        filters={EMPTY_CONVERSATION_FILTERS}
+        grouping="none"
+        onFilterChange={vi.fn()}
+        onClearFilters={vi.fn()}
+        onGroupingChange={vi.fn()}
         activePage="new"
         onOpenPage={vi.fn()}
         {...partitionArchived([
@@ -260,7 +277,6 @@ describe('mixed Agents sidebar', () => {
         error={false}
         hasNextPage={false}
         loadingNextPage={false}
-        onNewConversation={vi.fn()}
         onSearchChange={vi.fn()}
         onOpenConversation={vi.fn()}
         onRetry={vi.fn()}
@@ -330,8 +346,11 @@ describe.each(['home', 'sidebar'] as const)('%s agent rows', (surface) => {
         />
       ) : (
         <AgentsSidebar
-          mode="code"
-          onModeChange={vi.fn()}
+          filters={EMPTY_CONVERSATION_FILTERS}
+          grouping="none"
+          onFilterChange={vi.fn()}
+          onClearFilters={vi.fn()}
+          onGroupingChange={vi.fn()}
           activePage="new"
           onOpenPage={vi.fn()}
           conversations={[entity()]}
@@ -343,7 +362,6 @@ describe.each(['home', 'sidebar'] as const)('%s agent rows', (surface) => {
           error={false}
           hasNextPage={false}
           loadingNextPage={false}
-          onNewConversation={vi.fn()}
           onSearchChange={vi.fn()}
           onOpenConversation={open}
           onRetry={vi.fn()}
@@ -419,7 +437,11 @@ describe.each(['home', 'sidebar'] as const)('%s agent rows', (surface) => {
       view.container.querySelector(
         '[data-agent-session-row] [data-view-sidebar-icon]'
       );
-    expect(icon()?.querySelector('svg') !== null).toBe(surface === 'home');
+    if (surface === 'home') {
+      expect(icon()?.querySelector('svg') !== null).toBe(true);
+    } else {
+      expect(icon()).toBeNull();
+    }
     expect(
       view.container.querySelector('[data-agent-status-indicator]')
     ).toBeNull();
@@ -429,7 +451,9 @@ describe.each(['home', 'sidebar'] as const)('%s agent rows', (surface) => {
         .getByRole('button', { name: 'Fix build' })
         .getAttribute('aria-description')
     ).toBe('Working');
-    expect(icon()?.querySelector('svg') !== null).toBe(surface === 'home');
+    if (surface === 'home') {
+      expect(icon()?.querySelector('svg') !== null).toBe(true);
+    }
     expect(
       view.container.querySelector('[data-agent-status-indicator]') !== null
     ).toBe(surface === 'sidebar');
@@ -443,6 +467,13 @@ describe.each(['home', 'sidebar'] as const)('%s agent rows', (surface) => {
     expect(
       view.container.querySelector('[data-agent-status-indicator]')
     ).toBeNull();
+  });
+
+  it('hides the leading icon slot in the sidebar for a tighter row', () => {
+    if (surface !== 'sidebar') return;
+    const { view } = setup();
+    const row = view.container.querySelector('[data-agent-session-row]');
+    expect(row?.querySelector('[data-view-sidebar-icon]')).toBeNull();
   });
 
   it('does not claim an unsynced PR is open', () => {
@@ -472,21 +503,27 @@ describe.each(['home', 'sidebar'] as const)('%s agent rows', (surface) => {
     expect(view.container.querySelector('[data-kind="code"]')).toBeTruthy();
   });
 
-  it('combines unread and activity in the Agents left dot while Home keeps its trailing unread dot', () => {
+  it('combines unread and activity in the Agents dot while Home keeps its trailing unread dot', () => {
     unreadFilter.mockReturnValue(true);
     const { view, setEntity } = setup();
     const dot = () => screen.getByLabelText('Unread');
-    const isLeading = () => !!dot().closest('[data-view-sidebar-icon]');
-    expect(isLeading()).toBe(surface === 'sidebar');
+    const isInCodeDetails = () => !!dot().closest('[data-agent-code-details]');
+    const isTrailing = () =>
+      !dot().closest('[data-view-sidebar-icon]') &&
+      !dot().closest('[data-agent-code-details]');
     expect(dot().classList.contains('motion-safe:animate-pulse')).toBe(false);
 
     for (const turnState of ['running', 'blocked', 'idle']) {
       setEntity({ ...conversation, turnState });
       expect(screen.getAllByLabelText('Unread')).toHaveLength(1);
-      expect(isLeading()).toBe(surface === 'sidebar');
       expect(
         view.container.querySelectorAll('[data-agent-status-indicator]')
       ).toHaveLength(surface === 'sidebar' ? 1 : 0);
+      if (surface === 'sidebar') {
+        expect(isInCodeDetails()).toBe(true);
+      } else {
+        expect(isTrailing()).toBe(true);
+      }
       expect(dot().classList.contains('motion-safe:animate-pulse')).toBe(
         surface === 'sidebar' && turnState === 'running'
       );

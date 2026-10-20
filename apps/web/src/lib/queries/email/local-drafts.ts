@@ -6,7 +6,9 @@ import type {
 } from '@app/features/email-compose/core/local-draft';
 import type { DraftFormAttachment } from '@app/features/email-compose/primitives/email-form-state';
 import type { EmailMessage } from '@app/features/email-message/core/email-message';
+import { analytics } from '@app/lib/analytics';
 import { getNativeStagedUpload } from '@core/mobile/nativeStagedUpload';
+import { fireAndForget } from '@core/util/fireAndForget';
 import type { NormalizedCacheExchangeOptions } from '@graphql-cache/exchange/normalized-cache-exchange';
 import type { CacheHost } from '@graphql-cache/host/types';
 import type {
@@ -19,7 +21,18 @@ import type { UserInfoData } from '../auth/user-info';
 import { queryClient } from '../client';
 import { createLocalDraftStore } from './local-draft-store';
 
-export const localDraftStore = createLocalDraftStore();
+export const localDraftStore = createLocalDraftStore(undefined, (event) => {
+  const context = {
+    storage: 'email-working-copies',
+    visibility: document.visibilityState,
+    online: navigator.onLine,
+  };
+  if (event.type === 'failed') {
+    analytics.posthog.captureException(event.error, context);
+  } else {
+    analytics.track('email_draft_storage_' + event.type, context);
+  }
+});
 const fileIds = new WeakMap<File, string>();
 const fileCopies = new WeakMap<File, Promise<Blob>>();
 const pendingWrites = new Set<Promise<LocalDraft>>();
@@ -129,6 +142,7 @@ export function localDraftMessage(local: LocalDraft): EmailMessage {
     thread_db_id: local.serverThreadId ?? local.threadId ?? local.draftId,
     link_id: local.inboxId ?? '',
     is_draft: true,
+    is_read: true,
     created_at: time,
     updated_at: time,
     body_html_sanitized: content.body_html,
@@ -137,7 +151,19 @@ export function localDraftMessage(local: LocalDraft): EmailMessage {
     bcc: content.bcc ?? [],
     from: { email: local.senderEmail ?? '' },
     labels: [],
-    attachments: [],
+    attachments: local.attachments.flatMap((attachment) =>
+      attachment.type === 'native'
+        ? [
+            {
+              db_id: attachment.attachmentId,
+              filename: attachment.fileName,
+              mime_type: attachment.mimeType,
+              size_bytes: attachment.fileSize,
+              reference_url: attachment.referenceUrl,
+            },
+          ]
+        : []
+    ),
     attachments_draft: local.attachments.flatMap((attachment) =>
       attachment.type === 'remote'
         ? [
@@ -203,7 +229,7 @@ export type LocalDraftInput = SaveEmailDraft & {
 export function saveLocalDraft(input: LocalDraftInput): Promise<LocalDraft> {
   const write = persistLocalDraft(input);
   pendingWrites.add(write);
-  void finishLocalWrite(write);
+  fireAndForget(finishLocalWrite(write), 'email-local-drafts');
   return write;
 }
 
@@ -227,6 +253,9 @@ async function persistLocalDraft(input: LocalDraftInput): Promise<LocalDraft> {
   const files = new Map<string, Blob>();
   const attachments: LocalDraftAttachment[] = [];
   for (const attachment of input.attachments) {
+    // Document attachments exist only in the AI draft composer, which keeps no
+    // local draft.
+    if (attachment.type === 'document') continue;
     if (attachment.type !== 'local') {
       attachments.push({ ...attachment });
       continue;
@@ -278,7 +307,7 @@ async function persistLocalDraft(input: LocalDraftInput): Promise<LocalDraft> {
         (input.clientHandles ? undefined : (input.draft.db_id ?? undefined)),
       serverThreadId: previous?.serverThreadId,
       inboxId: input.inboxId,
-      senderEmail: input.senderEmail,
+      senderEmail: input.draft.sender_email ?? input.senderEmail,
       content: structuredClone({
         ...input.draft,
         replying_to_id:
@@ -584,6 +613,8 @@ export function localDraftQueueLifecycle(
         senderEmail: text(object(message.from).email),
         content: {
           subject: String(input.subject ?? ''),
+          sender_email:
+            text(input.senderEmail) ?? text(object(message.from).email),
           body_html: text(input.bodyHtml),
           body_text: text(input.bodyText),
           body_macro: text(input.bodyMacro),
@@ -701,8 +732,17 @@ export function localDraftQueueLifecycle(
       throw new Error('Queued email draft disappeared before recovery');
     return await preserveLegacy(queued);
   }
+  const accountKnown = () => {
+    const user = queryClient.getQueryData<UserInfoData>(
+      authKeys.userInfo.queryKey
+    );
+    return !!user?.authenticated && !!user.id;
+  };
   return {
     async prepareMutationQueue() {
+      // Signed-out tabs have no drafts, and a signed-in tab's first drain
+      // can run before user info loads. Retry later instead of failing.
+      if (!accountKnown()) return false;
       try {
         initialized ??= prepare();
         await initialized;
@@ -712,6 +752,16 @@ export function localDraftQueueLifecycle(
       }
     },
     async beforeMutationAttempt(mutation) {
+      // Without the account, a draft cannot be checked against its working
+      // copy; rejecting it here would roll back the saved intent.
+      if (
+        !accountKnown() &&
+        (attemptOf(mutation) ||
+          legacy.has(mutation.transactionId) ||
+          mutation.operationName === 'SaveEmailDraft' ||
+          mutation.operationName === 'DeleteEmailDraft')
+      )
+        return 'defer';
       const attempt = await resolveAttempt(mutation);
       if (!attempt) return true;
       const owner = await session();

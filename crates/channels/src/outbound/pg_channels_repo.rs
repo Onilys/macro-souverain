@@ -1,8 +1,13 @@
 /// Silent historical persistence and transaction-aware activity updates.
 pub mod historical;
+#[cfg(feature = "list")]
+mod references;
 
 #[cfg(test)]
 mod tests;
+
+mod agent_dm;
+mod channel_agents;
 
 #[cfg(feature = "attachment")]
 use crate::domain::ports::ChannelAttachmentRepo;
@@ -1198,6 +1203,13 @@ impl PgChannelsRepo {
 
 #[cfg(feature = "list")]
 impl ChannelListRepo for PgChannelsRepo {
+    async fn get_reference_sources(
+        &self,
+        targets: &[crate::domain::models::ReferenceTarget],
+    ) -> Result<Vec<crate::domain::models::ReferenceSource>, rootcause::Report> {
+        self.query_reference_sources(targets).await
+    }
+
     async fn get_user_channels_with_participants(
         &self,
         params: GetChannelsParams,
@@ -1922,6 +1934,23 @@ impl ChannelRepo for PgChannelsRepo {
             org_id: row.org_id,
             team_id: row.team_id,
         })
+    }
+
+    async fn is_direct_agent_conversation(&self, channel_id: Uuid) -> Result<bool, Self::Err> {
+        let direct = sqlx::query_scalar!(
+            r#"
+            SELECT EXISTS (
+                SELECT 1
+                FROM comms_channel_agents
+                WHERE channel_id = $1
+                  AND kind = 'direct'
+            ) AS "direct!"
+            "#,
+            channel_id,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(direct)
     }
 
     async fn get_or_create_channel_join_code(&self, channel_id: Uuid) -> Result<Uuid, Self::Err> {

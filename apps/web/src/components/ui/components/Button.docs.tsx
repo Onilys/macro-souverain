@@ -232,7 +232,7 @@ export default defineDoc({
       id: 'tooltip',
       title: 'Tooltips and shortcuts',
       description:
-        '`label` doubles as the tooltip; `tooltip` overrides it when the accessible name and the hint should differ. `hotkey` renders a registered shortcut, `shortcut` a raw string.',
+        '`label` doubles as the tooltip; `tooltip` overrides it when the accessible name and the hint should differ. `hotkey` renders a registered shortcut, `shortcut` a raw string. Tooltips are disabled on touch devices, including when an action receives focus.',
       render: TooltipDemo,
     },
   ],

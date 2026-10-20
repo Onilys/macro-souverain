@@ -47,7 +47,7 @@ async-trait = { workspace = true }
 async-stripe = { workspace = true, default-features = false, features = [
   "billing",
   "checkout",
-  "runtime-tokio-hyper-rustls-webpki",
+  "runtime-tokio-hyper",
 ] }
 async-stripe-webhook = { version = "1.0.0-alpha.4", default-features = false }
 aws-sdk-kms = { workspace = true }
@@ -70,7 +70,7 @@ contacts = { path = "../../crates/contacts", default-features = false, features 
 cookie = { workspace = true }
 decode_jwt = { path = "../../crates/decode_jwt" }
 document_storage_service_client = { path = "../../crates/document_storage_service_client" }
-email = { path = "../../crates/email", features = ["http_client"] }
+email = { path = "../../crates/email", features = ["http_client", "outbound"] }
 doppleganger = { workspace = true }
 email_db_client = { path = "../../crates/email_db_client" }
 email_validator = { path = "../../crates/email_validator" }
@@ -82,6 +82,7 @@ foreign_entity = { path = "../../crates/foreign_entity" }
 favorites = { path = "../../crates/favorites", features = ["postgres"] }
 fusionauth = { path = "../../crates/fusionauth" }
 futures = { workspace = true }
+generic_email_domains = { path = "../../crates/generic_email_domains" }
 gtm_invite = { path = "../../crates/gtm_invite" }
 github = { path = "../../crates/github", default-features = false, features = [
   "axum",
@@ -187,6 +188,7 @@ database_env_vars = { path = "../../crates/database_env_vars" }
 
 [dev-dependencies]
 cool_asserts = "2"
+macro_db_migrator = { path = "../../crates/macro_db_migrator" }
 
 [package.metadata.cargo-machete]
 ignored = ["async-stripe"]

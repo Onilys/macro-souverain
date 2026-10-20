@@ -45,8 +45,9 @@ use macro_authorization::{
     MacroAuthorizationState, PgUserApiKeyAuthorizationRepo, PgUserApiKeyAuthorizer,
 };
 use macro_service_urls::{
-    AuthServiceUrl, CalendarServiceUrl, ConnectionGatewayUrl, DocumentStorageServiceUrl,
-    EmailServiceUrl, LexicalServiceUrl, StaticFileServiceUrl, SyncServiceUrl,
+    AppServiceUrl, AuthServiceUrl, CalendarServiceUrl, ConnectionGatewayUrl,
+    DocumentStorageServiceUrl, EmailServiceUrl, LexicalServiceUrl, StaticFileServiceUrl,
+    SyncServiceUrl,
 };
 use notification::domain::service::{
     NotificationReaderService, PlatformArnConfig, SqsNotificationIngress,
@@ -256,15 +257,19 @@ pub async fn run() -> anyhow::Result<()> {
         ForeignEntityServiceImpl::new(PgForeignEntityRepo::new(db.clone())),
         PgGithubPullRequestRepo::new(db.clone()),
     );
-    let soup_service = Arc::new(soup::domain::service::SoupImpl::new(
-        soup::outbound::pg_soup_repo::PgSoupRepo::new(ReadOnlyPool(db.clone())),
-        frecency_service,
-        ReadonlyEmailPreviewAdapter(email_service),
-        channels_service,
-        CallRecordQueryServiceImpl::new(PgCallRepo::new(db.clone())),
-        crm::domain::service::NoOpCrmService,
-        github_pull_request_service,
-    ));
+    let favorites_service = ai_tools::build_favorites_service(db.clone());
+    let soup_service = Arc::new(
+        soup::domain::service::SoupImpl::new(
+            soup::outbound::pg_soup_repo::PgSoupRepo::new(ReadOnlyPool(db.clone())),
+            frecency_service,
+            ReadonlyEmailPreviewAdapter(email_service),
+            channels_service,
+            CallRecordQueryServiceImpl::new(PgCallRepo::new(db.clone())),
+            crm::domain::service::NoOpCrmService,
+            github_pull_request_service,
+        )
+        .with_favorites(favorites_service.clone()),
+    );
 
     tracing::info!("initialized soup service");
 
@@ -438,6 +443,14 @@ pub async fn run() -> anyhow::Result<()> {
             db.clone(),
         ))),
         lexical_client.clone(),
+    )
+    .with_attachment_sender(
+        ai_tools::email_attachments::build_email_attachment_sender(
+            user_email_service.clone(),
+            EmailPgRepo::new(db.clone()),
+            document_tool_context.service.clone(),
+        )
+        .await,
     );
 
     tracing::info!("initialized email tool context");
@@ -528,6 +541,21 @@ pub async fn run() -> anyhow::Result<()> {
     // legacy settlement trigger, which remains counted-usage-only and gated by
     // ENABLE_AI_USAGE_BILLING.
     let recorder = ai_usage::with_tracking(recorder, ai_usage::pg_tracking(db.clone()));
+
+    let decision_classifier = config
+        .typesafe_api_key
+        .value()
+        .map(jev::outbound::TypesafeJev::new)
+        .transpose()
+        .context("failed to configure the decision classifier")?
+        .map(|provider| jev::domain::JevClassifier::new(provider, recorder.clone()));
+    let decisions = Arc::new(jev::domain::decisions::DecisionServiceImpl::new(
+        decision_classifier,
+        admission.clone(),
+    ));
+    let tool_free_completions = Arc::new(
+        crate::service::structured_completion::ToolFreeCompletionService::new(recorder.clone()),
+    );
 
     // The import pipeline: staged/imported external items, gather jobs over
     // the user's connectors, and the Haiku import job. Built before the tool
@@ -666,7 +694,6 @@ pub async fn run() -> anyhow::Result<()> {
         macro_event_broker.clone(),
         entity_access_service.clone(),
         document_tool_context.service.clone(),
-        chat_tool_context.service.clone(),
         user_email_service.clone(),
     );
 
@@ -693,11 +720,24 @@ pub async fn run() -> anyhow::Result<()> {
         soup_service.clone(),
         db.clone(),
     );
+    let crm_tool_context = ai_tools::build_crm_tool_context(db.clone());
+    let pipeline_tool_context = ai_tools::build_pipeline_tool_context(
+        db.clone(),
+        &databases_tool_context,
+        &crm_tool_context,
+    );
+    let crm_transfer_tool_context = ai_tools::build_crm_transfer_tool_context(
+        &pipeline_tool_context,
+        &crm_tool_context,
+        &document_tool_context,
+    );
 
     let calendar_tool_context = ai_tools::build_calendar_tool_context(
         db.clone(),
         CalendarServiceUrl::new()?,
         internal_api_key.clone(),
+        call_tool_context.service.clone(),
+        AppServiceUrl::new()?,
     );
     let forms_tool_context = ai_tools::build_forms_tool_context(
         db.clone(),
@@ -713,6 +753,7 @@ pub async fn run() -> anyhow::Result<()> {
     );
 
     let tool_service_context = ai_tools::ToolServiceContext {
+        cognition_tool_context: ai_tools::build_cognition_tool_context()?,
         connector_tool_context: ai_tools::build_connector_tool_context(db.clone(), None),
         search_service_client: search_service_client.clone(),
         email_service_client: email_service_client_external.clone(),
@@ -732,6 +773,11 @@ pub async fn run() -> anyhow::Result<()> {
         properties_tool_context: properties_tool_context.clone(),
         email_tool_context: email_tool_context.clone(),
         call_tool_context: call_tool_context.clone(),
+        booking_management_tool_context: ai_tools::build_booking_management_tool_context(
+            CalendarServiceUrl::new()?,
+            internal_api_key.clone(),
+            config.environment,
+        ),
         booking_link_tool_context: ai_tools::build_booking_link_tool_context(
             db.clone(),
             config.environment,
@@ -744,6 +790,8 @@ pub async fn run() -> anyhow::Result<()> {
                 .unwrap_or(false),
         ),
         notification_tool_context: notification_tool_context.clone(),
+        item_notification_preference_tool_context:
+            ai_tools::build_item_notification_preference_tool_context(db.clone()),
         databases_tool_context,
         forms_tool_context,
         databases_sql_tool_context,
@@ -752,6 +800,7 @@ pub async fn run() -> anyhow::Result<()> {
         ),
         chat_tool_context,
         channel_tool_context,
+        channel_media_upload_tool_context: ai_tools::build_channel_media_upload_tool_context()?,
         bot_tool_context: ai_tools::build_bot_tool_context(
             db.clone(),
             ai_tools::MaybeToolEventBroker::Real(macro_event_broker.clone()),
@@ -759,14 +808,24 @@ pub async fn run() -> anyhow::Result<()> {
             DocumentStorageServiceUrl::new()?.to_string(),
             pipedream_client.clone(),
         ),
+        read_agent_session_context: ai_tools::build_read_agent_session_context(
+            db.clone(),
+            entity_access_service.clone(),
+        ),
         coding_agent_tool_context: ai_tools::build_coding_agent_tool_context(
             macro_service_urls::AgentHarnessServiceUrl::new()?,
             internal_api_key.clone(),
         )?,
         project_tool_context,
+        favorites_tool_context: ai_tools::build_favorites_tool_context(
+            favorites_service,
+            entity_access_service.clone(),
+        ),
         initiative_tool_context,
         team_tool_context: ai_tools::build_team_tool_context(db.clone()),
-        crm_tool_context: ai_tools::build_crm_tool_context(db.clone()),
+        crm_tool_context,
+        pipeline_tool_context,
+        crm_transfer_tool_context,
         skill_tool_context: ai_tools::build_skill_tool_context(
             search_service_client.clone(),
             soup_service.clone(),
@@ -934,6 +993,8 @@ pub async fn run() -> anyhow::Result<()> {
         user_permissions_service,
         non_user_owners,
         ai_admission: tool_service_context.admission.clone(),
+        decisions,
+        tool_free_completions,
         ai_billing,
         internal_api_key: config.internal_api_key.clone(),
         config: Arc::new(config),

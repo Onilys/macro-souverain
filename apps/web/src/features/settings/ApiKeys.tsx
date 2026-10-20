@@ -1,6 +1,7 @@
 import { CredentialField } from '@channel/Bots/CredentialField';
 import { LoadingSpinner } from '@core/component/LoadingSpinner';
 import { toast } from '@core/component/Toast/Toast';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { formatRelativeTimestamp } from '@entity';
 import KeyIcon from '@phosphor/key.svg';
 import PlusIcon from '@phosphor/plus.svg';
@@ -227,6 +228,7 @@ function CreateApiKeyDialog(props: {
   const [name, setName] = createSignal('');
   const [created, setCreated] = createSignal<CreatedUserApiKey>();
   const [nameError, setNameError] = createSignal<string>();
+  let nameInputRef: HTMLInputElement | undefined;
 
   const reset = () => {
     setName('');
@@ -257,6 +259,10 @@ function CreateApiKeyDialog(props: {
       open={props.open}
       onOpenChange={(open) => (open ? undefined : close())}
       onEscapeKeyDown={(event) => props.pending && event.preventDefault()}
+      onOpenAutoFocus={(event) => {
+        event.preventDefault();
+        nameInputRef?.focus();
+      }}
       position="center"
       class="w-105"
     >
@@ -286,7 +292,7 @@ function CreateApiKeyDialog(props: {
                 <label class="flex flex-col gap-1.5">
                   <span class="text-xs font-medium text-ink">Name</span>
                   <input
-                    autofocus
+                    ref={nameInputRef}
                     value={name()}
                     placeholder="e.g. CI, local scripts"
                     class="settings-input w-full"
@@ -296,7 +302,8 @@ function CreateApiKeyDialog(props: {
                       setNameError(undefined);
                     }}
                     onKeyDown={(event) => {
-                      if (event.key === 'Enter') void submit();
+                      if (event.key === 'Enter')
+                        fireAndForget(submit(), 'api-key-settings');
                     }}
                   />
                   <Show
@@ -320,7 +327,7 @@ function CreateApiKeyDialog(props: {
                     variant="strong"
                     size="sm"
                     disabled={props.pending}
-                    onClick={() => void submit()}
+                    onClick={() => fireAndForget(submit(), 'api-key-settings')}
                   >
                     {props.pending ? 'Creating…' : 'Create key'}
                   </Button>

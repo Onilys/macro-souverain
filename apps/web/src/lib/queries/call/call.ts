@@ -1,5 +1,6 @@
 import { toast } from '@core/component/Toast/Toast';
 import { ENABLE_CALLS } from '@core/constant/featureFlags';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { ThrownResultError, throwOnErr } from '@core/util/result';
 import { queryClient } from '@queries/client';
 import { type CallRecord, callServiceClient } from '@service-call/client';
@@ -9,6 +10,10 @@ import type { SharePermissionV2 } from '@service-storage/generated/schemas/share
 import type { UpdateSharePermissionRequestV2 } from '@service-storage/generated/schemas/updateSharePermissionRequestV2';
 import { queryOptions, useMutation, useQuery } from '@tanstack/solid-query';
 import type { Accessor } from 'solid-js';
+import {
+  updateEntitySharePolicy,
+  usesGraphqlSharePolicy,
+} from '../storage/entity-mutations';
 import { callKeys } from './keys';
 
 function activeCallQueryOptions(channelId: string) {
@@ -32,6 +37,16 @@ export function fetchActiveCall(channelId: string) {
 /** Each join attempt owns its request, including retries after a timeout. */
 export function requestCallToken(channelId: string) {
   return throwOnErr(() => callServiceClient.getOrCreateCall(channelId));
+}
+
+/**
+ * Declines this ringing call for the user so their other devices stop ringing.
+ * Bound to `callId` so a stale incoming-call UI cannot decline a replacement
+ * call. Nothing to cache: the call stays active for other members, and the
+ * caller's own ring is already dismissed locally.
+ */
+export function declineCall(callId: string) {
+  return throwOnErr(() => callServiceClient.declineCall(callId));
 }
 
 /**
@@ -110,7 +125,7 @@ function _useJoinCallMutation() {
     mutationFn: async (channelId: string) =>
       await throwOnErr(() => callServiceClient.getOrCreateCall(channelId)),
     onSuccess() {
-      invalidateActiveCallQueries();
+      fireAndForget(invalidateActiveCallQueries(), 'call-membership');
     },
     onError(error: Error) {
       if (
@@ -150,7 +165,7 @@ export function useLeaveCallMutation() {
       }
     },
     onSuccess() {
-      invalidateActiveCallQueries();
+      fireAndForget(invalidateActiveCallQueries(), 'call-membership');
     },
     onError(error: Error) {
       console.error('failed to leave call', error);
@@ -219,6 +234,12 @@ export function buildCallTeamSharePayload(
 }
 
 export function updateCallTeamShare(callId: string, shared: boolean) {
+  if (usesGraphqlSharePolicy('call'))
+    return updateEntitySharePolicy(
+      'call',
+      callId,
+      buildCallTeamSharePayload(shared)
+    );
   return callServiceClient.editCallRecord({
     callId,
     sharePermission: buildCallTeamSharePayload(shared),
@@ -244,14 +265,16 @@ function patchCachedCallTeamShare(
 export function setCallRecordTeamShareCache(callId: string, shared: boolean) {
   const queryKey = callKeys.record(callId).queryKey;
   // Drop in-flight GETs so a slower record response cannot overwrite this write.
-  void queryClient.cancelQueries({ queryKey });
+  queryClient.cancelQueries({ queryKey });
   queryClient.setQueryData<CallRecord>(queryKey, (prev) =>
     prev ? patchCachedCallTeamShare(prev, shared) : prev
   );
 }
 
 function invalidateCallRecord(callId: string) {
-  queryClient.invalidateQueries({ queryKey: callKeys.record(callId).queryKey });
+  queryClient.invalidateQueries({
+    queryKey: callKeys.record(callId).queryKey,
+  });
 }
 
 /**

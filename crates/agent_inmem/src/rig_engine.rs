@@ -28,7 +28,7 @@ use ai_tools::user_tool_review::user_tool_finisher;
 use ai_tools::{AiHost, DeferredToolSet, ToolServiceContext, tools_for};
 use ai_toolset::{AsyncToolCollection, ToolSet as AiToolSet};
 use axum::extract::FromRef;
-use futures::StreamExt as _;
+use futures::{FutureExt as _, StreamExt as _};
 use macro_user_id::user_id::MacroUserIdStr;
 use memory::domain::MemoryService as _;
 use memory::domain::service::MemoryServiceImpl;
@@ -40,6 +40,7 @@ use tracing::Instrument as _;
 
 use crate::domain::engine::{AgentIdentity, TurnEngine, TurnRequest};
 use crate::domain::tool_gate::{NativeToolGate, NativeToolVerdict, UngatedNativeTools};
+use crate::domain::tool_mode::{StandardTools, ToolMode, ToolModeSelector};
 use crate::inbound::ask_user::{AskUser, AskUserContext};
 
 #[path = "outbound/rig_engine/opener.rs"]
@@ -56,11 +57,24 @@ mod measure_prompt_cache;
 /// slow consumer from buffering a whole turn.
 const PART_BUFFER: usize = 256;
 
+const EAGER_INTERNAL_MCP_TOOLS: &[&str] = &[
+    "mcp__macro_internal__PresentReview",
+    "mcp__macro_internal__ExecuteCode",
+    "mcp__macro_internal__DescribeCodeTools",
+];
+
+const CODE_MODE_MCP_TOOLS: &[&str] = &[
+    "mcp__macro_internal__ExecuteCode",
+    "mcp__macro_internal__DescribeCodeTools",
+];
+
 /// [`TurnEngine`] backed by [`agent::AgentLoop`] and
 /// [`ai_tools::tools_for`].
 pub struct RigTurnEngine {
     memory: Arc<MemoryServiceImpl<PgMemoryRepo>>,
     native_tools: Arc<NativeTools>,
+    code_mode_tools: Arc<NativeTools>,
+    tool_mode: Arc<dyn ToolModeSelector>,
     tool_context: ToolServiceContext,
     gate: Arc<dyn NativeToolGate>,
 }
@@ -78,6 +92,11 @@ impl RigTurnEngine {
                 tools_for(AiHost::Chat),
             )),
             native_tools: Arc::new(NativeTools::new()),
+            code_mode_tools: Arc::new(NativeTools::from_factory(
+                ai_tools::tools_for_agent_code_mode,
+                true,
+            )),
+            tool_mode: Arc::new(StandardTools),
             tool_context,
             gate: Arc::new(UngatedNativeTools),
         }
@@ -87,6 +106,13 @@ impl RigTurnEngine {
     #[must_use]
     pub fn with_gate(mut self, gate: Arc<dyn NativeToolGate>) -> Self {
         self.gate = gate;
+        self
+    }
+
+    /// Select the owner's tool presentation once per conversational turn.
+    #[must_use]
+    pub fn with_tool_mode(mut self, selector: Arc<dyn ToolModeSelector>) -> Self {
+        self.tool_mode = selector;
         self
     }
 }
@@ -190,6 +216,7 @@ struct NativeTools {
     with_user_input: Arc<AsyncToolCollection<InMemToolContext>>,
     without_user_input: Arc<AsyncToolCollection<InMemToolContext>>,
     prompt: String,
+    code_mode: bool,
     deferred: Arc<[ai_toolset::SearchableTool]>,
     /// Every native tool's name, for the opening line's model to guess the
     /// direction a reply will take.
@@ -198,10 +225,14 @@ struct NativeTools {
 
 impl NativeTools {
     fn new() -> Self {
-        let tools = tools_for(AiHost::AgentSession);
+        Self::from_factory(|| tools_for(AiHost::AgentSession), false)
+    }
+
+    fn from_factory(build: impl Fn() -> ai_tools::ToolSetWithPrompt, code_mode: bool) -> Self {
+        let tools = build();
         let base_tools = Arc::into_inner(tools.toolset)
             .expect("tools_for should return a fresh, uniquely owned collection");
-        let other_tools = Arc::into_inner(tools_for(AiHost::AgentSession).toolset)
+        let other_tools = Arc::into_inner(build().toolset)
             .expect("tools_for should return a fresh, uniquely owned collection");
         let with_user_input = tools_for_turn(base_tools, true);
         let tool_names = with_user_input
@@ -214,6 +245,7 @@ impl NativeTools {
         Self {
             with_user_input: Arc::new(with_user_input),
             without_user_input: Arc::new(tools_for_turn(other_tools, false)),
+            code_mode,
             prompt: tools.prompt.to_string(),
             deferred: tools.deferred,
             tool_names,
@@ -238,20 +270,82 @@ impl TurnEngine for RigTurnEngine {
         let (parts, receiver) = mpsc::channel(PART_BUFFER);
         let memory = Arc::clone(&self.memory);
         let native_tools = Arc::clone(&self.native_tools);
+        let code_mode_tools = Arc::clone(&self.code_mode_tools);
+        let tool_mode = Arc::clone(&self.tool_mode);
         let tool_context = self.tool_context.clone();
         let gate = Arc::clone(&self.gate);
         let metering = agent::MeteringContext::current();
         tokio::spawn(
             agent::MeteringContext::carry(metering, async move {
-                if let Err(error) =
-                    drive_turn(&memory, &native_tools, tool_context, gate, request, &parts).await
-                {
-                    let _ = parts.send(Err(error)).await;
-                }
+                let Some(selected) = select_tool_mode(tool_mode.as_ref(), &request).await else {
+                    return;
+                };
+                let native_tools = match selected {
+                    ToolMode::Standard => native_tools,
+                    ToolMode::Code => code_mode_tools,
+                };
+                tracing::debug!(?selected, "selected agent tool presentation");
+                // The product toolset makes this future large. Keep its state
+                // on the heap when adding the panic boundary, including in
+                // unoptimized local builds with Tokio's default worker stack.
+                let turn = Box::pin(drive_turn(
+                    &memory,
+                    &native_tools,
+                    tool_context,
+                    gate,
+                    request,
+                    &parts,
+                ));
+                forward_turn_result(turn, &parts).await;
             })
             .in_current_span(),
         );
         receiver
+    }
+}
+
+// Closing the stream alone means success to the ACP consumer. A panic in
+// provider initialization must therefore become an explicit failed turn.
+async fn forward_turn_result(
+    turn: impl Future<Output = Result<(), AgentError>>,
+    parts: &mpsc::Sender<Result<StreamPart, AgentError>>,
+) {
+    let result = std::panic::AssertUnwindSafe(turn)
+        .catch_unwind()
+        .await
+        .unwrap_or_else(|_| {
+            Err(AgentError::Other(anyhow::anyhow!(
+                "The agent runtime ended unexpectedly. Please retry this message."
+            )))
+        });
+    if let Err(error) = result {
+        let _ = parts.send(Err(error)).await;
+    }
+}
+
+// A failed/missing code-mode MCP connection must never leave a turn with only the
+// small direct set. Summaries neither evaluate flags nor advertise tools.
+async fn select_tool_mode(
+    selector: &dyn ToolModeSelector,
+    request: &TurnRequest,
+) -> Option<ToolMode> {
+    if request.purpose != crate::domain::engine::TurnPurpose::Conversation {
+        return Some(ToolMode::Standard);
+    }
+    let (Owner::User(owner), Some(mcp)) = (&request.owner, &request.mcp_tools) else {
+        return Some(ToolMode::Standard);
+    };
+    let catalog = mcp.searchable_catalog();
+    if !CODE_MODE_MCP_TOOLS
+        .iter()
+        .all(|name| catalog.iter().any(|tool| tool.name == *name))
+    {
+        return Some(ToolMode::Standard);
+    }
+    tokio::select! {
+        biased;
+        _ = request.cancel.cancelled() => None,
+        mode = selector.select(owner) => Some(mode),
     }
 }
 
@@ -264,6 +358,7 @@ async fn drive_turn(
     parts: &mpsc::Sender<Result<StreamPart, AgentError>>,
 ) -> Result<(), AgentError> {
     let TurnRequest {
+        purpose,
         session_id,
         awaiting,
         owner,
@@ -295,6 +390,11 @@ async fn drive_turn(
         }
     };
 
+    // A summary turn condenses the conversation for its continuation: it
+    // reads no memory, offers the model no tools, and is read, not shown, so
+    // no opening line races it.
+    let summarizing = purpose == crate::domain::engine::TurnPurpose::Summary;
+
     // Started before anything else so its line is out before the turn's
     // model has a first token.
     let usage_ctx = ai_usage::UsageContext::new(ai_usage::AiFeature::AgentSession, owner.clone());
@@ -307,38 +407,79 @@ async fn drive_turn(
     // reply), `silent` (no line fit this follow-up), `turn_first` (the
     // turn's model spoke first), `no_verdict` (the
     // fast model failed or answered without one) or `timeout`.
-    let opener_span = tracing::info_span!(
-        "agent.opener",
-        agent.opener.model = opener::MODEL,
-        agent.opener.outcome = tracing::field::Empty,
-        agent.opener.verdict_ms = tracing::field::Empty,
-        agent.opener.line_chars = tracing::field::Empty,
-        agent.opener.turn_first_part_ms = tracing::field::Empty,
-    );
-    let mut opening_line = opener_span.in_scope(|| {
-        opener::spawn(
-            base_context.recorder.clone(),
-            usage_ctx.clone(),
-            &opener::Speaker {
-                agent: &agent,
-                model: crate::domain::models::display_name(&model),
-            },
-            &native_tools.tool_names,
-            &messages,
+    let opener_span = if summarizing {
+        tracing::Span::none()
+    } else {
+        tracing::info_span!(
+            "agent.opener",
+            agent.opener.model = opener::MODEL,
+            agent.opener.outcome = tracing::field::Empty,
+            agent.opener.verdict_ms = tracing::field::Empty,
+            agent.opener.line_chars = tracing::field::Empty,
+            agent.opener.turn_first_part_ms = tracing::field::Empty,
         )
-    });
+    };
+    // A closed receiver has no verdict, and the turn's own stream follows.
+    let mut opening_line = if summarizing {
+        mpsc::channel(1).1
+    } else {
+        opener_span.in_scope(|| {
+            opener::spawn(
+                base_context.recorder.clone(),
+                usage_ctx.clone(),
+                &opener::Speaker {
+                    agent: &agent,
+                    model: crate::domain::models::display_name(&model),
+                },
+                &native_tools.tool_names,
+                &messages,
+            )
+        })
+    };
     // Chat's tools with the session's prompt: the user tools (`SendEmail`,
     // `CreateCalendarEvent`) defer to the user, and this runtime finishes
     // them in the turn through `reviewer`.
-    let user_memory = fetch_user_memory(memory, &owner).await;
-    let system_prompt = system_prompt(
-        &native_tools.prompt,
-        identity.as_ref(),
-        instructions.as_deref(),
-        user_memory.as_deref(),
-    );
-
-    let toolset = native_tools.for_turn(user_input.is_some());
+    let (system_prompt, toolset, deferred) = if summarizing {
+        (
+            SystemPrompt::from(instructions.unwrap_or_default()),
+            Arc::new(AsyncToolCollection::<InMemToolContext>::new()),
+            Arc::from(Vec::new()),
+        )
+    } else {
+        let requested = messages
+            .iter()
+            .rev()
+            .find(|message| message.role == agent::types::Role::User)
+            .and_then(|message| message.content.user_message_text())
+            .unwrap_or_default();
+        let docs = async {
+            if native_tools.code_mode {
+                agent_code_mode::domain::select_documentation(
+                    &owner,
+                    &requested,
+                    base_context.cognition_tool_context.service.as_ref(),
+                    &cancel,
+                )
+                .await
+            } else {
+                String::new()
+            }
+        };
+        let (user_memory, sdk_docs) = tokio::join!(fetch_user_memory(memory, &owner), docs);
+        let tools_prompt = format!("{}{}", native_tools.prompt, sdk_docs);
+        let prompt = system_prompt(
+            &tools_prompt,
+            session_id,
+            identity.as_ref(),
+            instructions.as_deref(),
+            user_memory.as_deref(),
+        );
+        (
+            prompt,
+            native_tools.for_turn(user_input.is_some()),
+            Arc::clone(&native_tools.deferred),
+        )
+    };
     // Carry the feature on the context so tool-spawned subagents attribute to it.
     let mut tool_context = base_context.clone();
     tool_context.usage_context = usage_ctx.clone();
@@ -365,7 +506,7 @@ async fn drive_turn(
         .with_reasoning_effort(reasoning_effort)
         .with_speed(speed)?
         .with_genai_telemetry(false);
-    if let Some(reviewer) = reviewer {
+    if let Some(reviewer) = reviewer.filter(|_| !summarizing) {
         agent_loop = agent_loop.with_user_tool_finisher(user_tool_finisher(
             Arc::clone(&toolset),
             tool_context.clone(),
@@ -380,15 +521,16 @@ async fn drive_turn(
     // through that proxy and are not asked twice.
     // Keep remote MCP tools alongside the native and AskUser tools. The
     // finisher above reviews only Macro's native user tools.
-    let toolset: Arc<dyn AiToolSet<_> + Send + Sync> = match mcp_tools {
-        Some(mcp) => Arc::new(mcp_select::CombinedToolSet::new(toolset, mcp)),
+    let toolset: Arc<dyn AiToolSet<_> + Send + Sync> = match mcp_tools.filter(|_| !summarizing) {
+        Some(mcp) => Arc::new(
+            mcp_select::CombinedToolSet::new(toolset, mcp)
+                .with_eager_mcp_tools(EAGER_INTERNAL_MCP_TOOLS),
+        ),
         None => toolset,
     };
     // Most of Macro's tools go out by name only; the model loads the rest.
-    let toolset: Arc<dyn AiToolSet<_> + Send + Sync> = Arc::new(DeferredToolSet::new(
-        toolset,
-        Arc::clone(&native_tools.deferred),
-    ));
+    let toolset: Arc<dyn AiToolSet<_> + Send + Sync> =
+        Arc::new(DeferredToolSet::new(toolset, deferred));
     let toolset: Arc<dyn AiToolSet<_> + Send + Sync> = Arc::new(GatedToolSet {
         tools: toolset,
         gate,
@@ -402,14 +544,14 @@ async fn drive_turn(
 
     // Bridge the caller's token onto the loop's own; aborted with the turn so
     // an uncancelled token does not strand the forwarder.
-    let forward = tokio::spawn({
+    let forward = tokio_util::task::AbortOnDropHandle::new(tokio::spawn({
         let loop_cancel = loop_cancel.clone();
         let cancel = cancel.clone();
         async move {
             cancel.cancelled().await;
             loop_cancel.cancel();
         }
-    });
+    }));
 
     let rig_messages = agent::to_rig_messages(&messages);
     let result = async {
@@ -546,8 +688,8 @@ fn elapsed_ms(since: tokio::time::Instant) -> u64 {
 /// The turn's system prompt: the agent's identity, the agent-session
 /// preamble, the note that an opening line is already out (see [`opener`]),
 /// the static Macro prompt (how to use the product: mentions,
-/// tools, terminology), then the session's own instructions and the owner's
-/// memory when there are any.
+/// tools, terminology), then the session's own instructions when there are
+/// any, which session this is, and the owner's memory when there is any.
 ///
 /// Identity comes first so a named agent (even one with no instructions)
 /// knows who it is before reading anything else. The static Macro prompt
@@ -561,6 +703,7 @@ fn elapsed_ms(since: tokio::time::Instant) -> u64 {
 /// session whose instructions name its own task still reads it back.
 fn system_prompt(
     tools_prompt: &impl std::fmt::Display,
+    session_id: agent_session::domain::model::AgentSessionId,
     identity: Option<&AgentIdentity>,
     instructions: Option<&str>,
     user_memory: Option<&str>,
@@ -587,6 +730,12 @@ fn system_prompt(
         rest.push_str(instructions);
         rest.push_str("\n</session_instructions>");
     }
+    rest.push_str(&format!(
+        "\n<agent_session>\nThis conversation is agent session {session_id}. Once it grows \
+         long, its earlier part is summarized to keep it within your context. To find the exact \
+         words of anything said earlier, summarized or not, run ContentSearch with \
+         agentSessionIds [\"{session_id}\"]. ContentSearch remains a direct tool for scoped session-history search.\n</agent_session>"
+    ));
     if let Some(memory) = user_memory {
         rest.push_str("\n<user_memory>\n");
         rest.push_str(memory);

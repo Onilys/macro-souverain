@@ -11,6 +11,7 @@ import { canNestBlock, createBlockInstance } from '@core/orchestrator';
 import { blockElementSignal } from '@core/signal/blockElement';
 import { getDisplayName, tryMacroId } from '@core/user';
 import { copyBranchNameToClipboard } from '@core/util/branchName';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { lazyNamed } from '@core/util/lazyNamed';
 import { matches } from '@core/util/match';
 import {
@@ -74,6 +75,7 @@ import { UPDATE_DOCUMENT_NAME_COMMAND } from '../../plugins';
 import { removeNodeAndRestoreSelection } from '../../plugins/shared/removeNodeAndRestoreSelection';
 import { dispatchInternalLayoutShift } from '../../plugins/shared/utils';
 import { BlockLink, openDocument } from '../core/BlockLink';
+import { DatabaseCard } from './DatabaseCard';
 
 false && floatWithElement;
 
@@ -89,6 +91,7 @@ const stringifyPreviewBox = ([width, height]: PreviewBox): [string, string] => {
 };
 
 export function DocumentCard(props: DocumentCardDecoratorProps) {
+  if (props.blockName === 'database') return <DatabaseCard {...props} />;
   return (
     <Suspense
       fallback={
@@ -364,14 +367,17 @@ function DocumentCardInner(props: DocumentCardDecoratorProps) {
 
   const handleOpenInChat = () => {
     const preview = item();
-    void openChatWithAgent({
-      type: 'document',
-      id: props.documentId,
-      name: isAccessiblePreviewItem(preview)
-        ? preview.name
-        : props.documentName,
-      fileType: verifyBlockName(props.blockName),
-    });
+    fireAndForget(
+      openChatWithAgent({
+        type: 'document',
+        id: props.documentId,
+        name: isAccessiblePreviewItem(preview)
+          ? preview.name
+          : props.documentName,
+        fileType: verifyBlockName(props.blockName),
+      }),
+      'document-card'
+    );
   };
 
   const isSplitAlreadyOpen = () =>
@@ -384,7 +390,7 @@ function DocumentCardInner(props: DocumentCardDecoratorProps) {
     openDocument(props.blockName, props.documentId, props.blockParams, true);
   });
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     try {
       let hostname = window.location.hostname.replace('www.', '').toLowerCase();
       if (hostname === 'localhost') {
@@ -396,10 +402,11 @@ function DocumentCardInner(props: DocumentCardDecoratorProps) {
         const queryParams = new URLSearchParams(props.blockParams).toString();
         link += `?${queryParams}`;
       }
-      navigator.clipboard.writeText(link);
+      await navigator.clipboard.writeText(link);
       toast.success('Copied document link to clipboard');
     } catch (e) {
       console.error(e);
+      toast.failure('Could not copy link');
     }
   };
 
@@ -563,7 +570,10 @@ function DocumentCardInner(props: DocumentCardDecoratorProps) {
                   <Show when={props.blockName === 'task'}>
                     <Dropdown.Item
                       onSelect={() =>
-                        void copyBranchNameToClipboard(props.item.id)
+                        fireAndForget(
+                          copyBranchNameToClipboard(props.item.id),
+                          'document-card'
+                        )
                       }
                     >
                       <GitBranch class="size-4 shrink-0" />

@@ -25,6 +25,7 @@ use item_filters::{
         call::CallLiteral,
         channel::{ChannelLiteral, ChannelThreadLiteral, ChannelTypeFilter},
         chat::{ChatLiteral, ChatRole},
+        crm_association::CrmAssociation,
         crm_company::CrmCompanyLiteral,
         crm_contact::CrmContactLiteral,
         database_row::DatabaseRowLiteral,
@@ -360,6 +361,9 @@ impl TryFrom<GraphqlPropertyEntityType> for PropertyEntityType {
 pub struct GraphqlEntityFilterAst {
     /// Restrict results to the authenticated viewer's favorites when true.
     favorites_only: Option<bool>,
+    /// Restrict every entity type to items associated with this CRM record.
+    /// Requires an expanded, timestamp-sorted query.
+    crm_association: Option<GraphqlCrmAssociation>,
     /// The calendar event filter to apply.
     calendar_event_filter: Option<GraphqlCalendarEventExpr>,
     /// The document filter to apply.
@@ -409,6 +413,10 @@ impl GraphqlEntityFilterAst {
     fn into_ast_unchecked(self) -> InputResult<EntityFilterAst> {
         Ok(EntityFilterAst {
             favorites_only: self.favorites_only,
+            crm_association: self
+                .crm_association
+                .map(GraphqlCrmAssociation::into_ast)
+                .transpose()?,
             calendar_event_filter: optional_tree(self.calendar_event_filter)?,
             document_filter: optional_tree(self.document_filter)?,
             project_filter: optional_tree(self.project_filter)?,
@@ -682,6 +690,33 @@ enum GraphqlDocumentLiteral {
     Property(GraphqlFilterPropertiesLiteral),
     /// Uploaded from an email attachment sent by, or to, a matching address.
     EmailAttachmentParticipant(GraphqlEmailValue),
+    /// Associated with a CRM record through its Companies or Contacts
+    /// property or a reference to the record. Requires an expanded,
+    /// timestamp-sorted query.
+    CrmAssociated(GraphqlCrmAssociation),
+    /// Case-insensitive substring of the document name.
+    NameContains(String),
+}
+
+/// GraphQL input naming the CRM record an association filter restricts to.
+#[cfg_attr(feature = "server", derive(async_graphql::OneofObject))]
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+enum GraphqlCrmAssociation {
+    /// Items associated with the company or any of its contacts.
+    Company(ID),
+    /// Items associated with the contact.
+    Contact(ID),
+}
+
+impl GraphqlCrmAssociation {
+    /// Convert this value into the ast representation.
+    fn into_ast(self) -> InputResult<CrmAssociation> {
+        Ok(match self {
+            Self::Company(id) => CrmAssociation::Company(parse_id(id, "company")?),
+            Self::Contact(id) => CrmAssociation::Contact(parse_id(id, "contact")?),
+        })
+    }
 }
 
 impl IntoFilterExpr<DocumentLiteral> for GraphqlDocumentLiteral {
@@ -714,6 +749,8 @@ impl IntoFilterExpr<DocumentLiteral> for GraphqlDocumentLiteral {
             Self::EmailAttachmentParticipant(value) => {
                 DocumentLiteral::EmailAttachmentParticipant(value.into_ast()?)
             }
+            Self::CrmAssociated(record) => DocumentLiteral::CrmAssociated(record.into_ast()?),
+            Self::NameContains(name) => DocumentLiteral::NameContains(name),
         };
         Ok(Expr::val(literal))
     }

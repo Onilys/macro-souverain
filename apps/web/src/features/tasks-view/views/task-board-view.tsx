@@ -1,4 +1,5 @@
 import { toast } from '@core/component/Toast/Toast';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { SYSTEM_PROPERTY_IDS } from '@property/identifiers';
 import { hasValue } from '@property/utils/typeGuards';
 import { Button } from '@ui/components/Button';
@@ -142,7 +143,7 @@ export function TaskBoardView(props: {
     readOnly: Accessor<boolean>
   ) => (
     <>
-      <div class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 p-3 pb-2">
+      <TaskBoard.CardHeader>
         <div data-kanban-no-drag class="flex shrink-0 items-center">
           {renderProperty(task, readOnly, SYSTEM_PROPERTY_IDS.STATUS, true)}
         </div>
@@ -162,8 +163,8 @@ export function TaskBoardView(props: {
         <div data-kanban-no-drag class="flex shrink-0 items-center">
           {renderProperty(task, readOnly, SYSTEM_PROPERTY_IDS.ASSIGNEES, true)}
         </div>
-      </div>
-      <div class="flex flex-wrap items-center gap-1 px-3 pb-3 text-xs text-ink-muted">
+      </TaskBoard.CardHeader>
+      <TaskBoard.CardFields>
         <div data-kanban-no-drag class="contents">
           <For each={cardPropertyIds()}>
             {(id) => {
@@ -174,7 +175,7 @@ export function TaskBoardView(props: {
             }}
           </For>
         </div>
-      </div>
+      </TaskBoard.CardFields>
     </>
   );
 
@@ -191,7 +192,10 @@ export function TaskBoardView(props: {
           class="flex items-center gap-2 px-4 py-2 text-sm text-failure"
         >
           Could not load all tasks.
-          <Button size="sm" onClick={() => void read(source.refresh)}>
+          <Button
+            size="sm"
+            onClick={() => fireAndForget(read(source.refresh), 'tasks-view')}
+          >
             Retry
           </Button>
         </div>
@@ -201,7 +205,9 @@ export function TaskBoardView(props: {
           Could not load task properties. Moving tasks is unavailable.
           <Button
             size="sm"
-            onClick={() => void read(props.data.retryDefinitions)}
+            onClick={() =>
+              fireAndForget(read(props.data.retryDefinitions), 'tasks-view')
+            }
           >
             Retry
           </Button>
@@ -260,7 +266,12 @@ export function TaskBoardView(props: {
                       <Button
                         size="sm"
                         disabled={column().loadingMore}
-                        onClick={() => void read(() => loadMore(column().id))}
+                        onClick={() =>
+                          fireAndForget(
+                            read(() => loadMore(column().id)),
+                            'tasks-view'
+                          )
+                        }
                       >
                         {column().loadingMore ? 'Loading…' : 'Load more tasks'}
                       </Button>
@@ -294,7 +305,12 @@ export function TaskBoardView(props: {
           <Button
             size="sm"
             disabled={source.isLoadingMore()}
-            onClick={() => void read(() => loadMore())}
+            onClick={() =>
+              fireAndForget(
+                read(() => loadMore()),
+                'tasks-view'
+              )
+            }
           >
             {source.isLoadingMore() ? 'Loading…' : 'Load more tasks'}
           </Button>
@@ -310,9 +326,9 @@ function TaskBoardColumnHeader(props: {
   createAssigneeName: TaskBoardData['createAssigneeName'];
 }) {
   const label = () => (
-    <h2 class="truncate text-sm font-medium" title={props.column.label}>
+    <TaskBoard.ColumnLabel title={props.column.label}>
       {props.column.label}
-    </h2>
+    </TaskBoard.ColumnLabel>
   );
   const countLabel = () => {
     const loaded = props.column.tasks.length;
@@ -346,12 +362,10 @@ function TaskBoardColumnHeader(props: {
           />
         </Suspense>
       </Show>
-      <span
-        class="ml-auto shrink-0 text-xs text-ink-muted"
+      <TaskBoard.ColumnCount
+        count={props.column.count ?? props.column.tasks.length}
         aria-label={countLabel()}
-      >
-        {props.column.count ?? props.column.tasks.length}
-      </span>
+      />
     </>
   );
 }
@@ -364,9 +378,5 @@ function AssigneeColumnLabel(props: {
   const resolvedName = props.createAssigneeName(() => props.id);
   const name = () => resolvedName() || props.fallback;
 
-  return (
-    <h2 class="truncate text-sm font-medium" title={name()}>
-      {name()}
-    </h2>
-  );
+  return <TaskBoard.ColumnLabel title={name()}>{name()}</TaskBoard.ColumnLabel>;
 }

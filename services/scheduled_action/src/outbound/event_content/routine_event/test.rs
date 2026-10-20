@@ -1,5 +1,9 @@
+use call::domain::{
+    meetings::GuestId,
+    models::{CallRecord, CallRecordGuest, CallRecordParticipant, CallRecordTranscriptSegment},
+};
 use channels::domain::models::{ChannelMetadata, ChannelType as ChannelKind};
-use chrono::{TimeZone, Utc};
+use chrono::{DateTime, TimeZone, Utc};
 use document_sub_type::DocumentSubType;
 use email::domain::models::{ContactInfo, ParsedLabel, ParsedMessage};
 use macro_user_id::user_id::MacroUserIdStr;
@@ -16,13 +20,204 @@ use properties::{EntityPropertyInfo, PropertyOptionInfo};
 use serde_json::json;
 use system_properties::SystemPropertyKey;
 use trigger_context::{
-    ChannelType, ContextMessage, ContextPerson, ContextThread, DiscussionContext,
-    DiscussionSurface, EmailSnapshot, ReplyTarget, RoutineEvent, TaskSnapshot,
+    CallSnapshot, CallStartedSnapshot, ChannelType, ContextMessage, ContextPerson, ContextThread,
+    DiscussionContext, DiscussionSurface, EmailSnapshot, ReplyTarget, RoutineEvent, TaskSnapshot,
+    TranscriptLine,
 };
 
-use super::super::{ChannelMessage, EventContent};
-use super::routine_event;
+use super::super::{ChannelMessage, EventContent, MAX_TRANSCRIPT_CHARS};
+use super::{call_transcript, routine_event};
 use crate::domain::event_trigger::EventReference;
+
+const CALL_ID: &str = "01928f3e-6a2b-7c3d-8e4f-0000000ca11e";
+
+fn call_started() -> EventReference {
+    serde_json::from_value(json!({
+        "event_id": "01928f3e-6a2b-7c3d-8e4f-0123456789cd",
+        "event_name": "call.started",
+        "entity_id": CALL_ID,
+        "message_id": null,
+    }))
+    .unwrap()
+}
+
+fn call_ended() -> EventReference {
+    serde_json::from_value(json!({
+        "event_id": "01928f3e-6a2b-7c3d-8e4f-0123456789cd",
+        "event_name": "call.ended",
+        "entity_id": CALL_ID,
+        "message_id": null,
+    }))
+    .unwrap()
+}
+
+fn at(minute: u32) -> DateTime<Utc> {
+    Utc.with_ymd_and_hms(2026, 10, 8, 14, minute, 0).unwrap()
+}
+
+fn segment(speaker_id: &str, content: &str, minute: u32) -> CallRecordTranscriptSegment {
+    CallRecordTranscriptSegment {
+        transcript_id: macro_uuid::generate_uuid_v7(),
+        segment_id: None,
+        speaker_id: speaker_id.into(),
+        diarized_speaker_id: None,
+        content: content.into(),
+        started_at: at(minute),
+        ended_at: None,
+        sequence_num: minute as i32,
+    }
+}
+
+fn ended_call(transcript: Vec<CallRecordTranscriptSegment>) -> CallRecord {
+    CallRecord {
+        call_id: Uuid::parse_str(CALL_ID).unwrap(),
+        channel_id: Some(Uuid::parse_str("01928f3e-6a2b-7c3d-8e4f-0000000c4a77").unwrap()),
+        room_name: "room".into(),
+        created_by: "macro|ana@example.com".into(),
+        started_at: at(0),
+        ended_at: Some(at(30)),
+        duration_ms: Some(1_800_000),
+        egress_id: None,
+        recording_started_at: None,
+        recording_key: None,
+        preview_key: None,
+        recording_url: None,
+        recording_preview_url: None,
+        channel_name: Some("eng".into()),
+        custom_name: None,
+        summary: None,
+        team_share_access_level: None,
+        share_with_team: false,
+        is_active: false,
+        status: None,
+        user_access_level: None,
+        viewer_has_declined: false,
+        participants: vec![CallRecordParticipant {
+            user_id: "macro|ana@example.com".into(),
+            joined_at: at(0),
+            left_at: Some(at(30)),
+        }],
+        guests: Vec::new(),
+        transcript,
+    }
+}
+
+#[test]
+fn a_started_call_carries_who_started_it_and_who_has_joined() {
+    let mut record = ended_call(Vec::new());
+    record.ended_at = None;
+    record.duration_ms = None;
+    record.is_active = true;
+    record.participants[0].left_at = None;
+    record.custom_name = Some("Standup".into());
+
+    assert_eq!(
+        routine_event(&call_started(), EventContent::Call(Some(record))).unwrap(),
+        RoutineEvent::CallStarted {
+            call: CallStartedSnapshot {
+                id: Uuid::parse_str(CALL_ID).unwrap(),
+                title: Some("Standup".into()),
+                channel_id: Some(Uuid::parse_str("01928f3e-6a2b-7c3d-8e4f-0000000c4a77").unwrap()),
+                channel_name: Some("eng".into()),
+                started_at: at(0),
+                started_by: ContextPerson {
+                    id: "macro|ana@example.com".into(),
+                    name: "ana@example.com".into(),
+                    email: Some("ana@example.com".into()),
+                },
+                participants: vec![ContextPerson {
+                    id: "macro|ana@example.com".into(),
+                    name: "ana@example.com".into(),
+                    email: Some("ana@example.com".into()),
+                }],
+            },
+        }
+    );
+}
+
+#[test]
+fn an_ended_call_carries_its_people_and_what_they_said() {
+    let guest =
+        GuestId::from_uuid(Uuid::parse_str("01928f3e-6a2b-7c3d-8e4f-00000000065e").unwrap());
+    let mut record = ended_call(vec![
+        segment("macro|ana@example.com", "Can we ship Friday?", 1),
+        segment(&guest.to_string(), "Yes, after QA signs off.", 2),
+    ]);
+    record.custom_name = Some("Release sync".into());
+    record.guests = vec![CallRecordGuest {
+        id: guest,
+        display_name: "Sam (Acme)".into(),
+        joined_at: at(0),
+        left_at: Some(at(29)),
+    }];
+
+    assert_eq!(
+        routine_event(&call_ended(), EventContent::Call(Some(record))).unwrap(),
+        RoutineEvent::CallEnded {
+            call: CallSnapshot {
+                id: Uuid::parse_str(CALL_ID).unwrap(),
+                title: Some("Release sync".into()),
+                channel_id: Some(Uuid::parse_str("01928f3e-6a2b-7c3d-8e4f-0000000c4a77").unwrap()),
+                channel_name: Some("eng".into()),
+                started_at: at(0),
+                ended_at: at(30),
+                participants: vec![
+                    ContextPerson {
+                        id: "macro|ana@example.com".into(),
+                        name: "ana@example.com".into(),
+                        email: Some("ana@example.com".into()),
+                    },
+                    ContextPerson {
+                        id: guest.to_string(),
+                        name: "Sam (Acme)".into(),
+                        email: None,
+                    },
+                ],
+                summary: None,
+                transcript: vec![
+                    TranscriptLine {
+                        speaker: "ana@example.com".into(),
+                        text: "Can we ship Friday?".into(),
+                        at: at(1),
+                    },
+                    TranscriptLine {
+                        speaker: "Sam (Acme)".into(),
+                        text: "Yes, after QA signs off.".into(),
+                        at: at(2),
+                    },
+                ],
+                transcript_omitted: false,
+            },
+        }
+    );
+}
+
+#[test]
+fn a_long_transcript_is_cut_mid_speech_and_says_so() {
+    let record = ended_call(vec![
+        segment(
+            "macro|ana@example.com",
+            &"a".repeat(MAX_TRANSCRIPT_CHARS - 10),
+            1,
+        ),
+        segment("macro|ana@example.com", &"b".repeat(20), 2),
+        segment("macro|ana@example.com", "never reached", 3),
+    ]);
+    let (lines, omitted) = call_transcript(&record);
+    assert!(omitted);
+    assert_eq!(lines.len(), 2);
+    assert_eq!(lines[1].text, format!("{}…", "b".repeat(10)));
+}
+
+#[test]
+fn a_deleted_call_or_another_calls_record_does_not_become_the_event() {
+    assert!(routine_event(&call_started(), EventContent::Call(None)).is_err());
+    assert!(routine_event(&call_ended(), EventContent::Call(None)).is_err());
+    let mut other = ended_call(Vec::new());
+    other.call_id = macro_uuid::generate_uuid_v7();
+    assert!(routine_event(&call_started(), EventContent::Call(Some(other.clone()))).is_err());
+    assert!(routine_event(&call_ended(), EventContent::Call(Some(other))).is_err());
+}
 
 #[test]
 fn a_task_status_change_carries_the_task_as_it_reads_now() {
@@ -237,6 +432,7 @@ fn a_channel_reply_carries_its_thread_through_the_message() {
         parent: MessageParent::Channel(channel_id),
         thread_id: Some(root_id),
         sender_id: "macro|ana@example.com".to_owned().try_into().unwrap(),
+        guest_name: None,
         imported_author: None,
         bot_profile: None,
         mentions: Vec::new(),
@@ -271,6 +467,7 @@ fn a_channel_reply_carries_its_thread_through_the_message() {
                     parent: MessageParent::Channel(channel_id),
                     thread_id: None,
                     sender_id: "macro|ana@example.com".to_owned().try_into().unwrap(),
+                    guest_name: None,
                     imported_author: None,
                     bot_profile: None,
                     mentions: Vec::new(),
@@ -289,6 +486,7 @@ fn a_channel_reply_carries_its_thread_through_the_message() {
                         parent: MessageParent::Channel(channel_id),
                         thread_id: Some(root_id),
                         sender_id: "macro|sam@example.com".to_owned().try_into().unwrap(),
+                        guest_name: None,
                         imported_author: None,
                         bot_profile: None,
                         mentions: Vec::new(),
@@ -306,6 +504,7 @@ fn a_channel_reply_carries_its_thread_through_the_message() {
                         parent: MessageParent::Channel(channel_id),
                         thread_id: Some(root_id),
                         sender_id: "macro|sam@example.com".to_owned().try_into().unwrap(),
+                        guest_name: None,
                         imported_author: None,
                         bot_profile: None,
                         mentions: Vec::new(),
@@ -324,6 +523,7 @@ fn a_channel_reply_carries_its_thread_through_the_message() {
                         parent: MessageParent::Channel(channel_id),
                         thread_id: Some(root_id),
                         sender_id: "macro|sam@example.com".to_owned().try_into().unwrap(),
+                        guest_name: None,
                         imported_author: None,
                         bot_profile: None,
                         mentions: Vec::new(),

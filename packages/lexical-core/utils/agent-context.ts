@@ -20,6 +20,7 @@ import { markdownToEmbeddingText } from './parsers';
 export type TriggerContext =
   | ({ kind: 'mentioned' } & DiscussionContext)
   | ({ kind: 'follow_up' } & FollowUpContext)
+  | ({ kind: 'conversation' } & DiscussionContext)
   | ({ kind: 'task_assigned' } & TaskAssignedContext)
   | ({ kind: 'requested' } & RequestedContext)
   | ({ kind: 'dispatched' } & DispatchedContext)
@@ -220,7 +221,44 @@ export type RoutineEvent =
       discussion: DiscussionContext;
       entity_type: string;
       entity_id: string;
-    };
+    }
+  | { event: 'call_started'; call: CallStartedSnapshot }
+  | { event: 'call_ended'; call: CallSnapshot };
+
+/** A call that just started, read under the routine owner's access. */
+export type CallStartedSnapshot = {
+  id: string;
+  title?: string;
+  /** Absent for meetings outside a channel. */
+  channel_id?: string;
+  channel_name?: string;
+  started_at: string;
+  started_by: ContextPerson;
+  /** People and guests who have joined so far. */
+  participants: ContextPerson[];
+};
+
+/** An ended call, read under the routine owner's access. */
+export type CallSnapshot = {
+  id: string;
+  title?: string;
+  /** Absent for meetings outside a channel. */
+  channel_id?: string;
+  channel_name?: string;
+  started_at: string;
+  ended_at: string;
+  /** People and guests who joined. */
+  participants: ContextPerson[];
+  /** Absent until an AI summary has been written. */
+  summary?: string;
+  /** Oldest first; absent when empty. */
+  transcript?: TranscriptLine[];
+  /** Whether the end of the transcript was left out. */
+  transcript_omitted: boolean;
+};
+
+/** One stretch of speech in a call transcript. */
+export type TranscriptLine = { speaker: string; text: string; at: string };
 
 /** A document, read under the routine owner's access. */
 export type DocumentSnapshot = {
@@ -665,6 +703,8 @@ type DiscussionReading = {
   subject: 'prompt' | 'triggering message';
   /** Whether the agent's reply is posted back into the discussion. */
   repliesHere: boolean;
+  /** Where the reply goes, when it is not back into a thread. */
+  origin?: string;
 };
 
 type MessageMarker = { attribute: string; messageId: string };
@@ -903,7 +943,8 @@ function discussionNode(
       ? [
           el('origin', [
             text(
-              `This ${reading.subject} was posted in ${surfaceDescription(discussion.surface)}, not the agent session view. Your reply is posted back into that thread, and it is where the user will answer anything you ask.`
+              reading.origin ??
+                `This ${reading.subject} was posted in ${surfaceDescription(discussion.surface)}, not the agent session view. Your reply is posted back into that thread, and it is where the user will answer anything you ask.`
             ),
           ]),
         ]
@@ -963,6 +1004,75 @@ function documentNode(document: DocumentSnapshot): FxpNode {
   );
 }
 
+function transcriptNode(call: CallSnapshot): FxpNode {
+  const lines = call.transcript ?? [];
+  return el(
+    'transcript',
+    [
+      note(
+        lines.length === 0 && !call.transcript_omitted
+          ? 'Nothing was transcribed.'
+          : 'Speakers are named by audio track, so people sharing a device share a speaker.'
+      ),
+      ...lines.map((line) =>
+        el('line', [text(line.text)], { speaker: line.speaker, at: line.at })
+      ),
+      ...(call.transcript_omitted
+        ? [
+            note(
+              'The rest of the transcript is not shown. ReadCallRecord with this call id returns all of it.'
+            ),
+          ]
+        : []),
+    ],
+    present({ omitted: call.transcript_omitted ? 'true' : undefined })
+  );
+}
+
+function callStartedNode(call: CallStartedSnapshot): FxpNode {
+  return el(
+    'call',
+    [
+      personNode('started_by', call.started_by),
+      el(
+        'participants',
+        call.participants.map((person) => personNode('participant', person))
+      ),
+    ],
+    present({
+      id: call.id,
+      title: call.title,
+      channel: call.channel_name,
+      channel_id: call.channel_id,
+      started_at: call.started_at,
+    })
+  );
+}
+
+function callNode(call: CallSnapshot): FxpNode {
+  return el(
+    'call',
+    [
+      el(
+        'participants',
+        call.participants.map((person) => personNode('participant', person))
+      ),
+      ...(call.summary === undefined
+        ? []
+        : [el('summary', [text(call.summary)])]),
+      transcriptNode(call),
+    ],
+    present({
+      id: call.id,
+      title: call.title,
+      channel: call.channel_name,
+      channel_id: call.channel_id,
+      started_at: call.started_at,
+      ended_at: call.ended_at,
+    })
+  );
+}
+
 function mentionedNode(discussion: DiscussionContext): FxpNode {
   return el(
     'trigger',
@@ -1010,6 +1120,25 @@ function followUpNode({ addressed_by, discussion }: FollowUpContext): FxpNode {
       }),
     ],
     { kind: 'follow_up', addressed_by }
+  );
+}
+
+function conversationNode(discussion: DiscussionContext): FxpNode {
+  return el(
+    'trigger',
+    [
+      note(
+        `${discussion.sender.name} wrote to you in your private conversation with them. Their message is the prompt; the conversation before it is this session's history.`
+      ),
+      discussionNode(discussion, {
+        marker: 'wrote_to_you',
+        subject: 'prompt',
+        repliesHere: true,
+        origin:
+          'This prompt was posted in your private conversation with the user, not the agent session view. They read it as you work: your reply is posted there, and a question you ask with AskUser or a draft you open for review appears there for them to answer.',
+      }),
+    ],
+    { kind: 'conversation' }
   );
 }
 
@@ -1140,6 +1269,8 @@ function routineEventChildren(event: RoutineEvent): FxpNode[] {
         discussionNode(discussion, routineDiscussion),
       ]
     )
+    .with({ event: 'call_started' }, ({ call }) => [callStartedNode(call)])
+    .with({ event: 'call_ended' }, ({ call }) => [callNode(call)])
     .exhaustive();
 }
 
@@ -1223,6 +1354,7 @@ function triggerNode(trigger: TriggerContext): FxpNode {
   return match(trigger)
     .with({ kind: 'mentioned' }, mentionedNode)
     .with({ kind: 'follow_up' }, followUpNode)
+    .with({ kind: 'conversation' }, conversationNode)
     .with({ kind: 'task_assigned' }, taskAssignedNode)
     .with({ kind: 'requested' }, requestedNode)
     .with({ kind: 'dispatched' }, dispatchedNode)

@@ -35,6 +35,7 @@
  * forwarding could duplicate a side effect already durable in the old scope.
  */
 
+import { fireAndForget } from '@core/util/fireAndForget';
 import {
   type Client,
   CombinedError,
@@ -78,7 +79,10 @@ import {
   type QueryRevalidationWire,
 } from '../protocol';
 import { createDeferredQueryRereads } from './deferred-query-rereads';
-import { createDocumentQueryReader } from './document-query-reader';
+import {
+  createDocumentQueryReader,
+  QueryReadInvalidatedError,
+} from './document-query-reader';
 import {
   compileEntityResolvers,
   type EntityResolverConfig,
@@ -372,10 +376,19 @@ function uncertainEnqueueResult(op: Operation, error: Error): OperationResult {
 }
 
 export interface NormalizedCacheExchangeOptions {
-  /** Best-effort startup recovery before per-mutation admission. */
-  prepareMutationQueue?: () => Promise<void>;
-  /** False discards obsolete client intent without sending it to the server. */
-  beforeMutationAttempt?: (mutation: ClaimedMutation) => Promise<boolean>;
+  /**
+   * Best-effort startup recovery before per-mutation admission. Resolve
+   * `false` when it cannot run yet; the next drain asks again.
+   */
+  prepareMutationQueue?: () => Promise<boolean | void>;
+  /**
+   * False discards obsolete client intent without sending it to the server.
+   * `'defer'` keeps the mutation queued and asks again shortly, for intent
+   * that cannot be judged yet (a draft before its account is known).
+   */
+  beforeMutationAttempt?: (
+    mutation: ClaimedMutation
+  ) => Promise<boolean | 'defer'>;
   /** Persist domain recovery state for a replayed result, including when its UI is closed. */
   onMutationAttemptResult?: (
     mutation: ClaimedMutation,
@@ -417,6 +430,12 @@ export function normalizedCacheExchange(
     /** Operations registered with the host, for push-driven re-execution. */
     const activeOps = new Map<number, Operation>();
     const documentReader = createDocumentQueryReader(host);
+    // Teardown and generation changes cancel document reads in flight. The
+    // read is already stale then, so the cancellation is not a cache failure.
+    const reportReadError = (error: unknown, op: Operation): void => {
+      if (!(error instanceof QueryReadInvalidatedError))
+        options.onCacheError?.(error, op);
+    };
     let cacheGeneration = 0;
     let mutationVersion = 0;
     host.onMutationSettled((settlement) => {
@@ -596,22 +615,25 @@ export function normalizedCacheExchange(
         }
       })().catch(() => undefined);
       retained.recoveryPromise = recovery;
-      void recovery.then(() => {
-        if (retained.recoveryPromise === recovery) {
-          retained.recoveryPromise = undefined;
-        }
-        if (
-          queryStates.get(key) !== state ||
-          state.retainedReplacementFallback !== retained
-        )
-          return;
-        retained.recovering = false;
-        if (retained.invalidated) {
-          state.retainedReplacementFallback = undefined;
-        } else if (retained.readyPending) {
-          recoverRetainedReplacementFallback(key);
-        }
-      });
+      fireAndForget(
+        recovery.then(() => {
+          if (retained.recoveryPromise === recovery) {
+            retained.recoveryPromise = undefined;
+          }
+          if (
+            queryStates.get(key) !== state ||
+            state.retainedReplacementFallback !== retained
+          )
+            return;
+          retained.recovering = false;
+          if (retained.invalidated) {
+            state.retainedReplacementFallback = undefined;
+          } else if (retained.readyPending) {
+            recoverRetainedReplacementFallback(key);
+          }
+        }),
+        'graphql-cache-exchange'
+      );
     };
 
     const pendingAffectedReads = new Set<Promise<void>>();
@@ -662,7 +684,7 @@ export function normalizedCacheExchange(
             )
           );
         })
-        .catch((error) => options.onCacheError?.(error, operation));
+        .catch((error) => reportReadError(error, operation));
     };
 
     // Deliver cache changes directly. Reexecuting through urql first replays
@@ -689,7 +711,7 @@ export function normalizedCacheExchange(
           return;
         }
       } catch (error) {
-        options.onCacheError?.(error, operation);
+        reportReadError(error, operation);
         if (!isCurrent()) return;
       }
       reexecuteAffected(key);
@@ -988,7 +1010,7 @@ export function normalizedCacheExchange(
             return cacheResult(op, undefined, false);
           }
         } catch (error) {
-          options.onCacheError?.(error, op);
+          reportReadError(error, op);
           if (
             isOwnerEpochLostError(error) &&
             queryStates.get(op.key) === readState &&
@@ -1238,7 +1260,10 @@ export function normalizedCacheExchange(
                     live.view.replace(read.data);
                   }
                 })
-                .catch(reportError);
+                .catch((error) => {
+                  if (!(error instanceof QueryReadInvalidatedError))
+                    reportError(error);
+                });
             }
             if (state.retainedReplacementFallback === retained) {
               state.retainedReplacementFallback = undefined;

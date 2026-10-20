@@ -14,6 +14,7 @@ import { TOKENS } from '@core/hotkey/tokens';
 import { isMobile } from '@core/mobile/isMobile';
 import { isNativeMobilePlatform } from '@core/mobile/isNativeMobilePlatform';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { type EntityDragEvent, isEntityDragEvent } from '@entity';
 import CollapseIcon from '@phosphor/arrows-in.svg';
 import ExpandIcon from '@phosphor/arrows-out.svg';
@@ -33,7 +34,7 @@ import {
 } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import { match, P } from 'ts-pattern';
-import { splitBackInterceptor } from '../back-interceptor';
+import { runSplitBack } from '../back-interceptor';
 import { SplitLayoutContext, SplitPanelContext } from '../context';
 import type { SplitContent } from '../layoutManager';
 import {
@@ -132,18 +133,21 @@ function SplitBackButton() {
         !context.handle.canGoBack() &&
         !hasAgentsBackFallback(context.handle.content())
       }
-      onClick={() => {
-        if (splitBackInterceptor()?.()) return;
-        if (
-          !context.handle.canGoBack() &&
-          hasAgentsBackFallback(context.handle.content())
-        ) {
-          context.handle.replace({
-            next: { type: 'component', id: 'agents' },
-            mergeHistory: true,
-          });
-        } else context.handle.goBack();
-      }}
+      onClick={() =>
+        runSplitBack({
+          canGoBack: () =>
+            context.handle.canGoBack() ||
+            hasAgentsBackFallback(context.handle.content()),
+          goBack: () => {
+            if (!context.handle.canGoBack()) {
+              context.handle.replace({
+                next: { type: 'component', id: 'agents' },
+                mergeHistory: true,
+              });
+            } else context.handle.goBack();
+          },
+        })
+      }
     >
       <CaretLeft />
     </Button>
@@ -303,12 +307,15 @@ function SoupNavigationButtons() {
     const next = soup.navigate.by(offset, { skipGroupHeaders: true });
     if (!next) return;
 
-    void openEntityInSplitFromUnifiedList(next.row.original, {
-      splitHandle: context.handle,
-      mergeHistory: true,
-      referredFrom: navigationReferredFrom(),
-      notificationSource,
-    });
+    fireAndForget(
+      openEntityInSplitFromUnifiedList(next.row.original, {
+        splitHandle: context.handle,
+        mergeHistory: true,
+        referredFrom: navigationReferredFrom(),
+        notificationSource,
+      }),
+      'open-entity-in-split'
+    );
   };
 
   return (
@@ -366,6 +373,14 @@ export function SplitHeader(props: {
     throw new Error('<SplitHeader> must be used within a <SplitLayout>');
   }
 
+  const hideMobileBack = () => {
+    const content = panel.handle.content();
+    return (
+      isListViewID(content.id) ||
+      (content.type === 'component' && content.id === 'booking-links')
+    );
+  };
+
   const droppableId = `split-header-${panel.handle.id}`;
   const droppable = createDroppable(droppableId, {
     type: 'split-header',
@@ -395,11 +410,14 @@ export function SplitHeader(props: {
     if (!next) return;
     if (current.type === next.type && current.id === next.id) return;
 
-    void openEntityInSplitFromUnifiedList(data, {
-      splitHandle: panel.handle,
-      allowDuplicate: true,
-      notificationSource,
-    });
+    fireAndForget(
+      openEntityInSplitFromUnifiedList(data, {
+        splitHandle: panel.handle,
+        allowDuplicate: true,
+        notificationSource,
+      }),
+      'open-entity-in-split'
+    );
   });
 
   return (
@@ -437,8 +455,10 @@ export function SplitHeader(props: {
             </Portal>
           )}
         </Show>
+        {/* pl-1 + the close wrapper's pl-2 insets the 24px close button 12px
+            from the left, matching its inset from the top of the 48px header. */}
         <div
-          class="absolute inset-0 flex justify-start items-center not-touch:pl-[5px] touch:px-(--mobile-chrome-gutter) touch:gap-2"
+          class="absolute inset-0 flex justify-start items-center not-touch:pl-1 touch:px-(--mobile-chrome-gutter) touch:gap-2"
           ref={props.collapseController.setRow}
         >
           <Show
@@ -450,19 +470,17 @@ export function SplitHeader(props: {
               </div>
             }
           >
-            {/* Mobile back island. List views never render the back button
-                (their header hosts the filter pills instead), so the island
-                hides for them even when history allows going back. */}
+            {/* List views and Scheduling use navigation islands instead of Back. */}
             <HeaderIsland
               class={cn(
                 'relative gap-0 px-1',
                 ((!panel.handle.canGoBack() &&
                   !hasAgentsBackFallback(panel.handle.content())) ||
-                  isListViewID(panel.handle.content().id)) &&
+                  hideMobileBack()) &&
                   'hidden'
               )}
             >
-              <Show when={!isListViewID(panel.handle.content().id)}>
+              <Show when={!hideMobileBack()}>
                 <SplitBackButton />
               </Show>
             </HeaderIsland>

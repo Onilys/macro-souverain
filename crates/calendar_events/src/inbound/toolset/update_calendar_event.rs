@@ -17,6 +17,7 @@ use crate::domain::{
     models::{AttendeeResponseStatus, CalendarEventPatch, ConferenceChange},
     ports::{
         CalendarMutationService, CalendarOccurrenceService, CalendarRsvpScope, CalendarUpdateScope,
+        MeetingLinkProvider,
     },
 };
 
@@ -24,6 +25,10 @@ use crate::domain::{
 #[derive(Debug, Deserialize, JsonSchema, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ConferenceChangeInput {
+    /// Attach the selected calendar's default conferencing provider.
+    ProviderDefault,
+    /// Attach Microsoft Teams on an eligible Outlook calendar.
+    MicrosoftTeams,
     /// Generate a new Google Meet conference and attach it.
     GoogleMeet,
     /// Detach whatever conference is currently attached.
@@ -33,6 +38,8 @@ pub enum ConferenceChangeInput {
 impl From<ConferenceChangeInput> for ConferenceChange {
     fn from(input: ConferenceChangeInput) -> Self {
         match input {
+            ConferenceChangeInput::ProviderDefault => Self::ProviderDefault,
+            ConferenceChangeInput::MicrosoftTeams => Self::MicrosoftTeams,
             ConferenceChangeInput::GoogleMeet => Self::GoogleMeet,
             ConferenceChangeInput::Remove => Self::Removed,
         }
@@ -78,7 +85,7 @@ pub enum UpdateScopeInput {
     title = "UpdateCalendarEvent",
     description = "\
 Update an existing calendar event. Only the supplied fields change; omitted fields keep \
-their current values. The change is written to Google immediately and attendees are \
+their current values. The change is written to the calendar provider immediately and attendees are \
 notified of it, so confirm details with the user first. Get the `eventId` from \
 ListCalendarEvents.\n\
 \n\
@@ -178,9 +185,10 @@ pub struct UpdateCalendarEvent {
 
     /// Conference change.
     #[schemars(
-        description = "Change the event's video conference: \"google_meet\" attaches a fresh \
-                       Google Meet, \"remove\" detaches the current conference. Omit to leave \
-                       it untouched."
+        description = "Change the event's video conference: \"provider_default\" uses the calendar's \
+                       supported provider; \"google_meet\" or \"microsoft_teams\" selects one explicitly. \
+                       \"remove\" detaches the conference only where supported. Check ListCalendars \
+                       capabilities first. Omit to preserve the current conference."
     )]
     #[serde(default)]
     pub conference: Option<ConferenceChangeInput>,
@@ -221,17 +229,18 @@ impl ToolAnnotated for UpdateCalendarEvent {
 }
 
 #[async_trait]
-impl<M, O> AsyncTool<CalendarToolContext<M, O>> for UpdateCalendarEvent
+impl<M, O, L> AsyncTool<CalendarToolContext<M, O, L>> for UpdateCalendarEvent
 where
     M: CalendarMutationService,
     O: CalendarOccurrenceService,
+    L: MeetingLinkProvider,
 {
     type Output = ToolCalendarEvent;
 
     #[tracing::instrument(skip_all, fields(user_id=?request_context.user_id), err)]
     async fn call(
         &self,
-        service_context: ServiceContext<CalendarToolContext<M, O>>,
+        service_context: ServiceContext<CalendarToolContext<M, O, L>>,
         request_context: RequestContext,
     ) -> ToolResult<Self::Output> {
         tracing::info!(

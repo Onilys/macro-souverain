@@ -12,11 +12,25 @@ type Session = { accountId: string; epoch: string };
 type StoredDraft = LocalDraft & { epoch: string };
 const STORES = ['drafts', 'files', 'attempts', 'meta'] as const;
 
+export type DraftStorageEvent =
+  | { type: 'closed' | 'recovered' }
+  | { type: 'failed'; error: unknown };
+
 /** Transactional working-copy storage. Unlike a query cache, it never evicts edits. */
 export function createLocalDraftStore(
-  dbName = 'macro-email-working-copies-v1'
+  dbName = 'macro-email-working-copies-v1',
+  onStorageEvent?: (event: DraftStorageEvent) => void
 ) {
   let connection: Promise<IDBDatabase> | undefined;
+  let recovering = false;
+  let failed = false;
+  const report = (event: DraftStorageEvent) => {
+    try {
+      onStorageEvent?.(event);
+    } catch {
+      /* Observability must not interrupt draft persistence. */
+    }
+  };
   const listeners = new Set<() => void>();
   let channel: BroadcastChannel | undefined;
   const notify = () => {
@@ -36,21 +50,28 @@ export function createLocalDraftStore(
       /* Durable state remains readable without notifications. */
     }
   };
-  const open = () =>
-    (connection ??= new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open(dbName, 1);
+  const open = () => {
+    if (connection) return connection;
+    const request = indexedDB.open(dbName, 1);
+    const opening = new Promise<IDBDatabase>((resolve, reject) => {
       request.onupgradeneeded = () => {
         for (const name of STORES) request.result.createObjectStore(name);
       };
       request.onerror = () => {
-        connection = undefined;
+        if (connection === opening) connection = undefined;
         reject(request.error);
       };
       request.onsuccess = () => {
         const db = request.result;
+        db.onclose = () => {
+          if (connection !== opening) return;
+          connection = undefined;
+          recovering = true;
+          report({ type: 'closed' });
+        };
         db.onversionchange = () => {
           db.close();
-          connection = undefined;
+          if (connection === opening) connection = undefined;
         };
         resolve(db);
         try {
@@ -62,33 +83,74 @@ export function createLocalDraftStore(
           /* Embedded browsers may expose an unavailable channel. */
         }
       };
-    }));
+    });
+    connection = opening;
+    return opening;
+  };
+  async function beginTransaction(mode: IDBTransactionMode) {
+    for (let attempt = 0; ; attempt++) {
+      const opening = open();
+      const db = await opening;
+      try {
+        return db.transaction([...STORES], mode);
+      } catch (error) {
+        if (
+          !(error instanceof DOMException) ||
+          error.name !== 'InvalidStateError'
+        )
+          throw error;
+        if (connection === opening) connection = undefined;
+        db.close();
+        recovering = true;
+        // No requests have run yet. Never replay a started draft transaction.
+        if (attempt === 1) throw error;
+      }
+    }
+  }
   async function transaction<T>(
     mode: IDBTransactionMode,
     run: (tx: IDBTransaction, finish: (value: T) => void) => void,
     publish = true
   ): Promise<T> {
-    const db = await open();
-    return await new Promise<T>((resolve, reject) => {
-      const tx = db.transaction([...STORES], mode);
-      let value: T;
-      tx.oncomplete = () => {
-        resolve(value);
-        if (mode === 'readwrite' && publish) changed();
-      };
-      tx.onabort = () =>
-        reject(tx.error ?? new Error('Draft storage transaction aborted'));
-      tx.onerror = () =>
-        reject(tx.error ?? new Error('Unable to save draft on this device'));
-      try {
-        run(tx, (next) => {
-          value = next;
-        });
-      } catch (error) {
-        tx.abort();
-        reject(error);
-      }
-    });
+    try {
+      const tx = await beginTransaction(mode);
+      const result = await new Promise<T>((resolve, reject) => {
+        let value: T;
+        let executionError: unknown;
+        tx.oncomplete = () => {
+          resolve(value);
+          if (mode === 'readwrite' && publish) changed();
+        };
+        // Request errors bubble before tx.error is set and before rollback
+        // finishes. Settle only on abort so callers see the real cause and
+        // cannot start recovery against a transaction that is still running.
+        tx.onabort = () =>
+          reject(
+            executionError ??
+              tx.error ??
+              new DOMException(
+                'Draft storage transaction aborted',
+                'AbortError'
+              )
+          );
+        try {
+          run(tx, (next) => {
+            value = next;
+          });
+        } catch (error) {
+          executionError = error;
+          tx.abort();
+        }
+      });
+      if (recovering || failed) report({ type: 'recovered' });
+      recovering = false;
+      failed = false;
+      return result;
+    } catch (error) {
+      if (!failed) report({ type: 'failed', error });
+      failed = true;
+      throw error;
+    }
   }
   function withSession<T>(
     tx: IDBTransaction,

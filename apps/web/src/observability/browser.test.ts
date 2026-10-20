@@ -4,6 +4,11 @@ import { initializeBrowserObservability } from './browser';
 import { readDesktopDiagnostics } from './desktop';
 import { initializeUiOperationTelemetry } from './ui-operation';
 
+const startupSpan = vi.hoisted(() => ({
+  setAttr: vi.fn(),
+  end: vi.fn(),
+}));
+
 vi.mock('@core/util/platform', () => ({
   getPlatform: () => 'desktop',
   isTauri: () => true,
@@ -12,7 +17,13 @@ vi.mock('@graphql-cache/rollout-observability', () => ({
   recordBrowserTursoCacheNavigation: vi.fn(),
 }));
 vi.mock('@macro-inc/observability', () => ({
-  Telemetry: { init: vi.fn(), info: vi.fn(), flush: vi.fn(), error: vi.fn() },
+  Telemetry: {
+    init: vi.fn(),
+    info: vi.fn(),
+    flush: vi.fn(),
+    error: vi.fn(),
+    span: vi.fn(() => startupSpan),
+  },
 }));
 vi.mock('@macro-inc/observability/web', () => ({
   createWebTracingProvider: vi.fn(),
@@ -69,6 +80,48 @@ it('explicit native recording overrides the normal enablement gate and exporter 
     'app.runtime': 'tauri',
     'service.instance.id': 'launch-1',
     'macro.recording.id': 'recording-1',
+  });
+  expect(Telemetry.span).toHaveBeenCalledWith('native.webview.start');
+  expect(startupSpan.setAttr).toHaveBeenCalledWith(
+    'native_instance_id',
+    'launch-1'
+  );
+  expect(startupSpan.end).toHaveBeenCalledOnce();
+});
+
+it('drops browser and extension noise from window errors but reports app errors', async () => {
+  vi.mocked(readDesktopDiagnostics).mockResolvedValue(undefined);
+  const addEventListener = vi.spyOn(window, 'addEventListener');
+  await initializeBrowserObservability();
+  const onError = addEventListener.mock.calls.find(
+    ([type]) => type === 'error'
+  )?.[1] as (event: ErrorEvent) => void;
+  addEventListener.mockRestore();
+  const appError = new Error('boom');
+
+  onError(
+    new ErrorEvent('error', {
+      message: 'ResizeObserver loop completed with undelivered notifications.',
+    })
+  );
+  onError(
+    new ErrorEvent('error', {
+      message: "Cannot read properties of undefined (reading 'M_ID')",
+      filename:
+        'chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/content.js',
+    })
+  );
+  onError(
+    new ErrorEvent('error', {
+      message: 'boom',
+      filename: 'https://macro.com/app/app-gifhAVYj.js',
+      error: appError,
+    })
+  );
+
+  expect(Telemetry.error).toHaveBeenCalledOnce();
+  expect(Telemetry.error).toHaveBeenCalledWith(appError, {
+    'error.source': 'window',
   });
 });
 

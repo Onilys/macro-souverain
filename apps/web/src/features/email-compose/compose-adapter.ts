@@ -1,3 +1,4 @@
+import { useAnalytics } from '@app/lib/analytics/analytics-context';
 import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import { useHasPaidAccess } from '@core/auth';
 import {
@@ -19,6 +20,7 @@ import { trackMention } from '@core/signal/mention';
 import { useCombinedRecipients } from '@core/signal/useCombinedRecipient';
 import { getDisplayName, tryMacroId } from '@core/user';
 import { deviceLooksOffline } from '@core/util/connectivity';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { interceptMailtoLinks } from '@core/util/interceptMailtoLinks';
 import { handleFileFolderDrop } from '@core/util/upload';
 import { Telemetry } from '@macro-inc/observability';
@@ -27,14 +29,15 @@ import ArrowSquareOut from '@phosphor-icons/core/regular/arrow-square-out.svg?co
 import ExclamationIcon from '@phosphor-icons/core/regular/exclamation-mark.svg?component-solid';
 import { queryClient } from '@queries/client';
 import {
+  completeDraftAttachment,
   useAddForwardedAttachmentsMutation,
   useRemoveDraftAttachmentMutation,
   useRemoveForwardedAttachmentMutation,
   useUploadDraftAttachmentsMutation,
 } from '@queries/email/attachment';
 import {
+  transferEmailDraft,
   useDeleteDraftMutation,
-  useSaveDraftMutation,
 } from '@queries/email/draft';
 import { markThreadDraftSaved } from '@queries/email/draft-cache';
 import {
@@ -45,6 +48,10 @@ import {
   saveEmailDraftQueued,
   watchEmailDrafts,
 } from '@queries/email/draft-queue';
+import {
+  saveEmailComposeDraft,
+  sendEmailComposeMessage,
+} from '@queries/email/graphql/compose';
 import {
   archiveEmailThread,
   scheduleEmailMessage,
@@ -66,8 +73,8 @@ import {
 import { useMailAccountsQuery } from '@queries/email/mail-accounts';
 import {
   fetchAndCacheThread,
+  fetchFreshEmailThread,
   type ThreadQueryTransport,
-  useSendMessageMutation,
   useUnscheduleMessageMutation,
 } from '@queries/email/thread';
 import { invalidateSoupEntity, refetchSoupEntity } from '@queries/soup/cache';
@@ -75,6 +82,8 @@ import type { ApiThread } from '@service-email/generated/schemas';
 import type { InfiniteData } from '@tanstack/solid-query';
 import { confirmDialog } from '@ui';
 import { type Accessor, getOwner } from 'solid-js';
+import { createMessageOperationSource } from '../email-message/queries/message-operation';
+import { toEmailThread } from '../email-thread/queries/thread-source';
 import {
   type ComposeNoticeOptions,
   type DraftClientHandles,
@@ -93,11 +102,28 @@ import {
 import { createEmailInboxSource } from './queries/inbox-source';
 import { queuedDraftSaveArgs } from './queries/queued-draft';
 import { restoreDraftBodyAfterUndo, runUndoSend } from './undo-send';
+import { uploadAttachmentDocuments } from './upload-documents';
 
 export type EmailComposeContextOptions = {
   /** Transport of the thread read this surface sits under; a compose surface has none. */
   threadTransport?: Accessor<ThreadQueryTransport | undefined>;
 };
+
+async function refreshEmailLists(
+  threadId: string,
+  completingThread: boolean
+): Promise<void> {
+  try {
+    // Keep legacy list observers in step with GraphQL writes without
+    // invalidating the active editor's thread resource.
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: emailKeys.previews._def }),
+      completingThread ? undefined : refetchSoupEntity(threadId, 'emailThread'),
+    ]);
+  } catch (error) {
+    Telemetry.error(error);
+  }
+}
 
 /** Construct under the composing surface's Solid owner to scope request progress. */
 export function createEmailComposeContext(
@@ -127,9 +153,8 @@ export function createEmailComposeContext(
     getDisplayName(tryMacroId(`macro|${email}`))
   );
   const signatures = useFeatureFlag(enableEmailSignatures);
-  const save = useSaveDraftMutation();
   const remove = useDeleteDraftMutation();
-  const send = useSendMessageMutation();
+  const analytics = useAnalytics();
   const upload = useUploadDraftAttachmentsMutation();
   const forward = useAddForwardedAttachmentsMutation();
   const removeAttachment = useRemoveDraftAttachmentMutation();
@@ -199,6 +224,7 @@ export function createEmailComposeContext(
 
   return {
     draftLifecycle: emailDraftLifecycleSource,
+    operations: createMessageOperationSource,
     recipientName: (id) => getDisplayName(tryMacroId(id)),
     recordMention: (sourceId, targetId) => {
       void trackMention(sourceId, 'document', targetId).catch(reportError);
@@ -223,6 +249,7 @@ export function createEmailComposeContext(
     editorFiles: {
       readDroppedFiles: readDroppedEmailFiles,
       makePublic: makeAttachmentPublic,
+      uploadDocuments: uploadAttachmentDocuments,
       uploadEditorFiles(input) {
         if (!input.editor) return;
         handleFileFolderDrop(
@@ -242,7 +269,7 @@ export function createEmailComposeContext(
             ),
             input.onVideos
           )
-        );
+        ).catch(reportError);
       },
     },
     notices: {
@@ -272,9 +299,24 @@ export function createEmailComposeContext(
           { owner: dialogOwner }
         );
       },
+      confirm: (input) => confirmDialog(input, { owner: dialogOwner }),
       reportError,
     },
     drafts: {
+      async transferDraft(input) {
+        const result = await transferEmailDraft(input);
+        return {
+          draftId: result.message_id,
+          threadId: result.thread_id,
+          attachments: result.attachments,
+        };
+      },
+      async reloadDraft(draftId, threadId) {
+        const thread = await fetchFreshEmailThread(threadId, draftId);
+        return toEmailThread(thread).messages.find(
+          (message) => message.db_id === draftId && message.is_draft
+        );
+      },
       get saveLocalDraft() {
         return queueActive()
           ? (input: import('@queries/email/local-drafts').LocalDraftInput) =>
@@ -282,11 +324,13 @@ export function createEmailComposeContext(
                 ...input,
                 inboxId: input.inboxId ?? primaryId(),
                 senderEmail:
+                  input.draft.sender_email ??
                   inboxSource
                     .inboxes()
                     .find(
                       (inbox) => inbox.id === (input.inboxId ?? primaryId())
-                    )?.email_address ?? viewerEmail(),
+                    )?.email_address ??
+                  viewerEmail(),
               })
           : undefined;
       },
@@ -360,15 +404,19 @@ export function createEmailComposeContext(
                 };
           return saved;
         }
-        const { clientHandles: _clientHandles, ...restInput } = input;
-        const result = await save.mutateAsync({
-          ...restInput,
-          linkId: headerId(inboxId),
-          skipSoupRefetch: completingThread,
+        const result = await saveEmailComposeDraft({
+          ...input,
+          inboxId: inboxId ?? primaryId(),
         });
         try {
-          const threadId = result.draft.thread_db_id;
-          if (threadId) markThreadDraftSaved(threadId);
+          const threadId = result.threadId;
+          if (threadId) {
+            markThreadDraftSaved(threadId);
+            fireAndForget(
+              refreshEmailLists(threadId, !!completingThread),
+              'email-compose'
+            );
+          }
           if (previousThreadId && previousThreadId !== threadId) {
             markThreadDraftSaved(previousThreadId);
             invalidateSoupEntity(previousThreadId);
@@ -379,11 +427,7 @@ export function createEmailComposeContext(
         } catch (error) {
           reportError(error);
         }
-        return {
-          draftId: result.draft.db_id ?? undefined,
-          threadId: result.draft.thread_db_id ?? undefined,
-          inboxId: result.draft.link_id,
-        };
+        return result;
       },
       async deleteDraft({ completingThread, inboxId, ...input }) {
         assertEmailDraftQueueAvailable();
@@ -430,40 +474,37 @@ export function createEmailComposeContext(
           markThreadDraftSaved(threadId);
         }
         if (draft && html !== undefined)
-          await restoreDraftBodyAfterUndo(draft, html, headerId(inboxId));
+          await restoreDraftBodyAfterUndo(draft, html, inboxId ?? primaryId());
         if (queueActive()) await reviveLocalDraft(draftId);
         if (threadId && isFeatureEnabled(enableGraphqlSoup))
-          void fetchAndCacheThread(threadId);
+          fireAndForget(fetchAndCacheThread(threadId), 'email-compose');
       },
     },
     delivery: {
       async sendMessage({ completingThread, inboxId, ...input }) {
         await requireSavedDraftForDelivery(input.message.db_id);
-        const result = await send.mutateAsync({
+        const result = await sendEmailComposeMessage({
           ...input,
-          linkId: headerId(inboxId),
-          skipSoupRefetch: completingThread,
+          inboxId: inboxId ?? primaryId(),
         });
         try {
           if (queueActive() && input.message.db_id)
             await forgetLocalDraft(input.message.db_id);
-          if (result.message.db_id)
-            publishDraftLifecycleChange(
-              result.message.db_id,
-              result.message.link_id
+          if (result.draftId)
+            publishDraftLifecycleChange(result.draftId, result.inboxId);
+          if (result.threadId) {
+            markThreadDraftSaved(result.threadId);
+            refreshThread(result.threadId);
+            fireAndForget(
+              refreshEmailLists(result.threadId, !!completingThread),
+              'email-compose'
             );
-          if (result.message.thread_db_id) {
-            markThreadDraftSaved(result.message.thread_db_id);
-            refreshThread(result.message.thread_db_id);
           }
+          analytics.track('email_message_sent');
         } catch (error) {
           reportError(error);
         }
-        return {
-          draftId: result.message.db_id ?? undefined,
-          threadId: result.message.thread_db_id ?? undefined,
-          inboxId: result.message.link_id,
-        };
+        return result;
       },
       async unschedule({ draftId, threadId, inboxId }) {
         await unschedule.mutateAsync({
@@ -515,11 +556,15 @@ export function createEmailComposeContext(
           onUndone: async () => {
             await input.onUndone();
             if (input.threadId)
-              void refetchSoupEntity(input.threadId, 'emailThread');
+              fireAndForget(
+                refetchSoupEntity(input.threadId, 'emailThread'),
+                'email-compose'
+              );
           },
         }),
     },
     attachmentStorage: {
+      completeAttachment: completeDraftAttachment,
       uploadAttachments: ({ draftId, inboxId, ...input }) =>
         upload.mutateAsync({
           ...input,

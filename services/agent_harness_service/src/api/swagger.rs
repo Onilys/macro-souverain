@@ -27,13 +27,13 @@ use agent_session::inbound::axum_router::pull_requests::{
     SessionPullRequestsResponse,
 };
 use agent_session::inbound::axum_router::{
-    self, AgentSessionLogEntryDto, AgentSessionLogResponse, AgentSessionPreviewData,
-    AgentSessionPreviewDto, AgentSessionQueueResponse, AgentSessionResponse, CodingPreferencesBody,
-    ControlRequest, ControlResponse, ControlStatusDto, CreateAgentSessionRequest,
-    CreateAgentSessionResponse, CreateSessionThread, EditQueuedActionRequest, LogDirectionDto,
-    LogFrameDto, PreviewAgentSessionsRequest, PreviewAgentSessionsResponse, QueuedActionDto,
-    RenameAgentSessionRequest, SandboxSizeBody, SessionStatusDto, SetAgentSessionArchivedRequest,
-    WithAgentSessionId,
+    self, AgentSessionFoldedLogResponse, AgentSessionLogEntryDto, AgentSessionLogResponse,
+    AgentSessionPreviewData, AgentSessionPreviewDto, AgentSessionQueueResponse,
+    AgentSessionResponse, CodingPreferencesBody, ControlRequest, ControlResponse, ControlStatusDto,
+    CreateAgentSessionRequest, CreateAgentSessionResponse, CreateSessionThread,
+    EditQueuedActionRequest, LogDirectionDto, LogFrameDto, PreviewAgentSessionsRequest,
+    PreviewAgentSessionsResponse, QueuedActionDto, RenameAgentSessionRequest, SandboxSizeBody,
+    SessionStatusDto, SetAgentSessionArchivedRequest, WithAgentSessionId,
 };
 use claude_cloud_agents::inbound::auth as claude_auth;
 use utoipa::{
@@ -59,6 +59,11 @@ impl Modify for SecurityAddon {
     modifiers(&SecurityAddon),
     info(terms_of_service = "https://macro.com/terms"),
     paths(
+        agent_code_mode::inbound::axum_router::get_code_execution,
+        agent_code_mode::inbound::axum_router::create_review,
+        agent_code_mode::inbound::axum_router::get_review,
+        agent_code_mode::inbound::axum_router::list_reviews,
+        agent_code_mode::inbound::axum_router::decide_review,
         claude_auth::status,
         claude_auth::start,
         claude_auth::complete,
@@ -77,6 +82,7 @@ impl Modify for SecurityAddon {
         axum_router::pull_requests::sessions_for_pull_request,
         axum_router::pull_requests::sessions_for_pull_requests,
         axum_router::get_agent_session_log_handler,
+        axum_router::get_agent_session_folded_log_handler,
         axum_router::control_agent_session_handler,
         axum_router::get_agent_session_queue_handler,
         axum_router::edit_queued_action_handler,
@@ -90,6 +96,9 @@ impl Modify for SecurityAddon {
         axum_router::put_agent_coding_preferences_handler,
         model_load::load_agent_models_handler,
         capability_discovery::discover_agent_capabilities_handler,
+        agent_harness::inbound::conversations::list_agent_conversations,
+        agent_harness::inbound::conversations::retry_agent_conversation_turn,
+        agent_harness::inbound::conversations::start_fresh_agent_conversation,
         repositories::list_agent_repositories_handler,
         repositories::list_agent_repository_branches_handler,
         changes_router::get_agent_session_changes_handler,
@@ -133,6 +142,7 @@ impl Modify for SecurityAddon {
         PullRequestLinkSource,
         SessionStatusDto,
         AgentSessionLogResponse,
+        AgentSessionFoldedLogResponse,
         AgentSessionLogEntryDto,
         SessionBot,
         LogFrameDto,

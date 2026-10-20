@@ -12,7 +12,10 @@ impl CalendarInvitationRepository for PgCalendarRepository {
         let row = sqlx::query!(r#"SELECT count(*) > 0 AS "connected!",
             COALESCE(bool_or(a.sync_status IN ('pending', 'syncing')), false) AS "syncing!"
             FROM calendar_accounts a JOIN email_links l ON l.id = a.email_link_id
-            WHERE a.owner_id = $1 AND l.macro_id = $1 AND a.sync_status NOT IN ('disabled', 'reauth_required')"#, viewer).fetch_one(&self.pool).await.map_err(report)?;
+            WHERE ((a.owner_id = $1 AND l.macro_id = $1)
+                OR EXISTS (SELECT 1 FROM macro_user_links delegation
+                    WHERE delegation.primary_macro_id = $1 AND delegation.link_id = a.email_link_id))
+              AND a.sync_status NOT IN ('disabled', 'reauth_required')"#, viewer).fetch_one(&self.pool).await.map_err(report)?;
         Ok(InvitationAvailability {
             connected: row.connected,
             syncing: row.syncing,
@@ -42,8 +45,11 @@ impl CalendarInvitationRepository for PgCalendarRepository {
             CROSS JOIN LATERAL (
                 SELECT e.id, e.source_link_id, l.email_address, e.sequence, e.status, e.updated_at
                 FROM calendar_events e JOIN email_links l ON l.id = e.source_link_id
-                WHERE e.ical_uid = requested.uid AND e.owner_id = $1 AND l.macro_id = $1
-                  AND EXISTS (SELECT 1 FROM calendar_event_sources s JOIN calendar_accounts a ON a.id = s.account_id JOIN calendars c ON c.id = s.calendar_id WHERE s.event_id = e.id AND s.source_kind = 'google' AND NOT c.is_deleted AND a.sync_status NOT IN ('disabled', 'reauth_required'))
+                WHERE e.ical_uid = requested.uid
+                  AND ((e.owner_id = $1 AND l.macro_id = $1)
+                    OR EXISTS (SELECT 1 FROM macro_user_links delegation
+                        WHERE delegation.primary_macro_id = $1 AND delegation.link_id = e.source_link_id))
+                  AND EXISTS (SELECT 1 FROM calendar_event_sources s JOIN calendar_accounts a ON a.id = s.account_id JOIN calendars c ON c.id = s.calendar_id WHERE s.event_id = e.id AND s.source_kind IN ('google', 'outlook') AND NOT c.is_deleted AND a.sync_status NOT IN ('disabled', 'reauth_required'))
                 ORDER BY e.id LIMIT 16
             ) candidate
         "#, viewer, &uids, &requested_keys as &[Option<String>]).fetch_all(&self.pool).await.map_err(report)?;
@@ -68,6 +74,7 @@ impl CalendarInvitationRepository for PgCalendarRepository {
                 override.description AS override_description,
                 override.location AS override_location,
                 override.status AS override_status,
+                override.reminders AS override_reminders,
                 event.owner_id,
                 event.ical_uid,
                 event.title,
@@ -107,6 +114,8 @@ impl CalendarInvitationRepository for PgCalendarRepository {
                 ON override.event_id = occurrence.event_id
                AND override.recurrence_id = occurrence.recurrence_id
             WHERE event.owner_id = $1
+               OR EXISTS (SELECT 1 FROM macro_user_links delegation
+                   WHERE delegation.primary_macro_id = $1 AND delegation.link_id = event.source_link_id)
 "#,
             viewer,
             &ids,

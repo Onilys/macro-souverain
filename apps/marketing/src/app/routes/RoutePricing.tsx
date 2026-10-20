@@ -56,7 +56,7 @@ function sectionHeadingStyle(): JSX.CSSProperties {
     color: 'var(--c1)',
     'font-family': 'display',
     'font-size': mobile() ? '32px' : breakpoint() ? '38px' : '44px',
-    'font-weight': '315',
+    'font-weight': 'calc(315 + var(--cream-slab-weight-increase, 0))',
     'letter-spacing': '-0.015em',
     'line-height': 1.1,
     margin: 0,
@@ -108,7 +108,7 @@ function PlanCard(props: {
               color: 'var(--c0)',
               'font-family': 'display',
               'font-size': mobile() ? '48px' : '52px',
-              'font-weight': '315',
+              'font-weight': 'calc(315 + var(--cream-slab-weight-increase, 0))',
               'letter-spacing': '-0.015em',
               'line-height': 1,
             }}
@@ -203,7 +203,6 @@ function PricingPlans() {
           eyebrow="Free"
           price="$0"
           primaryLine="per seat / month"
-          secondaryLine="No credit card required"
           buttonName="pricing_free_connect_google"
           buttonLabel="Start for free"
         />
@@ -525,7 +524,7 @@ function CaseStudyVideo() {
               color: 'var(--c1)',
               'font-family': 'display',
               'font-size': compact() ? '28px' : '34px',
-              'font-weight': '315',
+              'font-weight': 'calc(315 + var(--cream-slab-weight-increase, 0))',
               'letter-spacing': '-0.01em',
               'line-height': 1.14,
               margin: '0',
@@ -861,7 +860,7 @@ function FaqSection() {
           display: flex;
           font-family: 'display';
           font-size: 20px;
-          font-weight: 410;
+          font-weight: calc(410 + var(--cream-slab-weight-increase, 0));
           gap: 16px;
           justify-content: space-between;
           letter-spacing: -0.01em;
@@ -1026,7 +1025,7 @@ export const RoutePricing: Component = () => {
           style={{
             'font-family': 'display',
             'font-size': mobile() ? 'clamp(46px, 13vw, 62px)' : '52.36px',
-            'font-weight': '315',
+            'font-weight': 'calc(315 + var(--cream-slab-weight-increase, 0))',
             'letter-spacing': '-0.012em',
             'line-height': 1.12,
             margin: 0,

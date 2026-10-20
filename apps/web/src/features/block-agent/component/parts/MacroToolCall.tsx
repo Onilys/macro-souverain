@@ -213,6 +213,7 @@ function MacroToolIcon(props: { name: string }): JSX.Element {
       'ReadMetadata',
       'ReadThread',
       'ReadChat',
+      'ReadAgentSession',
       'ReadProject',
       'ReadPresentation',
       'ReadDesign',

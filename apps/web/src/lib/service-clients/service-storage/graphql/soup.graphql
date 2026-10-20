@@ -61,7 +61,10 @@ query SoupSharedMailBackfill($input: SoupInput!) {
 query MailAccounts {
 	user {
 		id
-		emailLinks { ...MailAccountFields }
+		emailLinks {
+			...MailAccountFields
+			sendAs { emailAddress displayName }
+		}
 	}
 }
 
@@ -194,6 +197,8 @@ fragment SoupItemPreviewFields on GraphqlSoupEntity {
 		inboxVisible
 		linkId
 		latestInboundMessageTs
+		latestOutboundMessageTs
+		latestNonSpamMessageTs
 		reminderReturnedAt
 		mailDraftState @cacheOnly { ...EmailDraftStateFields }
         mailAllPreview @cacheOnly { ...MailPreviewFields }
@@ -209,12 +214,11 @@ fragment SoupItemPreviewFields on GraphqlSoupEntity {
 		isImportant
 		isSignal
 		projectId
-		sortTs
 		createdAt
 		updatedAt
 		viewedAt
-		participants {
-			id
+		participants: senders {
+			contactId
 			linkId
 			name
 			email
@@ -499,6 +503,20 @@ fragment SoupNotificationNavigationMetadataFields on GraphqlNotifEvent {
 		repliedToDocumentCommentThreadSenderProfilePictureUrl: senderProfilePictureUrl
 		repliedToDocumentCommentThreadSenderDisplayName: senderDisplayName
 	}
+	... on GraphqlEntityAccessRequestedMetadata {
+		entityAccessRequestedRequestId: requestId
+		entityAccessRequestedRevision: revision
+		entityAccessRequestedEntityName: entityName
+		entityAccessRequestedFileType: fileType
+		entityAccessRequestedAccessLevel: accessLevel
+	}
+	... on GraphqlEntityAccessGrantedMetadata {
+		entityAccessGrantedRequestId: requestId
+		entityAccessGrantedRevision: revision
+		entityAccessGrantedEntityName: entityName
+		entityAccessGrantedFileType: fileType
+		entityAccessGrantedAccessLevel: accessLevel
+	}
 	... on GraphqlCommentedOnDocumentMetadata {
 		commentedOnDocumentDocumentName: documentName
 		commentedOnDocumentOwner: owner
@@ -756,6 +774,7 @@ fragment SoupNotificationNavigationMetadataFields on GraphqlNotifEvent {
 fragment MailAccountFields on GraphqlEmailLink {
   id
   macroId
+  provider
   emailAddress
   photoUrl
   isPrimary

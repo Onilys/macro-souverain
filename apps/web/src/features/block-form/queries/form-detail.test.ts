@@ -118,6 +118,7 @@ describe('the booking step', () => {
     respondentColumnId: null,
     createdAt: '2026-10-01T12:00:00Z',
     updatedAt: '2026-10-01T12:00:00Z',
+    isHiddenInDrive: false,
   } as const;
 
   it('reads an editor’s booking step with its target and writes it back', () => {

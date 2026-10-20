@@ -34,6 +34,7 @@ import {
 import { soupOptimisticResolvers } from '../../queries/optimistic-resolvers';
 import { createUrqlQuery } from '../../urql-solid/create-urql-query';
 import { CacheNavigationError } from '../host/navigation-error';
+import { createRetirableCacheHost } from '../host/retirable-host';
 import type {
   AffectedOperationsListener,
   CacheGenerationChange,
@@ -48,6 +49,8 @@ import {
   type MutationClaim,
   type MutationSettlement,
   OWNER_LOCK_UNAVAILABLE_ERROR_CODE,
+  parseCacheRevision,
+  type QueryUpdate,
   type ReadResult,
   type WriteResult,
 } from '../protocol';
@@ -1570,6 +1573,63 @@ describe('normalizedCacheExchange', () => {
     }
   );
 
+  it.each(['teardown', 'generation change'] as const)(
+    'does not report a cache read cancelled by %s',
+    async (cancel) => {
+      const read = deferred<ReadResult>();
+      host.readQuery = vi.fn(() => read.promise);
+      const onCacheError = vi.fn();
+      const { ops, results } = harness(host, undefined, { onCacheError });
+      const op = makeOp(1);
+      ops.next(op);
+      await tick();
+
+      if (cancel === 'teardown') ops.next(teardownOf(op));
+      else host.pushGeneration({ storage: 'preserved' });
+      read.resolve({ kind: 'hit', data: { from: 'cache' } });
+      await tick();
+
+      expect(onCacheError).not.toHaveBeenCalled();
+      expect(results.filter((r) => r.operation.kind === 'query')).toEqual([]);
+    }
+  );
+
+  it('does not report a watched reread cancelled by teardown', async () => {
+    const reread = deferred<QueryUpdate>();
+    host.watchQuery = vi
+      .fn()
+      .mockResolvedValueOnce({
+        kind: 'hit',
+        revision: parseCacheRevision('1'),
+        data: { from: 'cache' },
+      })
+      .mockReturnValueOnce(reread.promise);
+    const onCacheError = vi.fn();
+    const { ops, results } = harness(host, undefined, { onCacheError });
+    const op = makeOp(1);
+    ops.next(op);
+    await tick();
+    expect(results.map((result) => result.data)).toEqual([{ from: 'cache' }]);
+
+    host.pushAffected([1]);
+    await tick();
+    expect(host.watchQuery).toHaveBeenCalledTimes(2);
+    ops.next(teardownOf(op));
+    reread.resolve({
+      kind: 'hit',
+      revision: parseCacheRevision('2'),
+      data: { from: 'newer cache' },
+    });
+    await tick();
+
+    expect(onCacheError).not.toHaveBeenCalled();
+    expect(
+      results
+        .filter((r) => r.operation.kind === 'query')
+        .map((result) => result.data)
+    ).toEqual([{ from: 'cache' }]);
+  });
+
   it.each(['miss', 'error'] as const)(
     'does not forward twice when a concurrent cache read returns %s first',
     async (outcome) => {
@@ -3074,6 +3134,175 @@ describe('normalizedCacheExchange', () => {
       }
     );
 
+    it('warns once per recovery failure while the queue keeps polling', async () => {
+      vi.useFakeTimers();
+      const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        const prepareMutationQueue = vi.fn(async () => {
+          throw new Error('Queue inspection is unavailable');
+        });
+        harness(host, undefined, { prepareMutationQueue });
+        await vi.advanceTimersByTimeAsync(90_010);
+        expect(prepareMutationQueue).toHaveBeenCalledTimes(4);
+        expect(warning).toHaveBeenCalledOnce();
+      } finally {
+        warning.mockRestore();
+        vi.useRealTimers();
+      }
+    });
+
+    it('retries deferred recovery quietly until it can run', async () => {
+      vi.useFakeTimers();
+      const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        let signedIn = false;
+        const prepareMutationQueue = vi.fn(async () =>
+          signedIn ? undefined : false
+        );
+        harness(host, undefined, { prepareMutationQueue });
+        await vi.advanceTimersByTimeAsync(10);
+        expect(prepareMutationQueue).toHaveBeenCalledOnce();
+        signedIn = true;
+        await vi.advanceTimersByTimeAsync(30_000);
+        expect(prepareMutationQueue).toHaveBeenCalledTimes(2);
+        await vi.advanceTimersByTimeAsync(60_000);
+        expect(prepareMutationQueue).toHaveBeenCalledTimes(2);
+        expect(warning).not.toHaveBeenCalled();
+      } finally {
+        warning.mockRestore();
+        vi.useRealTimers();
+      }
+    });
+
+    /** Like the draft lifecycle: drafts cannot be judged until user info loads. */
+    function signedInDraftLifecycle(): {
+      signIn(): void;
+      options: NormalizedCacheExchangeOptions;
+    } {
+      let signedIn = false;
+      return {
+        signIn: () => {
+          signedIn = true;
+        },
+        options: {
+          prepareMutationQueue: async () => (signedIn ? undefined : false),
+          beforeMutationAttempt: async (mutation) =>
+            signedIn || mutation.operationName !== 'SaveEmailDraft'
+              ? true
+              : 'defer',
+        },
+      };
+    }
+
+    function draftOp(key: number): Operation {
+      return makeOperation(
+        'mutation',
+        createRequest(SaveEmailDraftDocument, {
+          input: { draftId: 'draft', subject: 'Draft' },
+        }),
+        makeMutationOp(key, optimistic).context
+      );
+    }
+
+    it('keeps a restored draft queued until sign-in instead of rolling it back', async () => {
+      vi.useFakeTimers();
+      try {
+        host.seedQueued({
+          uuid: 'draft',
+          query: stringifyDocument(SaveEmailDraftDocument),
+          operationName: 'SaveEmailDraft',
+          variables: { input: { draftId: 'draft' } },
+          data: optimistic,
+          clientMetadata: { kind: 'email-draft' },
+        });
+        const lifecycle = signedInDraftLifecycle();
+        const { forwarded } = harness(host, undefined, lifecycle.options);
+        await vi.advanceTimersByTimeAsync(5_000);
+        expect(host.defers.length).toBeGreaterThan(1);
+        expect(host.rollbacks).toHaveLength(0);
+        expect(forwarded).toHaveLength(0);
+
+        lifecycle.signIn();
+        await vi.advanceTimersByTimeAsync(1_010);
+        expect(host.rollbacks).toHaveLength(0);
+        expect(forwarded).toHaveLength(1);
+        expect(host.commits).toMatchObject([{ transactionId: 'restored-1' }]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('sends other mutations while draft recovery waits for sign-in', async () => {
+      vi.useFakeTimers();
+      try {
+        host.seedQueued({
+          uuid: 'unrelated',
+          query: stringifyDocument(MUTATION),
+          operationName: 'SetEntityProperty',
+          variables: { input: {} },
+          data: optimistic,
+        });
+        const { forwarded } = harness(
+          host,
+          undefined,
+          signedInDraftLifecycle().options
+        );
+        await vi.advanceTimersByTimeAsync(10);
+        expect(forwarded).toHaveLength(1);
+        expect(host.defers).toHaveLength(0);
+        expect(host.commits).toMatchObject([{ transactionId: 'restored-1' }]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('defers a draft enqueued before sign-in instead of rolling it back', async () => {
+      vi.useFakeTimers();
+      try {
+        const lifecycle = signedInDraftLifecycle();
+        const { ops, results, forwarded } = harness(
+          host,
+          undefined,
+          lifecycle.options
+        );
+        ops.next(draftOp(1));
+        await vi.advanceTimersByTimeAsync(10);
+        expect(host.claims).toEqual(['txn-1']);
+        expect(host.defers).toMatchObject([{ transactionId: 'txn-1' }]);
+        expect(host.rollbacks).toHaveLength(0);
+        expect(forwarded).toHaveLength(0);
+        expect(results).toHaveLength(1);
+        expect(results[0]?.error).toBeUndefined();
+
+        lifecycle.signIn();
+        await vi.advanceTimersByTimeAsync(1_010);
+        expect(host.rollbacks).toHaveLength(0);
+        expect(forwarded).toHaveLength(1);
+        expect(host.commits).toMatchObject([{ transactionId: 'txn-1' }]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('stops polling once its host is retired', async () => {
+      vi.useFakeTimers();
+      try {
+        const retirable = createRetirableCacheHost(host);
+        const drained = vi.spyOn(retirable, 'currentRevision');
+        harness(retirable);
+        await vi.advanceTimersByTimeAsync(10);
+        expect(drained).toHaveBeenCalledOnce();
+
+        retirable.dispose();
+        await vi.advanceTimersByTimeAsync(120_000);
+        dispatchEvent(new Event('online'));
+        await vi.advanceTimersByTimeAsync(10);
+        expect(drained).toHaveBeenCalledOnce();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it.each([
       { failure: 'rejects', legacy: false },
       { failure: 'hangs', legacy: false },
@@ -4354,9 +4583,10 @@ describe('normalizedCacheExchange', () => {
           ...mutation.context,
           fetch: operationFetch,
         } as never);
+        let fetched: Promise<Response> | undefined;
         const { ops } = harness(host, (op) => {
           if (op.kind === 'mutation') {
-            void op.context.fetch?.('http://test', {
+            fetched = op.context.fetch?.('http://test', {
               signal: existingSignal,
             });
           }
@@ -4371,6 +4601,7 @@ describe('normalizedCacheExchange', () => {
           'http://test',
           expect.objectContaining({ signal: combinedSignal })
         );
+        await fetched;
       } finally {
         timeout.mockRestore();
         any.mockRestore();

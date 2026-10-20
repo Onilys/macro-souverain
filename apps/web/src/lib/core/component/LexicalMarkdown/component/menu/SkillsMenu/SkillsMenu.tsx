@@ -11,6 +11,7 @@ import { searchQuickAccessEntities } from '@core/context/quickAccess/entity-sear
 import { useUserId } from '@core/context/user';
 import clickOutside from '@core/directive/clickOutside';
 import { debouncedDependent } from '@core/util/debounce';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { useIsKeyPressActive } from '@core/util/useIsKeyPressActive';
 import type { GithubPullRequestEntity } from '@entity';
 import PlusIcon from '@phosphor/plus.svg';
@@ -225,6 +226,7 @@ function SkillsMenuInner(props: SkillsMenuProps) {
     props.editor.dispatchCommand(INSERT_PR_MENTION_COMMAND, {
       id: item.id,
       label: `${item.metadata.owner}/${item.metadata.repo}#${item.metadata.number}`,
+      url: item.metadata.url || undefined,
     });
   };
 
@@ -243,7 +245,7 @@ function SkillsMenuInner(props: SkillsMenuProps) {
 
   const deleteSkill = (item: EntityItem) => {
     closeMenu();
-    void deleteAction.execute([item.data]);
+    fireAndForget(deleteAction.execute([item.data]), 'entity-actions');
   };
 
   /**
