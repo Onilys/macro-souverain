@@ -67,9 +67,13 @@ read their code, and follow that pattern rather than inventing a new one.
 
 ## Layout and chrome
 
-- Content scrolls under the floating chrome: pad the scroller with
-  `mobile:pt-(--mobile-content-inset-top)` and
-  `mobile:pb-(--mobile-content-inset-bottom)`, never a spacer.
+- Reserve `--mobile-content-inset-top` (safe area plus any floating split
+  header) with `touch:` on every full-frame view, including loading/error states
+  and record tabs; phone width alone and `--safe-top` alone do not cover tablets
+  or floating navigation. Use `ViewShell.Header` for collection controls; when
+  an in-flow header consumes the inset, reset it to `0px` on its content subtree
+  so nested lists/editors do not reserve it again. Otherwise pad the scroller
+  with the top and bottom content insets so content scrolls under the chrome.
 - Safe areas come from the `--safe-*` CSS variables (e.g.
   `bottom-[var(--safe-bottom,0px)]`); `getSafeAreaInset` only when JS needs
   the number. Never measure insets yourself.

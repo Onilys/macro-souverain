@@ -884,7 +884,9 @@ the blocking session or resource load before retrying. The limits do not promise
 zero interruption, and validation/index scans still consume CPU and disk I/O.
 
 The seven indexes on shared message, link, draft-attachment, event-source, and
-reminder tables are built with `CONCURRENTLY`, each in a single-statement
+reminder tables, and the follow-up `User` indexes on `macro_user_id` and
+`lower(email)` that Outlook connection looks users up by, are built with
+`CONCURRENTLY`, each in a single-statement
 `-- no-transaction` migration. Column additions commit before those builds. The
 existing attachment lookup and reminder keys remain until their replacement
 indexes are ready. New, empty Outlook runtime tables keep ordinary index builds.

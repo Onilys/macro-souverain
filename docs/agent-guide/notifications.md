@@ -17,6 +17,16 @@ can still suppress alerts even when authorization is granted.
 Verify off/on and persistence after restarting; on the Notifications page, a failed
 toggle should show an error toast and allow retry.
 
+On macOS builds with notification activation, clicking an alert restores and
+focuses Macro and opens that notification's message, thread, or document location.
+The native notification retains its destination across app restarts, and startup
+waits for the layout before opening it. Receipt and dismissal must not navigate.
+Verify two alerts with different targets by clicking the older one, then repeat
+with Macro minimized, hidden, and quit. Test a channel reply and a document
+comment to check the location inside the entity, not just the entity itself.
+This requires a full native macOS release; frontend-only updates cannot add the
+response delegate or repair destinations in previously delivered alerts.
+
 On Linux desktop builds with native notification activation, clicking a system
 notification (or its **Open** action) restores/presents Macro and opens that
 notification's target using the normal in-app navigation. Dismissing or expiring
@@ -42,6 +52,11 @@ without restarting the app. Android alerts without display text show
 Also verify logout and notification opt-out while registration is pending: late
 backend or native completions must leave the receiver disabled. If a new account
 signs in before cleanup finishes, its registration must remain active afterward.
+
+Mute indicators must use the current account's query data, not a retained copy
+from the previous session. Verify a same-tab sign-out/sign-in with the second
+account's muted-items request delayed: show no previous-account mute indicators
+while that query is pending, then apply only the second account's response.
 
 Toast regions are labeled `Notifications (alt+T)`; seven empty live regions always exist in
 the a11y tree (ignore them when parsing snapshots).

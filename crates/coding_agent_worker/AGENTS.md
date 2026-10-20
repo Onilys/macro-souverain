@@ -60,3 +60,5 @@ the local ACP process (Claude Code, Codex, ...), and drives native
 
 - `README.md` in this directory is the native herdr behavior contract —
   update it alongside `src/herdr/` changes.
+- MCP server selection is supplied by `agent_harness` when the session binds;
+  native launch forwards that list, with credentials refreshed on launch/resume.

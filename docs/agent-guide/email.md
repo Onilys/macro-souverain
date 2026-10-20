@@ -40,7 +40,8 @@ providers. Shared/delegated Microsoft mailboxes are outside this account scope;
 sharing an inbox or thread inside Macro remains available.
 
 For Outlook writes, distinguish acceptance from provider confirmation. Thread
-organization notices and inbox settings show pending or failed changes. A saved
+organization notices and inbox settings show pending or failed changes; the
+mark-as-read from opening a thread is announced only if it fails. A saved
 draft can show a conflict or an uncertain delivery: use its recovery actions and
 check the provider copy before choosing an explicit resend. Switching the sender
 inbox copies the draft and attachments into the destination; wait for completion
@@ -448,6 +449,10 @@ reloading. Repeat across background/resume on an iPhone. A transaction that has
 already started is never automatically replayed. Persistent failures still block
 server autosave; copy unsaved content before restarting. Storage failures and
 recovery report current page visibility and network state without draft content.
+Request errors settle only after the transaction's abort event, preserving the
+underlying IndexedDB error and waiting for rollback before recovery. To verify,
+force a request constraint failure: the prior draft must remain intact, the error
+must be `ConstraintError`, and a subsequent valid save must succeed.
 
 Repeated local-save failures show one persistent warning per composer; recovery
 or closing that composer dismisses it. A later failure shows a new warning.

@@ -38,6 +38,10 @@ sessions: agent-session trigger events in, sandboxed coding agent sessions
   `src/model_providers/mod.rs` → wire into `src/main.rs`.
 - Inspect a session's protocol log: `just session-log <channel_id>`.
 
+## Tool contracts
+
+- Internal session tools require a verified acting user plus owner/edit authorization. Keep their restricted prompt/stop route separate from human approval controls.
+
 ## Checks
 
 - `cargo test -p agent_harness_service` (`SQLX_OFFLINE` unset).

@@ -9,7 +9,9 @@ Verify **Public → View** links in a fresh signed-out browser context. The
 `/app/md/<id>` redirects) must show the document without private Drive lists or
 folder navigation, on desktop and touch devices. The login banner may remain;
 it must not replace the public document. Signed-out readers see **Sign in to view
-comments**, not a comment-fetch error or composer. Account-only lists, contacts,
+comments**, not a comment-fetch error or composer. While identity is unresolved,
+the discussion shows neither comments nor a sign-in prompt; throttle the preview
+auth response to check this on desktop and touch devices. Account-only lists, contacts,
 notifications, activity, and gateway/storage WebSockets must stay idle until
 sign-in; public document metadata, properties, and sync still load normally.
 Check that signing in restores account services and signing out stops them.
@@ -2387,17 +2389,16 @@ them.
 Pipelines are not in the `@` menu or the command menu. Pasting a pipeline link
 into an editor or composer inserts a document mention with a table icon and the
 pipeline's current name: the pipeline's copy-link action
+(`/app/companies/pipeline/<id>`), an older shared view link
 (`/app/companies?crmView=…` whose view is that pipeline) and
-`/app/pipeline/<id>` both work. Copied Customers links for other views
+`/app/pipeline/<id>` all work. Copied Customers links for other views
 (Companies, People, lists) stay plain links. A pipeline you cannot read shows
 **No Access**; a trashed one shows **Deleted**.
 
 Clicking the mention, or pressing Enter on it, opens Customers on the pipeline
-(on touch devices too). If Customers is already open in a split, that split
-switches to the pipeline instead of a second one opening. The request travels
-as the Customers pane search `crm.pipeline` (with a `crm.seek` that makes a
-repeat click a new request), which Customers drops once you leave the
-pipeline.
+at `/app/companies/pipeline/<id>` (on touch devices too), in the mention's split
+like other entity mentions. A split already showing that pipeline is brought
+forward instead.
 
 The mention is stored as
 `<m-document-mention>{"documentId":"<pipeline id>","blockName":"pipeline",…}</m-document-mention>`.
@@ -2595,6 +2596,15 @@ when the document has not loaded yet. Verify both comments arriving before the
 editor and comments arriving after it. Once loaded, click elsewhere in the
 document, then click the same notification again: it should revisit the comment,
 while background comment refreshes should leave the user's position alone.
+
+A document row keeps pointing at its newest comment notification until that
+notification is done, so on desktop the row opens the document at that comment.
+On touch the thread is a drawer over the whole page rather than a margin card,
+so a row tap opens the document itself: no drawer, with the comment's highlight
+still in the text. Verify this from Home, Inbox, and Files with a comment
+notification that has already been read — the drawer must not reappear on every
+open. Tapping the highlighted text still offers `Show comment`, and opening the
+notification itself still opens the thread.
 
 When checking desktop margin placement, scroll a long document while an embed
 or image above the highlighted text changes height. Scroll anchoring may keep

@@ -456,7 +456,10 @@ export function createEmailComposer(props: EmailComposerOptions) {
     'sent' | 'missing' | undefined
   >();
   let schedule: ReturnType<typeof createEmailSendSchedule>;
-  const operationSource = props.operations?.(currentDraftId, currentThreadId);
+  const operationSource = props.operations?.(
+    () => (session.serverConfirmed() ? currentDraftId() : undefined),
+    currentThreadId
+  );
   const currentOperation = () => {
     const live = operationSource?.operation();
     return live === undefined ? props.draft?.operation : live;

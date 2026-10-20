@@ -18,8 +18,9 @@ import './RouteDownload.css';
 
 export function RouteDownload() {
   setPageSeo({
-    title: 'Download Macro for macOS and Linux',
-    description: 'Download the latest release of Macro for macOS and Linux.',
+    title: 'Download Macro Alpha for macOS and Linux',
+    description:
+      'Download the latest alpha release of Macro for macOS and Linux.',
     path: '/download',
   });
 
@@ -57,7 +58,7 @@ export function RouteDownload() {
           <div class="downloads-app-icon" aria-hidden="true">
             <MacroLogo />
           </div>
-          <h1>Download Macro</h1>
+          <h1>Download Macro Alpha</h1>
           <p>Available for macOS and Linux</p>
         </header>
 

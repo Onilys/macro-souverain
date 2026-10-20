@@ -10,7 +10,15 @@ import {
 import { CALENDAR_VIEW_ID } from '@app/features/calendar-view/types';
 import { changesSearch } from '@app/features/changes/changes-search';
 import { mobileSearchRouteStateSchema } from '@app/features/command/mobile/mobile-search-route-state';
-import { crmViewReference } from '@app/features/crm/crm-route';
+import {
+  crmPipelineParams,
+  crmPipelineReference,
+  crmRecordClaim,
+  crmRecordParams,
+  crmRecordReference,
+  crmRecordTrailSchema,
+  crmViewReference,
+} from '@app/features/crm/crm-route';
 import { driveDetailTrailSchema } from '@app/features/drive-view/primitives/drive-detail-trail';
 import {
   DRIVE_DETAIL_TYPES,
@@ -620,8 +628,40 @@ export const companiesRoute = defineRoute({
   path: 'companies',
   search: '*' as const,
   externalSearch: ['crmView'],
+  state: crmRecordTrailSchema,
   claim: () => ({ namespace: 'component', id: 'companies' }),
   toReference: (_, query) => crmViewReference(query),
+});
+
+/** A company or contact opened from a Customers list. */
+export const crmRecordRoute = defineRoute({
+  id: 'companies-record',
+  path: ':recordType/:recordId/:section?',
+  params: crmRecordParams,
+  state: crmRecordTrailSchema,
+  claim: crmRecordClaim,
+  toReference: crmRecordReference,
+});
+
+export const crmPipelineRecordRoute = defineRoute({
+  id: 'companies-pipeline-record',
+  path: ':recordType/:recordId/:section?',
+  params: crmRecordParams,
+  state: crmRecordTrailSchema,
+  claim: crmRecordClaim,
+  toReference: crmRecordReference,
+});
+
+export const crmPipelineRoute = defineRoute({
+  id: 'companies-pipeline',
+  path: 'pipeline/:pipelineId',
+  params: crmPipelineParams,
+  state: crmRecordTrailSchema,
+  claim: ({ pipelineId }) => ({
+    namespace: 'block',
+    id: `pipeline:${pipelineId}`,
+  }),
+  toReference: ({ pipelineId }) => crmPipelineReference(pipelineId),
 });
 
 export const foldersRoute = defineRoute({

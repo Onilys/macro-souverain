@@ -10,11 +10,13 @@ There are no built-in company views or Board/List layout. Companies and People
 are plain soup lists with the shared pagination. Existing personal/team saved
 views stay in the toolbar's Views menu.
 
-The selected Customers tab is stored on the pane as `sN.crm.tab`. People uses
-`people`, a pipeline uses `pipeline:<uuid>`, a list uses `list:<uuid>`, and
-hidden companies use `hidden`. Companies is the default and omits the key.
-Choosing Companies, People, a pipeline, or a list updates that parameter.
-Browser Back and Forward restore the tab and close an open record.
+The selected Customers list is stored on the pane as `sN.crm.tab`. People uses
+`people`, a list uses `list:<uuid>`, and hidden companies use `hidden`.
+Companies is the default and omits the key. A pipeline has its own path,
+`/app/companies/pipeline/<uuid>`; older `sN.crm.tab=pipeline:<uuid>` URLs and
+shared `crmView` links that show a pipeline redirect there. Choosing Companies,
+People, a pipeline, or a list updates the URL, and browser Back and Forward
+restore it.
 
 Companies lists every visible company, grouped by Stage by default, with Owner,
 Revenue and Last Interaction columns. A Stage column is off by default; turn it
@@ -52,19 +54,46 @@ the full-frame list with the global **+ Company** action above the dock. People 
 strip. The embedded detail stack stays out of the mobile flow, so selecting a
 row navigates in place.
 
+Verify touch spacing with a nonzero top safe area (for example 47px): the CRM
+tab strip clears the status bar, while standalone company/contact Overview and
+Team, Emails, Files, Tasks, and Calls clear both the status bar and floating
+record navigation. Switch tabs and check the first title/search control is
+visible and tappable. Scroll to the end to check content clears the dock. Repeat
+at tablet width; desktop retains its usual spacing. An embedded record header
+consumes the top inset once, so its content must not add it again.
+
+The account-free browser layout regression is
+`bunx playwright test --config src/features/crm/browser-test/playwright.config.ts mobile-insets.browser.e2e.ts`
+from `apps/web`. It mounts the production layout components with local content
+at phone, tablet, and desktop sizes; authenticated route and native-device
+checks remain separate.
+
 On desktop, clicking a company or a person in the list (or pressing Enter on a
 focused row) opens its details inside the CRM workspace, keeping the left
-navigation visible. The top breadcrumb reads `<Companies, People or list> >
-<record>`; click the first segment to return with the same filters and list
-scroll position. Selecting another sidebar entry closes the details. Shift-click
-still opens the record in a separate split. Direct company and contact links use
-the standalone pages.
-Each record opened from the details appends a breadcrumb: a contact from a
-company's Team tab gives `Companies > <company> > <contact>`, and a person's
-Company link gives `People > <contact> > <company>`. Opening a record already in
-the trail (such as the contact's own company from `Companies > <company> >
-<contact>`) returns to it instead of adding a duplicate. The CRM sidebar stays
-visible throughout.
+navigation visible. Each record has its own URL: `/app/companies/company/<uuid>`
+or `/app/companies/contact/<uuid>`, keeping the list's `sN.crm.tab`, and
+`/app/companies/pipeline/<uuid>/company/<uuid>` (or `/contact/<uuid>`) for a
+record opened from a pipeline. A record tab other than Overview adds its name,
+as in `/app/companies/company/<uuid>/team`. Browser Back returns to the list
+with the same filters and list scroll position, and Forward reopens the record.
+The top breadcrumb reads `<Companies, People, list or pipeline> > <record>`;
+click the first segment to return the same way. Selecting another sidebar entry
+shows that list in place of the details; selecting the record's own list returns
+to it. Shift-click still opens the record in a separate split, also inside
+Customers. On desktop, every other way to a company or contact opens it inside
+Customers too: `/app/company/<uuid>` and `/app/contact/<uuid>` links (which
+**Copy link** still copies), `@` mentions, search and Command-K results,
+favorites, and CRM discussion notifications. A contact opens under People, so its
+breadcrumb returns to People. A split already showing that record is brought
+forward instead. Touch devices keep the standalone pages, and a
+Customers record URL opened on touch redirects to its standalone page.
+Each record opened from the details appends a breadcrumb and a history entry: a
+contact from a company's Team tab gives `Companies > <company> > <contact>`, and
+a person's Company link gives `People > <contact> > <company>`. Opening a record
+already in the trail (such as the contact's own company from `Companies >
+<company> > <contact>`) returns to it instead of adding a duplicate. Back and
+Forward restore the trail; a reloaded or shared record URL shows only `<list> >
+<record>`. The CRM sidebar stays visible throughout.
 Company and contact headers have `Copy link` beside the side-panel toggle.
 Their information panel starts closed and opens as a floating bubble at every
 width, without shrinking the record content. Click outside the bubble or use
@@ -150,9 +179,12 @@ drops out.
 Company and contact pages have a **Discussion** section built from the same
 message conversation as a document's Discussion: threaded replies, reactions,
 attachments, and edit/delete from the message menu. `@` suggests the team's
-members and agents. A message's copied link is the standalone record URL
-with `comment_id`; opening it, or a CRM discussion notification, scrolls to and
-highlights that message. Deleting a thread's first comment deletes the thread.
+members and agents. A message's copied link is the record URL
+`/app/company/<uuid>?comment_id=<message>` (or `/app/contact/…`); opening it, or
+a CRM discussion notification, scrolls to and highlights that message. On
+desktop the record opens in Customers with the message in the pane search
+`sN.crm-record.commentId`, which the next record or list you open drops.
+Deleting a thread's first comment deletes the thread.
 
 Company selection actions **Set owner** and **Set revenue** remain available
 while team deal-stage definitions are loading. **Set stage** waits for the active
@@ -186,8 +218,8 @@ Pick people or channels and an access level, and the message carries the pipelin
 The **People** list changes or removes their access. A teammate who receives a private
 pipeline sees it in their Customers sidebar. Only the owner sees **Team access**:
 choose **Edit** to share with the team or **None** to make the pipeline private.
-Viewers see only **Copy Link**. **Copy Link** copies a CRM link that opens this pipeline for
-anyone who has access, including when followed inside a split already showing Customers;
+Viewers see only **Copy Link**. **Copy Link** copies the pipeline's
+`/app/companies/pipeline/<uuid>` URL, which opens it for anyone who has access;
 pasted into an editor it becomes a pipeline mention (see
 [CRM pipeline mentions](documents.md#crm-pipeline-mentions)). On mobile, team
 access is in the **Team** tab.

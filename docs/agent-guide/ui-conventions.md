@@ -9,6 +9,13 @@ keeps loaded items visible. Wait for real rows before navigating or selecting.
 
 ## Top bars
 
+On touch devices, check top bars with a nonzero safe area as well as at phone
+and tablet widths. Collection headers clear the pane's full top content inset:
+safe area only in composable CRM/Tasks/Drive, plus the floating split header in
+Reviews. Native project detail navigation also clears the safe area, with its
+content directly below it. Content nested below an in-flow header must not add
+the same inset again. See the [mobile layout rule](../../.agents/rules/web/mobile.md#layout-and-chrome).
+
 Low-emphasis right-aligned split-header actions (including Calendar's touch/preview
 New event and Channel's idle Call and Ask Macro) are borderless with a rounded-xl
 background on hover. Emphasized variants retain their treatment, including an

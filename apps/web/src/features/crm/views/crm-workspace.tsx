@@ -32,7 +32,6 @@ import {
   createEffect,
   createSignal,
   type JSX,
-  on,
   onCleanup,
   onMount,
   Show,
@@ -46,12 +45,13 @@ import { PipelineSidebar } from '../components/pipeline-sidebar';
 import { useCrmContext } from '../context/crm-context';
 import { useCrmWorkspace } from '../context/workspace-context';
 import { CRM_RECORDS, pipelineIdOfTab, pipelineTab } from '../core/navigation';
+import type { CrmRecordRef } from '../core/record';
 import { createCrmExportLoader } from '../primitives/export-source';
 import { useApplyCrmView } from './apply-view';
 import { CrmExport } from './export-companies';
 import { CrmImport } from './import-companies';
 import { PipelineView } from './pipeline';
-import { CrmRecordDetail, type CrmRecordRef } from './record-detail';
+import { CrmRecordDetail } from './record-detail';
 import { CompanyDisplayMenu, CompanyViewsMenu } from './saved-views-menu';
 import {
   useCrmLists,
@@ -214,25 +214,16 @@ export function CrmWorkspaceView(props: {
     openCreateContact: openCreateContactModal,
     exportCompanies: fetchCrmExportCompanies,
     PipelineEditor,
-    copyViewLink,
+    copyPipelineLink,
   } = useCrmContext();
   const view = useCrmWorkspace();
   const { openWithSplit } = useCrmContext().createNavigation();
-  const [selectedRecord, setSelectedRecord] = createSignal<CrmRecordRef>();
-  const closeRecord = () => setSelectedRecord(undefined);
-  // Back and Forward change the tab without going through sidebar navigation.
-  createEffect(
-    on(
-      view.activeTab,
-      () => {
-        closeRecord();
-      },
-      { defer: true }
-    )
-  );
+  const records = view.host.record.records;
+  const recordOpen = () => records().length > 0;
   const showRecord = (record: CrmRecordRef) => {
+    // The list unmounts; its entry keeps the scroll position for the return.
     view.host.captureEntryState();
-    setSelectedRecord(record);
+    view.host.record.open([record]);
   };
   const openRecord = (entity: EntityData) => {
     const type = isCrmCompanyEntity(entity)
@@ -274,20 +265,11 @@ export function CrmWorkspaceView(props: {
     pipelinesEnabled() ? pipelineIdOfTab(view.activeTab()) : undefined;
   const activePipeline = () =>
     pipelines.pipelines().find((pipeline) => pipeline.id === pipelineId());
+  // Another tab's list replaces an open record; the same tab returns to its list.
   const selectPipeline = (id: string) => {
-    closeRecord();
-    view.setActiveTab(pipelineTab(id));
+    if (pipelineTab(id) === view.activeTab()) view.host.record.close();
+    else view.setActiveTab(pipelineTab(id));
   };
-  // The first request already chose the initial tab.
-  createEffect(
-    on(
-      view.host.pipelineRequest,
-      (request) => {
-        if (request) selectPipeline(request.pipelineId);
-      },
-      { defer: true }
-    )
-  );
   const listsEnabled = useCrmContext().listsEnabled();
   const lists = useCrmLists(() => (listsEnabled() ? teamId() : undefined));
   const [editing, setEditing] = createSignal<{
@@ -334,7 +316,8 @@ export function CrmWorkspaceView(props: {
     'Companies';
   const navigate = (id: string) => {
     if (!listsEnabled() && id.startsWith('list:')) id = 'active';
-    closeRecord();
+    if (id !== 'people' && !id.startsWith('list:')) id = 'active';
+    if (id === active()) view.host.record.close();
     if (id === 'people') {
       // Re-applying would clear a search the People search bar still shows.
       if (peopleActive()) return;
@@ -347,7 +330,6 @@ export function CrmWorkspaceView(props: {
       });
       return;
     }
-    if (!id.startsWith('list:')) id = 'active';
     const preset = getViewPreset('companies');
     const list = lists.lists().find((list) => `list:${list.id}` === id);
     const filters = structuredClone(preset?.filters ?? {});
@@ -423,7 +405,7 @@ export function CrmWorkspaceView(props: {
         </Suspense>
       </ViewShell.Aside>
       <ViewShell.Main>
-        <Show when={isTouchDevice() && !selectedRecord()}>
+        <Show when={isTouchDevice() && !recordOpen()}>
           <ViewShell.Header>
             <CrmMobileTabs
               active={activeRecord()}
@@ -449,22 +431,24 @@ export function CrmWorkspaceView(props: {
             </Suspense>
           </Show>
         </Show>
-        <Show when={selectedRecord()} keyed>
-          {(record) => (
-            <CrmRecordDetail
-              record={record}
-              viewName={activePipeline()?.name ?? title()}
-              onClose={closeRecord}
-              onOpenPipeline={selectPipeline}
-              navigation={
-                <NavigationToggle onExpand={() => setCollapsed(false)}>
-                  <Suspense>{sidebar()}</Suspense>
-                </NavigationToggle>
-              }
-            />
-          )}
+        <Show when={recordOpen()}>
+          <CrmRecordDetail
+            records={records()}
+            section={view.host.record.section()}
+            commentTarget={view.host.record.commentTarget()}
+            viewName={activePipeline()?.name ?? title()}
+            onOpen={view.host.record.open}
+            onSectionChange={view.host.record.setSection}
+            onClose={view.host.record.close}
+            onOpenPipeline={selectPipeline}
+            navigation={
+              <NavigationToggle onExpand={() => setCollapsed(false)}>
+                <Suspense>{sidebar()}</Suspense>
+              </NavigationToggle>
+            }
+          />
         </Show>
-        <Show when={!selectedRecord() && pipelineId()} keyed>
+        <Show when={!recordOpen() && pipelineId()} keyed>
           {(id) => (
             <Show when={activePipeline()}>
               {(pipeline) => (
@@ -477,12 +461,7 @@ export function CrmWorkspaceView(props: {
                   }}
                   Sharing={useCrmContext().PipelineSharing}
                   Editor={PipelineEditor}
-                  onCopyLink={() =>
-                    copyViewLink({
-                      kind: 'crm',
-                      activeTab: pipelineTab(id),
-                    })
-                  }
+                  onCopyLink={() => copyPipelineLink(id)}
                   onTrashed={() => navigate('active')}
                   onOpenRecord={openPipelineRecord}
                   navigation={
@@ -511,7 +490,7 @@ export function CrmWorkspaceView(props: {
             </Button>
           </div>
         </Show>
-        <Show when={!selectedRecord() && !pipelineId()}>
+        <Show when={!recordOpen() && !pipelineId()}>
           <Show when={!isTouchDevice() || peopleActive()}>
             <Show when={!isTouchDevice()}>
               <div class="flex h-12 shrink-0 items-center gap-3 px-4">

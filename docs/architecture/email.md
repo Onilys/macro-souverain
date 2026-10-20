@@ -507,6 +507,11 @@ independent of GraphQL normalized-cache availability and read transport.
 `send-queue.ts` freezes approval and reserves the draft in IndexedDB before
 returning local acceptance. `outbox-session.ts` runs dispatch and recovery from
 the authenticated app shell; mounted composers only observe them.
+The general GraphQL queue owns draft autosaves and other ordinary mutations only;
+it has no send catalog or Send/Cancel replacement protocol. The former cache-queue
+send format was used only in local development and tests, so there is no deployed
+format to migrate. Unsupported journal records retain their contents and
+recognizable draft reservations for recovery.
 
 `email-send-dispatcher.ts` submits immediately online through the fetch-only
 GraphQL client in `service-storage/email-send.ts`. Per-attempt database leases
@@ -549,7 +554,9 @@ from recreating the submitted draft. Versioned approval fingerprints include the
 generation, frozen signature and Send Later deadline. An explicit new Send after
 Undo uses the returned generation and a fresh attempt ID. Draft reads prefer that
 newer working-copy generation over stale accepted cache records; an equal or newer
-server delivery generation still wins.
+server delivery generation still wins. REST parsed-message reads expose the same
+generation alongside message content; SDK draft actions carry that version, and
+attachment handles retain the generation captured at reservation.
 
 The status panel combines device intents with actor/inbox-authorized, cursor-paged
 `pendingEmailSends`, with batched message hydration. Server listing grants observation and cancellation authority,
@@ -564,14 +571,3 @@ tabs, sign-out, Undo, stale writes, Send Later,
 completed attachments, both providers, and server sends from other devices before
 release. The separate cache-bootstrap recovery hotfix remains useful
 for draft synchronization and does not determine send availability.
-
-### Send persistence ownership
-
-The email working-copy IndexedDB database owns frozen sends, draft reservations,
-submission leases, cancellation, and atomic draft restoration. The general
-GraphQL queue owns draft autosaves and other ordinary mutations only. It has no
-send catalog or Send/Cancel replacement protocol. Composers observe the email
-journal; the authenticated app-shell dispatcher performs submission and recovery.
-The former cache-queue send format was used only in local development and tests,
-so there is no deployed format to migrate. Unsupported journal records retain
-their contents and recognizable draft reservations for recovery.

@@ -113,7 +113,7 @@ where
         info.instructions = Some(format!(
             "This server provides tools for interacting with a user's Macro workspace. \
              Use ContentSearch and NameSearch to find entities. \
-             Use ReadContent, ReadMetadata, and ReadThread to read them. \
+             Use ReadContent and ReadMetadata for documents, ReadAgentSession for agent-session conversations. \
              Use ReadChannelMessages, ReadChannelThread, and ReadChannelMessageContext \
              to read channel messages and their attachments. Channel image attachments \
              include inline images when available; image and video attachments include \

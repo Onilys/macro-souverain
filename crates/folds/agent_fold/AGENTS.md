@@ -56,7 +56,9 @@ to the browser via `inbound/wasm`.
 - `cargo test -p agent_fold`.
 - After changing `inbound/wire.rs` or exported `domain/model.rs` types:
   `cargo run -p agent_fold --bin export_types` and commit the regenerated
-  TypeScript.
+  TypeScript: the web client's copy and the SDK's
+  `packages/sdk/generated/agent-fold/`, which types
+  `AgentSession.foldedLog()`.
 
 ## Gotchas
 

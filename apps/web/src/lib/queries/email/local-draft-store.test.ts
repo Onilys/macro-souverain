@@ -69,6 +69,40 @@ describe('draft connection recovery', () => {
       store.save(session, snapshot('Still locked', 1))
     ).rejects.toThrow('Cancel and restore');
   });
+  it('waits for rollback and preserves the underlying request error', async () => {
+    const report = vi.fn();
+    const store = createLocalDraftStore(crypto.randomUUID(), report);
+    stores.push(store);
+    const session = await store.activate('owner');
+    await store.save(session, snapshot());
+    let aborted = false;
+    vi.spyOn(IDBObjectStore.prototype, 'get').mockImplementationOnce(function (
+      this: IDBObjectStore
+    ) {
+      this.transaction.addEventListener('abort', () => {
+        aborted = true;
+      });
+      // The session key already exists. The request's ConstraintError bubbles
+      // before IDBTransaction.error is populated.
+      return this.add('duplicate', 'session');
+    });
+    await expect(
+      store.save(session, snapshot('Rejected edit', 1))
+    ).rejects.toMatchObject({
+      name: 'ConstraintError',
+    });
+    expect(aborted).toBe(true);
+    expect(report).toHaveBeenCalledWith({
+      type: 'failed',
+      error: expect.objectContaining({ name: 'ConstraintError' }),
+    });
+    expect(await store.read(session, 'local')).toMatchObject({
+      revision: 1,
+      content: { subject: 'Keep this draft' },
+    });
+    await store.save(session, snapshot('Later edit', 1));
+    expect(await store.read(session, 'local')).toMatchObject({ revision: 2 });
+  });
 
   it.each(['closed', 'terminated'])(
     'saves the latest edit and continues server autosave after a connection is %s',

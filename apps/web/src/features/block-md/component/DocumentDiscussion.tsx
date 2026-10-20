@@ -6,7 +6,7 @@ import {
   useMessageLink,
   useMessageRootsQuery,
 } from '@queries/messages/document-messages';
-import { Show } from 'solid-js';
+import { Match, Switch } from 'solid-js';
 import { useMarkdownDocument } from '../context/markdown-document-context';
 
 /**
@@ -22,14 +22,14 @@ type DocumentDiscussionProps = {
 export function DocumentDiscussion(props: DocumentDiscussionProps) {
   const authenticated = useIsAuthenticated();
   return (
-    <Show
-      when={authenticated() === true}
-      fallback={
+    <Switch>
+      <Match when={authenticated() === true}>
+        <AuthenticatedDocumentDiscussion {...props} />
+      </Match>
+      <Match when={authenticated() === false}>
         <p class="mt-3 text-xs text-ink-muted">Sign in to view comments.</p>
-      }
-    >
-      <AuthenticatedDocumentDiscussion {...props} />
-    </Show>
+      </Match>
+    </Switch>
   );
 }
 

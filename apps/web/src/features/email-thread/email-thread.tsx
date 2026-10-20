@@ -31,6 +31,7 @@ import type {
   EmailThreadContext,
   EmailThreadSource,
 } from './context/email-thread-context';
+import type { EmailThreadOrganizationStatus } from './context/email-thread-view-context';
 import { EmailThreadOperations } from './email-thread-operations';
 import { createOptimisticThreadSend } from './primitives/optimistic-send';
 import { createThreadActionAdapter } from './thread-action-adapter';
@@ -89,10 +90,11 @@ export function EmailThread(props: EmailThreadProps) {
     compose,
     composeHost: createEmailComposeHost(),
     rendering: {
-      renderOrganizationStatus: () => (
+      renderOrganizationStatus: (status: EmailThreadOrganizationStatus) => (
         <EmailThreadOperations
           threadId={source.id()}
           enabled={source.thread()?.access_level === 'owner'}
+          announceRead={status.announceRead()}
         />
       ),
       renderOperation: (message: EmailMessage) =>

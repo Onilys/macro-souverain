@@ -139,12 +139,16 @@ export class EmailMessage extends MacroEntity<EmailMessageData> {
   async transferDraft(
     request: TransferDraftRequest,
   ): Promise<TransferDraftResponse> {
-    const link = await this.link();
+    const draft = await this.detail.get();
     return this.mutate((c) =>
       c.email.transferDraft({
         path: { id: this.id },
-        body: request,
-        headers: { 'X-Email-Link-Id': link.id },
+        body: {
+          ...request,
+          draft_generation:
+            request.draft_generation ?? draft.draft_generation ?? 0,
+        },
+        headers: { 'X-Email-Link-Id': draft.link_id },
       }),
     );
   }

@@ -5,24 +5,55 @@ single Vite build that runs identically for web, desktop, iOS, and Android — t
 platform is detected at runtime via `getPlatform()` rather than baked into the
 bundle.
 
-## macOS app icon
+## Desktop app icons
 
-The macOS icon reuses the iOS marketing artwork through the Icon Composer source
-in `icons/macos/Macro.icon`. The macOS-only Tauri configuration bundles its
-compiled `Assets.car` and `Macro.icns`, and merges the generated icon names into
-Info.plist. Tahoe uses the icon composition; older macOS uses the generated
-fallback. The mobile artwork has no baked-in rounded tile or transparent border
-for macOS to place inside another enclosure.
+Desktop icons carry the same ALPHA badge as the Android app. The macOS icon uses
+the badged artwork in the Icon Composer source `icons/macos/Macro.icon`; the iOS
+app is unbadged, so this artwork is no longer copied from it. The macOS-only
+Tauri configuration bundles its compiled `Assets.car` and `Macro.icns`, and
+merges the generated icon names into Info.plist. Tahoe uses the icon
+composition; older macOS uses the generated fallback. The artwork has no
+baked-in rounded tile or transparent border for macOS to place inside another
+enclosure.
 
-After changing the mobile artwork or composition, regenerate with Xcode 26.2:
+After changing the macOS artwork or composition, regenerate with Xcode 26.2:
 
 ```sh
 bash icons/macos/regenerate.sh
 ```
 
+The Linux and Windows icons composite the badge from that artwork onto the
+unbadged tile in `icons/app-icon.png`. Regenerate them after either changes:
+
+```sh
+bash icons/regenerate.sh
+```
+
 Commit the source and generated files together. They are checked in so desktop
 release builds do not need Icon Composer. Verify Finder and Dock rendering at
 both 1× and 2× display scale on Tahoe, and on a pre-Tahoe Mac.
+
+## Diagnosing unexpected WebView reloads
+
+Each frontend startup emits `native_webview_started` to PostHog and a
+`native.webview.start` OTel span. The event records the loaded HTML bundle build,
+native version and launch ID, and navigation type. Native diagnostics retain
+WebContent termination counts/timestamps and bundle-update reload dispatch
+counts/last source across WebView replacements. Compare counters within the same
+native launch: an increased termination count identifies WebKit process recovery;
+an increased updater count identifies an app-requested update reload attempt.
+Dispatch does not prove the JavaScript reload completed. A new native launch ID
+means the host process restarted. Missing counters on an older binary mean
+unknown, not zero. The properties are also attached to subsequent PostHog events.
+Termination reporting is available only on iOS and macOS. On other platforms,
+startup events mark it unavailable and omit termination counts/timestamps even
+when the native snapshot includes an unused zero-valued counter.
+
+The Apple termination callback preserves Tauri's default reload behavior and adds
+the native evidence before reloading. It does not establish why WebKit terminated
+(for example, memory pressure versus a crash); device crash/termination reports
+are needed for that distinction. Native counters require a full app release,
+while the frontend remains compatible with older binaries.
 
 ## Running in development
 
@@ -207,6 +238,18 @@ sender. Before publishing this frontend in a desktop OTA archive, set
 `MIN_NATIVE_BUILD` to the first native release containing the command. Older
 binaries show an update-required notice instead of falling back to the legacy
 notification API, which macOS rejects after UserNotifications has been used.
+
+macOS notification activation additionally requires the retained
+UserNotifications response delegate, installed before the event loop starts.
+`send_macos_notification` embeds the optional `notificationId` in each unique
+request identifier. A click restores/focuses the main window and sends the
+destination through the existing buffered deep-link bridge. The frontend queues
+it until notification navigation is ready, including on cold launch. Dismissal
+does not navigate. Ship this native change with the frontend and raise the macOS
+`MIN_NATIVE_BUILD` to that release before publishing an OTA archive; older native
+builds ignore the added ID and cannot navigate. Previously delivered alerts have
+no destination to recover. Verify the [notification walkthrough](../../../../docs/agent-guide/notifications.md)
+in an installed macOS bundle before release.
 
 Linux notification activation requires `send_linux_notification` and
 `close_linux_notification`. Ship a full native AppImage containing these commands;

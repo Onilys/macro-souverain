@@ -1,4 +1,4 @@
-import { createContext, type JSX, useContext } from 'solid-js';
+import { type Accessor, createContext, type JSX, useContext } from 'solid-js';
 import type {
   EmailComposeContext,
   EmailComposeHost,
@@ -10,6 +10,11 @@ import type {
 } from '../../email-message/core/email-message';
 import type { EmailThreadContext } from './email-thread-context';
 
+export interface EmailThreadOrganizationStatus {
+  /** True when the user, not the opening of the thread, asked for its mark-as-read. */
+  announceRead: Accessor<boolean>;
+}
+
 export interface EmailThreadViewContext {
   thread: EmailThreadContext;
   copySubject?: (subject: string) => void | boolean | Promise<void | boolean>;
@@ -17,7 +22,9 @@ export interface EmailThreadViewContext {
   composeHost?: EmailComposeHost;
   rendering: {
     renderTags?: () => JSX.Element;
-    renderOrganizationStatus?: () => JSX.Element;
+    renderOrganizationStatus?: (
+      status: EmailThreadOrganizationStatus
+    ) => JSX.Element;
     renderInvitation?: (
       message: EmailMessage,
       invitation: CalendarInvitation

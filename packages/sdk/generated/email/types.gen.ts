@@ -1506,6 +1506,10 @@ export type ParsedMessage = {
     body_parsed?: string | null;
     cc: Array<ContactInfo>;
     db_id: string;
+    /**
+     * Draft edit generation captured with this message snapshot.
+     */
+    draft_generation?: number;
     from?: null | ContactInfo;
     internal_date_ts?: string | null;
     labels: Array<LabelInfo>;

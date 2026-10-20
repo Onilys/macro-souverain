@@ -83,7 +83,9 @@ pub use channel_media::build_channel_media_upload_tool_context_test;
 pub use channel_media::{
     ToolChannelMediaUploadToolContext, build_channel_media_upload_tool_context,
 };
+mod agent_sessions;
 mod coding_agents;
+pub use agent_sessions::{ToolReadAgentSessionContext, build_read_agent_session_context};
 pub use coding_agents::{ToolCodingAgentToolContext, build_coding_agent_tool_context};
 mod images;
 #[cfg(any(test, feature = "test-support"))]
@@ -1371,19 +1373,17 @@ pub type ToolProjectToolContext = ProjectToolContext<
     ToolProjectService,
     ToolEntityAccessService,
     ToolDocumentService,
-    ToolChatService,
     ToolUserEmailService,
 >;
 
 /// Build the project tool context from shared domain and access services.
-/// The move services must be the same instances the document, chat, and
+/// The move services must be the same instances the document and
 /// email tool contexts run on so moves share their side-effect wiring.
 pub fn build_project_tool_context(
     pool: sqlx::PgPool,
     macro_event_broker: ToolEventBroker,
     entity_access_service: Arc<ToolEntityAccessService>,
     document_service: Arc<ToolDocumentService>,
-    chat_service: Arc<ToolChatService>,
     email_service: Arc<ToolUserEmailService>,
 ) -> ToolProjectToolContext {
     let project_service = projects::domain::service::ProjectServiceImpl::new(
@@ -1405,7 +1405,6 @@ pub fn build_project_tool_context(
         Arc::new(project_service),
         entity_access_service,
         document_service,
-        chat_service,
         email_service,
     )
 }
@@ -1829,6 +1828,8 @@ pub struct ToolServiceContext {
     pub channel_media_upload_tool_context: ToolChannelMediaUploadToolContext,
     pub bot_tool_context: ToolBotToolContext,
     pub coding_agent_tool_context: ToolCodingAgentToolContext,
+    /// Authorized agent-session conversation reads.
+    pub read_agent_session_context: ToolReadAgentSessionContext,
     pub project_tool_context: ToolProjectToolContext,
     /// Favorite toggles; the same favorites back `soup_service`'s favorites filter.
     pub favorites_tool_context: ToolFavoritesToolContext,

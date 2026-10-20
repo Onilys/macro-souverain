@@ -6375,6 +6375,11 @@
             "type": "string",
             "format": "uuid"
           },
+          "draft_generation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Draft edit generation captured with this message snapshot."
+          },
           "from": {
             "oneOf": [
               {

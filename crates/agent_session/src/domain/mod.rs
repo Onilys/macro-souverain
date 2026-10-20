@@ -15,6 +15,7 @@ pub mod name_generation;
 pub mod ports;
 pub mod pull_request;
 pub mod pull_request_links;
+pub mod read;
 mod sandbox_size;
 pub mod search;
 pub mod service;
@@ -45,3 +46,6 @@ pub mod warm;
 
 /// Visibility policy for standalone session lists.
 pub mod list_visibility;
+
+/// User-scoped AI session actions.
+pub mod tool_actions;

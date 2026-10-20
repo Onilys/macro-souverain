@@ -41,6 +41,8 @@ cleanup, and backfill.
 - `cargo test -p email_db_client` (`SQLX_OFFLINE` unset; requires local
   MacroDB — `just setup_macrodb`).
 
+Parsed message responses expose the draft generation captured in the same SQL snapshot as their content.
+
 ## Gotchas
 
 - Message deletion may return `Deferred` while an accepted send owns the row; reconcile retained deletions under the message lock and compare both provider identity and draft generation.
