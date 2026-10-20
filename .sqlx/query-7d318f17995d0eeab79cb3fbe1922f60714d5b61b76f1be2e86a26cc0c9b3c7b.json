@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO document_sub_type (document_id, sub_type)\n        VALUES ($1, $2)\n        ON CONFLICT (document_id) DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        {
+          "Custom": {
+            "name": "document_sub_type_value",
+            "kind": {
+              "Enum": [
+                "task",
+                "snippet",
+                "skill",
+                "initiative_description"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7d318f17995d0eeab79cb3fbe1922f60714d5b61b76f1be2e86a26cc0c9b3c7b"
+}

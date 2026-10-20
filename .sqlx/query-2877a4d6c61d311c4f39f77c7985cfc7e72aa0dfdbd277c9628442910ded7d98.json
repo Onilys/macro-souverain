@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE entity_properties AS document_row\n            SET entity_type = 'TASK', updated_at = NOW()\n            WHERE document_row.entity_id = $1\n              AND document_row.entity_type = 'DOCUMENT'\n              AND NOT EXISTS (\n                SELECT 1 FROM entity_properties AS task_row\n                WHERE task_row.entity_id = $1\n                  AND task_row.entity_type = 'TASK'\n                  AND task_row.property_definition_id = document_row.property_definition_id\n              )\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2877a4d6c61d311c4f39f77c7985cfc7e72aa0dfdbd277c9628442910ded7d98"
+}
