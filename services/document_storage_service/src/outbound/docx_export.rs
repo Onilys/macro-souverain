@@ -4,6 +4,7 @@ use std::io::{Cursor, Write};
 
 use documents_hex::domain::docx_export::DocxExportStore;
 use model::document::BomPart;
+use s3_key::document_key_url_path;
 use sha2::{Digest, Sha256};
 
 use crate::api::context::ApiContext;
@@ -82,7 +83,7 @@ impl DocxExportStore for ApiContext {
             &self
                 .config
                 .document_storage_service_cloudfront_distribution_url,
-            &urlencoding::encode(&key),
+            &document_key_url_path(&key),
             &signed_options,
         )?)
     }
