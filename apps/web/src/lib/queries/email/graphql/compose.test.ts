@@ -7,11 +7,7 @@ vi.mock('@service-storage/graphql-soup', () => ({
   getGraphqlSoupClient: getClient,
 }));
 
-import {
-  composeDraftInput,
-  saveEmailComposeDraft,
-  sendEmailComposeMessage,
-} from './compose';
+import { composeDraftInput, saveEmailComposeDraft } from './compose';
 
 const input = {
   subject: 'Resident',
@@ -21,7 +17,7 @@ const input = {
 };
 
 describe('GraphQL compose transport', () => {
-  it('carries sender and stable client handles in both save and online send', async () => {
+  it('carries sender and stable client handles when saving drafts', async () => {
     const operations: Operation[] = [];
     const client = createClient({
       url: 'https://unused/graphql',
@@ -39,12 +35,6 @@ describe('GraphQL compose transport', () => {
                   saveEmailDraft: {
                     draftId: 'server-message',
                     draft: { threadId: 'server-thread', linkId: 'delegated' },
-                  },
-                  sendEmailComposeMessage: {
-                    messageId: 'server-message',
-                    threadId: 'server-thread',
-                    linkId: 'delegated',
-                    sendTime: null,
                   },
                 },
               };
@@ -65,36 +55,12 @@ describe('GraphQL compose transport', () => {
       threadId: 'server-thread',
       inboxId: 'delegated',
     });
-    expect(
-      await sendEmailComposeMessage({
-        message: { ...input, include_signature: false },
-        inboxId: 'delegated',
-        clientHandles: handles,
-      })
-    ).toEqual({
-      draftId: 'server-message',
-      threadId: 'server-thread',
-      inboxId: 'delegated',
-    });
     expect(operations[0].variables?.input).toMatchObject({
       draftId: 'client-message',
       threadDbId: 'client-thread',
       senderEmail: 'resident@example.com',
       linkId: 'delegated',
     });
-    expect(operations[1].variables?.input).toMatchObject({
-      draft: operations[0].variables?.input,
-      includeSignature: false,
-    });
-    expect(operations[1].query.definitions).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          kind: 'OperationDefinition',
-          name: expect.objectContaining({ value: 'SendEmailComposeMessage' }),
-        }),
-      ])
-    );
-    expect(operations[1].context.optimistic).toBeUndefined();
   });
   it('refuses to send without a stable draft identity', () => {
     expect(() => composeDraftInput(input)).toThrow(

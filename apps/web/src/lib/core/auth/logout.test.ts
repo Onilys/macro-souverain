@@ -30,7 +30,6 @@ vi.mock('@queries/email/local-drafts', () => ({
   listLocalDrafts: vi.fn(async () => []),
 }));
 vi.mock('@queries/email/send-queue', () => ({
-  emailSendQueueSelected: () => true,
   readEmailSendIntents: vi.fn(async () => []),
   settledSendAttempt: () => ({ status: 'ACCEPTED' }),
 }));

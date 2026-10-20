@@ -22,8 +22,6 @@ const policies = {
   UpdateInitiative: 'resolver',
   DeleteEntityProperty: 'resolver',
   SaveEmailDraft: 'custom: draft identity and thread links',
-  SendEmailComposeMessage:
-    'authoritative: online-only delivery; success requires server validation and enqueue',
   DeleteEmailDraft: 'custom: draft removal and thread links',
   SendEmailMessage:
     'custom: frozen send attempt, draft identity and thread links',

@@ -17,7 +17,6 @@ import {
 } from '@queries/email/local-drafts';
 import { setEmailOutboxSession } from '@queries/email/outbox-session';
 import {
-  emailSendQueueSelected,
   readEmailSendIntents,
   settledSendAttempt,
 } from '@queries/email/send-queue';
@@ -91,7 +90,7 @@ export function useLogout() {
         await flushLocalDrafts();
         const [drafts, sends] = await Promise.all([
           listLocalDrafts(),
-          emailSendQueueSelected() ? readEmailSendIntents() : [],
+          readEmailSendIntents(),
         ]);
         return { drafts, sends };
       };

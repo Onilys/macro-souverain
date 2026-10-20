@@ -27,14 +27,6 @@ query EmailSendAttempt($input: EmailSendAttemptInput!) {
   }
 }
 
-mutation SendEmailComposeMessage($input: SendEmailMessageInput!) {
-  sendEmailComposeMessage: sendEmailMessage(input: $input) {
-    messageId
-    threadId
-    linkId
-    sendTime
-  }
-}
 query PendingEmailSends($after: String) {
   user {
     id

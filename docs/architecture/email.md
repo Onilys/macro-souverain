@@ -154,9 +154,9 @@ The compose controllers now assemble these smaller responsibilities:
 | Module | Responsibility and boundary |
 | --- | --- |
 | `attachment-persistence.ts` | Upload/remove operations and completion tracking. Receives attachment state and three transport capabilities. A saved attachment ID does not mean its content upload has finished; every save waits for outstanding uploads. |
-| `email-send-schedule.ts` | Confirmed send time, pending changes, unscheduling and archive feedback. Independent outbox Send Later freezes its deadline in the send intent; legacy scheduling saves first. Cancellation only unlocks editing after confirmation. |
-| `draft-session.ts` / `draft-persistence.ts` | Shared draft identity, queued-write status, rejection policy, and save/delete ordering. Server identity and a committed latest save are separate facts; REST send, schedule, and uploads wait for a committed save. |
-| `send-readiness.ts` | Send preconditions for the selected transport. Independent outbox admission allows offline delivery with complete attachment references; legacy REST requires an online, confirmed server draft. Both reject unfinished uploads. |
+| `email-send-schedule.ts` | Confirmed send time, pending changes, unscheduling and archive feedback. Send Later freezes its deadline in the send intent; updating an existing legacy schedule saves first. Cancellation only unlocks editing after confirmation. |
+| `draft-session.ts` / `draft-persistence.ts` | Shared draft identity, queued-write status, rejection policy, and save/delete ordering. Server identity and a committed latest save are separate facts; uploads and updates to existing legacy schedules wait for a committed save. |
+| `send-readiness.ts` | Outbox admission allows offline delivery with complete attachment references and rejects unfinished uploads. |
 | `draft-autosave.ts` | One debounce and serialized write queue used by reply and standalone compose. Captures editor values before queueing, flushes pending edits on disposal, and exposes cancellation and completion for send/discard. |
 | `reply-recipient-fields.ts` | Recipient field expansion, drag/drop and outside interaction. Receives values, a setter and a change callback; it knows nothing about saving or sending. |
 | `reply-composer-focus.ts` | Deferred editor/recipient focus and the forward focus guard. Receives DOM accessors and an editor `focus()` capability. Its timers, animation frames and event listeners end with its owner. |
@@ -502,7 +502,7 @@ boundaries and exclusive all-day ends without mounting a calendar grid.
 
 ## Independent send outbox
 
-`enable-email-outbox` selects a device email journal for Gmail and Outlook,
+All composer sends use a device email journal for Gmail and Outlook,
 independent of GraphQL normalized-cache availability and read transport.
 `send-queue.ts` freezes approval and reserves the draft in IndexedDB before
 returning local acceptance. `outbox-session.ts` runs dispatch and recovery from
@@ -556,11 +556,11 @@ The status panel combines device intents with actor/inbox-authorized, cursor-pag
 never automatic resubmission. Delivery state distinguishes local queueing,
 server acceptance, provider processing, sent, failed, and unconfirmed outcomes.
 
-Roll out schema/migrations and all generation-aware backend writers before
-enabling the default-off frontend flag. Old deployed writers do not enforce the
-new generation precondition. Turning the flag off stops new outbox admissions;
-already-approved intents still recover. Verify cache failure, offline/reload,
-lost HTTP response, concurrent tabs, sign-out, Undo, stale writes, Send Later,
+Deploy schema/migrations and all generation-aware backend writers before
+releasing this frontend. The outbox is unconditional; there is no feature flag or
+legacy send fallback. Old deployed writers do not enforce the new generation
+precondition. Verify cache failure, offline/reload, lost HTTP response, concurrent
+tabs, sign-out, Undo, stale writes, Send Later,
 completed attachments, both providers, and server sends from other devices before
-expanding rollout. The separate cache-bootstrap recovery hotfix remains useful
+release. The separate cache-bootstrap recovery hotfix remains useful
 for draft synchronization and does not determine send availability.

@@ -5,7 +5,6 @@ import {
   cancelEmailSendQueued,
   type EmailSendIntent,
   emailSendLocked,
-  emailSendQueueSelected,
   readEmailSendIntents,
   recoverEmailSendIntent,
   restoreCancelledEmailSend,
@@ -14,7 +13,6 @@ import {
 } from './send-queue';
 
 const mocks = vi.hoisted(() => ({
-  enabled: true,
   read: vi.fn(),
   persist: vi.fn(),
   local: vi.fn(),
@@ -27,10 +25,6 @@ const mocks = vi.hoisted(() => ({
   publish: vi.fn(),
   status: vi.fn(),
   save: vi.fn(),
-}));
-vi.mock('@core/constant/featureFlags', () => ({
-  enableEmailOutbox: 'outbox',
-  isFeatureEnabled: () => mocks.enabled,
 }));
 vi.mock('@service-storage/email-send', () => ({
   readEmailSendStatus: mocks.status,
@@ -85,7 +79,6 @@ const args = () => ({
 const persisted = () => mocks.persist.mock.calls[0][0] as EmailSendIntent;
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.enabled = true;
   mocks.read.mockResolvedValue([]);
   mocks.local.mockResolvedValue(undefined);
   mocks.capture.mockResolvedValue(undefined);
@@ -99,12 +92,6 @@ beforeEach(() => {
       revision: 1,
     },
   }));
-});
-it('selects independent delivery for both read transports using its own rollout', () => {
-  expect(emailSendQueueSelected('graphql')).toBe(true);
-  expect(emailSendQueueSelected('rest')).toBe(true);
-  mocks.enabled = false;
-  expect(emailSendQueueSelected('graphql')).toBe(false);
 });
 it('persists approval without contacting the network or normalized cache', async () => {
   const result = await sendEmailQueued({

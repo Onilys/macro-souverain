@@ -1,7 +1,3 @@
-import {
-  enableEmailOutbox,
-  isFeatureEnabled,
-} from '@core/constant/featureFlags';
 import { fireAndForget } from '@core/util/fireAndForget';
 import {
   cancelEmailSend,
@@ -22,7 +18,6 @@ let account: string | undefined;
 let generation = 0;
 let dispatcher: ReturnType<typeof createEmailSendDispatcher> | undefined;
 let retry: ReturnType<typeof setTimeout> | undefined;
-let retainedSends = false;
 let recovery: ReturnType<typeof createEmailSendRecovery> | undefined;
 
 /** Called by the authenticated app shell, not by individual email surfaces. */
@@ -35,20 +30,14 @@ export function setEmailOutboxSession(accountId: string | undefined): void {
   recovery?.dispose();
   recovery = undefined;
   dispatcher = undefined;
-  retainedSends = false;
-  setServerSendSession(
-    accountId,
-    () => retainedSends || isFeatureEnabled(enableEmailOutbox)
-  );
+  setServerSendSession(accountId);
   if (accountId) fireAndForget(start(accountId, current), 'email-outbox');
 }
 
 async function start(accountId: string, current: number) {
   let session: Awaited<ReturnType<typeof emailStorageSession>>;
-  let hasRetainedSends: boolean;
   try {
     session = await emailStorageSession();
-    hasRetainedSends = (await localDraftStore.sends(session)).length > 0;
   } catch (error) {
     if (current === generation) {
       retry = setTimeout(() => {
@@ -58,7 +47,6 @@ async function start(accountId: string, current: number) {
     throw error;
   }
   if (current !== generation || session.accountId !== accountId) return;
-  retainedSends = hasRetainedSends;
   recovery = createEmailSendRecovery(accountId);
   dispatcher = createEmailSendDispatcher({
     session,

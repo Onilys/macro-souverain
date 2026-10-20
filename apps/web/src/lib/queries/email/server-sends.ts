@@ -16,17 +16,14 @@ export { hasMoreServerEmailSends, serverEmailSends, serverEmailSendsError };
 let current: ReturnType<typeof createServerSendObserver> | undefined;
 let owner: string | undefined;
 
-export function setServerSendSession(
-  accountId: string | undefined,
-  enabled: () => boolean
-) {
+export function setServerSendSession(accountId: string | undefined) {
   current?.dispose();
   current = undefined;
   owner = accountId;
   setServerEmailSends([]);
   setError(undefined);
   setHasMore(false);
-  if (accountId) current = createServerSendObserver(accountId, enabled);
+  if (accountId) current = createServerSendObserver(accountId);
 }
 export const serverSendAccount = () => owner;
 export const refreshServerEmailSends = async () => {
@@ -37,7 +34,7 @@ export const loadMoreServerEmailSends = async () => {
 };
 
 /** Shared by the app shell, composers and status panel; never grants send authority. */
-function createServerSendObserver(accountId: string, enabled: () => boolean) {
+function createServerSendObserver(accountId: string) {
   let disposed = false;
   let pages = 1;
   let running: Promise<void> | undefined;
@@ -45,7 +42,7 @@ function createServerSendObserver(accountId: string, enabled: () => boolean) {
   let controller: AbortController | undefined;
   async function load() {
     try {
-      if (!enabled() || navigator.onLine === false) return;
+      if (navigator.onLine === false) return;
       controller = new AbortController();
       const signal = AbortSignal.any([
         controller.signal,

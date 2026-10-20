@@ -2,14 +2,12 @@ import type {
   DraftClientHandles,
   PersistedEmailIdentity,
   SaveEmailDraft,
-  SendEmailDraft,
 } from '@app/features/email-compose/context/compose-capabilities';
 import { DraftPersistRejected } from '@app/features/email-compose/context/compose-capabilities';
 import type { EmailDraft } from '@app/features/email-compose/core/email-draft';
 import {
   SaveEmailDraftDocument,
   type SaveEmailDraftInput,
-  SendEmailComposeMessageDocument,
 } from '@service-storage/graphql/generated/graphql';
 import { getGraphqlSoupClient } from '@service-storage/graphql-soup';
 import { draftContactInput, draftFailureCode } from './draft';
@@ -61,32 +59,5 @@ export async function saveEmailComposeDraft(
     draftId: saved.draftId,
     threadId: saved.draft.threadId,
     inboxId: saved.draft.linkId,
-  };
-}
-
-/** Delivery is online-only: no optimistic resolver/durable queue and no retry
- * that could hide an ambiguous send. The same draft handle identifies retries. */
-export async function sendEmailComposeMessage(
-  input: SendEmailDraft
-): Promise<PersistedEmailIdentity> {
-  const result = await getGraphqlSoupClient()
-    .mutation(SendEmailComposeMessageDocument, {
-      input: {
-        draft: composeDraftInput(
-          input.message,
-          input.inboxId,
-          input.clientHandles
-        ),
-        includeSignature: input.message.include_signature,
-      },
-    })
-    .toPromise();
-  if (result.error) throw result.error;
-  const sent = result.data?.sendEmailComposeMessage;
-  if (!sent) throw new Error('Send returned no delivery identity');
-  return {
-    draftId: sent.messageId,
-    threadId: sent.threadId,
-    inboxId: sent.linkId,
   };
 }

@@ -1,7 +1,3 @@
-import {
-  enableEmailOutbox,
-  isFeatureEnabled,
-} from '@core/constant/featureFlags';
 import { readEmailSendStatus } from '@service-storage/email-send';
 import type { SendEmailAttemptInput } from '@service-storage/graphql/generated/graphql';
 import { v7 as uuidV7 } from 'uuid';
@@ -28,13 +24,6 @@ import {
   recordEmailSend,
   traceEmailSend,
 } from './send-telemetry';
-
-/** Delivery admission is independent of the thread's read transport and cache. */
-export function emailSendQueueSelected(
-  _transport?: 'graphql' | 'rest'
-): boolean {
-  return isFeatureEnabled(enableEmailOutbox);
-}
 
 export type { EmailSendIntent } from './send-intent';
 

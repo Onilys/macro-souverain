@@ -539,8 +539,8 @@ final sent update, then switching offline and opening Sent. Existing provider
 timestamps and timestamps from repeated finalization remain unchanged; an unsent
 or cancelled draft must not acquire Sent membership.
 
-With `enable-email-outbox` enabled, **Send** and **Send Later** persist new
-messages, replies, and forwards for Gmail and Outlook in device email storage.
+**Send** and **Send Later** always persist new messages, replies, and forwards
+for Gmail and Outlook in device email storage; no outbox feature flag is required.
 This works with either thread read transport, including when normalized-cache
 initialization has failed. Recipients, inbox, sender alias, body, displayed
 signature, attachment references, and any scheduled time are frozen under one
@@ -627,9 +627,8 @@ While a
 reply is queued, click Forward on another message and confirm the queued content
 and recipients stay unchanged. Race Send from two tabs and confirm only one
 active intent exists; cancellation must not leave a second send queued.
-With local draft recovery enabled, queue Send before the latest edit reaches the
-server. The send journal takes ownership of that exact local revision. After
-cancelling, edit the restored draft before reconnecting and verify those later
+Queue Send before the latest edit reaches the server. The send journal takes
+ownership of that exact local revision. After cancelling, edit the restored draft before reconnecting and verify those later
 edits still sync. Repeat across tabs: a newer local edit racing Send must block
 the stale submission, and old send cleanup must preserve a restored draft and
 its attachments. Logout should warn about queued sends even after their original
@@ -642,14 +641,14 @@ shows a recovery warning, retains its recognizable draft locks, and does not sto
 unrelated valid sends. Reconnecting an expired email account requires **Check
 status** to resume a paused local attempt.
 
-For a new standalone email, a failed REST draft save is best-effort: Send can
-still proceed without a draft ID when no save was queued and no attachment is
-waiting to upload. A server rejection blocks sending even an existing draft.
+New messages and replies persist a local draft identity before Send; an ordinary
+autosave does not need server acknowledgement when the frozen message and
+completed attachment references are available locally.
 GraphQL draft saves automatically retry only network failures. GraphQL errors,
 including internal, invalid, and unauthorized errors, fail the mutation and
-release the queue. The local working copy offers explicit Retry. Legacy Send
-and Send Later wait for server acknowledgement; durable Send captures the latest
-local revision and completed attachments for offline delivery.
+release the queue. The local working copy offers explicit Retry. Send and Send
+Later capture the latest local revision and completed attachments for offline
+delivery.
 A successful save response with an invalid cache identity binding still commits
 its normalizable server data and reports a cache diagnostic without replaying
 the mutation or asking the user to save again. If that response also cannot be
