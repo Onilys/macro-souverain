@@ -108,9 +108,10 @@ export interface LayoutProps {
 }
 
 /**
- * How rows render once the list is too narrow for columns. `inbox` stacks
- * email rows (sender, subject, snippet) as touch devices do, for lists that
- * sit beside a reading pane.
+ * How rows render once the list is too narrow for columns. `inbox` gives
+ * email rows the compact stacked layout (sender, subject, snippet) on desktop,
+ * for lists that sit beside a reading pane; touch devices keep their own email
+ * rows, with the sender's picture.
  */
 export type NarrowLayoutVariant =
   | 'standard'
@@ -128,6 +129,8 @@ const ListLayoutContext = createContext<ListLayoutContextValue>();
 export function ListLayoutProvider(props: {
   ref: Accessor<HTMLElement | undefined>;
   narrowLayout?: NarrowLayoutVariant;
+  /** Responsive rows have a nonzero width and their layout can be restored. */
+  onMeasured?: () => void;
   children: JSX.Element;
 }) {
   const [isWide, setIsWide] = createSignal(true);
@@ -136,7 +139,9 @@ export function ListLayoutProvider(props: {
     const el = props.ref();
     if (!el) return;
     const observer = new ResizeObserver((entries) => {
-      setIsWide((entries[0]?.contentRect.width ?? 0) >= WIDE_BREAKPOINT);
+      const width = entries[0]?.contentRect.width ?? 0;
+      setIsWide(width >= WIDE_BREAKPOINT);
+      if (width > 0) props.onMeasured?.();
     });
     observer.observe(el);
     onCleanup(() => observer.disconnect());

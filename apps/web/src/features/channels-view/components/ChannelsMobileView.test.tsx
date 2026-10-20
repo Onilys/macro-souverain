@@ -74,8 +74,10 @@ vi.mock('virtua/solid', () => ({
   }) => <For each={props.data}>{props.children}</For>,
 }));
 vi.mock('./ChannelsEmptyState', () => ({ ChannelsEmptyState: () => null }));
-vi.mock('./rail/ChannelRailItems', () => ({
+vi.mock('@channel/Channel/channel-actions', () => ({
   CHANNEL_ACTION_VIEW_CONTEXT: {},
+}));
+vi.mock('./rail/ChannelRailItems', () => ({
   CONVERSATION_CARD_HEIGHT: 80,
   ConversationCard: (props: {
     channel: ChannelEntity;

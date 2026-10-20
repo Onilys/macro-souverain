@@ -19,6 +19,8 @@ import {
   uploadInputAttachments,
 } from '@channel/Input';
 import { toast } from '@core/component/Toast/Toast';
+import { isTouchDevice } from '@core/mobile/isTouchDevice';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { uploadFile } from '@core/util/upload';
 import type { AgentAction } from '@service-agent-harness/generated/schemas';
 import { type Component, createSignal, For, Show } from 'solid-js';
@@ -47,6 +49,7 @@ import {
 } from '../ui';
 import type { AgentModelSelectorProps } from '../ui/AgentModelSelector';
 import { AgentModelMenuItem } from './AgentModelMenuItem';
+import { EffortSelector } from './EffortSelector';
 import { PermissionRequest } from './PermissionRequest';
 import { promptActionOf } from './prompt-action';
 import { ToolApprovalRequest } from './ToolApprovalRequest';
@@ -157,12 +160,15 @@ export function AgentComposer(props: {
   const attachmentTracker = createSessionAttachmentTracker(sessionId);
   const attachFiles = (files: File[]) => {
     if (readOnly()) return;
-    void uploadInputAttachments({
-      files,
-      tracker: attachmentTracker,
-      uploadFile: (file) =>
-        uploadFile(file, 'static', { hideProgressIndicator: true }),
-    });
+    fireAndForget(
+      uploadInputAttachments({
+        files,
+        tracker: attachmentTracker,
+        uploadFile: (file) =>
+          uploadFile(file, 'static', { hideProgressIndicator: true }),
+      }),
+      'agent-composer'
+    );
   };
   // Attachments ride the prompt action itself, so they take the same path as
   // the text: issued once, speculated by the fold, and queued server-side
@@ -200,9 +206,9 @@ export function AgentComposer(props: {
     const prompt = [markdown, notes]
       .filter((part) => part.length > 0)
       .join('\n\n');
-    void act(
-      promptActionOf(prompt, attachments),
-      'The message could not be sent'
+    fireAndForget(
+      act(promptActionOf(prompt, attachments), 'The message could not be sent'),
+      'agent-composer'
     );
     attachmentTracker.clearAttachments();
   };
@@ -212,6 +218,11 @@ export function AgentComposer(props: {
   // Down past that row comes back. Plain variables, read only at call time.
   let focusQueueBottom: (() => void) | undefined;
   let focusInput: (() => void) | undefined;
+  const restoreInputFocus = (event: Event) => {
+    if (!isTouchDevice()) return;
+    event.preventDefault();
+    focusInput?.();
+  };
 
   // The server queue's entries, shaped for display: prompt text as-is, and
   // attribution only when somebody other than the current user queued it —
@@ -261,10 +272,12 @@ export function AgentComposer(props: {
               items={queuedItems()}
               disabled={readOnly()}
               onEdit={(actionId, prompt) => {
-                if (!readOnly()) void queue.edit(actionId, prompt);
+                if (!readOnly())
+                  fireAndForget(queue.edit(actionId, prompt), 'agent-composer');
               }}
               onRemove={(actionId) => {
-                if (!readOnly()) void queue.remove(actionId);
+                if (!readOnly())
+                  fireAndForget(queue.remove(actionId), 'agent-composer');
               }}
               onSteer={
                 busy() &&
@@ -336,9 +349,14 @@ export function AgentComposer(props: {
         // into, but not sent from, until the id lands.
         disabled={loadFailed() || pending() || readOnly() || configuring()}
         commands={() => metadata()?.availableCommands ?? []}
-        onSend={(markdown, attachments) => void send(markdown, attachments)}
+        onSend={(markdown, attachments) =>
+          fireAndForget(send(markdown, attachments), 'agent-composer')
+        }
         onStop={() =>
-          void act({ type: 'stop' }, 'The agent could not be stopped')
+          fireAndForget(
+            act({ type: 'stop' }, 'The agent could not be stopped'),
+            'agent-composer'
+          )
         }
         onSendNext={() => {
           if (!readOnly()) sendNext();
@@ -367,6 +385,7 @@ export function AgentComposer(props: {
         modelControl={
           <div class="flex min-w-0 items-center gap-1">
             <ModelSelector
+              onCloseAutoFocus={restoreInputFocus}
               model={metadata()?.model ?? null}
               changingTo={changingModel(messages(), metadata()?.model ?? null)}
               options={metadata()?.supportedModels ?? []}
@@ -378,7 +397,9 @@ export function AgentComposer(props: {
                 configuring() ||
                 changingEffort() !== undefined
               }
-              onSelect={(model) => void chooseModel(model)}
+              onSelect={(model) =>
+                fireAndForget(chooseModel(model), 'agent-composer')
+              }
               modelRow={(row) => (
                 <AgentModelMenuItem
                   {...row}
@@ -392,11 +413,34 @@ export function AgentComposer(props: {
                       : undefined
                   }
                   onSelectEffort={(selection) =>
-                    void chooseModel(row.option.id, selection)
+                    fireAndForget(
+                      chooseModel(row.option.id, selection),
+                      'agent-composer'
+                    )
                   }
                 />
               )}
             />
+            <EffortSelector
+              onCloseAutoFocus={restoreInputFocus}
+              config={effort()}
+              value={changingEffort()}
+              disabled={
+                loadFailed() ||
+                readOnly() ||
+                pending() ||
+                configuring() ||
+                changingEffort() !== undefined ||
+                changingModel(messages(), metadata()?.model ?? null) !==
+                  undefined
+              }
+              onChange={(choice) => {
+                const model = metadata()?.model;
+                if (model)
+                  fireAndForget(chooseModel(model, choice), 'agent-composer');
+              }}
+            />
+
             <Show
               when={metadata()?.configOptions.some(
                 (option) => option.id === 'speed'

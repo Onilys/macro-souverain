@@ -26,7 +26,7 @@ impl ExecutionCredentials for RunCredentials {
         // clock margin; a normal user token expires rather than revoking on exit.
         let token = self
             .signer
-            .mint_for(&identity.owner, 60)
+            .mint_for_agent(&identity.owner, 60, Some(identity.agent_id.as_uuid()))
             .await
             .map_err(|error| {
                 tracing::error!(?error, "could not mint execution credential");

@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import { until } from '@solid-primitives/promise';
 import { Button } from '@ui/components/Button';
 import { DeleteDialog } from '@ui/components/DeleteDialog';
@@ -198,7 +199,9 @@ export function DatabaseRecordsView(props: DatabaseRecordsViewProps) {
     get createColumn() {
       return props.createColumn;
     },
-    renameColumn: (columnId) => void focusColumn(columnId),
+    renameColumn: (columnId) => {
+      focusColumn(columnId);
+    },
   });
   const visibleColumns = columnLayout.visibleColumns;
   const filtered = () => filterConditionCount(props.view.query.filter) > 0;
@@ -240,8 +243,9 @@ export function DatabaseRecordsView(props: DatabaseRecordsViewProps) {
     focusColumn,
     // A grid just mounted for a record from elsewhere has no rows to find it in yet.
     openRecord: (rowId) =>
-      void until(() => props.source.snapshot()).then(() =>
-        records.reveal(rowId)
+      fireAndForget(
+        until(() => props.source.snapshot()).then(() => records.reveal(rowId)),
+        'database'
       ),
     pending: controller.pending,
   };
@@ -396,7 +400,7 @@ export function DatabaseRecordsView(props: DatabaseRecordsViewProps) {
               }
               actionLabel={outcomeUnknown() ? 'Refresh' : 'Retry'}
               pending={controller.pending()}
-              onAction={() => void records.retry()}
+              onAction={() => fireAndForget(records.retry(), 'database')}
               onDiscard={
                 uncertainDraft() ? records.dismissSaveFailure : undefined
               }
@@ -410,7 +414,9 @@ export function DatabaseRecordsView(props: DatabaseRecordsViewProps) {
             (props.source.error() && controller.snapshot())
           }
         >
-          <RefreshNotice onRefresh={() => void controller.refresh()} />
+          <RefreshNotice
+            onRefresh={() => fireAndForget(controller.refresh(), 'database')}
+          />
         </Show>
         <Show when={records.hiddenRecord()}>
           {(row) => (
@@ -445,9 +451,12 @@ export function DatabaseRecordsView(props: DatabaseRecordsViewProps) {
               }
               pending={controller.pending()}
               onAction={() =>
-                void (draftRows.isUncertain(failure().id)
-                  ? controller.refresh()
-                  : records.retry())
+                fireAndForget(
+                  draftRows.isUncertain(failure().id)
+                    ? controller.refresh()
+                    : records.retry(),
+                  'database'
+                )
               }
               onDiscard={
                 draftRows.isUncertain(failure().id)
@@ -465,7 +474,7 @@ export function DatabaseRecordsView(props: DatabaseRecordsViewProps) {
             <DatabaseLoadFailure
               title="This table could not be loaded"
               message={loadFailureMessage()}
-              onRetry={() => void controller.refresh()}
+              onRetry={() => fireAndForget(controller.refresh(), 'database')}
             />
           </Match>
           <Match when={layoutKind() === 'board'}>
@@ -578,7 +587,10 @@ export function DatabaseRecordsView(props: DatabaseRecordsViewProps) {
               onInsertColumn={
                 props.canEdit && props.createColumn
                   ? (columnId, side) =>
-                      void columnLayout.insertColumn(columnId, side)
+                      fireAndForget(
+                        columnLayout.insertColumn(columnId, side),
+                        'database'
+                      )
                   : undefined
               }
               emptyState={
@@ -624,7 +636,7 @@ export function DatabaseRecordsView(props: DatabaseRecordsViewProps) {
                   : undefined
               }
               saveError={recordSaveError(row().rowId)}
-              onRetry={() => void records.retry()}
+              onRetry={() => fireAndForget(records.retry(), 'database')}
               position={records.selectedPosition()}
               total={rows().length}
               renderCell={renderCell}
@@ -644,7 +656,8 @@ export function DatabaseRecordsView(props: DatabaseRecordsViewProps) {
           pending={controller.pending()}
           onDelete={() => {
             const target = records.deleteTarget();
-            if (target) void records.deleteRow(target.rowId);
+            if (target)
+              fireAndForget(records.deleteRow(target.rowId), 'database');
           }}
           onCloseAutoFocus={(event) => {
             const target = records.deleteDialogReturnFocus();

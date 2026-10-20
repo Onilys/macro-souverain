@@ -2,6 +2,9 @@
 
 ## Scope
 
+Execution credentials carry the authenticated session bot for SDK message
+attribution while retaining the owner's API permissions.
+
 Owns session-authorized code executions, SDK documentation selection, saved
 execution records, and durable review stacks. Process isolation belongs to
 `crates/code_execution`; session presentation belongs to `crates/agent_session`.

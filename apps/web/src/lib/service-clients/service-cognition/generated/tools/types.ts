@@ -431,6 +431,11 @@ export type NewChannelType = 'private' | 'team';
  */
 export type FormSource =
   | {
+      /**
+       * Keep the form, and the database made for it, out of Drive, as
+       * for a channel poll.
+       */
+      isHiddenInDrive?: boolean;
       kind: 'new';
     }
   | {
@@ -3554,6 +3559,19 @@ export type AvailabilityUnknownReason =
   | 'invalid_interval'
   | 'conflicting_copies';
 /**
+ * Provider selected from the persisted calendar account and email binding.
+ */
+export type CalendarProvider = 'google' | 'outlook';
+/**
+ * The conferencing system backing an event's join URL.
+ *
+ * Calendars can create Google Meet or Microsoft Teams according to their
+ * capabilities. Imported third-party conferences are labeled separately.
+ * Omitting a conference change preserves the current conference; explicit
+ * changes still require provider and calendar capability validation.
+ */
+export type ConferenceProvider = 'microsoft_teams' | 'google_meet' | 'other';
+/**
  * Entity types that can be returned by the list entities AI tool.
  */
 export type ItemType =
@@ -4548,7 +4566,11 @@ export type UpdateScopeInput = 'all' | 'this_event';
 /**
  * A requested change to an event's video conference.
  */
-export type ConferenceChangeInput = 'google_meet' | 'remove';
+export type ConferenceChangeInput =
+  | 'provider_default'
+  | 'microsoft_teams'
+  | 'google_meet'
+  | 'remove';
 /**
  * The requester's own RSVP on an event they were invited to.
  */
@@ -6659,13 +6681,13 @@ export interface BotWebhook {
   webhookUrl: string;
 }
 /**
- * Prepare an event on the user's calendar, inviting any listed attendees through Google Calendar. In Macro chat this tool opens an inline composer so the user can review, edit, and confirm the event; use the tool to present the proposal instead of asking for a redundant confirmation in prose. When the pending call is executed, the event is written to Google immediately and attendees receive invitations. Other clients should confirm attendee events before executing the call. Do NOT use it for a prompt that came from a channel or document thread — the context block names a conversation parent when it did, and there is no surface to review a draft in: write the event out in your reply, ask whether to create it, and use CreateConfirmedCalendarEvent once the user approves.
+ * Prepare an event on the user's calendar, inviting any listed attendees through its connected provider. In Macro chat this tool opens an inline composer so the user can review, edit, and confirm the event; use the tool to present the proposal instead of asking for a redundant confirmation in prose. When the pending call is executed, the event is written to the calendar provider immediately and attendees receive invitations. Other clients should confirm attendee events before executing the call. Do NOT use it for a prompt that came from a channel or document thread — the context block names a conversation parent when it did, and there is no surface to review a draft in: write the event out in your reply, ask whether to create it, and use CreateConfirmedCalendarEvent once the user approves.
  *
  * The event lands on the user's primary calendar unless `calendarId` (from ListCalendars) targets another one. For recurring events pass RFC 5545 lines in `recurrenceLines`, e.g. ["RRULE:FREQ=WEEKLY;BYDAY=MO"]. Returns the created event with its `eventId` for later updates or deletion. Fails if the user has no writable calendar connected.
  *
- * For video conferencing pick at most one of `addMacroCall` (a Macro meeting link, the default choice for a Macro user's meeting) or `addGoogleMeet` (a Google Meet conference). A Macro call is created for the user, scheduled to the event's times, and its join link is appended to the event's description so every attendee's invitation carries it; it also becomes the event's `location` unless a physical `location` was supplied. The returned event's `macroCallUrl` holds the link.
+ * For video conferencing pick at most one of `addMacroCall` (a Macro meeting link, the default choice for a Macro user's meeting) or `addConference` (Google Meet or Microsoft Teams, per calendar capabilities). A Macro call is created for the user, scheduled to the event's times, and its join link is appended to the event's description so every attendee's invitation carries it; it also becomes the event's `location` unless a physical `location` was supplied. The returned event's `macroCallUrl` holds the link.
  *
- * Set `eventType` to "out_of_office" to mark the user as out of office (e.g. "mark me out of office Thursday"). Out-of-office events must land on the user's primary calendar (omit `calendarId`), must be timed rather than all-day, and take no attendees or video conferencing (leave `addMacroCall` and `addGoogleMeet` false); use `outOfOffice` to control whether conflicting meetings are auto-declined. The type cannot be changed afterward.
+ * Set `eventType` to "out_of_office" to mark the user as out of office (e.g. "mark me out of office Thursday"). Out-of-office events must land on the user's primary calendar (omit `calendarId`), must be timed rather than all-day, and take no attendees or video conferencing (leave `addMacroCall` and `addConference` false); use `outOfOffice` to control whether conflicting meetings are auto-declined. The type cannot be changed afterward.
  */
 export interface CreateCalendarEvent {
   /**
@@ -6682,7 +6704,7 @@ export interface CreateCalendarEvent {
    */
   location?: string | null;
   /**
-   * Attendees to invite by email. They are notified by Google Calendar as soon as the event is created. Omit for a solo event.
+   * Attendees to invite by email. They are notified by the calendar provider as soon as the event is created. Omit for a solo event.
    */
   attendees?: AttendeeInput[];
   /**
@@ -6698,16 +6720,16 @@ export interface CreateCalendarEvent {
    */
   reminders?: EventRemindersInput | null;
   /**
-   * Attach a freshly created Macro call to the event: a Macro meeting link scheduled to the event's times, written into the event's location and description. Mutually exclusive with `addGoogleMeet`.
+   * Attach a freshly created Macro call to the event: a Macro meeting link scheduled to the event's times, written into the event's location and description. Mutually exclusive with `addConference`.
    */
   addMacroCall?: boolean;
   /**
-   * Attach a freshly generated Google Meet video conference to the event. Mutually exclusive with `addMacroCall`.
+   * Attach a conference supported by this calendar: Google Meet or Microsoft Teams. Check ListCalendars capabilities first.
    */
-  addGoogleMeet?: boolean;
+  addConference?: boolean;
   eventType?: CalendarEventTypeInput;
   /**
-   * Out-of-office decline behavior, used only when eventType is "out_of_office". Omit to just block the time; set `autoDeclineMode` to "decline_all" or "decline_new_only" to have Google decline conflicting meetings, optionally with a `declineMessage`.
+   * Out-of-office decline behavior, used only when eventType is "out_of_office". Omit to just block the time; set `autoDeclineMode` to "decline_all" or "decline_new_only" to have the calendar integration decline conflicting meetings, optionally with a `declineMessage`.
    */
   outOfOffice?: OutOfOfficeInput | null;
 }
@@ -6933,7 +6955,7 @@ export interface CreateCompanyResponse {
   domains: string[];
 }
 /**
- * Create a calendar event immediately, with no review card or composer. Only for a prompt that came from a channel or document thread (the context block says so), where there is nothing to review a draft in. The event is always shown before it is created, even when the user's request already spelled the whole thing out: in one turn write it into the thread - title, date and time with its time zone, duration, guests, location, Google Meet or Macro call, recurrence - ask whether to create it, and stop there. Call this tool only in a later turn, once the user has replied approving that specific event, quoting that reply verbatim in userConfirmation. Being asked to schedule something is a request to draft the event, never approval to create it, so a userConfirmation quoting the request that asked you to set it up - rather than the reply approving the event you wrote out - is wrong. Never call it in the agent session view or in chat: use CreateCalendarEvent there, whose review card or composer is the confirmation. Takes the same fields as CreateCalendarEvent; the event is written to Google Calendar at once and any attendees receive invitations.
+ * Create a calendar event immediately, with no review card or composer. Only for a prompt that came from a channel or document thread (the context block says so), where there is nothing to review a draft in. The event is always shown before it is created, even when the user's request already spelled the whole thing out: in one turn write it into the thread - title, date and time with its time zone, duration, guests, location, provider conference or Macro call, recurrence - ask whether to create it, and stop there. Call this tool only in a later turn, once the user has replied approving that specific event, quoting that reply verbatim in userConfirmation. Being asked to schedule something is a request to draft the event, never approval to create it, so a userConfirmation quoting the request that asked you to set it up - rather than the reply approving the event you wrote out - is wrong. Never call it in the agent session view or in chat: use CreateCalendarEvent there, whose review card or composer is the confirmation. Takes the same fields as CreateCalendarEvent; the event is written to the calendar provider at once and any attendees receive invitations.
  */
 export interface CreateConfirmedCalendarEvent {
   /**
@@ -6950,7 +6972,7 @@ export interface CreateConfirmedCalendarEvent {
    */
   location?: string | null;
   /**
-   * Attendees to invite by email. They are notified by Google Calendar as soon as the event is created. Omit for a solo event.
+   * Attendees to invite by email. They are notified by the calendar provider as soon as the event is created. Omit for a solo event.
    */
   attendees?: AttendeeInput[];
   /**
@@ -6966,16 +6988,16 @@ export interface CreateConfirmedCalendarEvent {
    */
   reminders?: EventRemindersInput | null;
   /**
-   * Attach a freshly created Macro call to the event: a Macro meeting link scheduled to the event's times, written into the event's location and description. Mutually exclusive with `addGoogleMeet`.
+   * Attach a freshly created Macro call to the event: a Macro meeting link scheduled to the event's times, written into the event's location and description. Mutually exclusive with `addConference`.
    */
   addMacroCall?: boolean;
   /**
-   * Attach a freshly generated Google Meet video conference to the event. Mutually exclusive with `addMacroCall`.
+   * Attach a conference supported by this calendar: Google Meet or Microsoft Teams. Check ListCalendars capabilities first.
    */
-  addGoogleMeet?: boolean;
+  addConference?: boolean;
   eventType?: CalendarEventTypeInput;
   /**
-   * Out-of-office decline behavior, used only when eventType is "out_of_office". Omit to just block the time; set `autoDeclineMode` to "decline_all" or "decline_new_only" to have Google decline conflicting meetings, optionally with a `declineMessage`.
+   * Out-of-office decline behavior, used only when eventType is "out_of_office". Omit to just block the time; set `autoDeclineMode` to "decline_all" or "decline_new_only" to have the calendar integration decline conflicting meetings, optionally with a `declineMessage`.
    */
   outOfOffice?: OutOfOfficeInput | null;
   /**
@@ -7242,6 +7264,11 @@ export interface Form {
    * When its facts or layout last changed.
    */
   updatedAt: string;
+  /**
+   * Whether Drive leaves it, and the database behind it, out of its
+   * listings, as for a channel poll.
+   */
+  isHiddenInDrive: boolean;
 }
 /**
  * Every section of a form, in order.
@@ -7854,7 +7881,7 @@ export interface DeleteBotResponse {
   summary: string;
 }
 /**
- * Delete an event from the user's calendar. The deletion is written to Google immediately and attendees are notified, so confirm with the user before deleting — it cannot be undone. Get the `eventId` from ListCalendarEvents.
+ * Delete an event from the user's calendar. The deletion is written to the calendar provider immediately and attendees are notified, so confirm with the user before deleting — it cannot be undone. Get the `eventId` from ListCalendarEvents.
  *
  * For recurring events, `scope` controls how much is removed: "all" (default) removes the whole series, "this_event" removes one occurrence, and "this_and_following" ends the series from an occurrence onward. The scoped variants require `recurrenceId` from the targeted occurrence's ListCalendarEvents entry.
  */
@@ -10059,7 +10086,7 @@ export interface AvailabilityInterval {
   end: string;
 }
 /**
- * Retrieve an email thread and its messages. Returns the thread metadata, the labels applied to the thread (e.g. INBOX, UNREAD, STARRED, and any custom labels), and message contents including sender, recipients, subject, body text, and the labels on each individual message. Use this to read the contents of a specific email conversation or to see which labels a thread or message has.
+ * Retrieve an email thread and its messages. Returns the thread metadata, the inbox the thread belongs to, the labels applied to the thread (e.g. INBOX, UNREAD, STARRED, and any custom labels), and message contents including sender, recipients, subject, body text, and the labels on each individual message. Use this to read the contents of a specific email conversation, to see which labels a thread or message has, or to find out which of the user's inboxes received it before replying.
  */
 export interface GetThread {
   /**
@@ -10079,6 +10106,13 @@ export interface GetThreadResponse {
    * The thread's unique identifier.
    */
   threadId: string;
+  /**
+   * The address of the inbox this thread belongs to — the account that
+   * received or sent it. Pass it as `SendEmail`'s `from` to answer the
+   * thread as the sender its participants expect. Absent only when the
+   * thread's inbox is no longer among the caller's.
+   */
+  inbox?: string | null;
   /**
    * Whether the thread has been read.
    */
@@ -10705,9 +10739,9 @@ export interface CalendarEventCopyItem {
   isReadOnly: boolean;
 }
 /**
- * List the calendars the user can see across their connected inboxes, with each calendar's `calendarId`, display name, owning inbox address, and whether it is primary and writable.
+ * List the calendars the user can see across their connected inboxes, with each calendar's `calendarId`, display name, owning inbox address, provider, capabilities, and whether it is primary and writable.
  *
- * Use this before CreateCalendarEvent when the user wants an event on a specific non-default calendar (e.g. "add it to my work calendar") so you can pass the exact `calendarId`. Most users have a single primary calendar, in which case CreateCalendarEvent targets it by default and you do not need this tool. An empty result means no calendar is connected.
+ * Use this before CreateCalendarEvent when the user wants an event on a specific non-default calendar (e.g. "add it to my work calendar") so you can pass the exact `calendarId`. Most users have a single primary calendar, in which case CreateCalendarEvent targets it by default and you do not need this tool unless choosing conference or other provider-dependent behavior. Check `capabilities` before requesting a conference, removing one, or using custom recurrence. An empty result means no calendar is connected.
  */
 export type ListCalendars = {};
 /**
@@ -10727,6 +10761,8 @@ export interface ListCalendarsToolResponse {
  * A calendar surfaced to the AI.
  */
 export interface ToolCalendar {
+  provider: CalendarProvider;
+  capabilities: CalendarCapabilities;
   /**
    * Calendar id; pass as `calendarId` to CreateCalendarEvent to target
    * this calendar. Not a mentionable entity: never put it in a mention
@@ -10750,6 +10786,35 @@ export interface ToolCalendar {
    * Whether events can be created and modified on this calendar.
    */
   isWritable: boolean;
+}
+/**
+ * Actual provider capabilities used by calendar editors.
+ */
+export interface CalendarCapabilities {
+  /**
+   * Meeting system available for new conferences, when any.
+   */
+  conferenceProvider?: ConferenceProvider | null;
+  /**
+   * Whether an existing conference can be detached.
+   */
+  removeConference: boolean;
+  /**
+   * Whether event-level automatic invitation declines are supported.
+   */
+  autoDecline: boolean;
+  /**
+   * Whether email reminders are delivered by the provider or Macro.
+   */
+  emailReminders: boolean;
+  /**
+   * Whether arbitrary RFC 5545 recurrence properties can be written.
+   */
+  customRecurrence: boolean;
+  /**
+   * Whether an attendee can reset their RSVP to unanswered.
+   */
+  resetRsvp: boolean;
 }
 /**
  * Find the coding agents available to the current user. Call this before delegating coding work. Choose an agent using its name, description, instructions, runtime, and model, preferring the user's requested agent or the persona best suited to the repository and task. Returns only available coding agents. If none are available, explain that the user needs to connect or configure a coding agent.
@@ -13885,6 +13950,16 @@ export interface SendConfirmedEmail {
    */
   subject: string;
   /**
+   * The address of the inbox to send from, when the user has more than one
+   * connected and this email belongs to a particular one. Use the exact
+   * `emailAddress` of a connected inbox — `ListInboxes` lists them, and
+   * `GetThread` reports the `inbox` a thread belongs to. Omit it unless
+   * you know which inbox is right: a reply then goes out from the inbox
+   * that received the message it answers, and a new email from the user's
+   * primary inbox. The user can change it in the composer either way.
+   */
+  from?: string | null;
+  /**
    * The body of the email, written as Markdown. A host with a composer
    * (chat) replaces this with the base64url-encoded HTML the composer
    * exported before the tool runs; a host without one (an agent session)
@@ -13951,13 +14026,23 @@ export interface EmailAttachment {
   documentId: string;
 }
 /**
- * Draft, compose, and send an email the user confirms in a review card or composer. Use this tool whenever the user asks you to draft, write, compose, or send an email (or reply to one) from the agent session view or from chat — never write the email as plain text there. It opens the draft for the user to review, edit, and confirm before it is sent, so it is the correct tool even when the user only wants a draft. Do NOT use it for a prompt that came from a channel or document thread — the context block names a conversation parent when it did, and there is no surface to review a draft in: write the email out in your reply, ask whether to send it, and use SendConfirmedEmail once the user approves. To reply to an existing message, provide the replying_to_id. To attach files, list the Macro documents in attachments — uploaded files such as PDFs, images, spreadsheets, or Word documents the user can view; the user can add or remove attachments in the composer before sending. Write the body in Markdown — use **bold**, *italics*, lists, links, and other standard Markdown formatting. The draft composer renders the Markdown for the user to review and edit; the composer produces HTML that is sent as the actual email body.
+ * Draft, compose, and send an email the user confirms in a review card or composer. Use this tool whenever the user asks you to draft, write, compose, or send an email (or reply to one) from the agent session view or from chat — never write the email as plain text there. It opens the draft for the user to review, edit, and confirm before it is sent, so it is the correct tool even when the user only wants a draft. Do NOT use it for a prompt that came from a channel or document thread — the context block names a conversation parent when it did, and there is no surface to review a draft in: write the email out in your reply, ask whether to send it, and use SendConfirmedEmail once the user approves. To reply to an existing message, provide the replying_to_id; the reply then goes out from the inbox that received it unless `from` says otherwise. To attach files, list the Macro documents in attachments — uploaded files such as PDFs, images, spreadsheets, or Word documents the user can view; the user can add or remove attachments in the composer before sending. Write the body in Markdown — use **bold**, *italics*, lists, links, and other standard Markdown formatting. The draft composer renders the Markdown for the user to review and edit; the composer produces HTML that is sent as the actual email body.
  */
 export interface SendEmail {
   /**
    * The subject line of the email.
    */
   subject: string;
+  /**
+   * The address of the inbox to send from, when the user has more than one
+   * connected and this email belongs to a particular one. Use the exact
+   * `emailAddress` of a connected inbox — `ListInboxes` lists them, and
+   * `GetThread` reports the `inbox` a thread belongs to. Omit it unless
+   * you know which inbox is right: a reply then goes out from the inbox
+   * that received the message it answers, and a new email from the user's
+   * primary inbox. The user can change it in the composer either way.
+   */
+  from?: string | null;
   /**
    * The body of the email, written as Markdown. A host with a composer
    * (chat) replaces this with the base64url-encoded HTML the composer
@@ -14325,7 +14410,7 @@ export interface UpdateBookingSettings {
   userConfirmation: string;
 }
 /**
- * Update an existing calendar event. Only the supplied fields change; omitted fields keep their current values. The change is written to Google immediately and attendees are notified of it, so confirm details with the user first. Get the `eventId` from ListCalendarEvents.
+ * Update an existing calendar event. Only the supplied fields change; omitted fields keep their current values. The change is written to the calendar provider immediately and attendees are notified of it, so confirm details with the user first. Get the `eventId` from ListCalendarEvents.
  *
  * `scope` picks how much of a recurring series changes and is always required: "this_event" edits one occurrence (pass the occurrence's `recurrenceId` from ListCalendarEvents) and leaves the rest of the series alone; "all" edits the series itself — with `time` that MOVES EVERY OCCURRENCE, so never use "all" to reschedule a single occurrence. Non-recurring events use "all". There is no this-and-following update: end the series with DeleteCalendarEvent's "this_and_following" and create a new event instead.
  *
@@ -14372,7 +14457,7 @@ export interface UpdateCalendarEvent {
    */
   recurrenceLines?: string[] | null;
   /**
-   * Change the event's video conference: "google_meet" attaches a fresh Google Meet, "remove" detaches the current conference. Omit to leave it untouched.
+   * Change the event's video conference: "provider_default" uses the calendar's supported provider; "google_meet" or "microsoft_teams" selects one explicitly. "remove" detaches the conference only where supported. Check ListCalendars capabilities first. Omit to preserve the current conference.
    */
   conference?: ConferenceChangeInput | null;
   /**

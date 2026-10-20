@@ -5,6 +5,7 @@ import {
   SubTrigger,
 } from '@core/component/ContextMenu';
 import { TOKENS } from '@core/hotkey/tokens';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { ContextMenu } from '@kobalte/core/context-menu';
 import { selectAllCommand } from '@macro-inc/graphics';
 import ArrowDown from '@phosphor/arrow-down.svg';
@@ -50,26 +51,34 @@ export function CanvasContextMenu(props: {
           icon={Scissors}
           hotkeyToken={TOKENS.canvas.cut}
           disabled={!selected()}
-          onClick={() => void props.clipboard.cut()}
+          onClick={() =>
+            fireAndForget(props.clipboard.cut(), 'canvas-clipboard')
+          }
         />
         <MenuItem
           text="Copy"
           icon={Copy}
           hotkeyToken={TOKENS.canvas.copy}
           disabled={!selected()}
-          onClick={() => void props.clipboard.copy()}
+          onClick={() =>
+            fireAndForget(props.clipboard.copy(), 'canvas-clipboard')
+          }
         />
         <MenuItem
           text="Paste"
           icon={Clipboard}
           hotkeyToken={TOKENS.canvas.paste}
-          onClick={() => void props.clipboard.paste()}
+          onClick={() =>
+            fireAndForget(props.clipboard.paste(), 'canvas-clipboard')
+          }
         />
         <MenuItem
           text="Paste in place"
           icon={Clipboard}
           shortcut="shift+cmd+v"
-          onClick={() => void props.clipboard.paste(true)}
+          onClick={() =>
+            fireAndForget(props.clipboard.paste(true), 'canvas-clipboard')
+          }
         />
         <MenuItem
           text="Duplicate"

@@ -10,7 +10,9 @@ import wasm from 'vite-plugin-wasm';
 import tsconfigpaths from 'vite-tsconfig-paths';
 // @ts-ignore
 import { version } from './package.json';
+import { devCompression } from './scripts/dev-compression';
 import { devHttps } from './scripts/dev-https';
+import { devExternalSourcemaps } from './scripts/dev-sourcemaps';
 import { hostedDevProxy } from './scripts/hosted-dev-proxy';
 import { keepImportMetaDev } from './scripts/keep-import-meta-dev';
 import { localDevServer } from './scripts/local-dev-server';
@@ -56,14 +58,18 @@ function gitBranchHmrPlugin(): Plugin {
         return;
       }
       const headPath = resolve(gitDir, 'HEAD');
-      const emit = () => {
-        readGitBranchAsync().then((branch) => {
-          server.ws.send({
-            type: 'custom',
-            event: 'git-branch:update',
-            data: branch,
-          });
+      const sendBranch = async () => {
+        const branch = await readGitBranchAsync();
+        server.ws.send({
+          type: 'custom',
+          event: 'git-branch:update',
+          data: branch,
         });
+      };
+      const emit = () => {
+        sendBranch().catch((error) =>
+          server.config.logger.error(`git-branch-hmr: ${String(error)}`)
+        );
       };
       watchFile(headPath, { interval: 100 }, emit);
       server.ws.on('connection', emit);
@@ -314,6 +320,8 @@ export const createAppViteConfig = (): UserConfigFn => {
       },
       plugins: [
         devHttps(),
+        devCompression(),
+        devExternalSourcemaps(),
         hostedDevProxy(),
         // solidDevtools({ autoname: true }),
         pureGeneratedZodSchemas(),
@@ -364,6 +372,7 @@ export const createAppViteConfig = (): UserConfigFn => {
         rollupOptions: {
           input: {
             app: resolve(__dirname, 'index.html'),
+            pipedreamConnect: resolve(__dirname, 'pipedream-connect.html'),
           },
           // KaTeX and PDF.js are now reachable through lazy boundaries. Let
           // Rollup place them naturally; forcing lazy code into named chunks

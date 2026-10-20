@@ -3,11 +3,13 @@ import { toEntityActionListState } from '@app/features/next-soup/actions';
 import { openEntityInSplitFromUnifiedList } from '@app/features/next-soup/utils';
 import { SoupEntityContextMenu } from '@app/features/soup';
 import { DEBUG_SETTING_KEYS, useDebugSetting } from '@app/lib/debugSettings';
+import { CHANNEL_ACTION_VIEW_CONTEXT } from '@channel/Channel/channel-actions';
 import { useGlobalNotificationSource } from '@components/app/GlobalAppState';
 import { PullToRefresh } from '@components/app/mobile/PullToRefresh';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
 import { toast } from '@core/component/Toast/Toast';
 import { useUserId } from '@core/context/user';
+import { fireAndForget } from '@core/util/fireAndForget';
 import EmptyStateNoSearchMatchGraphic from '@design/empty-state-no-search-match.svg';
 import type { ChannelEntity } from '@entity';
 import { isMutedItem } from '@entity/utils/notification';
@@ -31,7 +33,6 @@ import type { ChannelsDataSource } from '../queries';
 import { channelMentionsUser } from '../utils';
 import { ChannelsEmptyState } from './ChannelsEmptyState';
 import {
-  CHANNEL_ACTION_VIEW_CONTEXT,
   CONVERSATION_CARD_HEIGHT,
   ConversationCard,
 } from './rail/ChannelRailItems';
@@ -88,7 +89,7 @@ export function ChannelsMobileView(props: {
       return;
     }
 
-    void props.source.loadMore();
+    fireAndForget(props.source.loadMore(), 'channels-view');
   }
 
   function checkNearEnd(offset?: number) {
@@ -164,7 +165,9 @@ export function ChannelsMobileView(props: {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => void props.source.refresh()}
+                onClick={() =>
+                  fireAndForget(props.source.refresh(), 'channels-view')
+                }
               >
                 Try again
               </Button>
@@ -267,7 +270,9 @@ export function ChannelsMobileView(props: {
                 <Button
                   variant="outline"
                   size="xs"
-                  onClick={() => void props.source.refresh()}
+                  onClick={() =>
+                    fireAndForget(props.source.refresh(), 'channels-view')
+                  }
                 >
                   Try again
                 </Button>

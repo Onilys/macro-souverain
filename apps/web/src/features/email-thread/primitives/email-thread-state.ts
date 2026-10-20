@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import type { Accessor } from 'solid-js';
 import { createEffect, createMemo, createSignal, on } from 'solid-js';
 import { createStore } from 'solid-js/store';
@@ -87,6 +88,8 @@ export type EmailThreadState = {
   };
 
   archiveThread: (opts?: ArchiveThreadOptions) => boolean;
+  /** Marks the thread done and opens the next one in the host's list. */
+  archiveThreadAndAdvance: (opts?: ArchiveThreadOptions) => boolean;
   /** True when the thread is archived, i.e. currently marked done. */
   isThreadDone: Accessor<boolean>;
   /** True when the done state can actually be reversed — see
@@ -241,13 +244,39 @@ export function createEmailThreadState(
     );
   };
 
+  const commands = threadContext.createCommands(threadSnapshot);
+  const archiveUnlessCancelled = (opts?: ArchiveThreadOptions) =>
+    !opts?.cancelled?.() && commands.archiveThread(opts);
+  // A send resolves after a round trip; by then the user may have moved on.
+  // The host advances only from this thread; otherwise it is marked done
+  // where it is.
+  const advanceFrom = async (
+    navigation: NonNullable<typeof host.listNavigation>,
+    threadId: string,
+    opts?: ArchiveThreadOptions
+  ) => {
+    const archived = await navigation.markDone(
+      (step) => archiveUnlessCancelled({ ...opts, ...step }),
+      threadId
+    );
+    if (!archived) archiveUnlessCancelled({ ...opts, navigate: false });
+  };
+  const archiveThreadAndAdvance = (opts?: ArchiveThreadOptions) => {
+    const navigation = host.listNavigation;
+    const threadId = threadContext.source.id();
+    if (!navigation || !threadId) return archiveUnlessCancelled(opts);
+    fireAndForget(advanceFrom(navigation, threadId, opts), 'email-thread');
+    return true;
+  };
+
   return {
     registerMessagesList: setMessagesListRef,
     registerMessagesContainer: setMessagesContainerRef,
     thread: selected,
     recipientOptions: recipients.options,
     onRecipientsChange: recipients.add,
-    ...threadContext.createCommands(threadSnapshot),
+    ...commands,
+    archiveThreadAndAdvance,
     messagesContainerRef,
     messagesListRef,
     query: {

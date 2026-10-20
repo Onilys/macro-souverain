@@ -14,6 +14,7 @@ import {
 import { toast } from '@core/component/Toast/Toast';
 import { enableDatabases, enableForms } from '@core/constant/featureFlags';
 import { useUserId } from '@core/context/user';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { ListEntityMetadataQueryProvider } from '@entity';
 import { useTagSets, useTagSetsReady } from '@property/tags/tag-sets-context';
 import {
@@ -48,6 +49,7 @@ import { createDriveDataSource } from './queries/drive-data-source';
 import { createDriveSidebarSource } from './queries/drive-sidebar-source';
 import { documentsTour } from './tour';
 import { DriveLoading, DriveWorkspace } from './views/drive-workspace';
+import { SignedOutDriveWorkspace } from './views/signed-out-drive-workspace';
 
 export type DriveViewProps = { initialFacets?: FacetSelection };
 
@@ -163,10 +165,13 @@ function DriveComposition(props: { route: DriveRouteState }) {
       controller: list.controller,
       handle: panel.handle,
       openEntityInSplit: (entity, options) => {
-        void openEntityInSplitFromUnifiedList(entity, {
-          splitHandle: panel.handle,
-          ...options,
-        });
+        fireAndForget(
+          openEntityInSplitFromUnifiedList(entity, {
+            splitHandle: panel.handle,
+            ...options,
+          }),
+          'open-entity-in-split'
+        );
       },
     });
   });
@@ -184,6 +189,16 @@ function DriveComposition(props: { route: DriveRouteState }) {
     >
       <DriveWorkspace tour={<ViewTour tour={documentsTour} />} />
     </DriveProvider>
+  );
+}
+
+/** Public details use the same viewer without constructing private Drive sources. */
+export function SignedOutDriveView() {
+  const route = createDriveRouteState(() => undefined);
+  return (
+    <DriveDetailNavigationProvider location={route.location}>
+      <SignedOutDriveWorkspace />
+    </DriveDetailNavigationProvider>
   );
 }
 

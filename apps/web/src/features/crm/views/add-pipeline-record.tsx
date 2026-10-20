@@ -1,4 +1,5 @@
 import { registerHotkey, useHotkeyDOMScope } from '@core/hotkey/hotkeys';
+import { fireAndForget } from '@core/util/fireAndForget';
 import EnvelopeIcon from '@phosphor/envelope.svg';
 import GlobeIcon from '@phosphor/globe.svg';
 import TableIcon from '@phosphor/table.svg';
@@ -169,7 +170,7 @@ export function AddPipelineRecordDialog(
     scopeId: hotkeyScope,
     description: submitLabel,
     keyDownHandler: () => {
-      void submit();
+      fireAndForget(submit(), 'crm');
       return true;
     },
     runWithInputFocused: true,
@@ -355,7 +356,7 @@ export function AddPipelineRecordDialog(
             aria-label={submitLabel}
             onSubmit={(event) => {
               event.preventDefault();
-              void submit();
+              fireAndForget(submit(), 'crm');
             }}
           >
             <EntityComposer.Root class="gap-0 p-0">

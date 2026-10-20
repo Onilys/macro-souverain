@@ -23,6 +23,7 @@ import {
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
 import { createAssertedContextProvider } from '@core/context/createContext';
 import { useUserId } from '@core/context/user';
+import { fireAndForget } from '@core/util/fireAndForget';
 import type { ContextProviderProps } from '@solid-primitives/context';
 import deepEqual from 'fast-deep-equal';
 import {
@@ -160,15 +161,22 @@ export const [HomeViewProvider, useHomeView] = createAssertedContextProvider<
               params: { documentType: blockType, documentId: previewId },
             }
           : { route: homePreviewRoute, params };
-    navigate(target, { replace, search: withTab(search) });
+    fireAndForget(
+      navigate(target, { replace, search: withTab(search) }),
+      'home-view'
+    );
   };
   const navigateTarget = (target: PreviewBlockTarget, replace = false) =>
     navigateDetail(homePreviewTargetNavigation(target), replace);
-  const closePreview = () =>
-    navigate(
-      { route: homeSplitRoute, params: {} },
-      { search: withTab(homeDetailSearch()) }
+  const closePreview = () => {
+    fireAndForget(
+      navigate(
+        { route: homeSplitRoute, params: {} },
+        { search: withTab(homeDetailSearch()) }
+      ),
+      'home-view'
     );
+  };
   const [previewNavigationRequest, setPreviewNavigationRequest] =
     createSignal(0);
   const openPreview = (entity: PreviewSelection) => {
@@ -197,9 +205,12 @@ export const [HomeViewProvider, useHomeView] = createAssertedContextProvider<
       if (selectPreview(target)) return;
       if (previous) navigateTarget(previous, true);
       else
-        navigate(
-          { route: homeSplitRoute, params: {} },
-          { replace: true, search: withTab(homeDetailSearch()) }
+        fireAndForget(
+          navigate(
+            { route: homeSplitRoute, params: {} },
+            { replace: true, search: withTab(homeDetailSearch()) }
+          ),
+          'home-view'
         );
     })
   );

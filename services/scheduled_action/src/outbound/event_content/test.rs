@@ -117,6 +117,7 @@ fn message(content: &str) -> Message {
         parent: MessageParent::Channel(Uuid::nil()),
         thread_id: None,
         sender_id: "macro|sender@example.com".to_owned().try_into().unwrap(),
+        guest_name: None,
         imported_author: None,
         bot_profile: None,
         mentions: Vec::new(),

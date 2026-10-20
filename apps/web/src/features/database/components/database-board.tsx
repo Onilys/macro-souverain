@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import OpenIcon from '@phosphor/arrows-out-simple.svg';
 import CheckIcon from '@phosphor/check.svg';
 import EmptyIcon from '@phosphor/circle-dashed.svg';
@@ -327,7 +328,7 @@ export function DatabaseBoard(props: DatabaseBoardProps) {
                   onStartDraft={() => startDraft(group().key)}
                   onDraftInput={(id, title) => updateDraft(id, { title })}
                   onSubmitDraft={(id, submission) =>
-                    void submitDraft(id, submission)
+                    fireAndForget(submitDraft(id, submission), 'database')
                   }
                   onCancelDraft={cancelDraft}
                   draftRef={(id, element) => {

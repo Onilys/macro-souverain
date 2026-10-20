@@ -77,7 +77,9 @@ export function MobilePageCreateButton() {
             {
               label: 'Call',
               icon: PhoneIcon,
-              onSelect: () => void call.keyDownHandler(),
+              onSelect: () => {
+                call.keyDownHandler();
+              },
             },
           ]
         : []),

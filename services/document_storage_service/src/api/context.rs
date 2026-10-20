@@ -856,7 +856,7 @@ pub(crate) struct ApiContext {
     pub graphql_work_feed_context: complete_graph::WorkFeedGraphqlContext,
     pub graphql_initiative_entity_loader: graphql_initiative::InitiativeEntityLoader,
     pub graphql_agent_session_entity_loader: graphql_soup::AgentSessionEntityLoader,
-    pub graphql_soup_update_hydration_loader: graphql_soup::SoupUpdateHydrationLoader,
+    pub graphql_primary_soup_item_loader: graphql_soup::PrimarySoupItemLoader,
     pub graphql_soup_item_loader: graphql_soup::SoupItemDataLoader,
     pub databases_state: DssDatabasesState,
     pub database_webhooks_state: DssDatabaseWebhooksState,
@@ -888,6 +888,7 @@ pub(crate) struct ApiContext {
     pub projects_state: ProjectsState,
     pub channels_state: DssChannelsState,
     pub messages_state: DssMessagesState,
+    pub guest_chat_service: Arc<dyn messages::domain::service::guest_chat::GuestChatApi>,
     pub annotation_service: Arc<DssAnnotationService>,
     /// Shared channel service, for calling channel domain operations outside
     /// the channels router (starter-doc seeding records mention backlinks).

@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import { createEffect, on, onCleanup } from 'solid-js';
 import { type PagerDirection, usePager } from './Pager';
 
@@ -128,9 +129,11 @@ export function PagerSwipeGestures(props: PagerSwipeGesturesProps) {
       };
 
       const releaseVelocity = (gesture: ActiveGesture, endTime: number) => {
-        const samples = gesture.samples.filter(
-          (sample) => endTime - sample.time <= RELEASE_VELOCITY_WINDOW
-        );
+        // Include the release point so lifting after a pause loses momentum.
+        const samples = [
+          ...gesture.samples,
+          { time: endTime, x: gesture.currentX },
+        ].filter((sample) => endTime - sample.time <= RELEASE_VELOCITY_WINDOW);
         const first = samples[0];
         const last = samples.at(-1);
         if (!first || !last || last.time <= first.time) return 0;
@@ -192,7 +195,7 @@ export function PagerSwipeGestures(props: PagerSwipeGesturesProps) {
         }
 
         const direction: PagerDirection = offset < 0 ? 'next' : 'previous';
-        void pager.commitDrag(direction, Math.abs(velocity));
+        fireAndForget(pager.commitDrag(direction, Math.abs(velocity)), 'pager');
       };
 
       const handleTouchCancel = animateBackAfterInterruption;

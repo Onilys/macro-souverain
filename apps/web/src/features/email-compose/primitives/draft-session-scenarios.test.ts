@@ -411,7 +411,7 @@ describe('draft session: compose composer', () => {
       const root = mountEmailComposer(context);
       try {
         root.edit('With an attachment');
-        await root.state.context.onAddAttachments([{ type: 'local', file }]);
+        await root.state.context.onAddAttachments([file]);
         await vi.advanceTimersByTimeAsync(600);
         root.state.context.onSend();
         await vi.advanceTimersByTimeAsync(10);
@@ -451,7 +451,7 @@ describe.each(['reply', 'compose'] as const)(
         schedule: root.state.context.schedule.onSelect,
         cancelSchedule: root.state.context.schedule.onCancel,
         addAttachment: (file: File) =>
-          root.state.context.onAddAttachments([{ type: 'local', file }]),
+          root.state.context.onAddAttachments([file]),
       };
     };
 

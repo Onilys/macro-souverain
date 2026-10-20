@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import * as Effect from 'effect/Effect';
 import { APP_BUILD_TIME } from '../app-build';
 import type { CacheRequest, WorkerMessage } from '../protocol';
@@ -645,7 +646,10 @@ export class CacheCoordinatorPageAdapter {
           message.tabId === this.tabId &&
           message.ownerEpoch === this.ownerEpoch
         ) {
-          void this.removeStaleDatabases();
+          fireAndForget(
+            this.removeStaleDatabases(),
+            'graphql-cache-coordinator'
+          );
         }
         break;
     }
@@ -919,7 +923,10 @@ export class CacheCoordinatorPageAdapter {
     addEventListener(
       'pagehide',
       () => {
-        void this.dispose({ graceful: false, preserveDatabase: true });
+        fireAndForget(
+          this.dispose({ graceful: false, preserveDatabase: true }),
+          'graphql-cache-coordinator'
+        );
       },
       { once: true }
     );

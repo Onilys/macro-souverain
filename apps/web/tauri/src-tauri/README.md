@@ -5,19 +5,28 @@ single Vite build that runs identically for web, desktop, iOS, and Android — t
 platform is detected at runtime via `getPlatform()` rather than baked into the
 bundle.
 
-## macOS app icon
+## Desktop app icons
 
-The macOS icon reuses the iOS marketing artwork through the Icon Composer source
-in `icons/macos/Macro.icon`. The macOS-only Tauri configuration bundles its
-compiled `Assets.car` and `Macro.icns`, and merges the generated icon names into
-Info.plist. Tahoe uses the icon composition; older macOS uses the generated
-fallback. The mobile artwork has no baked-in rounded tile or transparent border
-for macOS to place inside another enclosure.
+Desktop icons carry the same ALPHA badge as the Android app. The macOS icon uses
+the badged artwork in the Icon Composer source `icons/macos/Macro.icon`; the iOS
+app is unbadged, so this artwork is no longer copied from it. The macOS-only
+Tauri configuration bundles its compiled `Assets.car` and `Macro.icns`, and
+merges the generated icon names into Info.plist. Tahoe uses the icon
+composition; older macOS uses the generated fallback. The artwork has no
+baked-in rounded tile or transparent border for macOS to place inside another
+enclosure.
 
-After changing the mobile artwork or composition, regenerate with Xcode 26.2:
+After changing the macOS artwork or composition, regenerate with Xcode 26.2:
 
 ```sh
 bash icons/macos/regenerate.sh
+```
+
+The Linux and Windows icons composite the badge from that artwork onto the
+unbadged tile in `icons/app-icon.png`. Regenerate them after either changes:
+
+```sh
+bash icons/regenerate.sh
 ```
 
 Commit the source and generated files together. They are checked in so desktop

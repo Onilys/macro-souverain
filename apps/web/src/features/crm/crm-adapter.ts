@@ -38,6 +38,7 @@ import {
 import { createAppCrmDisplayOptions } from './display-adapter';
 import { downloadCrmCsv } from './download-adapter';
 import {
+  copyCrmPipelineLink,
   copyCrmRecordLink,
   copyCrmViewLink,
   createAppCrmNavigation,
@@ -188,6 +189,7 @@ export function createAppCrmContext(): CrmContext {
     createNavigation: createAppCrmNavigation,
     copyRecordLink: copyCrmRecordLink,
     copyViewLink: copyCrmViewLink,
+    copyPipelineLink: copyCrmPipelineLink,
     listsEnabled() {
       const flag = useFeatureFlag(enableCrmLists);
       return () => flag().enabled;

@@ -999,6 +999,80 @@
         }
       }
     },
+    "/call/guest-chat/{call_id}": {
+      "get": {
+        "tags": ["messages::inbound::guest_chat"],
+        "summary": "Read the live call discussion as a verified guest.",
+        "operationId": "guest_call_chat_read",
+        "parameters": [
+          {
+            "name": "call_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuestChatPage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": ""
+          }
+        }
+      },
+      "post": {
+        "tags": ["messages::inbound::guest_chat"],
+        "summary": "Append text to the same saved discussion used by account participants.",
+        "operationId": "guest_call_chat_post",
+        "parameters": [
+          {
+            "name": "call_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuestChatPost"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuestChatMessage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/call/join/{token}": {
       "get": {
         "tags": ["call::inbound::axum_router::meetings"],
@@ -23568,8 +23642,8 @@
       },
       "ConferenceProvider": {
         "type": "string",
-        "description": "The conferencing system backing an event's join URL.\n\nMacro generates only Google Meet conferences, so this distinguishes one it\ncreated from a third party's — Zoom and friends arriving as `addOn`\nconference data, or a legacy classic Hangout. Clients use it to label the\nconference and to tell whether the Meet toggle reflects a Macro-managed\nconference.\n\nIt does not gate mutation. An explicit request replaces or detaches any\nconference, third-party included, exactly as deleting the event would;\nwhat protects a conference is that omitting the field leaves it untouched,\nso an unrelated edit never disturbs it.",
-        "enum": ["google_meet", "other"]
+        "description": "The conferencing system backing an event's join URL.\n\nCalendars can create Google Meet or Microsoft Teams according to their\ncapabilities. Imported third-party conferences are labeled separately.\nOmitting a conference change preserves the current conference; explicit\nchanges still require provider and calendar capability validation.",
+        "enum": ["microsoft_teams", "google_meet", "other"]
       },
       "Conjunction": {
         "type": "string",
@@ -28796,7 +28870,8 @@
           "closesAt",
           "confirmationMessage",
           "createdAt",
-          "updatedAt"
+          "updatedAt",
+          "isHiddenInDrive"
         ],
         "properties": {
           "audience": {
@@ -28830,6 +28905,10 @@
             "type": "string",
             "format": "uuid",
             "description": "The form."
+          },
+          "isHiddenInDrive": {
+            "type": "boolean",
+            "description": "Whether Drive leaves it, and the database behind it, out of its\nlistings, as for a channel poll."
           },
           "name": {
             "type": "string",
@@ -29378,6 +29457,10 @@
             "description": "A new database named like the form, whose one table, \"Responses\",\nstarts with only the form's own columns.",
             "required": ["kind"],
             "properties": {
+              "isHiddenInDrive": {
+                "type": "boolean",
+                "description": "Keep the form, and the database made for it, out of Drive, as\nfor a channel poll."
+              },
               "kind": {
                 "type": "string",
                 "enum": ["new"]
@@ -30647,6 +30730,70 @@
         "type": "string",
         "description": "Sort method for grouped queries (frecency not supported).",
         "enum": ["viewed_at", "created_at", "updated_at", "viewed_updated"]
+      },
+      "GuestChatMessage": {
+        "type": "object",
+        "description": "Guest-safe message projection: no account identities, attachments, or entity grants.",
+        "required": ["id", "name", "guest", "is_you", "content", "created_at"],
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "Message body."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation time."
+          },
+          "guest": {
+            "type": "boolean",
+            "description": "Whether the author is a guest."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Persisted message identity."
+          },
+          "is_you": {
+            "type": "boolean",
+            "description": "Whether this session authored the message."
+          },
+          "name": {
+            "type": "string",
+            "description": "Display-only author name."
+          }
+        }
+      },
+      "GuestChatPage": {
+        "type": "object",
+        "description": "Messages in the call's one discussion, oldest first.",
+        "required": ["messages"],
+        "properties": {
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GuestChatMessage"
+            },
+            "description": "Visible, nondeleted messages."
+          }
+        }
+      },
+      "GuestChatPost": {
+        "type": "object",
+        "description": "Guests may send text only; attribution and parent are server-owned.",
+        "required": ["id", "content"],
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "Text to append to the call discussion."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUIDv7 used to deduplicate retries, including the first message."
+          }
+        },
+        "additionalProperties": false
       },
       "GuestId": {
         "type": "string",
@@ -32040,7 +32187,7 @@
       },
       "MeetingToken": {
         "type": "string",
-        "description": "A bearer capability that grants access only to a meeting's RTC room."
+        "description": "An invitation capability for joining a meeting's RTC room. Chat additionally\nrequires the resulting participant credential and current guest membership."
       },
       "MeetingsResponse": {
         "type": "object",
@@ -32107,6 +32254,10 @@
             "type": ["string", "null"],
             "format": "date-time",
             "description": "Last content edit, if any."
+          },
+          "guest_name": {
+            "type": ["string", "null"],
+            "description": "Display name of a verified call guest, retained after the call ends."
           },
           "id": {
             "type": "string",

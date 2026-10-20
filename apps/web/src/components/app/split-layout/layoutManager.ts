@@ -23,6 +23,7 @@ import type {
   BlockOrchestrator,
 } from '@core/orchestrator';
 import { useFocusLock } from '@core/util/createControlledOpenSignal';
+import { fireAndForget } from '@core/util/fireAndForget';
 import {
   type Accessor,
   batch,
@@ -65,7 +66,7 @@ function afterNavigation(
   then: (outcome: NavigationResult) => void
 ): void {
   if (result instanceof Promise) {
-    void settleNavigation(result, then);
+    fireAndForget(settleNavigation(result, then), 'split-layout');
     return;
   }
 
@@ -174,6 +175,12 @@ export type ReferredFrom =
   | 'file-upload'
   | 'fork'
   | null;
+
+export type ReplaceAllSplitsOptions = {
+  referredFrom?: ReferredFrom;
+  /** Router state validated by the destination route, separate from runtime EntryState. */
+  routeState?: unknown;
+};
 
 export type SplitState = {
   id: SplitId;
@@ -359,7 +366,7 @@ export type SplitManager = {
   /** Replace all splits with a single split containing the given content. */
   replaceAllSplits: (
     content: SplitContent,
-    options?: { referredFrom?: ReferredFrom }
+    options?: ReplaceAllSplitsOptions
   ) => SplitHandle | undefined;
 
   /** Check if a split exists by its split id */
@@ -893,7 +900,7 @@ export function createSplitLayout(
   }
 
   function back(id: SplitId) {
-    void router.navigatePane(paneOf(id), -1);
+    fireAndForget(router.navigatePane(paneOf(id), -1), 'split-layout');
   }
 
   /**
@@ -915,15 +922,16 @@ export function createSplitLayout(
   }
 
   function forward(id: SplitId) {
-    void router.navigatePane(paneOf(id), 1);
+    fireAndForget(router.navigatePane(paneOf(id), 1), 'split-layout');
   }
 
   function removeFromHistory(
     id: SplitId,
     predicate: (content: SplitContent) => boolean
   ) {
-    void router.removeEntries(paneOf(id), (entry) =>
-      predicate(contentAt(entry))
+    fireAndForget(
+      router.removeEntries(paneOf(id), (entry) => predicate(contentAt(entry))),
+      'split-layout'
     );
   }
 
@@ -948,7 +956,10 @@ export function createSplitLayout(
       return;
     }
 
-    void navigateSplit(id, content, { replace: mergeHistory, referredFrom });
+    fireAndForget(
+      navigateSplit(id, content, { replace: mergeHistory, referredFrom }),
+      'split-layout'
+    );
   }
 
   /**
@@ -1026,14 +1037,17 @@ export function createSplitLayout(
     const entry = untrack(() => router.entry(paneOf(id)));
     if (entry && next.state) entryStates.set(entry.id, next.state);
 
-    void router.rewriteCurrent(paneOf(id), { location: toLocation(next) });
+    fireAndForget(
+      router.rewriteCurrent(paneOf(id), { location: toLocation(next) }),
+      'split-layout'
+    );
   }
 
   function reset(id: SplitId) {
     if (!findSplitById(id))
       return console.error(`Split with id ${id} not found`);
 
-    void navigateSplit(id, DEFAULT_SPLIT_CONTENT);
+    fireAndForget(navigateSplit(id, DEFAULT_SPLIT_CONTENT), 'split-layout');
   }
 
   /** Mirrors a pane's new current entry onto its split, creating the split when the pane is new. */
@@ -1215,7 +1229,7 @@ export function createSplitLayout(
         return snapshot.entries.slice(0, snapshot.index + 1).map(contentAt);
       },
       close: () => {
-        void router.close(paneOf(currentSplit.id));
+        fireAndForget(router.close(paneOf(currentSplit.id)), 'split-layout');
       },
       isFirst: () => state.splits.at(0)?.id === id,
       isLast: () => state.splits.at(-1)?.id === id,
@@ -1347,11 +1361,12 @@ export function createSplitLayout(
 
     const isLast = state.splits.length <= 1;
     if (isLast) {
-      if (createNewOnEmpty) void navigateSplit(id, DEFAULT_SPLIT_CONTENT);
+      if (createNewOnEmpty)
+        fireAndForget(navigateSplit(id, DEFAULT_SPLIT_CONTENT), 'split-layout');
       return;
     }
 
-    void router.remove(paneOf(id));
+    fireAndForget(router.remove(paneOf(id)), 'split-layout');
   }
 
   function canSwapSplit(id: SplitId, direction: 'left' | 'right') {
@@ -1668,7 +1683,7 @@ export function createSplitLayout(
   /** Shows `content` as the only split, in one navigation; a split already showing it stays. */
   function replaceAllSplits(
     content: SplitContent,
-    options: { referredFrom?: ReferredFrom } = {}
+    options: ReplaceAllSplitsOptions = {}
   ): SplitHandle | undefined {
     if (
       !canOpenContent(content, getSplitByContent(content.type, content.id)?.id)
@@ -1679,10 +1694,13 @@ export function createSplitLayout(
 
     const result = router.navigate(
       { location: toLocation(content) },
-      entryOptionsOf(content, {
-        referredFrom: options.referredFrom ?? null,
-        activate: true,
-      })
+      {
+        ...entryOptionsOf(content, {
+          referredFrom: options.referredFrom ?? null,
+          activate: true,
+        }),
+        ...(options.routeState !== undefined && { state: options.routeState }),
+      }
     );
     const showAlone = (outcome: NavigationResult) => {
       if (outcome.status !== 'committed') return;
@@ -1692,7 +1710,7 @@ export function createSplitLayout(
     };
 
     if (result instanceof Promise) {
-      void settleNavigation(result, showAlone);
+      fireAndForget(settleNavigation(result, showAlone), 'split-layout');
       return;
     }
 
@@ -1722,7 +1740,7 @@ export function createSplitLayout(
     openWithSplit,
     preloadContent: (content) => {
       try {
-        void router.preload(toLocation(content));
+        fireAndForget(router.preload(toLocation(content)), 'split-layout');
       } catch {
         // Speculative: the navigation itself reports content it can't route.
       }

@@ -1,4 +1,5 @@
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { cellPlainText } from '@macro-inc/spreadsheet/cell-mentions';
 import {
   type DropdownOptions,
@@ -28,7 +29,10 @@ import {
   DropdownDialog,
   type DropdownDialogState,
 } from '../components/DropdownDialog';
-import { SpreadsheetFileMenu } from '../components/SpreadsheetActionMenus';
+import {
+  SpreadsheetFileMenu,
+  SpreadsheetImportButton,
+} from '../components/SpreadsheetActionMenus';
 import { SpreadsheetDialog } from '../components/SpreadsheetDialog';
 import {
   SpreadsheetFindDialog,
@@ -408,7 +412,7 @@ export function SpreadsheetEditor(props: {
         { row: 0, column },
         { row: props.store.rowCount() - 1, column }
       );
-      void headerAction('column', action);
+      fireAndForget(headerAction('column', action), 'spreadsheet-editor');
     },
     restoreFocus: () => restoreEditorFocus(),
     afterMenu: (open) => {
@@ -614,16 +618,16 @@ export function SpreadsheetEditor(props: {
       .with('undo', () => grid.undo())
       .with('redo', () => grid.redo())
       .with('cut', () => {
-        void actions.copy(true);
+        fireAndForget(actions.copy(true), 'spreadsheet-editor');
       })
       .with('copy', () => {
-        void actions.copy();
+        fireAndForget(actions.copy(), 'spreadsheet-editor');
       })
       .with('paste', () => {
-        void actions.paste();
+        fireAndForget(actions.paste(), 'spreadsheet-editor');
       })
       .with('paste-values', () => {
-        void actions.paste(true);
+        fireAndForget(actions.paste(true), 'spreadsheet-editor');
       })
       .with('clear-values', () => grid.clear())
       .with('clear-formatting', actions.clearFormatting)
@@ -645,7 +649,7 @@ export function SpreadsheetEditor(props: {
       .with('export-csv', exportCsv)
       .with('import', () => importInput.click())
       .with('export-xlsx', () => {
-        void workbookActions.exportExcel();
+        fireAndForget(workbookActions.exportExcel(), 'spreadsheet-editor');
       })
       .with('add-rows', () => props.store.appendRows(100))
       .with('toggle-gridlines', () => {
@@ -658,10 +662,10 @@ export function SpreadsheetEditor(props: {
       .with('toggle-formula-bar', () => setShowFormulaBar((value) => !value))
       .with('toggle-formulas', () => setShowFormulas((value) => !value))
       .with('sort-asc', () => {
-        void actions.sort(false);
+        fireAndForget(actions.sort(false), 'spreadsheet-editor');
       })
       .with('sort-desc', () => {
-        void actions.sort(true);
+        fireAndForget(actions.sort(true), 'spreadsheet-editor');
       })
       .with('trim-whitespace', actions.trimWhitespace)
       .with('dropdown', openDropdownDialog)
@@ -992,7 +996,11 @@ export function SpreadsheetEditor(props: {
         onChange={(event) => {
           const file = event.currentTarget.files?.[0];
           event.currentTarget.value = '';
-          if (file) void drawingActions.insertImage(file);
+          if (file)
+            fireAndForget(
+              drawingActions.insertImage(file),
+              'spreadsheet-editor'
+            );
         }}
       />
       <input
@@ -1004,7 +1012,7 @@ export function SpreadsheetEditor(props: {
         onChange={(event) => {
           const file = event.currentTarget.files?.[0];
           event.currentTarget.value = '';
-          void importFile(file);
+          fireAndForget(importFile(file), 'spreadsheet-editor');
         }}
       />
       <Show
@@ -1088,7 +1096,9 @@ export function SpreadsheetEditor(props: {
           hiddenColumns={props.store.activeSheet().metadata?.hiddenColumns}
           canChangeStructure={props.store.canChangeStructure()}
           onCellAction={command}
-          onHeaderAction={(axis, action) => void headerAction(axis, action)}
+          onHeaderAction={(axis, action) =>
+            fireAndForget(headerAction(axis, action), 'spreadsheet-editor')
+          }
           onResizeColumn={props.store.resizeColumn}
           onFill={grid.fill}
           onCopyMetadata={grid.copyMetadata}
@@ -1097,7 +1107,10 @@ export function SpreadsheetEditor(props: {
               ? (selection, rows, columns) => {
                   grid.commit();
                   actions.clearNotice();
-                  void rangeMove.move(selection, rows, columns);
+                  fireAndForget(
+                    rangeMove.move(selection, rows, columns),
+                    'spreadsheet-editor'
+                  );
                 }
               : undefined
           }
@@ -1403,7 +1416,13 @@ export function SpreadsheetEditor(props: {
             </span>
           </Show>
         </div>
-        <div class="shrink-0 border-l border-edge-muted pl-1 max-sm:order-1">
+        <div class="flex shrink-0 items-center gap-0.5 border-l border-edge-muted pl-1 max-sm:order-1">
+          <SpreadsheetImportButton
+            disabled={
+              !editable() || actions.pending() || !!workbookActions.busy()
+            }
+            onCommand={menuCommand}
+          />
           <SpreadsheetFileMenu
             readonly={
               !editable() || actions.pending() || !!workbookActions.busy()
@@ -1438,7 +1457,9 @@ export function SpreadsheetEditor(props: {
       />
       <SpreadsheetMoveDialog
         open={!!rangeMove.confirming()}
-        onConfirm={() => void rangeMove.confirm()}
+        onConfirm={() =>
+          fireAndForget(rangeMove.confirm(), 'spreadsheet-editor')
+        }
         onClose={rangeMove.cancel}
         onRestoreFocus={focusGrid}
       />
@@ -1507,7 +1528,7 @@ export function SpreadsheetEditor(props: {
         solution={goalSeek.solution()}
         message={goalSeek.message()}
         onSeek={() => {
-          void goalSeek.seek();
+          fireAndForget(goalSeek.seek(), 'spreadsheet-editor');
         }}
         onApply={goalSeek.apply}
         onEdit={goalSeek.clearSolution}

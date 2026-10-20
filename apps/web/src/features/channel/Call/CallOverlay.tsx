@@ -2,6 +2,7 @@ import { useSplitPanel } from '@components/app/split-layout/layoutUtils';
 import { UserIcon } from '@core/component/UserIcon';
 import { useAuthor, useUserId } from '@core/context/user';
 import { getDisplayName, tryMacroId } from '@core/user';
+import { fireAndForget } from '@core/util/fireAndForget';
 import ChatIcon from '@phosphor/chat-circle.svg';
 import { cn, InlineCheckbox, Tooltip } from '@ui';
 import type { RemoteParticipant, Track } from 'livekit-client';
@@ -14,7 +15,6 @@ import {
   Show,
   Suspense,
 } from 'solid-js';
-
 import { useCallContext } from './CallContext';
 import { CallControls } from './CallControls/CallControls';
 import {
@@ -27,6 +27,7 @@ import { TrackView } from './TrackView';
 import { useActiveCallTeamShare } from './use-toggle-share-with-team';
 
 const CallChat = lazy(() => import('./chat/CallChat'));
+const GuestCallChat = lazy(() => import('./chat/GuestCallChat'));
 
 function VideoTag(props: {
   children: JSXElement;
@@ -224,8 +225,10 @@ export function CallOverlay(props: {
   showTeamSharing?: boolean;
   sharedWithTeam?: boolean;
   localName?: string;
-  /** Shared messages require an authenticated Macro participant. */
+  /** The host may hide chat until account or guest session credentials are ready. */
   showChat?: boolean;
+  /** Narrow RTC credential for a guest; never an account bearer. */
+  guestChatSession?: { token: string; participantId: string };
 }) {
   const callCtx = useCallContext();
   const currentUserId = useUserId();
@@ -388,12 +391,28 @@ export function CallOverlay(props: {
           <Show when={callCtx.activeCallId()} keyed>
             {(callId) => (
               <Suspense>
-                <CallChat
-                  callId={callId}
-                  id={chatId}
-                  open={chatOpen()}
-                  onClose={closeChat}
-                />
+                <Show
+                  when={props.guestChatSession}
+                  keyed
+                  fallback={
+                    <CallChat
+                      callId={callId}
+                      id={chatId}
+                      open={chatOpen()}
+                      onClose={closeChat}
+                    />
+                  }
+                >
+                  {(session) => (
+                    <GuestCallChat
+                      callId={callId}
+                      session={session}
+                      id={chatId}
+                      open={chatOpen()}
+                      onClose={closeChat}
+                    />
+                  )}
+                </Show>
               </Suspense>
             )}
           </Show>
@@ -418,7 +437,7 @@ export function CallOverlay(props: {
           >
             <button
               type="button"
-              onClick={() => void teamShare.toggle()}
+              onClick={() => fireAndForget(teamShare.toggle(), 'channel-call')}
               disabled={teamShareLocked()}
               role="checkbox"
               aria-checked={sharedWithTeam()}

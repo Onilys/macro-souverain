@@ -1,5 +1,19 @@
 # Email
 
+## Thread motion
+
+Message cards animate their height when expanding or collapsing a message or
+its inline reply draft. Hidden messages unfold with the shared collapse
+transition. Check repeated toggles during motion: the card should continue from
+its visible height and settle to natural sizing, with no clipped editor or
+attachments. Resizing the viewport and enabling reduced motion should settle
+immediately. Touch replies keep their existing drawer behavior.
+
+For an isolated check without account data, open
+`/src/features/email-message/browser-test/motion.html` on the Vite server. It
+uses the real message card and collapse transition with local sample content;
+it does not exercise draft persistence or delivery.
+
 ## Email reminder delivery
 
 An email snooze returns its original conversation to the inbox and adds a
@@ -16,8 +30,28 @@ and its `New tag` action creates a personal tag with no Team sharing option.
 
 Full email client. Tabs: `Signal` / `Noise` / `Favorites` / `Sent` / `Scheduled` / `Calendar` / `Drafts` / `Shared` /
 `Archived` / `All`. Compose via the `Email` button (or `Create` → `Email E`). On a fresh local user it
-shows `Connect your email` (Gmail/Google Workspace OAuth) — most functionality needs a
-connected account. Search is `Ctrl+F` within the surface.
+shows `Connect your email`; Gmail/Google Workspace and enabled Outlook connections
+use provider consent. Most functionality needs a connected account. Search is `Ctrl+F` within the surface.
+
+Outlook connections support personal Outlook.com and individual Microsoft 365
+inboxes. Choose the inbox explicitly when testing mixed-provider accounts. The
+same thread, search, Signal/Noise, draft, and schedule surfaces apply to both
+providers. Shared/delegated Microsoft mailboxes are outside this account scope;
+sharing an inbox or thread inside Macro remains available.
+
+For Outlook writes, distinguish acceptance from provider confirmation. Thread
+organization notices and inbox settings show pending or failed changes. A saved
+draft can show a conflict or an uncertain delivery: use its recovery actions and
+check the provider copy before choosing an explicit resend. Switching the sender
+inbox copies the draft and attachments into the destination; wait for completion
+before sending. If the copy is interrupted, use retry or keep the original.
+
+Imported Outlook attachments keep their provider identity, including inline
+images. Cloud-reference attachment chips open the original Outlook message.
+Forwarding a message with cloud references shows a notice to share those links
+from Outlook; they are not downloadable files. Verify a native draft attachment
+replacement, removal of the final attachment, and moving a populated folder into
+and out of Deleted Items when exercising sync.
 
 Sender names use each message's `From` display name, falling back to the
 address-book name when it is absent. Multiple people or bots sending through
@@ -264,10 +298,11 @@ replace the list's, and while it has the keyboard the list's keys stand down,
 so `x`, `Cmd+A`, `End` or `Shift+Enter` in the reader never act on the list.
 j/k in the reader step threads and move the list cursor with them, replacing
 history. Escape in the reader, once there is nothing to unwind, hands the
-keyboard back to the list without closing the thread. Narrow email rows, here
-and on phones, stack senders and date, subject, and one preview line beside a
-slim unread-dot gutter (no per-type icon); unread rows are bold, hovering swaps
-the date for the row actions, and hovering the gutter shows the select checkbox.
+keyboard back to the list without closing the thread. Narrow email rows here
+stack senders and date, subject, and one preview line beside a slim unread-dot
+gutter (no per-type icon); unread rows are bold, hovering swaps the date for the
+row actions, and hovering the gutter shows the select checkbox. Phones keep
+their own touch email rows, with the sender's picture on the left.
 Without room for both (narrow split, collapsed window) the pane folds away and
 a thread replaces the list as usual; the thread remounts, but a reply draft
 survives. The divider can be dragged; the list width is remembered. Verify that
@@ -284,9 +319,13 @@ first); the list keeps the row you came from focused. The inline header uses the
 email title menu: open the menu button beside the subject for **Ask AI**, **Create a
 Task**, and the other thread actions. On desktop, **Mark as unread**, **Mark done**,
 and **Previous item** / **Next item** sit at the right of that header. The arrows
-follow the current filtered list and disable at its ends. Mark done advances in
-that list. Mark as unread (in the header or title menu) returns to the originating
-list with its tab, inbox, and filters preserved. Mark as not done and Mark as read
+follow the current filtered list and disable at its ends. When the open thread
+leaves the list while it stays open (a reply in Signal marks it done, or another
+device archives it), they step from its former neighbours. Mark done advances in
+that list. In a list, the Mark done, Mark as not done and Delete keys act once per
+press: a held key auto-repeats, and those repeats are ignored. Mark as unread (in
+the header or title menu) returns to the originating list with its tab, inbox, and
+filters preserved. Mark as not done and Mark as read
 stay on the current thread.
 Opening a saved draft from **Drafts** keeps the subject breadcrumb, title menu,
 and applicable header controls visible above the composer. Verify these remain
@@ -353,6 +392,13 @@ During send or discard, its sender and scheduling controls cannot change the ope
 Attachments that can be opened are buttons named by their filename; Tab to one
 and press Enter or Space. Removal is a separate button named `Remove <filename>`.
 Removing a forwarded file keeps the received original.
+Files that would push the email over the sending inbox's delivery limit (18 MB
+on Gmail, 25 MB on Outlook) are not attached:
+a confirmation (a drawer on phones) offers to upload them to Macro and share
+view-only links instead. Confirming inserts one link per file at the end of the
+written message, above a reply's quoted thread, and the draft autosaves; Cancel
+adds nothing. Files that fit still attach, and the same check covers files
+dropped onto the body.
 To forward from another inbox, open Forward, expand the forwarding envelope on
 desktop, and select a different account in From (already visible on mobile).
 Forwarded files must remain attached after switching to an owned or delegated
@@ -371,6 +417,15 @@ Ordinary queued saves must not request another `EmailThreadPage`; a missing
 thread snapshot or a move between inboxes still requires reconciliation.
 AI email tool drafts persist body-only edits; changing recipients or the subject
 is not required to save the body.
+For an AI-drafted reply with no explicit sender, the backend selects the inbox
+that received the original message. Delay the reply-inbox lookup: the composer
+shows `Resolving sender...`, hides the signature, and disables Send (including
+the keyboard shortcut and batch submission). Fail the lookup and check Retry; choosing a From inbox
+also enables sending immediately. A late lookup must not overwrite that choice.
+Implicit senders omit `from` on edits and sends. An explicit sender is preserved
+even while inboxes load or after disconnection; an unavailable sender blocks Send
+until another connected inbox is selected. New emails default to the primary
+inbox after inboxes load. Repeat on mobile using the expanded `Cc/Bcc, From:` row.
 
 With GraphQL draft queuing enabled, working copies and pending attachment bytes
 are saved on this device independently of the mutation queue. A failed server
@@ -454,8 +509,12 @@ Macro Markdown messages retain document mentions. Ordinary HTML bodies use an
 open shadow root: Playwright text locators can reach them, but a card's ordinary
 `innerText` or `querySelector` does not traverse that root.
 
-Sending a reply from an inbox thread marks that thread done but stays on it;
-only the explicit Mark done action opens the next email.
+Sending a reply from an inbox thread marks that thread done but stays on it.
+Send and mark done (Shift+Cmd+Enter) and Mark done open the next email, counted
+from where the thread sat when it was opened (a reply draft lifts its thread to
+the top of Signal while it is written). If the user has already moved to
+another thread when the send finishes, the replied thread is marked done
+without navigating; Undo before then leaves it in the inbox.
 Sending a message shows it in the open thread immediately, while delivery is
 still pending. It stays visible until the thread refresh confirms it, with no
 duplicate message. Failed delivery removes that message and restores the reply

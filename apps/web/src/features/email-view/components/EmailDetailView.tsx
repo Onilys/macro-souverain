@@ -34,6 +34,7 @@ import { ENABLE_EMAIL_SHARING } from '@core/constant/featureFlags';
 import { TOKENS } from '@core/hotkey/tokens';
 import { registerScopeSignalHotkey } from '@core/hotkey/utils';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { buildEntityData } from '@entity';
 import { useThreadQuery } from '@queries/email/thread';
 import { representativeThreadMessage } from '@queries/email/thread-subject';
@@ -275,7 +276,7 @@ export function EmailDetailView(props: {
             threadId={props.thread.id}
             linkId={threadData()?.link_id}
             debounceTime={100}
-            onRetry={() => void threadQuery.refetch()}
+            onRetry={() => fireAndForget(threadQuery.refetch(), 'email-view')}
           >
             <EmailThreadHostView
               title={title()}

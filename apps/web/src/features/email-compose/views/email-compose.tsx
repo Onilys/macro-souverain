@@ -6,8 +6,10 @@ import {
 } from '@components/app/split-layout/components/SplitLabel';
 import { EmailPermissionsBanner } from '@core/component/EmailPermissionsBanner';
 import { WrapUnlessMobile } from '@core/mobile/WrapUnlessMobile';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { ComposerSurface } from '@ui';
 import { createResource, createSignal, Show } from 'solid-js';
+import { MessageOperationRecovery } from '../../email-message/views/message-operation-recovery';
 import { DraftSyncStatus } from '../components/draft-sync-status';
 import { EmailScheduleBar } from '../components/email-schedule-summary';
 import { SignaturePreview } from '../components/signature-preview';
@@ -47,24 +49,48 @@ export function EmailComposeView(props: EmailComposeViewProps) {
       return result;
     }
   );
+  const [reloadRequest, setReloadRequest] = createSignal<{
+    draftId: string;
+    threadId: string;
+  }>();
+  const [reloaded, { refetch: retryReload }] = createResource(
+    reloadRequest,
+    async ({ draftId, threadId }) => {
+      const draft = await props.context.drafts.reloadDraft?.(draftId, threadId);
+      if (!draft) throw new Error('The mailbox draft is not available yet.');
+      return draft;
+    }
+  );
   return (
     <Show
-      when={!saved.loading}
+      when={!saved.loading && !reloaded.loading}
       fallback={<div role="status">Loading draft…</div>}
     >
       <Show
-        when={!saved.error}
+        when={!saved.error && !reloaded.error}
         fallback={
           <div role="alert">
             Unable to load this draft.{' '}
-            <button onClick={() => void refetch()}>Retry</button>
+            <button
+              onClick={() =>
+                fireAndForget(
+                  reloadRequest() ? retryReload() : refetch(),
+                  'email-compose'
+                )
+              }
+            >
+              Retry
+            </button>
           </div>
         }
       >
         <LoadedEmailComposeView
           {...props}
-          draft={saved()?.draft ?? props.draft}
+          draft={reloaded() ?? saved()?.draft ?? props.draft}
           draftPersistence={saved()?.persistence}
+          onReloadDraft={(draftId, threadId) =>
+            setReloadRequest({ draftId, threadId })
+          }
           localDraft={saved()?.local}
           localAttachments={saved()?.attachments}
         />
@@ -78,17 +104,21 @@ function LoadedEmailComposeView(
     Pick<
       EmailComposerOptions,
       'draftPersistence' | 'localDraft' | 'localAttachments'
-    >
+    > & {
+      onReloadDraft: (draftId: string, threadId: string) => void;
+    }
 ) {
   const composeContext = props.context;
   const state = createEmailComposer({
     drafts: composeContext.drafts,
+    operations: composeContext.operations,
     attachmentStorage: composeContext.attachmentStorage,
     delivery: composeContext.delivery,
     draftLifecycle: composeContext.draftLifecycle,
     notices: composeContext.notices,
     accounts: composeContext.accounts,
     connectivity: composeContext.connectivity,
+    editorFiles: composeContext.editorFiles,
     viewerEmail: composeContext.viewerEmail,
     hasPaidAccess: composeContext.hasPaidAccess,
     recipients: composeContext.recipients,
@@ -139,7 +169,6 @@ function LoadedEmailComposeView(
     },
     isMobile: composeContext.presentation.isMobile,
     scheduleEnabled: composeContext.presentation.scheduleEnabled,
-    attachmentFailure: composeContext.notices.feedback.failure,
     onUpgrade: composeContext.presentation.onUpgrade,
     viewerLoading: composeContext.presentation.viewerLoading,
     signaturePreview: () => (
@@ -222,10 +251,24 @@ function LoadedEmailComposeView(
         </SplitHeaderLeft>
       </Show>
       <div class="relative flex flex-col size-full min-h-0 overflow-hidden text-sm">
+        <Show when={state.operationSource}>
+          {(source) => (
+            <MessageOperationRecovery
+              source={source()}
+              onReloadDraft={() => {
+                const draftId = state.currentDraftId();
+                const threadId = state.currentThreadId();
+                if (draftId && threadId) props.onReloadDraft(draftId, threadId);
+              }}
+            />
+          )}
+        </Show>
         {/* No overflow clipping on desktop: the card clips its own content, and
             clipping here would slice the composer shadow flat at the top and
-            bottom while the side padding lets it show. */}
-        <div class="macro-message-width sm:macro-message-padding mx-auto w-full min-h-120 max-h-full my-2 sm:my-12 touch:my-0 px-2 sm:px-4 touch:px-0 touch:overflow-y-auto touch:scrollbar-hidden touch:min-h-full">
+            bottom while the side padding lets it show. Full-frame mobile/tablet
+            carries the bottom inset here so the body, signature and attachment
+            pills rest above the floating chrome (ComposeLayout owns the top). */}
+        <div class="macro-message-width sm:macro-message-padding mx-auto w-full min-h-120 max-h-full my-2 sm:my-12 touch:my-0 px-2 sm:px-4 touch:px-0 touch:pb-(--mobile-content-inset-bottom) touch:overflow-y-auto touch:scrollbar-hidden touch:min-h-full">
           <WrapUnlessMobile
             wrapper={(children) => (
               // The same card as the chat composer and the thread's message
