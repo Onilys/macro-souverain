@@ -9,6 +9,13 @@ keeps loaded items visible. Wait for real rows before navigating or selecting.
 
 ## Top bars
 
+On touch devices, check top bars with a nonzero safe area as well as at phone
+and tablet widths. Collection headers clear the pane's full top content inset:
+safe area only in composable CRM/Tasks/Drive, plus the floating split header in
+Reviews. Native project detail navigation also clears the safe area, with its
+content directly below it. Content nested below an in-flow header must not add
+the same inset again. See the [mobile layout rule](../../.agents/rules/web/mobile.md#layout-and-chrome).
+
 Low-emphasis right-aligned split-header actions (including Calendar's touch/preview
 New event and Channel's idle Call and Ask Macro) are borderless with a rounded-xl
 background on hover. Emphasized variants retain their treatment, including an
@@ -18,6 +25,18 @@ framed controls default to glass on touch and flat on desktop. Use `glass={true}
 to enable glass on all devices, or `glass={false}` to disable it everywhere.
 Embedded and low-emphasis actions use `ghost`; inline calendar-invitation text
 actions remove the transparent border to keep their text alignment.
+
+Glass rims stay highlighted around most of the perimeter, with short soft gaps
+at the top-right and bottom-left corners. Light themes keep a soft highlight
+through those corners so they are only slightly dimmer. The iOS app also uses shared
+[glass press feedback](navigation.md#mobile-glass-feedback).
+
+## Mobile filters
+
+Adjacent checked options in a filter section share one continuous selection
+surface, rounded only at the top and bottom of each run. Unchecking a middle
+option splits the surface into separate rounded groups; isolated selections and
+single-select rows keep their rounded shape.
 
 ## Dialog actions
 

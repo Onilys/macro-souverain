@@ -29,6 +29,15 @@ export type DesktopSnapshot = {
   };
   samples: MemorySample[];
   droppedSamples: number;
+  /** Absent on binaries shipped before WebContent termination reporting. */
+  webContent?: {
+    terminations: number;
+    lastTerminationMs: number | null;
+  };
+  bundleReloads?: {
+    dispatches: number;
+    lastSource: string | null;
+  } | null;
 };
 
 type SampleSink = {

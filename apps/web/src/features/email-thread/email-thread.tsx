@@ -20,6 +20,7 @@ import { convertContactInfoToEmailRecipient } from '../email-compose/core/recipi
 import { createEmailAttachmentOpener } from '../email-message/attachment-action-adapter';
 import type { CalendarInvitation } from '../email-message/core/calendar-invitation';
 import type { EmailMessage } from '../email-message/core/email-message';
+import { operationSettled } from '../email-message/core/message-operation';
 import { EmailMessageOperation } from '../email-message/email-message-operation';
 import { createEmailRenderingContext } from '../email-message/rendering-adapter';
 import { EmailSenderIcon } from '../email-message/sender-icon-adapter';
@@ -31,6 +32,7 @@ import type {
   EmailThreadContext,
   EmailThreadSource,
 } from './context/email-thread-context';
+import type { EmailThreadOrganizationStatus } from './context/email-thread-view-context';
 import { EmailThreadOperations } from './email-thread-operations';
 import { createOptimisticThreadSend } from './primitives/optimistic-send';
 import { createThreadActionAdapter } from './thread-action-adapter';
@@ -89,14 +91,15 @@ export function EmailThread(props: EmailThreadProps) {
     compose,
     composeHost: createEmailComposeHost(),
     rendering: {
-      renderOrganizationStatus: () => (
+      renderOrganizationStatus: (status: EmailThreadOrganizationStatus) => (
         <EmailThreadOperations
           threadId={source.id()}
           enabled={source.thread()?.access_level === 'owner'}
+          announceRead={status.announceRead()}
         />
       ),
       renderOperation: (message: EmailMessage) =>
-        message.operation ? (
+        message.operation && !operationSettled(message.operation) ? (
           <EmailMessageOperation message={message} />
         ) : undefined,
       renderTags: () => (

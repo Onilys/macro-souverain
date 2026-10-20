@@ -73,8 +73,16 @@ key issuance, and account merge/link flows.
 - Deploy the eligibility endpoint before web clients that require it; otherwise
   the clients keep Pro checkout disabled until the lookup can succeed.
 
+API-token exchange preserves verified incoming agent attribution; query/body
+inputs cannot select an agent, and ordinary user credentials remain unattributed.
+
 ## Gotchas
 
+- GitHub reconnect preserves the current link until OAuth completes. A different
+  account returns 409; disconnect first to switch accounts. Missing grants report
+  reauthentication, while infrastructure failures remain server errors.
+  Deploy grant-refresh support before releasing clients that omit the pre-OAuth
+  disconnect; older callbacks leave an existing grant unchanged.
 - The signup allowlist has a temporary Develop-only bypass
   (`DEVELOPMENT_BYPASS_SIGNUP_ALLOWLIST`) that overrides the allowlist even
   when present; see `README.md` before changing signup behavior.

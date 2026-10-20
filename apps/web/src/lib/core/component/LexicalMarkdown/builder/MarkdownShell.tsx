@@ -24,6 +24,7 @@ import { NodeAccessoryRenderer } from '../component/core/NodeAccessoryRenderer';
 import { ActionMenu } from '../component/menu/ActionsMenu';
 import { EmojiMenu } from '../component/menu/EmojiMenu';
 import { FloatingFormatMenu } from '../component/menu/FloatingFormatMenu';
+import { FloatingGifMenu } from '../component/menu/FloatingGifMenu';
 import { FloatingLinkMenu } from '../component/menu/FloatingLinkMenu';
 import { MentionsMenu } from '../component/menu/MentionsMenu';
 import { SkillsMenu } from '../component/menu/SkillsMenu';
@@ -49,6 +50,8 @@ import type { EditorBuilder, EditorComponentProps } from './types';
 
 export type MarkdownShellProps = EditorComponentProps & {
   config: EditorBuilder;
+  /** Accessible name independent of a changing visual placeholder. */
+  ariaLabel?: string;
 };
 
 export const MarkdownShell: Component<MarkdownShellProps> = (props) => {
@@ -237,6 +240,7 @@ export const MarkdownShell: Component<MarkdownShellProps> = (props) => {
           disabled={!!props.disabled}
           showPlaceholder={showPlaceholder()}
           placeholder={props.placeholder}
+          ariaLabel={props.ariaLabel}
         />
 
         <DecoratorRenderer editor={editor} />
@@ -367,11 +371,12 @@ export const MarkdownShell: Component<MarkdownShellProps> = (props) => {
           )}
         </Show>
 
-        {/* Floating Link & Selection Format Menus */}
+        {/* Floating Link, Format, and GIF Menus */}
         <Show
           when={
             builderConfig.links?.floatingMenu ||
-            builderConfig.floatingFormatMenu
+            builderConfig.floatingFormatMenu ||
+            state.actionsMenuOps
           }
         >
           <FloatingMenuGroup>
@@ -388,6 +393,12 @@ export const MarkdownShell: Component<MarkdownShellProps> = (props) => {
                   typeof builderConfig.floatingFormatMenu === 'object' &&
                   builderConfig.floatingFormatMenu.extendedInlineFormats
                 }
+              />
+            </Show>
+            <Show when={state.actionsMenuOps}>
+              <FloatingGifMenu
+                canEdit={() => !props.disabled}
+                portalScope={props.portalScope}
               />
             </Show>
           </FloatingMenuGroup>

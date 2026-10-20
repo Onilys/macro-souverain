@@ -5,9 +5,6 @@ icon_dir="$(\cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 output_dir="$(mktemp -d)"
 trap 'rm -rf "$output_dir"' EXIT
 
-# Keep the desktop composition identical to the mobile marketing artwork.
-cp "$icon_dir/../../gen/apple/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png" \
-  "$icon_dir/Macro.icon/Assets/mobile.png"
 xcrun actool "$icon_dir/Macro.icon" \
   --compile "$output_dir" \
   --platform macosx \

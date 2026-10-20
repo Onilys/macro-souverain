@@ -121,7 +121,9 @@ successfully rather than hashing the empty JavaScript placeholder.
 | `/app/coders/<uuid>` | Code session with the Agents sidebar |
 | `/app/agents/chat/<uuid>` | Legacy AI chat opened in the Agents workspace (`/app/agent-chats/<uuid>` remains a compatibility alias) |
 | `/app/calls` | Calls list |
-| `/app/companies` | Customers (CRM; needs a team). The selected tab is `sN.crm.tab` |
+| `/app/companies` | Customers (CRM; needs a team). The selected list is `sN.crm.tab` |
+| `/app/companies/<company-or-contact>/<uuid>` | Customers with a company or contact opened inline, keeping its list's `sN.crm.tab`; a record tab other than Overview adds `/<team-emails-files-tasks-or-calls>`. On desktop, `/app/company/<uuid>` and `/app/contact/<uuid>` redirect here, a `comment_id` moving to `sN.crm-record.commentId`; touch devices keep those standalone pages |
+| `/app/companies/pipeline/<uuid>` | Customers on a pipeline; `/<company-or-contact>/<uuid>` after it opens a record from the pipeline. `/app/pipeline/<uuid>` redirects here |
 | `/app/activity` | Activity heatmap + feed |
 | `/app/calendar/<month-or-week-or-day>` | Calendar; the focused event, its occurrence, and the locator range use `sN.calendar.*` |
 | `/app/scheduling` | Scheduling workspace: booking links, availability, bookings, insights, and booking page |
@@ -202,8 +204,8 @@ namespaced query parameters such as `s0.drive.sort=created_at`. Route identity
 and breadcrumb nesting remain in the path. Home, Email, Tasks, Channels, and
 Customers store the selected tab under `sN.home.tab`, `sN.mail.tab`,
 `sN.tasks.tab`, `sN.channels.tab`, and `sN.crm.tab`. Customers uses `people`,
-`pipeline:<uuid>`, `list:<uuid>`, or `hidden`. Companies is the default and
-omits the key. Omitted tab keys mean each view's default. Mobile Channels always opens its
+`list:<uuid>`, or `hidden`; a pipeline is a path instead. Companies is the
+default and omits the key. Omitted tab keys mean each view's default. Mobile Channels always opens its
 Recent conversation feed and ignores legacy mobile-tab selections.
 Changing tabs updates the URL, and browser Back and Forward restore the
 selection independently in each pane. Inline detail links preserve these keys.
@@ -545,22 +547,39 @@ search mode, and shortcuts; Left/Right also navigates its cards outside search.
 The inline `/app/debug/create-menu-demo` keeps all three layouts for comparison
 without creating data. Mobile continues to use its create sheet.
 
-On mobile, the bottom dock fits fixed-width buttons in this order: Notifications,
-Calendar, Email, Channels, Agents, Files, Tasks, Calls, and CRM (when enabled). Calendar appears in the
-dock only when the calendar UI flag is enabled. Search has its own entity categories.
-Resizing the screen moves views between the dock
-and More views, which always includes Settings and lists the overflow views in
-reverse order. More and the separate bottom-right Search button always retain
-their space. Search opens the persistent Search… input and entity category pills (see [Search](search.md)).
-Once every view fits, the navigation island stops growing; Search stays aligned
-to the right edge.
-Scheduling is a drawer-only destination in **More views** when the
-calendar-scheduling feature flag is enabled; it does not add a search-scope pill or
-a fixed dock button. It opens `/app/scheduling`, highlights while Scheduling is
-active, and uses header islands for its section and Personal/team owner drawers.
+On mobile, the bottom dock defaults to Notifications, Calendar, Email, Channels,
+Agents, Files, Tasks, Calls, CRM, Reviews, and Scheduling. Feature-gated views
+appear only when enabled. The navigation island measures its width and fits as
+many fixed-size app buttons as possible, reserving room for More. Search stays
+in its own island at the right edge and opens the persistent Search… input and
+entity category pills (see [Search](search.md)). Once every view fits, the
+navigation island stops growing.
 
-Primary dock navigation buttons, including Search, give haptic feedback on
-pointer down and activate on click/release. Holding a button only shows its
+Notifications, Email, and Channels use the same reactive unread-presence checks
+as the desktop sidebar, via `useNavigationUnread`. Their accent dots clear when
+the represented items are read or completed, not merely when opening a view.
+Overflow destinations keep their dots in More; More itself has a dot when any
+hidden destination is unread. Resizing or reordering moves the indicator with
+its destination. These remain presence indicators, with no extra pagination.
+
+Open **More views → Customize dock** to change the order. Drag a row's handle immediately,
+without holding first, and move it across the **In dock** / **In More** boundary. The counts use the
+same live measurement as the dock and update on resize or rotation. Swiping
+elsewhere on a row scrolls normally; dragging a handle scrolls at the list's
+edges. Neighboring rows slide into their new positions during a drag, with
+reduced motion respected. A tap or small finger movement leaves the order unchanged.
+Keyboard users can focus a handle and press Up/Down; Escape during a drag
+cancels it. Changes save immediately per user on this device and survive reload.
+Search and More stay fixed. Settings and Customize dock stay in More, followed
+by overflow destinations in their saved order. **Back to More views** returns to
+the menu; **Done** closes the drawer.
+
+Reviews and Scheduling can be moved into the dock when enabled. Scheduling
+opens `/app/scheduling`, highlights while active, and uses header islands for its
+section and Personal/team owner drawers; it does not add a search-scope pill.
+
+Dock navigation, Search, filter pills, and create-menu taps do not trigger
+haptics. Buttons activate on click/release. Holding a button only shows its
 pressed state; cancelling the touch does not navigate. More views also opens on
 release so holding its trigger cannot drag or dismiss the opening sheet. Mouse,
 keyboard, and assistive activation use the normal click behavior.
@@ -639,17 +658,22 @@ When calls are enabled, `C C` (Create → Call) opens `/app/meet/new`. The call 
 created only after `Start call`; Escape closes the Create menu.
 Project opens the native project composer; Folder remains the Files folder action.
 
-Mobile glass presses animate the enclosing surface over 300ms. Round buttons
-retain roughly 20% growth; wide pills and grouped controls extend their glass
-fill and rim by up to 3px per edge, with 8% icon growth around each icon's center.
+## Mobile glass feedback
+
+In the native iOS app, glass presses animate the enclosing surface over 300ms.
+Round buttons grow by 28%; wide pills and grouped controls extend their glass
+fill and rim by up to 6px per edge, with 18% icon growth around each icon's center.
 Labels and layout stay fixed; icons remain visually aligned through release.
 Selecting or deselecting a pill updates its fill and text together, including
-during release or a rapid second tap. A subtle radial sheen spreads from the tap
-location and fades on release. On touch devices, buttons omit the circular
-hover/press overlay and native tap highlight; the shimmer supplies feedback.
-Release, cancellation, or dragging outside
-restores the surface. Disabled controls stay still; reduced motion keeps only
-the static highlight.
+during release or a rapid second tap. The fill changes with a radial spotlight
+centered on the touch, brightening the surface in both light and dark themes.
+The spotlight follows the finger while it moves within the surface, updating
+at most once per animation frame.
+These iOS surfaces omit the native tap highlight; the spotlight supplies feedback.
+Release, cancellation, dragging outside, or losing window focus restores the
+surface. Disabled controls stay still; reduced motion keeps only the static
+color feedback. Android and web keep normal tap feedback without this expansion
+or spotlight.
 
 ## Routines
 

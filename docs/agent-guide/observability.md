@@ -107,7 +107,12 @@ covers an accepted button press through connection or failure:
 The root records `meeting.join.kind` (`create` or `join`), guest status,
 microphone/camera preferences, `call.id` once credentials arrive, and
 `meeting.join.outcome` (`connected`, `failed`, `cancelled`, or `already_in_call`).
-It does not measure setup-page loading or completion of background media setup.
+Its duration excludes setup-page loading and completion of background media
+setup. The `call.media.setup` child continues after the join root ends; inspect
+its per-device children for capture and publishing failures. Earlier waiting-room
+captures correlate through `meeting.setup.id`, and the join records final device
+access states. See [browser call diagnostics](calls.md#browser-call-diagnostics)
+for fields, failure interpretation, and verification.
 Never add share tokens or RTC credentials to trace attributes or errors.
 
 The HTTP requests can have separate trace IDs across asynchronous mutation

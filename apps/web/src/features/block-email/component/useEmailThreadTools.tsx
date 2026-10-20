@@ -112,7 +112,10 @@ export function useEmailThreadTools(props: EmailThreadToolsOptions) {
       return;
     }
     if (props.listNavigation) {
-      props.listNavigation.markDone(emailCtx.archiveThread);
+      fireAndForget(
+        props.listNavigation.markDone(emailCtx.archiveThread),
+        'email-thread-tools'
+      );
       return;
     }
     // Prefer the active Mark done command so it drives soup navigation and

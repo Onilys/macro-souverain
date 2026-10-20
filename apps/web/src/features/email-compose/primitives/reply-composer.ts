@@ -5,9 +5,7 @@ import {
 import type { EmailMessage } from '@app/features/email-message/core/email-message';
 import type { UserMentionRecord } from '@core/component/LexicalMarkdown/utils/mentionsUtils';
 import { setEditorStateFromHtml } from '@core/component/LexicalMarkdown/utils/setEditorStateFromHtml';
-import { getUploadFileSize } from '@core/mobile/nativeStagedUpload';
 import { fireAndForget } from '@core/util/fireAndForget';
-import { plural } from '@core/util/string';
 import { $generateHtmlFromNodes } from '@lexical/html';
 import {
   $appendWatermarkNodeToLast,
@@ -30,6 +28,7 @@ import type { MessageOperationSourceFactory } from '../../email-message/context/
 import {
   operationBlocksEditing,
   operationBlocksSending,
+  operationSending,
 } from '../../email-message/core/message-operation';
 import type {
   EmailAttachmentStorage,
@@ -40,6 +39,7 @@ import type {
   EmailDelivery,
   EmailDraftLifecycleSource,
   EmailDraftStorage,
+  EmailEditorFiles,
   EmailUndoHandle,
 } from '../context/compose-capabilities';
 import type { EmailReplySession } from '../context/email-form-inputs';
@@ -48,6 +48,8 @@ import {
   convertContactInfoToEmailRecipient,
   convertEmailRecipientToContactInfo,
 } from '../core/recipient-conversion';
+import { partitionByAttachmentLimit } from './attachment-limit';
+import { createAttachmentLinkOffer } from './attachment-links';
 import {
   createAttachmentPersistence,
   refuseAttachmentsOffline,
@@ -113,6 +115,7 @@ export type ReplyComposerOptions = {
   notices: EmailComposeFeedback;
   accounts: EmailComposeAccounts;
   connectivity: EmailConnectivity;
+  editorFiles: Pick<EmailEditorFiles, 'uploadDocuments' | 'makePublic'>;
   viewerEmail: Accessor<string | undefined>;
   hasPaidAccess: Accessor<boolean>;
   recordMention(sourceId: string, targetId: string): void;
@@ -140,6 +143,8 @@ export type ReplyComposerOptions = {
     onUndoHandle?: (handle: EmailUndoHandle) => void;
     /** False keeps the view on this thread instead of opening the next one. */
     navigate?: boolean;
+    /** True once the send was undone; marking done may still be pending. */
+    cancelled?: () => boolean;
   }) => void;
   setShowReply?: Setter<boolean>;
   /** Reopens this reply's thread when the composer is no longer on screen. */
@@ -953,6 +958,8 @@ export function createReplyComposer(
 
     const offline = sendRefusalBeforeSave(props.connectivity);
     if (offline) return refuseSend(props.notices, offline);
+    if (attachmentLinks.uploading())
+      return refuseSend(props.notices, 'files-uploading');
     const currentEditor = editor();
     const rememberCurrentReply = () => {
       if (!currentEditor) return;
@@ -1132,12 +1139,16 @@ export function createReplyComposer(
       // Each undo action retains this send's inbox, thread and mark-done, even
       // if the composer sends again or navigation disposes the view.
       let markDoneUndoHandle: EmailUndoHandle | undefined;
+      // Advancing may archive after a page loads; an undo before then must
+      // not leave the restored thread marked done.
+      let sendUndone = false;
       const undoSend = (draftId: string) =>
         props.delivery.undoSend({
           threadId: result.threadId,
           draftId,
           inboxId,
           onUndone: async () => {
+            sendUndone = true;
             await restoreAfterUndoSend(draftId, result.threadId, inboxId);
             const doneHandle = markDoneUndoHandle;
             markDoneUndoHandle = undefined;
@@ -1177,13 +1188,15 @@ export function createReplyComposer(
       }
       if (willMarkDone) {
         try {
-          // Sending a reply stays on the thread; explicit Mark done advances.
+          // A plain send stays on the thread; Send and mark done advances to
+          // the next thread, like Mark done.
           props.onMarkDone?.({
             silent: true,
             onUndoHandle: (handle) => {
               markDoneUndoHandle = handle;
             },
-            navigate: false,
+            navigate: markDone,
+            cancelled: () => sendUndone,
           });
         } catch (error) {
           props.notices.reportError(error);
@@ -1208,6 +1221,7 @@ export function createReplyComposer(
   };
 
   const resetState = () => {
+    attachmentLinks.detach();
     clearEmailBody(editor());
     setBodyMacro('');
     session.dispatch({ type: 'reset' });
@@ -1284,6 +1298,12 @@ export function createReplyComposer(
     });
   };
 
+  const attachmentLinks = createAttachmentLinkOffer({
+    editor,
+    notices: props.notices,
+    editorFiles: props.editorFiles,
+  });
+
   const handleAddAttachments = async (files: File[]) => {
     if (
       operationBlocked() ||
@@ -1301,43 +1321,21 @@ export function createReplyComposer(
       (await refuseAttachmentsOffline(props.connectivity, props.notices))
     )
       return;
-    const currentAttachments = form.attachments.list();
     const limit = attachmentLimitBytes(sendingInbox()?.provider);
-    const limitMB = limit / 1_000_000;
-
-    const attachmentsToAddByteSize = files.reduce(
-      (sum, f) => sum + getUploadFileSize(f),
-      0
+    const { attachable, oversized } = partitionByAttachmentLimit(
+      files,
+      form.attachments.list(),
+      limit
     );
-
-    if (attachmentsToAddByteSize > limit) {
-      props.notices.feedback.failure(
-        `${plural('Attachment', files.length)} exceed ${limitMB}MB`
-      );
-      return;
+    for (const file of attachable) {
+      form.attachments.add({ type: 'local', file });
     }
-
-    const currentAttachmentsByteSize = currentAttachments.reduce(
-      (sum, a) =>
-        sum + (a.type === 'local' ? getUploadFileSize(a.file) : a.fileSize),
-      0
-    );
-
-    if (currentAttachmentsByteSize + attachmentsToAddByteSize > limit) {
-      props.notices.feedback.failure("Can't add more attachments", {
-        subtext: `Total attachments exceed ${limitMB}MB limit`,
-      });
-      return;
+    if (attachable.length > 0) scheduleDraftSave();
+    try {
+      await attachmentLinks.share(oversized, limit);
+    } catch (error) {
+      props.notices.reportError(error);
     }
-
-    for (const file of files) {
-      form.attachments.add({
-        type: 'local',
-        file,
-      });
-    }
-
-    scheduleDraftSave();
   };
 
   const handleRemoveAttachment = async (attachment: DraftFormAttachment) => {
@@ -1377,6 +1375,7 @@ export function createReplyComposer(
     autosave.cancel();
     session.dispatch({ type: 'reset' });
     const omittedAttachments = attachmentPersistence.detach();
+    attachmentLinks.detach();
     schedule.detach();
     setTerminalState(undefined);
     persistedEditVersion = 0;
@@ -1495,7 +1494,8 @@ export function createReplyComposer(
     if (schedule.operation() === 'committing') return 'Scheduling email…';
     if (schedule.operation() === 'updating') return 'Updating schedule…';
     if (schedule.operation() === 'cancelling') return 'Cancelling schedule…';
-    if (submitting()) return 'Sending…';
+    if (submitting() || operationSending(currentOperation())) return 'Sending…';
+    if (attachmentLinks.uploading()) return 'Uploading files to share…';
     if (schedule.action() === 'unavailable')
       return `Scheduled for ${schedule.confirmedTime()?.toLocaleString()}. Choose a new time to update it, or cancel the schedule to edit.`;
     return undefined;
@@ -1509,6 +1509,7 @@ export function createReplyComposer(
     scheduling() ||
     terminalState() !== undefined ||
     attachmentPersistence.uploading() ||
+    attachmentLinks.uploading() ||
     schedule.action() === 'unavailable';
   const toggleQuotedText = () => {
     if (editingDisabled()) return;
@@ -1562,7 +1563,8 @@ export function createReplyComposer(
     setQuoteCollapsed,
     savedDraftId,
     handleEditorConnect,
-    isSending: () => submitting() || scheduling(),
+    isSending: () =>
+      submitting() || scheduling() || operationSending(currentOperation()),
     recipients,
     collectDraft,
     scheduleDraftSave,

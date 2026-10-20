@@ -203,7 +203,6 @@ function PricingPlans() {
           eyebrow="Free"
           price="$0"
           primaryLine="per seat / month"
-          secondaryLine="No credit card required"
           buttonName="pricing_free_connect_google"
           buttonLabel="Start for free"
         />

@@ -11,6 +11,7 @@ import { type Point, pageToScreen } from '@app/features/block-fig/core/camera';
 import { IS_MAC } from '@core/constant/isMac';
 import type { Op, TextLayer } from '@core/psd-engine/types';
 import { fireAndForget } from '@core/util/fireAndForget';
+import { Telemetry } from '@macro-inc/observability';
 import { createSignal, onCleanup, onMount, Show } from 'solid-js';
 import { gestureKey, newLayerOp } from '../core/ops';
 import {
@@ -59,7 +60,16 @@ export function TextEditor(props: {
   onMount(() => {
     const load = async () => {
       if (layerId !== undefined) {
-        const info = await editor.engine.layerInfo(layerId);
+        let info: Awaited<ReturnType<typeof editor.engine.layerInfo>>;
+        try {
+          info = await editor.engine.layerInfo(layerId);
+        } catch (error) {
+          Telemetry.error(error, { surface: 'psd-editor' });
+          // Nothing was typed: finishing now would delete the layer.
+          finished = true;
+          props.onDone();
+          return;
+        }
         if (!info?.text) {
           props.onDone();
           return;
@@ -75,7 +85,7 @@ export function TextEditor(props: {
       input.select();
       if (props.initialText) update(props.initialText);
     };
-    fireAndForget(load(), 'block-psd');
+    fireAndForget(load(), 'psd-editor');
   });
 
   const update = (text: string) => {
@@ -112,7 +122,7 @@ export function TextEditor(props: {
         }
         await editor.apply(ops, key);
       }),
-      'block-psd'
+      'psd-editor'
     );
   };
 
@@ -131,7 +141,7 @@ export function TextEditor(props: {
   };
 
   onCleanup(() => {
-    if (!finished) fireAndForget(finish(), 'block-psd');
+    if (!finished) fireAndForget(finish(), 'psd-editor');
   });
 
   const at = () => pageToScreen(view.camera(), anchor());
@@ -158,10 +168,10 @@ export function TextEditor(props: {
           const mod = IS_MAC ? e.metaKey : e.ctrlKey;
           if (e.key === 'Escape' || (e.key === 'Enter' && mod)) {
             e.preventDefault();
-            fireAndForget(finish(), 'block-psd');
+            fireAndForget(finish(), 'psd-editor');
           }
         }}
-        onBlur={() => fireAndForget(finish(), 'block-psd')}
+        onBlur={() => fireAndForget(finish(), 'psd-editor')}
       />
       <div class="mt-1 flex items-center justify-between text-[11px] text-ink-muted">
         <Show when={editing()} fallback={<span>New text</span>}>

@@ -7,10 +7,17 @@ import type {
   EventTransparency,
   EventVisibility,
   OutOfOfficeProperties,
+  TeamCalendarSharing,
 } from '../../../generated/calendar/types.gen';
-import { unwrap } from '../../utils';
+import type {
+  ListOccurrencesData,
+  ListTeamCalendarData,
+  ListTeamOutOfOfficeData,
+} from '../../../generated/storage/types.gen';
+import { paginate, unwrap } from '../../utils';
 import type { MacroClient } from '../../utils/client';
 import type { Link } from '../email/link';
+import { User } from '../users/user';
 import { Calendar } from './calendar';
 import { CalendarEvent } from './event';
 import { CalendarReplacement } from './replacement';
@@ -56,6 +63,88 @@ export interface CreateEventOptions {
  * SDK reaches it on the gateway's `/calendar` route).
  */
 export class CalendarNamespace {
+  /** Calendar availability settings, each referring to a typed calendar. */
+  async availabilityCalendars() {
+    return unwrap(
+      await this.client.calendar.getAvailabilityCalendars(),
+    ).calendars.map((record) => ({
+      calendar: Calendar.byId(this.client, record.calendarId),
+      name: record.name,
+      isPrimary: record.isPrimary,
+      contributesToAvailability: record.contributesToAvailability,
+    }));
+  }
+
+  /** Current sharing preference for the team calendar. */
+  async teamSharing(): Promise<TeamCalendarSharing> {
+    return unwrap(await this.client.calendar.getTeamSharing()).sharing;
+  }
+
+  /** Replace the team calendar sharing preference. */
+  async setTeamSharing(
+    sharing: TeamCalendarSharing,
+  ): Promise<TeamCalendarSharing> {
+    return unwrap(
+      await this.client.calendar.setTeamSharing({ body: { sharing } }),
+    ).sharing;
+  }
+
+  /** Calendar occurrences in a viewport, automatically paginated. */
+  occurrences(options: Omit<ListOccurrencesData['query'], 'cursor'>) {
+    return paginate(async (cursor) => {
+      const page = unwrap(
+        await this.client.storage.listOccurrences({
+          query: { ...options, cursor },
+        }),
+      );
+      return {
+        items: page.items.map((item) => ({
+          event: CalendarEvent.fromRecord(this.client, item.event),
+          occurrence: item.occurrence,
+        })),
+        nextCursor: page.nextCursor,
+      };
+    });
+  }
+
+  /** A page of team availability, including its roster and continuation cursor. */
+  async teamPage(options: NonNullable<ListTeamCalendarData['query']>) {
+    const page = unwrap(
+      await this.client.storage.listTeamCalendar({ query: options }),
+    );
+    return {
+      items: page.items.map(({ ownerId, ...item }) => ({
+        ...item,
+        owner: User.byId(this.client, ownerId),
+      })),
+      members: page.members.map((member) => ({
+        user: User.byId(this.client, member.userId),
+        sharing: member.sharing,
+        coverage: member.coverage,
+      })),
+      nextCursor: page.nextCursor ?? undefined,
+    };
+  }
+
+  /** Teammates' out-of-office occurrences in a bounded viewport. Check hasMore for truncation. */
+  async teamOutOfOffice(
+    options: NonNullable<ListTeamOutOfOfficeData['query']>,
+  ) {
+    const page = unwrap(
+      await this.client.storage.listTeamOutOfOffice({ query: options }),
+    );
+    return {
+      items: page.items.map((item) => ({
+        event: CalendarEvent.byId(this.client, item.eventId),
+        owner: User.byId(this.client, item.ownerId),
+        occurrenceKey: item.occurrenceKey,
+        time: item.time,
+        title: item.title ?? undefined,
+      })),
+      hasMore: page.hasMore,
+    };
+  }
+
   constructor(private readonly client: MacroClient) {}
 
   /** The caller's visible calendars, primaries and writable first. */

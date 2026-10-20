@@ -1,8 +1,10 @@
 #![recursion_limit = "256"]
 
 use activity::inbound::toolset::activity_toolset;
-use agent_session::inbound::toolset::coding_agent_toolset;
+use agent_session::inbound::toolset::{ReadAgentSession, coding_agent_toolset};
 use ai_toolset::AsyncToolCollection;
+mod frontend_compat;
+
 use ai_toolset::schema::{FrontendSchemas, ToolSchemaGenerator, frontend_schemas_builder};
 
 #[cfg(test)]
@@ -35,7 +37,6 @@ use calendar_scheduling::inbound::toolset::{
 };
 use call::inbound::toolset::call_toolset;
 use channels::inbound::toolset::channel_toolset;
-use chat::inbound::toolset::chat_toolset;
 use cognition::inbound::toolset::cognition_toolset;
 use crm::inbound::toolset::{crm_toolset, pipelines::pipeline_toolset};
 use databases::inbound::toolset::{databases_read_only_toolset, databases_toolset};
@@ -88,23 +89,24 @@ pub use tool_context::{
     ToolItemNotificationPreferenceToolContext, ToolMcpSelector, ToolNotificationQueue,
     ToolNotificationService, ToolNotificationToolContext, ToolPipedreamConnection,
     ToolPipelineService, ToolPipelineToolContext, ToolPipelineWorkflows, ToolProjectService,
-    ToolProjectToolContext, ToolPropertiesService, ToolPropertiesToolContext, ToolServiceContext,
-    ToolSkillService, ToolSkillToolContext, ToolSoupService, ToolSystemPropertiesService,
-    ToolTableEventPublisher, ToolTeamCalendarService, ToolTeamCalendarToolContext, ToolTeamService,
-    ToolTeamToolContext, ToolUserEmailService, ToolViewOnlyDatabasesSqlToolContext,
-    build_activity_tool_context, build_booking_link_tool_context,
-    build_booking_management_tool_context, build_bot_tool_context, build_calendar_tool_context,
-    build_channel_media_upload_tool_context, build_channel_tool_context_with_dispatcher,
-    build_channel_tool_context_with_side_effects, build_channel_tool_context_without_side_effects,
-    build_coding_agent_tool_context, build_crm_tool_context, build_crm_transfer_tool_context,
-    build_databases_sql_tool_context, build_databases_tool_context, build_favorites_service,
-    build_favorites_tool_context, build_forms_tool_context, build_image_generation_tool_context,
-    build_initiative_tool_context, build_item_notification_preference_tool_context,
-    build_message_service_with_side_effects, build_message_service_without_side_effects,
-    build_pipeline_tool_context, build_project_tool_context, build_properties_service,
-    build_properties_service_with_broker, build_properties_tool_context,
-    build_routine_tool_context, build_skill_tool_context, build_task_properties_adapter,
-    build_team_calendar_tool_context, build_team_repository, build_team_tool_context,
+    ToolProjectToolContext, ToolPropertiesService, ToolPropertiesToolContext,
+    ToolReadAgentSessionContext, ToolServiceContext, ToolSkillService, ToolSkillToolContext,
+    ToolSoupService, ToolSystemPropertiesService, ToolTableEventPublisher, ToolTeamCalendarService,
+    ToolTeamCalendarToolContext, ToolTeamService, ToolTeamToolContext, ToolUserEmailService,
+    ToolViewOnlyDatabasesSqlToolContext, build_activity_tool_context,
+    build_booking_link_tool_context, build_booking_management_tool_context, build_bot_tool_context,
+    build_calendar_tool_context, build_channel_media_upload_tool_context,
+    build_channel_tool_context_with_dispatcher, build_channel_tool_context_with_side_effects,
+    build_channel_tool_context_without_side_effects, build_coding_agent_tool_context,
+    build_crm_tool_context, build_crm_transfer_tool_context, build_databases_sql_tool_context,
+    build_databases_tool_context, build_favorites_service, build_favorites_tool_context,
+    build_forms_tool_context, build_image_generation_tool_context, build_initiative_tool_context,
+    build_item_notification_preference_tool_context, build_message_service_with_side_effects,
+    build_message_service_without_side_effects, build_pipeline_tool_context,
+    build_project_tool_context, build_properties_service, build_properties_service_with_broker,
+    build_properties_tool_context, build_read_agent_session_context, build_routine_tool_context,
+    build_skill_tool_context, build_task_properties_adapter, build_team_calendar_tool_context,
+    build_team_repository, build_team_tool_context,
 };
 pub use tool_context::{ToolConnectorToolContext, build_connector_tool_context};
 #[cfg(any(test, feature = "test-support"))]
@@ -166,7 +168,9 @@ pub(crate) fn subagent_toolset() -> AiToolSet {
         .add_subtoolset::<ToolInitiativeToolContext>(initiative_toolset())
         .add_subtoolset::<ToolPropertiesToolContext>(properties_toolset())
         .add_subtoolset::<ToolCallToolContext>(call_toolset())
-        .add_subtoolset::<ToolChatToolContext>(chat_toolset())
+        .add_tool::<ReadAgentSession, ToolReadAgentSessionContext>()
+        .add_tool::<agent_session::inbound::toolset::ReadAgentSessionSharing, ToolReadAgentSessionContext>()
+        .add_tool::<agent_session::inbound::toolset::UpdateAgentSessionSharing, ToolReadAgentSessionContext>()
         .add_subtoolset::<ToolChannelToolContext>(channel_toolset())
         .add_subtoolset::<ToolBotToolContext>(bot_toolset())
         .add_subtoolset::<ToolTeamToolContext>(team_toolset())
@@ -231,9 +235,9 @@ pub const EAGER_TOOLS: &[&str] = &[
     "LoadTools",
     "NameSearch",
     "ReadChannelMessageContext",
+    "ReadAgentSession",
     "ReadChannelMessages",
     "ReadChannelThread",
-    "ReadChat",
     "ReadContent",
     "ReadMetadata",
     "ReadSkill",
@@ -381,7 +385,13 @@ pub fn all_tool_frontend_schemas() -> FrontendSchemas {
     frontend_schemas_builder()
         .merge(&tools_for(AiHost::AgentSession))
         .merge(&agent_code_mode::inbound::toolset::toolset())
+        // Persisted legacy calls still render, but are never executable or advertised.
+        .merge(&chat::inbound::toolset::chat_toolset::<
+            ToolChatService,
+            ToolEntityAccessService,
+        >())
         .merge(&read::read_thread())
+        .merge(&frontend_compat::LegacyConversationSchemas)
         .build()
 }
 

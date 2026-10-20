@@ -224,9 +224,7 @@ pub fn covered_by_code_sdk(name: &str, user_tool: bool) -> bool {
     !user_tool
         && matches!(
             name,
-            "NameSearch"
-                | "ListEntities"
-                | "ReadContent"
+            "ReadContent"
                 | "ReadMetadata"
                 | "RenameDocument"
                 | "MoveToProject"
@@ -256,7 +254,6 @@ pub fn covered_by_code_sdk(name: &str, user_tool: bool) -> bool {
                 | "ReadChannelThread"
                 | "RenameChannel"
                 | "ManageChannelParticipants"
-                | "ReadChat"
                 | "ReadCallRecord"
                 | "UpdateCallRecord"
                 | "DeleteCallRecord"
@@ -312,6 +309,7 @@ impl SessionCodeMode for CodeModeService {
         let identity = ExecutionIdentity {
             execution,
             session: session.id,
+            agent_id: session.bot_id,
             owner,
             turn: self
                 .0

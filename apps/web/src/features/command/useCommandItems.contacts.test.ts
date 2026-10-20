@@ -43,6 +43,7 @@ vi.mock('@core/context/quickAccess', () => ({
         hasMore: () => false,
         isLoading: () => false,
         isLoadingMore: () => false,
+        error: () => undefined,
         loadMore: async () => {},
       } satisfies QuickAccessList;
     },
@@ -146,6 +147,7 @@ function setup(initialCategory: CategoryFilter = 'dms') {
           isLoading: loading,
           hasMore,
           isLoadingMore: () => false,
+          error: () => undefined,
           loadMore: discovery.loadMore,
         };
       },

@@ -22,8 +22,10 @@ interface ThreadReplyInputProps {
   setShowReply?: Setter<boolean>;
   markdownDomRef?: (ref: HTMLDivElement) => void | HTMLDivElement;
   unframed?: boolean;
-  mobileDrawer?: {
+  mobileCompose?: {
+    portalMount: Accessor<HTMLDivElement | undefined>;
     onClose: () => void;
+    registerClose: (handler: () => void) => void;
   };
 }
 
@@ -99,7 +101,7 @@ function ThreadReplyInputSession(props: ThreadReplyInputProps) {
     <Show when={ctx.drafts.initialDraftsSettled()}>
       <Show when={seedKey()} keyed>
         {(seed) => (
-          <Layer depth={props.mobileDrawer ? 0 : 2}>
+          <Layer depth={props.mobileCompose ? 0 : 2}>
             <ReplyInputView
               context={viewContext.compose}
               onReloadDraft={() => {
@@ -153,11 +155,15 @@ function ThreadReplyInputSession(props: ThreadReplyInputProps) {
               formSeed={seed}
               onEngaged={() => setEngaged(true)}
               sideEffectOnSend={afterSend}
-              onMarkDone={ctx.archiveThread}
+              onMarkDone={(options) =>
+                options?.navigate
+                  ? ctx.archiveThreadAndAdvance(options)
+                  : ctx.archiveThread(options)
+              }
               setShowReply={props.setShowReply}
               markdownDomRef={props.markdownDomRef}
               unframed={props.unframed}
-              mobileDrawer={props.mobileDrawer}
+              mobileCompose={props.mobileCompose}
               isEditingExisting={
                 props.replyingTo() == null && props.draft != null
               }

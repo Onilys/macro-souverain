@@ -10,8 +10,13 @@ HTML worker belong to `packages/sdk-docs`.
 
 - `scripts/generate.ts`: bundle and backend artifact generation.
 - `scripts/typedoc.ts`: collect linked Markdown documentation by entity.
-- `scripts/catalog.ts`: compact entity descriptions.
+- `scripts/catalog.ts`: compact entity descriptions; agent and harness docs share
+  a topic so discovery stays within its 32-question classifier limit.
 - `src/index.ts`: public SDK exports used by programs.
+
+## Tool contracts
+
+- Agent documentation excludes the legacy chats/workspace namespaces and their Macro properties; public SDK APIs remain compatible for existing callers.
 
 ## Checks
 

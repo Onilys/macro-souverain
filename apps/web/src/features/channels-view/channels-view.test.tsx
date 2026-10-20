@@ -31,8 +31,8 @@ const mocks = vi.hoisted(() => ({
   refresh: vi.fn(async () => {}),
 }));
 
-vi.mock('@app/features/agent-dms/queries/search-pool', () => ({
-  useAgentDmSearchPool: () => () => [],
+vi.mock('./queries/channel-list-search-pool', () => ({
+  useChannelListSearchPool: () => () => [],
 }));
 vi.mock('@app/features/command/mobile/mobileSearchState', () => ({
   SearchState: {
@@ -133,6 +133,9 @@ vi.mock('./components/ChannelsMobileView', () => ({
   ),
 }));
 vi.mock('./components/rail/ChannelsRail', () => ({ ChannelsRail: () => null }));
+vi.mock('@channel/Channel/channel-entity', () => ({
+  useChannelByIdQuery: mocks.selectedQuery,
+}));
 vi.mock('@core/mobile/isTouchDevice', () => ({
   isTouchDevice: () => mocks.mobileLayout(),
 }));
@@ -169,7 +172,6 @@ vi.mock('./queries', () => ({
     loaded: ChannelEntity[],
     fallback: ChannelEntity[] = []
   ) => [...loaded, ...fallback].find((channel) => channel.id === id),
-  useChannelByIdQuery: mocks.selectedQuery,
   useChannelsSources: (enabled: (scope: string) => boolean) => {
     mocks.sourceEnabled = enabled;
     return {

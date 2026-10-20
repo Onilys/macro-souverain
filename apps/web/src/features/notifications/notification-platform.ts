@@ -29,6 +29,7 @@ export interface PlatformNotificationHandle {
 
 export interface PlatformNotificationData {
   title: string;
+  notificationId?: string;
   options?: NotificationOptions;
 }
 
@@ -138,9 +139,10 @@ export async function maybeHandlePlatformNotification(
   );
 
   if (platformNotificationData) {
-    let notificationHandle = await notificationInterface.showNotification(
-      platformNotificationData
-    );
+    let notificationHandle = await notificationInterface.showNotification({
+      ...platformNotificationData,
+      notificationId: notification.id,
+    });
     if (
       notificationHandle !== 'not-granted' &&
       notificationHandle !== 'disabled-in-ui'

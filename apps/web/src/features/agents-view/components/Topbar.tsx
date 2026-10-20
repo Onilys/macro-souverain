@@ -6,7 +6,7 @@ import { type JSX, Show } from 'solid-js';
 
 /** Shared workspace chrome for conversation and new-session pages. */
 export function Topbar(props: {
-  title: string;
+  title?: string;
   onBack?: () => void;
   titleContent?: JSX.Element;
   children?: JSX.Element;
@@ -30,9 +30,11 @@ export function Topbar(props: {
       </Show>
       <div class="flex min-w-0 items-center gap-1">
         {props.titleContent ?? (
-          <h1 class="min-w-0 truncate text-sm font-semibold tracking-[-0.03em] text-ink">
-            {props.title}
-          </h1>
+          <Show when={props.title}>
+            <h1 class="min-w-0 truncate text-sm font-semibold tracking-[-0.03em] text-ink">
+              {props.title}
+            </h1>
+          </Show>
         )}
       </div>
       <div class="header-actions ml-auto flex shrink-0 items-center gap-1">

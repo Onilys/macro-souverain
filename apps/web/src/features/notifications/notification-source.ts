@@ -35,7 +35,7 @@ import {
   onCleanup,
   untrack,
 } from 'solid-js';
-import { createStore, reconcile } from 'solid-js/store';
+import { createStore } from 'solid-js/store';
 import { fromZodError } from 'zod-validation-error';
 import { nextNotificationState } from './notification-state';
 import { createMutedEntitiesQuery } from './queries/muted-entities-query';
@@ -242,13 +242,6 @@ export function createNotificationSource(
 ): NotificationSource {
   const subscriptions: Set<SubscribeFn> = new Set();
 
-  const [mutedEntitiesStore, setMutedEntities] = createStore<UserUnsubscribe[]>(
-    []
-  );
-  const mutedEntities = createMemo(() =>
-    enabled() ? [...mutedEntitiesStore] : []
-  );
-
   const notificationsQuery = useUserNotificationsQuery(
     () => ({ limit: QUERY_LIMIT }),
     () => ({ enabled: enabled() })
@@ -258,6 +251,11 @@ export function createNotificationSource(
     { limit: QUERY_LIMIT },
     enabled
   );
+  // Read the current query rather than retaining a second copy across sessions.
+  const mutedEntities = createMemo(() => {
+    if (!enabled() || mutedEntitiesQuery.isPending) return [];
+    return mutedEntitiesQuery.data ?? [];
+  });
   const muteItem = useMuteItemMutation();
   const unmuteItem = useUnmuteItemMutation();
 
@@ -348,13 +346,6 @@ export function createNotificationSource(
       (notificationsQuery.isLoading || mutedEntitiesQuery.isLoading)
     );
   };
-
-  createEffect(() => {
-    if (!enabled() || mutedEntitiesQuery.isPending) return;
-    const mutedEntities = mutedEntitiesQuery.data;
-    if (!mutedEntities) return;
-    setMutedEntities(reconcile(mutedEntities));
-  });
 
   // TODO(dev-rb/notifications): Verify whether document-mention suppression is
   // still required, and remove this source-based cleanup when it is not.

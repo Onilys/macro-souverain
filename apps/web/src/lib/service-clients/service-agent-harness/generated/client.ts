@@ -10,6 +10,7 @@ import type {
   AgentRepositoryBranchesResponse,
   AgentSessionChangesPatchResponse,
   AgentSessionChangesResponse,
+  AgentSessionFoldedLogResponse,
   AgentSessionLogResponse,
   AgentSessionQueueResponse,
   AgentSessionResponse,
@@ -1830,6 +1831,73 @@ export const getAgentSessionLog = async (
     status: res.status,
     headers: res.headers,
   } as getAgentSessionLogResponse;
+};
+
+/**
+ * For readers that do not run the fold themselves, such as SDK programs and
+agents reading another session's history.
+ * @summary One agent session's history folded into renderable messages: the same
+fold the web client runs over [`get_agent_session_log_handler`]'s frames.
+ */
+export type getAgentSessionFoldedLogResponse200 = {
+  data: AgentSessionFoldedLogResponse;
+  status: 200;
+};
+
+export type getAgentSessionFoldedLogResponse401 = {
+  data: string;
+  status: 401;
+};
+
+export type getAgentSessionFoldedLogResponse403 = {
+  data: string;
+  status: 403;
+};
+
+export type getAgentSessionFoldedLogResponse500 = {
+  data: string;
+  status: 500;
+};
+
+export type getAgentSessionFoldedLogResponseSuccess =
+  getAgentSessionFoldedLogResponse200 & {
+    headers: Headers;
+  };
+export type getAgentSessionFoldedLogResponseError = (
+  | getAgentSessionFoldedLogResponse401
+  | getAgentSessionFoldedLogResponse403
+  | getAgentSessionFoldedLogResponse500
+) & {
+  headers: Headers;
+};
+
+export type getAgentSessionFoldedLogResponse =
+  | getAgentSessionFoldedLogResponseSuccess
+  | getAgentSessionFoldedLogResponseError;
+
+export const getGetAgentSessionFoldedLogUrl = (sessionId: string) => {
+  return `/agent-sessions/${sessionId}/log/folded`;
+};
+
+export const getAgentSessionFoldedLog = async (
+  sessionId: string,
+  options?: RequestInit
+): Promise<getAgentSessionFoldedLogResponse> => {
+  const res = await fetch(getGetAgentSessionFoldedLogUrl(sessionId), {
+    ...options,
+    method: 'GET',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAgentSessionFoldedLogResponse['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getAgentSessionFoldedLogResponse;
 };
 
 /**

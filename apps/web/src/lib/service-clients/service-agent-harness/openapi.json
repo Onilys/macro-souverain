@@ -1490,6 +1490,68 @@
         }
       }
     },
+    "/agent-sessions/{session_id}/log/folded": {
+      "get": {
+        "tags": ["agent-sessions"],
+        "summary": "One agent session's history folded into renderable messages: the same\nfold the web client runs over [`get_agent_session_log_handler`]'s frames.",
+        "description": "For readers that do not run the fold themselves, such as SDK programs and\nagents reading another session's history.",
+        "operationId": "get_agent_session_folded_log",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "ID of the agent session",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSessionFoldedLogResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/agent-sessions/{session_id}/name": {
       "put": {
         "tags": ["agent-sessions"],
@@ -3201,6 +3263,24 @@
                 "description": "The latest capture, if any succeeded."
               }
             ]
+          }
+        }
+      },
+      "AgentSessionFoldedLogResponse": {
+        "type": "object",
+        "description": "Response body for one session's folded log.",
+        "required": ["bot", "messages"],
+        "properties": {
+          "bot": {
+            "$ref": "#/components/schemas/SessionBot",
+            "description": "The agent whose messages these are; it sent every agent message."
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "The conversation, oldest first: prompts, replies, tool calls and their\nresults, plans, permission requests and how each turn ended. Each\nelement is a `FoldedMessage` from the fold's TypeScript contract,\nwhich the SDK exports; the schema is opaque here because those types\nare described with specta rather than utoipa."
           }
         }
       },

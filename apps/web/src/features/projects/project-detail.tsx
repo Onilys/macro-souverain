@@ -280,7 +280,7 @@ function ProjectDetailHost(props: ProjectDetailProps) {
           )}
         </Show>
       </EntityDetailTopBar>
-      <div class="relative min-h-0 min-w-0 flex-1">
+      <div class="relative min-h-0 min-w-0 flex-1 touch:[--mobile-content-inset-top:0px]">
         <Suspense
           fallback={<ProjectContentSkeleton section={props.route.section} />}
         >

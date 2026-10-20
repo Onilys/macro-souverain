@@ -12,6 +12,8 @@ execution, display) that don't belong to a single domain.
 - `src/lib.rs`: the composition point — imports each domain crate's
   `inbound::toolset` module and builds the combined `AsyncToolCollection`
   and frontend schema set.
+- `ReadAgentSession` is eager across chat, agent sessions, and MCP, and is also
+  available to subagents; keep its registration covered by the host tests.
 - `src/subagent.rs`: dispatches `snippet_specs` to parallel subagents.
 - `src/search.rs` / `src/search_tools.rs`: cross-entity search tools.
 - `src/deferred.rs`: tools whose result arrives after the turn (long-running
@@ -44,6 +46,10 @@ execution, display) that don't belong to a single domain.
   existing import — no change needed here unless it's cross-domain.
 - Add a cross-domain tool: new module in `src/` → register in
   `src/lib.rs`'s toolset assembly → regenerate schemas (see Checks).
+
+## Tool contracts
+
+- Executable toolsets exclude legacy chats in every host and code mode. Keep historical parsing compatibility only in `frontend_compat.rs`; never merge it into provider schemas.
 
 ## Checks
 

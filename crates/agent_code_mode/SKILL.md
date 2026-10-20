@@ -18,11 +18,11 @@ export async function main({macro, session, execution}) {
 
 Return an object with data; reviews is optional and defaults to []. Include review references when you prepare editable drafts.
 
-macro, session and execution are real SDK handles. You can instead import {Macro} from '@macro-inc/sdk' and construct it with main's token and hosts. Do not log, return, persist or transmit that credential elsewhere. It is a short-lived normal user credential, with the user's API permissions. SDK operations make real HTTP calls. No custom sdk.ToolName dispatcher, TypeScript transpilation, runtime help or package installation is involved.
+macro, session and execution are real SDK handles. You can instead import {Macro} from '@macro-inc/sdk' and construct it with main's token and hosts. Do not log, return, persist or transmit that credential elsewhere. It is a short-lived normal user credential, with the user's API permissions. SDK operations make real HTTP calls. Messages are attributed to the session's agent, with the owner recorded as the requesting user; do not supply sender identities yourself. No custom sdk.ToolName dispatcher, TypeScript transpilation, runtime help or package installation is involved.
 
 ## Useful workflows
 
-- For a workspace overview, run small per-category macro.workspace.page({includeTypes:[type], limit:3}) requests concurrently in one execution. Return compact metadata and each page.hasMore. A mixed page can be dominated by one category; a sample is not a category total. Exact workspace types include calendar_event, ai_chat and channel_thread. Tasks use includeTypes:["document"], df:{l:{dst:"task"}}. AST & and | are binary; a single filter stays a leaf.
+- For a workspace overview, use the direct ListEntities tool, including agent_session when the user asks about agent work. Use NameSearch for mixed-entity name searches and ContentSearch for session history. Return compact metadata and preserve pagination and source-scope limits. A sample is not a category total. Tasks use includeTypes:["document"], df:{l:{dst:"task"}}. AST & and | are binary; a single filter stays a leaf.
 - Search several precise phrases concurrently, read relevant documents, then calculate an aggregate in one execution. Preserve query attribution, source IDs and sampling limits.
 - Collect a bounded recent-email batch, fetch relevant content, then map macro.ai.decide over it with bounded parallelism. Retain every error and distinguish probability estimates from facts. The ai guide has a complete example.
 - Generate structured extraction with macro.ai.structuredCompletion and toolset:{type:'none'}, using source text already fetched; check the returned outcome rather than assuming success.

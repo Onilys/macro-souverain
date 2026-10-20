@@ -40,9 +40,13 @@ providers. Shared/delegated Microsoft mailboxes are outside this account scope;
 sharing an inbox or thread inside Macro remains available.
 
 For Outlook writes, distinguish acceptance from provider confirmation. Thread
-organization notices and inbox settings show pending or failed changes. A saved
-draft can show a conflict or an uncertain delivery: use its recovery actions and
-check the provider copy before choosing an explicit resend. Switching the sender
+organization notices and inbox settings show pending or failed changes; the
+mark-as-read from opening a thread is announced only if it fails. Draft sync and
+delivery progress is silent, as on Gmail: a composer or sent message shows a
+notice only for a conflict, uncertain or rejected delivery, revoked access,
+unsavable content, or an inbox move. Use its recovery actions and check the
+provider copy before choosing an explicit resend; a resend in flight shows as
+the send button's pending state. Switching the sender
 inbox copies the draft and attachments into the destination; wait for completion
 before sending. If the copy is interrupted, use retry or keep the original.
 
@@ -319,7 +323,9 @@ first); the list keeps the row you came from focused. The inline header uses the
 email title menu: open the menu button beside the subject for **Ask AI**, **Create a
 Task**, and the other thread actions. On desktop, **Mark as unread**, **Mark done**,
 and **Previous item** / **Next item** sit at the right of that header. The arrows
-follow the current filtered list and disable at its ends. Mark done advances in
+follow the current filtered list and disable at its ends. When the open thread
+leaves the list while it stays open (a reply in Signal marks it done, or another
+device archives it), they step from its former neighbours. Mark done advances in
 that list. In a list, the Mark done, Mark as not done and Delete keys act once per
 press: a held key auto-repeats, and those repeats are ignored. Mark as unread (in
 the header or title menu) returns to the originating list with its tab, inbox, and
@@ -355,7 +361,18 @@ separators and 16px side gutters; collapsed previews show one line. Desktop
 keeps rounded cards matching the chat composer: soft shadows in light mode,
 the same subtle 3D rim in dark mode, and a faint hover tint. Desktop selection
 does not add an accent-colored ring; keyboard focus has a neutral outline.
-Replies appear inline on desktop and in a composer drawer on touch devices.
+On touch, the floating Reply, Forward, previous/next email, and done controls
+use the mobile dock's chrome fill and icon color in both themes.
+Replies appear inline on desktop and in a full-screen composer on touch devices,
+including tablets. Reply, Reply all, and Forward use the same grouped header
+actions as new email: attach, schedule, and send. The schedule clock matches
+Attach's touch icon size. The Back control returns to the thread; when a reply
+has content, choose Save Draft or Delete Draft. Escape
+and Android Back follow the same close flow, including Escape with a header
+button focused. Closing an empty reply discards its local/server draft and
+removes its Draft preview from the thread. Saving must finish before leaving;
+a failed local save keeps the composer and draft options open. The message list
+stays mounted underneath so closing a reply preserves its scroll position.
 On touch, a saved reply shows as a **Draft** row with its opening words under the
 message it answers (which stays expanded); tapping it reopens the draft.
 On desktop, a saved reply that reappears with its thread (opening it, stepping
@@ -390,6 +407,13 @@ During send or discard, its sender and scheduling controls cannot change the ope
 Attachments that can be opened are buttons named by their filename; Tab to one
 and press Enter or Space. Removal is a separate button named `Remove <filename>`.
 Removing a forwarded file keeps the received original.
+Files that would push the email over the sending inbox's delivery limit (18 MB
+on Gmail, 25 MB on Outlook) are not attached:
+a confirmation (a drawer on phones) offers to upload them to Macro and share
+view-only links instead. Confirming inserts one link per file at the end of the
+written message, above a reply's quoted thread, and the draft autosaves; Cancel
+adds nothing. Files that fit still attach, and the same check covers files
+dropped onto the body.
 To forward from another inbox, open Forward, expand the forwarding envelope on
 desktop, and select a different account in From (already visible on mobile).
 Forwarded files must remain attached after switching to an owned or delegated
@@ -408,6 +432,15 @@ Ordinary queued saves must not request another `EmailThreadPage`; a missing
 thread snapshot or a move between inboxes still requires reconciliation.
 AI email tool drafts persist body-only edits; changing recipients or the subject
 is not required to save the body.
+For an AI-drafted reply with no explicit sender, the backend selects the inbox
+that received the original message. Delay the reply-inbox lookup: the composer
+shows `Resolving sender...`, hides the signature, and disables Send (including
+the keyboard shortcut and batch submission). Fail the lookup and check Retry; choosing a From inbox
+also enables sending immediately. A late lookup must not overwrite that choice.
+Implicit senders omit `from` on edits and sends. An explicit sender is preserved
+even while inboxes load or after disconnection; an unavailable sender blocks Send
+until another connected inbox is selected. New emails default to the primary
+inbox after inboxes load. Repeat on mobile using the expanded `Cc/Bcc, From:` row.
 
 With GraphQL draft queuing enabled, working copies and pending attachment bytes
 are saved on this device independently of the mutation queue. A failed server
@@ -430,6 +463,10 @@ reloading. Repeat across background/resume on an iPhone. A transaction that has
 already started is never automatically replayed. Persistent failures still block
 server autosave; copy unsaved content before restarting. Storage failures and
 recovery report current page visibility and network state without draft content.
+Request errors settle only after the transaction's abort event, preserving the
+underlying IndexedDB error and waiting for rollback before recovery. To verify,
+force a request constraint failure: the prior draft must remain intact, the error
+must be `ConstraintError`, and a subsequent valid save must succeed.
 
 Repeated local-save failures show one persistent warning per composer; recovery
 or closing that composer dismisses it. A later failure shows a new warning.
@@ -491,8 +528,12 @@ Macro Markdown messages retain document mentions. Ordinary HTML bodies use an
 open shadow root: Playwright text locators can reach them, but a card's ordinary
 `innerText` or `querySelector` does not traverse that root.
 
-Sending a reply from an inbox thread marks that thread done but stays on it;
-only the explicit Mark done action opens the next email.
+Sending a reply from an inbox thread marks that thread done but stays on it.
+Send and mark done (Shift+Cmd+Enter) and Mark done open the next email, counted
+from where the thread sat when it was opened (a reply draft lifts its thread to
+the top of Signal while it is written). If the user has already moved to
+another thread when the send finishes, the replied thread is marked done
+without navigating; Undo before then leaves it in the inbox.
 Sending a message shows it in the open thread immediately, while delivery is
 still pending. It stays visible until the thread refresh confirms it, with no
 duplicate message. Failed delivery removes that message and restores the reply
