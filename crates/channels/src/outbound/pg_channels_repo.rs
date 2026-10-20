@@ -293,7 +293,7 @@ async fn resolve_channel_display_name(
 /// Display name for a participant principal: users resolve through the name
 /// lookup, bots through the bot-name lookup (Macro AI is code-defined).
 /// Unrecognized principals yield `None`.
-fn principal_display_name(
+pub(super) fn principal_display_name(
     principal: &str,
     name_lookup: &NameLookup,
     bot_name_lookup: &HashMap<BotId, String>,
@@ -332,10 +332,10 @@ async fn load_active_participant_principals(
     Ok(rows.into_iter().map(|row| row.user_id).collect())
 }
 
-async fn load_bot_display_names(
+pub(super) async fn load_bot_display_names(
     pool: &PgPool,
     bot_ids: &[BotId],
-) -> anyhow::Result<HashMap<BotId, String>> {
+) -> Result<HashMap<BotId, String>, sqlx::Error> {
     if bot_ids.is_empty() {
         return Ok(HashMap::new());
     }
@@ -369,10 +369,10 @@ async fn load_bot_display_names(
     Ok(names)
 }
 
-async fn load_user_display_names(
+pub(super) async fn load_user_display_names(
     pool: &PgPool,
     user_ids: &[MacroUserIdStr<'static>],
-) -> anyhow::Result<NameLookup> {
+) -> Result<NameLookup, sqlx::Error> {
     if user_ids.is_empty() {
         return Ok(NameLookup::new());
     }

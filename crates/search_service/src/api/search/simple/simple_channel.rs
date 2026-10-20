@@ -1,7 +1,10 @@
 use crate::api::search::simple::SearchError;
+use channels::domain::models::ChannelType;
 use item_filters::ChannelFilters;
 use macro_user_id::user_id::MacroUserId;
+use name_search::ChannelNameSearchScope;
 use opensearch_client::search::model::{Highlight, SearchHit};
+use sqlx::types::Uuid;
 use std::collections::HashSet;
 
 use crate::api::context::SearchHandlerState;
@@ -11,13 +14,13 @@ pub(in crate::api::search) struct FilterChannelResponse {
     pub channel_ids: Vec<sqlx::types::Uuid>,
 }
 
-/// Performs the name search over channel names.
-#[allow(clippy::too_many_arguments)]
-#[tracing::instrument(skip(db), err)]
+/// Performs the viewer-aware name search over the channels the user is in,
+/// narrowed by the filters' `channel_ids` and `channel_types`.
+#[tracing::instrument(skip(db, filters, term), fields(term_len = term.len()), err)]
 pub(in crate::api::search) async fn search_names<'a>(
     db: &sqlx::Pool<sqlx::Postgres>,
     user_id: &MacroUserId<macro_user_id::lowercased::Lowercase<'a>>,
-    filter_channel_response: &FilterChannelResponse,
+    filters: &ChannelFilters,
     term: String,
     exact_match: bool,
     limit: u32,
@@ -29,11 +32,31 @@ pub(in crate::api::search) async fn search_names<'a>(
         }
         models_search_cursor::SearchCursorOption::NotDone(c) => c,
     };
+    let channel_ids = filters
+        .channel_ids
+        .iter()
+        .map(|id| {
+            id.parse::<Uuid>()
+                .map_err(|_| SearchError::InvalidChannelId(id.clone()))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let channel_types = filters
+        .channel_types
+        .iter()
+        .map(|label| {
+            label
+                .parse::<ChannelType>()
+                .map_err(|_| SearchError::InvalidChannelType(label.clone()))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
 
     name_search::search_channel_names(
         db,
         user_id,
-        &filter_channel_response.channel_ids,
+        ChannelNameSearchScope {
+            channel_ids: &channel_ids,
+            channel_types: &channel_types,
+        },
         term,
         exact_match,
         limit,

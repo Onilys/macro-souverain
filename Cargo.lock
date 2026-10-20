@@ -4122,6 +4122,7 @@ dependencies = [
  "share_permission_db_utils",
  "sqlx",
  "static_file_service_client",
+ "strum 0.27.2",
  "thiserror 2.0.18",
  "tokio",
  "tokio-retry",

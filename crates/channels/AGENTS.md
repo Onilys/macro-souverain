@@ -17,6 +17,8 @@ DMs, and the shared message store other domains discuss things on.
 - `src/inbound/toolset.rs`: AI tools over channels (feature `ai_tools`).
 - `src/outbound/pg_channels_repo.rs`, `src/outbound/connection_gateway_realtime.rs`:
   storage and realtime delivery adapters.
+- `src/outbound/channel_name.rs`: the viewer-dependent channel naming rule —
+  batch name resolution and the SQL name search behind `name_search`.
 
 ## Scope
 
