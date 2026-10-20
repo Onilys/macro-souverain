@@ -956,6 +956,98 @@
         }
       }
     },
+    "/agent-sessions/{session_id}/app-connections": {
+      "post": {
+        "tags": ["agent-sessions"],
+        "summary": "Continue the session now that its owner connected an app it asked for.",
+        "description": "The harness writes the prompt, as context the transcript does not show; it\nstarts a turn at once when the session is idle and queues otherwise.",
+        "operationId": "report_agent_session_app_connected",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "ID of the agent session",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppConnectedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not the session's owner, or no edit access",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The session is archived or its runtime is not connected",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The owner has not connected that app",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/agent-sessions/{session_id}/archived": {
       "put": {
         "tags": ["agent-sessions"],
@@ -3582,6 +3674,28 @@
           }
         }
       },
+      "AppConnectedRequest": {
+        "type": "object",
+        "description": "Request body for reporting a connected app.",
+        "required": ["appSlug"],
+        "properties": {
+          "actionId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AgentActionId",
+                "description": "Names the continuation, so a retried report does not prompt twice."
+              }
+            ]
+          },
+          "appSlug": {
+            "type": "string",
+            "description": "The Pipedream app slug the owner connected, e.g. `notion`."
+          }
+        }
+      },
       "BotId": {
         "type": "string"
       },
@@ -3932,7 +4046,7 @@
           "drafts": {
             "type": "array",
             "items": {},
-            "description": "One to one hundred independent drafts. Email: {subject, body: Markdown,\nto: [{email, name?}], cc?: [{email, name?}], bcc?: [{email, name?}],\nreplyingToId?, attachments?: [{documentId}]}. Calendar: {title,\ntime: {kind: \"timed\", startsAt: ISO datetime, endsAt: ISO datetime,\ntimeZone?: IANA zone} or {kind: \"allDay\", startDate: ISO date,\nendDate: exclusive ISO date}, description?, location?, attendees?:\n[{email, isOptional?}]}.\nCreating any review only presents these drafts; the user acts separately."
+            "description": "One to one hundred independent drafts. Email: {subject, body: Markdown,\nto: [{email, name?}], cc?: [{email, name?}], bcc?: [{email, name?}],\nreplyingToId?, attachments?: [{documentId}]}. Calendar: {title,\ntime: {kind: \"timed\", startsAt: ISO datetime, endsAt: ISO datetime,\ntimeZone?: IANA zone} or {kind: \"allDay\", startDate: ISO date,\nendDate: exclusive ISO date}, description?, location?, attendees?:\n[{email, isOptional?}]}. Import: exactly one draft {source: \"notion\"},\npresenting the plan ImportFromNotion staged.\nCreating any review only presents these drafts; the user acts separately."
           },
           "executionId": {
             "oneOf": [
@@ -4834,7 +4948,7 @@
       "ReviewKind": {
         "type": "string",
         "description": "The component and action used to finish a review.",
-        "enum": ["email", "calendar"]
+        "enum": ["email", "calendar", "import"]
       },
       "ReviewRecord": {
         "type": "object",

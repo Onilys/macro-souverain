@@ -37,6 +37,8 @@ export const agentHarnessExcluded = [
   'agentSessionsForPullRequests',
   // Speculative page warm-up requires a signed-in user and is app-internal.
   'warmAgentSessionHandler',
+  // The connect chip's continuation after an app connects is app-internal.
+  'reportAgentSessionAppConnected',
 ] as const satisfies readonly (keyof AgentHarnessSdk)[];
 
 export const agentHarnessBacklog = [
@@ -183,6 +185,9 @@ export const cognitionExcluded = [
   // Channel discovery shares the app-only import workflow below.
   'discoverHandler',
   'runImportHandler',
+  // The Notion import report and cancel back the in-chat import review card.
+  'notionReportHandler',
+  'cancelNotionHandler',
   'getStateHandler',
   'getStateHandler2',
   'completeHandler',

@@ -967,10 +967,16 @@ export type NewMessageAttachment = {
 };
 
 /**
+ * What a workspace import does with one Notion object.
+ */
+export type NotionDecision = 'copy' | 'tasks' | 'skip' | 'hand';
+
+/**
  * Metadata for one staged Notion page. Deliberately has NO content field:
  * page bodies are fetched at import time, for accepted pages only.
  */
 export type NotionDocMeta = {
+    plan?: null | NotionPlanItem;
     /**
      * One-line summary of what the page contains.
      */
@@ -983,6 +989,140 @@ export type NotionDocMeta = {
      * Deep link back to the page in Notion.
      */
     url?: string | null;
+};
+
+/**
+ * Where a Notion workspace import stands.
+ */
+export type NotionImportReport = {
+    /**
+     * Objects to copy as they are.
+     */
+    copy: number;
+    /**
+     * Data sources (database tables) in the plan.
+     */
+    dataSources: number;
+    /**
+     * Why the run failed, when it did.
+     */
+    error?: string | null;
+    /**
+     * Objects that failed to import, with the failure.
+     */
+    failures?: Array<NotionReportItem>;
+    /**
+     * Objects that need handling by hand.
+     */
+    hand: number;
+    /**
+     * Objects that need handling by hand, with reasons.
+     */
+    handItems?: Array<NotionReportItem>;
+    /**
+     * Plan objects already imported.
+     */
+    imported: number;
+    /**
+     * Pages in the plan.
+     */
+    pages: number;
+    /**
+     * The review the plan is tied to, once presented.
+     */
+    reviewId?: string | null;
+    /**
+     * Objects left in Notion.
+     */
+    skip: number;
+    status?: null | RunStatus;
+    /**
+     * Data sources whose rows become tasks.
+     */
+    tasks: number;
+    /**
+     * Plan objects still waiting to be written.
+     */
+    waiting: number;
+    /**
+     * Plan objects being written now.
+     */
+    writing: number;
+};
+
+/**
+ * One object's place in a workspace import plan.
+ */
+export type NotionPlanItem = {
+    /**
+     * What the import does with it.
+     */
+    decision: NotionDecision;
+    /**
+     * For a data source: whether it has more rows than `rows`.
+     */
+    moreRows?: boolean;
+    /**
+     * Titles of the pages above it, outermost first.
+     */
+    path?: Array<string>;
+    /**
+     * Why, in a short sentence, when the decision model gave one.
+     */
+    reason?: string | null;
+    /**
+     * For a data source: rows counted while planning.
+     */
+    rows?: number | null;
+    taskFields?: null | NotionTaskFields;
+};
+
+/**
+ * One object a workspace import report calls out.
+ */
+export type NotionReportItem = {
+    /**
+     * The ledger row.
+     */
+    importId: string;
+    /**
+     * What the object is.
+     */
+    kind: ImportKind;
+    /**
+     * Why it is called out: the decision model's reason, or the failure.
+     */
+    reason?: string | null;
+    /**
+     * The object's title.
+     */
+    title: string;
+    /**
+     * Its Notion URL.
+     */
+    url?: string | null;
+};
+
+/**
+ * Which Notion columns hold a task list's task fields, by property name.
+ */
+export type NotionTaskFields = {
+    /**
+     * The assignee column.
+     */
+    assignee?: string | null;
+    /**
+     * The due date column.
+     */
+    due?: string | null;
+    /**
+     * The priority column.
+     */
+    priority?: string | null;
+    /**
+     * The status column.
+     */
+    status?: string | null;
 };
 
 /**
@@ -2420,6 +2560,49 @@ export type HealthHandlerResponses = {
 };
 
 export type HealthHandlerResponse = HealthHandlerResponses[keyof HealthHandlerResponses];
+
+export type NotionReportHandlerData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/import/notion';
+};
+
+export type NotionReportHandlerErrors = {
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type NotionReportHandlerResponses = {
+    200: NotionImportReport;
+};
+
+export type NotionReportHandlerResponse = NotionReportHandlerResponses[keyof NotionReportHandlerResponses];
+
+export type CancelNotionHandlerData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/import/notion/cancel';
+};
+
+export type CancelNotionHandlerErrors = {
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type CancelNotionHandlerResponses = {
+    /**
+     * Where the import stands after cancelling
+     */
+    200: NotionImportReport;
+};
+
+export type CancelNotionHandlerResponse = CancelNotionHandlerResponses[keyof CancelNotionHandlerResponses];
 
 export type RunImportHandlerData = {
     body: RunImportRequest;
