@@ -56,7 +56,6 @@ FusionAuth.
 ## Checks
 
 - `cargo test -p mcp_service` (`SQLX_OFFLINE` unset).
-- Setup agent behaviour: `cargo run -p mcp_service --example setup_sim -- --port 8788`.
 
 ## Gotchas
 

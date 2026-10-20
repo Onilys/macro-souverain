@@ -108,6 +108,3 @@ url = { workspace = true }
 
 macro_service_urls = { path = "../../crates/macro_service_urls" }
 workspace-hack = { version = "0.1", path = "../../crates/workspace-hack" }
-
-[dev-dependencies]
-uuid = { workspace = true }

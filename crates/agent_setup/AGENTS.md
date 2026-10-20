@@ -39,8 +39,6 @@ step wraps an existing service; the import service still does all copying.
 ## Checks
 
 - `cargo test -p agent_setup`
-- Agent behaviour: `cargo run -p mcp_service --example setup_sim -- --port 8788`
-  serves these tools against simulated Macro services for scripted agent runs.
 
 ## Gotchas
 
