@@ -44,7 +44,7 @@ fn stream_pending_scheduled_messages(
         PendingDelivery,
         r#"
         SELECT
-            esm.link_id, esm.message_id
+            esm.link_id AS "link_id!", esm.message_id AS "message_id!"
         FROM email_scheduled_messages esm
         JOIN email_messages em ON em.id = esm.message_id
         WHERE
@@ -59,6 +59,17 @@ fn stream_pending_scheduled_messages(
                 SELECT 1 FROM email_send_attempts a
                 WHERE a.link_id = esm.link_id AND a.message_id = esm.message_id AND NOT a.cancelled
             ))
+        UNION
+        SELECT em.link_id, em.id AS message_id
+        FROM email_deferred_message_deletions d
+        JOIN email_messages em ON em.id = d.message_id
+        WHERE em.draft_generation <> d.draft_generation
+           OR em.provider_id IS DISTINCT FROM d.provider_id
+           OR NOT EXISTS (
+               SELECT 1 FROM email_send_attempts a
+               WHERE a.message_id = em.id AND a.link_id = em.link_id
+                 AND NOT a.cancelled AND NOT a.sent
+           )
         "#,
         f64::from(email::domain::scheduled_delivery::DELIVERY_LEASE_SECONDS),
     )

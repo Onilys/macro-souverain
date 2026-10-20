@@ -513,7 +513,10 @@ GraphQL client in `service-storage/email-send.ts`. Per-attempt database leases
 coordinate tabs, with bounded concurrency across unrelated messages. A lost
 response triggers a status read before resubmitting the identical attempt.
 Cancellation requested before any submission claim stays local; after a claim it
-requires authoritative server cancellation. Retry backoff and authentication
+requires authoritative server cancellation. The exception is a definitive inbox-access
+rejection of the first exclusive submission: the journal records local cancellation
+and permits restoration. Timeouts, mixed/nested errors, and later status rejections
+never provide that proof. Retry backoff and authentication
 pauses do not discard approval. `email-send-restoration.ts` restores content,
 fences the prior local lifetime, and retires send authority atomically. Newer
 local edits and file bytes survive restoration. Sign-out retains approved sends
@@ -528,13 +531,25 @@ unknown provider outcomes remain locked and reconcile before any resend.
 Gmail submission checkpoints and Outlook coordinator revisions retain their
 provider-specific submission boundaries.
 
+Hard deletion of a message owned by a nonterminal send is deferred in
+`email_deferred_message_deletions` before any content compaction or attachment/job
+cascade. The retained provider ID and draft generation scope the deletion to that
+message lifetime. The recovery scanner also wakes terminal deferred deletions,
+even without a schedule. Workers discard markers superseded by Undo or a changed
+provider identity; matching terminal deletions use normal thread/CRM cleanup.
+Failed and unconfirmed attempts remain protected until cancellation or confirmed
+delivery. Explicit inbox removal revokes authority: links marked `deleting_at`
+permit batched purge, and direct inbox deletion permits its normal cascade.
+
 `email_messages.draft_generation` advances at acceptance and confirmed
 cancellation. Save, delete, schedule, transfer, and attachment edits compare the
 captured generation under the message lock. Stale autosaves return `DRAFT_VERSION_CONFLICT` and preserve local edits for recovery; they are not classified as an already-sent message. The attempt retains draft handles
 and source inbox namespaces after provider deletion, preventing old queued saves
 from recreating the submitted draft. Versioned approval fingerprints include the
 generation, frozen signature and Send Later deadline. An explicit new Send after
-Undo uses the returned generation and a fresh attempt ID.
+Undo uses the returned generation and a fresh attempt ID. Draft reads prefer that
+newer working-copy generation over stale accepted cache records; an equal or newer
+server delivery generation still wins.
 
 The status panel combines device intents with actor/inbox-authorized, cursor-paged
 `pendingEmailSends`, with batched message hydration. Server listing grants observation and cancellation authority,

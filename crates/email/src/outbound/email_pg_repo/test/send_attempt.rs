@@ -4,8 +4,10 @@ use crate::domain::{
     send_attempt::*,
 };
 
+mod deferred_deletion;
 mod independent_outbox;
 mod preparation_cancel;
+mod provider_deletion;
 mod provider_draft_trash;
 mod retention;
 mod trash;
@@ -830,17 +832,17 @@ async fn deleted_message_preserves_uncertain_delivery_authority(
         .read_send_attempt(&actor(), link(), attempt, None)
         .await?
         .unwrap();
-    assert_eq!(read.status, SendAttemptStatus::DeliveryUnconfirmed);
+    assert_eq!(read.status, SendAttemptStatus::Sending);
     assert_eq!(read.message_id, Some(message()));
     assert_eq!(
         repo.cancel_send(&actor(), link(), attempt).await?.status,
-        SendAttemptStatus::DeliveryUnconfirmed
+        SendAttemptStatus::Sending
     );
     assert_eq!(
         repo.admit_send(&actor(), link(), attempt, prepared())
             .await?
             .status,
-        SendAttemptStatus::DeliveryUnconfirmed
+        SendAttemptStatus::Sending
     );
     Ok(())
 }
@@ -867,7 +869,7 @@ async fn deleted_legacy_processing_message_remains_uncertain(
         .await?;
     assert_eq!(
         repo.cancel_send(&actor(), link(), attempt).await?.status,
-        SendAttemptStatus::DeliveryUnconfirmed
+        SendAttemptStatus::Sending
     );
     Ok(())
 }

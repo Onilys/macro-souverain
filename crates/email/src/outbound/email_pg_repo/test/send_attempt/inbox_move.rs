@@ -281,7 +281,7 @@ async fn inbox_move_does_not_replace_an_existing_destination_reply(
     migrator = "MACRO_DB_MIGRATIONS",
     fixtures(path = "../../../../../fixtures", scripts("email_draft"))
 )]
-async fn deleted_moved_send_keeps_the_source_inbox_autosave_fence(
+async fn deferred_moved_send_keeps_the_source_inbox_autosave_fence(
     pool: Pool<Postgres>,
 ) -> anyhow::Result<()> {
     service(pool.clone())
@@ -295,16 +295,16 @@ async fn deleted_moved_send_keeps_the_source_inbox_autosave_fence(
     email_db_client::messages::delete::delete_db_message(&pool, message()).await?;
     let stale = prepared();
     let repo = EmailPgRepo::new(pool);
-    assert!(matches!(
+    assert!(
         repo.insert_message(&stale.message, &stale.contacts, link(), None, true)
-            .await,
-        Err(EmailErr::DraftGenerationConflict(_))
-    ));
+            .await?
+            .is_none()
+    );
     assert!(repo.send_message_row(link(), message()).await?.is_none());
     assert!(
         repo.send_message_row(destination(), message())
             .await?
-            .is_none()
+            .is_some()
     );
     Ok(())
 }

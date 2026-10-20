@@ -71,6 +71,14 @@ pub trait ScheduledDeliveryRepo: Sync {
     /// Provider result consumed by completion persistence.
     type Sent: Send;
 
+    /// Apply or retire a deferred message deletion only after delivery authority
+    /// resolves; preserve it while Send/reconciliation still needs the message.
+    fn reconcile_deletion(
+        &self,
+        link_id: Uuid,
+        message_id: Uuid,
+    ) -> impl Future<Output = anyhow::Result<()>> + Send;
+
     /// Acquire an available or expired claim, committing before returning.
     fn try_claim(
         &self,
@@ -128,6 +136,8 @@ where
     R: ScheduledDeliveryRepo,
     S: ScheduledMessageSender<R::Claim, R::Sent>,
 {
+    tracing::Span::current().record("phase", "deferred_deletion");
+    repo.reconcile_deletion(link_id, message_id).await?;
     tracing::Span::current().record("phase", "claim");
     let Some(ClaimedDelivery { claim, mode }) = repo.try_claim(link_id, message_id).await? else {
         return Ok(());

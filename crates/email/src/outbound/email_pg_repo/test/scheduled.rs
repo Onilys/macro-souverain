@@ -576,6 +576,9 @@ async fn initial_schedule_prepares_signature_but_time_updates_preserve_content(
 struct ClaimRepo(Pool<Postgres>);
 
 impl crate::domain::scheduled_delivery::ScheduledDeliveryRepo for ClaimRepo {
+    async fn reconcile_deletion(&self, _: Uuid, _: Uuid) -> anyhow::Result<()> {
+        Ok(())
+    }
     type Claim = (Uuid, Uuid);
     type Sent = ();
 

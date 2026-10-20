@@ -77,20 +77,25 @@ async fn cancellation_and_delivery_clear_content_without_losing_replay_identity(
     migrator = "MACRO_DB_MIGRATIONS",
     fixtures(path = "../../../../../fixtures", scripts("email_draft"))
 )]
-async fn deleting_an_active_message_clears_ledger_content_and_preserves_the_tombstone(
+async fn deleting_an_active_message_retains_delivery_content_and_job(
     pool: Pool<Postgres>,
 ) -> anyhow::Result<()> {
     let repo = EmailPgRepo::new(pool.clone());
     let attempt = SendAttemptId(macro_uuid::generate_uuid_v7());
     repo.admit_send(&actor(), link(), attempt, prepared())
         .await?;
-    email_db_client::messages::delete::delete_db_message(&pool, message()).await?;
-    assert_compacted(&pool, attempt).await?;
+    assert!(!email_db_client::messages::delete::delete_db_message(&pool, message()).await?);
+    let retained = sqlx::query!(
+        "SELECT a.prepared_content, s.message_id FROM email_send_attempts a JOIN email_scheduled_messages s ON s.message_id=a.message_id WHERE a.attempt_id=$1",
+        attempt.0,
+    ).fetch_one(&pool).await?;
+    assert!(retained.prepared_content.is_some());
+    assert_eq!(retained.message_id, message());
     let replay = repo
         .admit_send(&actor(), link(), attempt, prepared())
         .await?;
     assert!(!replay.transitioned);
-    assert!(repo.send_message_row(link(), message()).await?.is_none());
+    assert!(repo.send_message_row(link(), message()).await?.is_some());
     let mut changed = prepared();
     changed.snapshot.message.subject.push('!');
     assert!(matches!(

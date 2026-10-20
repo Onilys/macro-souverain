@@ -3,6 +3,7 @@ use std::sync::Mutex;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Call {
+    Deletion,
     Claim,
     Prepare,
     Begin,
@@ -71,6 +72,11 @@ impl ScheduledDeliveryRepo for Fake {
     type Claim = ();
     type Sent = ();
 
+    async fn reconcile_deletion(&self, _: Uuid, _: Uuid) -> anyhow::Result<()> {
+        self.record(Call::Deletion);
+        Ok(())
+    }
+
     async fn try_claim(&self, _: Uuid, _: Uuid) -> anyhow::Result<Option<ClaimedDelivery<()>>> {
         self.record(Call::Claim);
         Ok(self.mode.map(|mode| ClaimedDelivery { claim: (), mode }))
@@ -138,7 +144,7 @@ async fn claim_loser_cannot_prepare_submit_or_release_another_worker() {
     deliver_scheduled(&fake, &fake, Uuid::nil(), Uuid::nil())
         .await
         .unwrap();
-    assert_eq!(*fake.calls.lock().unwrap(), [Call::Claim]);
+    assert_eq!(*fake.calls.lock().unwrap(), [Call::Deletion, Call::Claim]);
 }
 
 #[tokio::test]
@@ -150,6 +156,7 @@ async fn successful_send_records_submission_after_preparation_before_provider() 
     assert_eq!(
         *fake.calls.lock().unwrap(),
         [
+            Call::Deletion,
             Call::Claim,
             Call::Prepare,
             Call::Begin,
@@ -172,7 +179,7 @@ async fn transient_preparation_failure_releases_without_crossing_provider_bounda
     );
     assert_eq!(
         *fake.calls.lock().unwrap(),
-        [Call::Claim, Call::Prepare, Call::Release]
+        [Call::Deletion, Call::Claim, Call::Prepare, Call::Release]
     );
 }
 
@@ -188,6 +195,7 @@ async fn invalid_attachments_pause_for_review_without_submitting() {
     assert_eq!(
         *fake.calls.lock().unwrap(),
         [
+            Call::Deletion,
             Call::Claim,
             Call::Prepare,
             Call::Pause(DeliveryPause::Failed)
@@ -206,7 +214,7 @@ async fn worker_that_lost_its_lease_during_preparation_never_submits() {
         .unwrap();
     assert_eq!(
         *fake.calls.lock().unwrap(),
-        [Call::Claim, Call::Prepare, Call::Begin]
+        [Call::Deletion, Call::Claim, Call::Prepare, Call::Begin]
     );
 }
 
@@ -226,6 +234,7 @@ async fn provider_rejection_and_ambiguity_pause_without_granting_another_send() 
         assert_eq!(
             *fake.calls.lock().unwrap(),
             [
+                Call::Deletion,
                 Call::Claim,
                 Call::Prepare,
                 Call::Begin,
@@ -250,6 +259,7 @@ async fn failed_completion_does_not_release_a_successful_provider_submission() {
     assert_eq!(
         *fake.calls.lock().unwrap(),
         [
+            Call::Deletion,
             Call::Claim,
             Call::Prepare,
             Call::Begin,
@@ -283,7 +293,7 @@ async fn reconciliation_only_records_delivery_or_keeps_outcome_unconfirmed() {
         assert_eq!(result.is_err(), should_error);
         assert_eq!(
             *fake.calls.lock().unwrap(),
-            [Call::Claim, Call::Reconcile, last_call]
+            [Call::Deletion, Call::Claim, Call::Reconcile, last_call]
         );
     }
 }

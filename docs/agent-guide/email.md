@@ -556,7 +556,10 @@ own a draft across tabs; queued composers remain read-only.
 Queued sends remain visible in **Drafts** and their conversation with a persistent
 status and **Cancel** action. A never-attempted send can be cancelled offline.
 If admission may have reached the server, **Cancellation pending** keeps it locked
-until the server confirms cancellation. Once delivery starts, cancellation may
+until the server confirms cancellation. A definitive inbox-access rejection of
+the first submission permits restoring the saved draft locally. Verify this still
+works after reload without a cancellation request to the inaccessible inbox.
+A lost response followed by an inbox-access error must remain locked. Once delivery starts, cancellation may
 be too late. Confirmed cancellation automatically restores the working copy,
 including after navigation or reload. Restoration and removal of local send
 authority commit together. It preserves newer edits and fences callbacks from
@@ -567,6 +570,14 @@ The send toast's **Undo** works after navigation closes the composer. It restore
 the draft only after cancellation is confirmed. Pending cancellation, an expired
 undo window, and failed cancellation each display a notice. Delivered attempts
 remain complete even if the sent message is later deleted from the provider.
+After Undo, delay the accepted cache record's refresh: the newer restored draft
+must still reopen with its body and attachments. A later confirmed send must still
+prevent reopening that older draft.
+
+In local backend tests, delete a message after acceptance and during uncertain
+submission. Its body, attachments, delivery job, and reconciliation identifier
+must remain intact. After cancellation, the deferred deletion must not delete the
+restored draft or a subsequent send, even when the provider ID stays the same.
 
 If an approved attachment is no longer available before delivery, the send stops
 with a failure so the draft can be restored and reviewed. It must never silently

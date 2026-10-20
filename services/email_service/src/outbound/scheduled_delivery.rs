@@ -6,7 +6,9 @@ use crate::util::gmail::send::{
 };
 use anyhow::Context;
 use chrono::Utc;
-use email::domain::events::{EmailEventOrigin, EmailMacroEvent, MessageSentMetadata};
+use email::domain::events::{
+    EmailEventOrigin, EmailMacroEvent, MessageDeletedMetadata, MessageSentMetadata,
+};
 use email::domain::scheduled_delivery::{
     ClaimedDelivery, DELIVERY_LEASE_SECONDS, DeliveryMode, DeliveryPause,
     PREPARATION_RETRY_SECONDS, PreparationError, RECONCILIATION_DELAY_SECONDS,
@@ -55,6 +57,28 @@ pub struct SentDelivery {
 impl ScheduledDeliveryRepo for ScheduledDeliveryAdapter {
     type Claim = ScheduledClaim;
     type Sent = SentDelivery;
+
+    #[tracing::instrument(skip(self), err)]
+    async fn reconcile_deletion(&self, link_id: Uuid, message_id: Uuid) -> anyhow::Result<()> {
+        let Some(link) = email_db_client::links::get::fetch_link_by_id(&self.db, link_id).await?
+        else {
+            return Ok(());
+        };
+        if let Some(deleted) = email_db_client::messages::delete::reconcile_deferred_deletion(
+            &self.db, link_id, message_id,
+        )
+        .await?
+        {
+            let _ = self.macro_event_broker.send_event(&EmailMacroEvent::message_deleted(MessageDeletedMetadata {
+                link_id,
+                owner: link.macro_id,
+                message_id,
+                provider_message_id: deleted.provider_id,
+                thread_id: deleted.thread_id,
+            })).inspect_err(|error| tracing::error!(error=?error, "failed to publish deferred email deletion"));
+        }
+        Ok(())
+    }
 
     async fn try_claim(
         &self,

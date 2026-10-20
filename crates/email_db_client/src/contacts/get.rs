@@ -18,11 +18,14 @@ pub type ThreadContactsMap = HashMap<Uuid, Vec<(String, Option<String>)>>;
 pub type CrmContactRange = (String, Option<String>, DateTime<Utc>, DateTime<Utc>);
 
 /// fetch message sender from db
-#[tracing::instrument(skip(pool), err)]
-pub async fn get_sender_by_message_id(
-    pool: &PgPool,
+#[tracing::instrument(skip(executor), err)]
+pub async fn get_sender_by_message_id<'e, E>(
+    executor: E,
     message_id: Uuid,
-) -> anyhow::Result<Option<db::contact::Contact>> {
+) -> anyhow::Result<Option<db::contact::Contact>>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Postgres>,
+{
     let result = sqlx::query_as!(
         db::contact::Contact,
         r#"
@@ -42,7 +45,7 @@ pub async fn get_sender_by_message_id(
         "#,
         message_id
     )
-    .fetch_optional(pool)
+    .fetch_optional(executor)
     .await?;
 
     Ok(result)
@@ -210,11 +213,14 @@ pub async fn link_has_any_message_with(
 }
 
 /// fetch recipients (to, cc, bcc) from db
-#[tracing::instrument(skip(pool), err)]
-pub async fn fetch_db_recipients(
-    pool: &PgPool,
+#[tracing::instrument(skip(executor), err)]
+pub async fn fetch_db_recipients<'e, E>(
+    executor: E,
     message_db_id: Uuid,
-) -> anyhow::Result<Vec<(db::contact::Contact, db::address::EmailRecipientType)>> {
+) -> anyhow::Result<Vec<(db::contact::Contact, db::address::EmailRecipientType)>>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Postgres>,
+{
     // Fetch address and recipient type together
     sqlx::query_as!(
         RecipientQueryResult,
@@ -252,7 +258,7 @@ pub async fn fetch_db_recipients(
             row.recipient_type,
         )
     })
-    .fetch_all(pool)
+    .fetch_all(executor)
     .await
     .map_err(Into::into)
 }

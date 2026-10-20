@@ -314,3 +314,86 @@ async fn scanner_retries_unconfirmed_lookups_only_after_backoff(
     );
     Ok(())
 }
+
+#[sqlx::test(
+    migrator = "MACRO_DB_MIGRATIONS",
+    fixtures(path = "test/fixtures", scripts("fetch_pending_scheduled_messages"))
+)]
+async fn scanner_recovers_deferred_deletions_after_delivery_or_cancellation(
+    pool: Pool<Postgres>,
+) -> Result<()> {
+    let message = Uuid::parse_str("00000000-0000-0000-0000-00000000f502")?;
+    sqlx::query!("INSERT INTO email_send_attempts (user_id,link_id,attempt_id,message_id) SELECT 'test',link_id,$1,id FROM email_messages WHERE id=$2", Uuid::now_v7(), message).execute(&pool).await?;
+    sqlx::query!("DELETE FROM email_messages WHERE id=$1", message)
+        .execute(&pool)
+        .await?;
+    assert!(
+        !fetch_pending_scheduled_messages(&pool)
+            .await?
+            .iter()
+            .any(|row| row.message_id == message)
+    );
+    sqlx::query!(
+        "UPDATE email_scheduled_messages SET delivery_status='failed', processing=true WHERE message_id=$1",
+        message
+    )
+    .execute(&pool)
+    .await?;
+    assert!(
+        !fetch_pending_scheduled_messages(&pool)
+            .await?
+            .iter()
+            .any(|row| row.message_id == message)
+    );
+    // Cancellation removes the schedule; cleanup must still run.
+    sqlx::query!(
+        "UPDATE email_send_attempts SET cancelled=true WHERE message_id=$1",
+        message
+    )
+    .execute(&pool)
+    .await?;
+    sqlx::query!(
+        "UPDATE email_messages SET draft_generation=draft_generation+1 WHERE id=$1",
+        message
+    )
+    .execute(&pool)
+    .await?;
+    sqlx::query!(
+        "DELETE FROM email_scheduled_messages WHERE message_id=$1",
+        message
+    )
+    .execute(&pool)
+    .await?;
+    assert!(
+        fetch_pending_scheduled_messages(&pool)
+            .await?
+            .iter()
+            .any(|row| row.message_id == message)
+    );
+    // Delivery also leaves a terminal deletion eligible, with no new submission.
+    sqlx::query!(
+        "UPDATE email_deferred_message_deletions d SET draft_generation=m.draft_generation FROM email_messages m WHERE d.message_id=m.id AND m.id=$1",
+        message
+    )
+    .execute(&pool)
+    .await?;
+    sqlx::query!(
+        "UPDATE email_send_attempts SET cancelled=false, sent=true WHERE message_id=$1",
+        message
+    )
+    .execute(&pool)
+    .await?;
+    sqlx::query!(
+        "UPDATE email_messages SET is_sent=true WHERE id=$1",
+        message
+    )
+    .execute(&pool)
+    .await?;
+    assert!(
+        fetch_pending_scheduled_messages(&pool)
+            .await?
+            .iter()
+            .any(|row| row.message_id == message)
+    );
+    Ok(())
+}
