@@ -1,4 +1,5 @@
 import { editorIsEmpty } from '@core/component/LexicalMarkdown/utils';
+import { convertBookingLinkMentionsToLinks } from '@core/component/LexicalMarkdown/utils/convertBookingLinkMentionsToLinks';
 import { convertDocumentMentionsToLinks } from '@core/component/LexicalMarkdown/utils/convertDocumentMentionsToLinks';
 import { getWebOrigin } from '@core/util/webOrigin';
 import { $generateHtmlFromNodes } from '@lexical/html';
@@ -66,6 +67,7 @@ export function exportCalendarDescription(editor: LexicalEditor): string {
   if (editorIsEmpty(editor)) return '';
   const doc = parseHtml(editor.read(() => $generateHtmlFromNodes(editor)));
   convertDocumentMentionsToLinks(doc.body);
+  convertBookingLinkMentionsToLinks(doc.body);
   sanitizeDocument(doc, false);
   return doc.body.innerHTML;
 }
