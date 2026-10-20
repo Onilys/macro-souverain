@@ -81,6 +81,8 @@ export type CustomFileOperation = {
   action?: () => void;
   children?: SplitFileMenuAction[];
   group?: SplitFileMenuActionGroup;
+  /** Read reactively; the operation is hidden while it returns false. */
+  condition?: () => boolean;
 };
 
 const isDefaultFileOperation = (
@@ -628,7 +630,7 @@ export function SplitFileMenu(props: SplitFileMenuProps) {
             })
             .exhaustive();
         } else {
-          return op;
+          return !op.condition || op.condition() ? op : null;
         }
       })
       .filter((op) => !!op);

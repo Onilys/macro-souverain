@@ -3,6 +3,7 @@ import {
   ChatWithAgentIcon,
   openChatWithAgent,
 } from '@app/features/chat/ChatWithAgentButton';
+import { useFeatureFlag } from '@app/lib/analytics/posthog';
 import type { BlockTool } from '@components/app/ResponsiveBlockToolbar';
 import type { FileOperation } from '@components/app/split-layout/components/SplitFileMenu';
 import { Permissions } from '@core/component/SharePermissions';
@@ -13,15 +14,18 @@ import {
 import { useShareModal } from '@core/component/TopBar/shareModal';
 import {
   enableHistoryComponent,
+  enableProjects,
   isFeatureEnabled,
 } from '@core/constant/featureFlags';
 import { isMobile } from '@core/mobile/isMobile';
 import { copyBranchNameToClipboard } from '@core/util/branchName';
+import CheckSquare from '@phosphor/check-square.svg';
 import ClockCounterClockwise from '@phosphor/clock-counter-clockwise.svg';
 import Copy from '@phosphor/copy.svg';
 import Download from '@phosphor/download.svg';
 import GitBranch from '@phosphor/git-branch.svg';
 import IconLink from '@phosphor/link.svg';
+import Stack from '@phosphor/stack.svg';
 import TerminalWindowIcon from '@phosphor/terminal-window.svg';
 import { queryReadyGate } from '@queries/gate';
 import { useDocumentMetadataQuery } from '@queries/storage/document-metadata';
@@ -32,6 +36,7 @@ import {
   useDispatchAgentSplitFileActions,
 } from './DispatchAgentMenu';
 import { useMarkdownName } from './MarkdownNameProvider';
+import { useConvertMarkdownDocument } from './useConvertMarkdownDocument';
 import {
   useCopyDocumentAsMarkdown,
   useDownloadDocumentAsMarkdownText,
@@ -65,7 +70,7 @@ function useMarkdownShareModal() {
 }
 
 export function useMarkdownDocumentTools() {
-  const { documentId, kind, element } = useMarkdownDocument();
+  const { documentId, kind, element, permissions } = useMarkdownDocument();
   const history = useHistory();
   const { displayName } = useMarkdownName();
   const copyAsMarkdown = useCopyDocumentAsMarkdown();
@@ -74,6 +79,8 @@ export function useMarkdownDocumentTools() {
   const dispatchAgentActions = useDispatchAgentSplitFileActions();
   const isTask = kind() === 'task';
   const isDocument = kind() === 'document';
+  const convert = useConvertMarkdownDocument();
+  const projectsFlag = useFeatureFlag(enableProjects);
 
   const chatEntity = () => ({
     type: 'document' as const,
@@ -104,6 +111,25 @@ export function useMarkdownDocumentTools() {
             label: 'Copy as markdown',
             icon: Copy,
             action: copyAsMarkdown,
+          },
+        ] satisfies FileOperation[])
+      : []),
+    ...(isDocument
+      ? ([
+          {
+            group: 'file' as const,
+            label: 'Convert to task',
+            icon: CheckSquare,
+            action: convert.toTask,
+            condition: permissions.canEdit,
+          },
+          {
+            group: 'file' as const,
+            label: 'Convert to project',
+            icon: Stack,
+            action: convert.toProject,
+            // The document goes to trash, which only its owner can do.
+            condition: () => projectsFlag().enabled && permissions.isOwner(),
           },
         ] satisfies FileOperation[])
       : []),

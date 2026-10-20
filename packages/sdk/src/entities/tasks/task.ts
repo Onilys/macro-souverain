@@ -67,6 +67,22 @@ export class Task extends Document {
   }
 
   /**
+   * Turn a markdown document into a task in place. The task keeps the
+   * document's id, content, and sharing; repeating it on a task is a no-op.
+   */
+  static async fromDocument(
+    client: MacroClient,
+    document: Document,
+  ): Promise<Task> {
+    unwrap(
+      await client.storage.convertDocumentToTask({
+        path: { document_id: document.id },
+      }),
+    );
+    return new Task(client, document.id);
+  }
+
+  /**
    * The tasks the GitHub pull request at `url` references (as `MACRO-<id>` in
    * its text, branch, or comments), oldest link first. Empty when the caller
    * cannot see the pull request; tasks the caller cannot open still appear.

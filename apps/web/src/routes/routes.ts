@@ -204,11 +204,12 @@ const driveDocumentParams = z.object({
   documentId: z.string().min(1),
 });
 
+// The alias stays in the key: a markdown block fixes its kind (document, task,
+// snippet, skill) at mount, so a document converted to a task must remount.
 const documentRemountKey = ({
   documentType,
   documentId,
-}: z.infer<typeof driveDocumentParams>) =>
-  `${driveDocumentBlockType(documentType)}:${documentId}`;
+}: z.infer<typeof driveDocumentParams>) => `${documentType}:${documentId}`;
 
 export const driveRootDocumentRoute = defineRoute({
   id: 'drive-document',
@@ -399,8 +400,7 @@ export const homeDocumentRoute = defineRoute({
     if (type === 'pdf') return Object.values(PDF_URL_PARAMS);
     return type === 'spreadsheet' ? [MARKDOWN_URL_PARAMS.commentId] : [];
   },
-  remountKey: ({ documentType, documentId }) =>
-    `${homeBaseBlockType(documentType)}:${documentId}`,
+  remountKey: documentRemountKey,
 });
 
 export const homePreviewRoute = defineRoute({
@@ -424,8 +424,8 @@ export const homePreviewRoute = defineRoute({
     if (type === 'pdf') return Object.values(PDF_URL_PARAMS);
     return type === 'spreadsheet' ? [MARKDOWN_URL_PARAMS.commentId] : [];
   },
-  remountKey: ({ blockType, previewId }) =>
-    `${homeBaseBlockType(blockType)}:${previewId}`,
+  // Aliases remount like documentRemountKey.
+  remountKey: ({ blockType, previewId }) => `${blockType}:${previewId}`,
   claim: ({ blockType, previewId }) => ({
     namespace: blockType === 'agent' ? 'agent' : 'block',
     id:

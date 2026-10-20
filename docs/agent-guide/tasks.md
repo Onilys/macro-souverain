@@ -522,6 +522,22 @@ filter sheets. Desktop uses the centered composer dialog.
 Tasks are documents under the hood (creation hits `POST /dss/documents/create_task`), so they
 also show up in Files/`All` and in AI-chat document listings.
 
+### Convert a document
+
+An open markdown document's title file menu (**…**) offers **Convert to task**
+to editors and **Convert to project** to its owner (only when Projects is on).
+Neither copies the document:
+
+- **Convert to task** (`POST /dss/documents/{id}/convert_to_task`) keeps the
+  document's id, content, comments, and sharing, and the split reopens it as a
+  task. It gets a team task number, its document property values carry over, and
+  only the missing defaults are filled (assigned to you, Not Started).
+- **Convert to project** creates an unshared project from the document's name and
+  body (as its description), moves the document to trash, and opens the project in
+  the same split. If trashing fails the project still exists and a toast says so.
+
+Use disposable documents; converting is real and a task can't be turned back.
+
 ## Projects
 
 Projects are enabled by default in development. Production rollout is gated by

@@ -11,6 +11,7 @@ import {
   useSplitPanelOrThrow,
   withSplitPanelOwner,
 } from '@components/app/split-layout/layoutUtils';
+import { deleteItem } from '@core/component/FileList/itemOperations';
 import { enableGantt, enableProjects } from '@core/constant/featureFlags';
 import { useUserId } from '@core/context/user';
 import { fireAndForget } from '@core/util/fireAndForget';
@@ -44,6 +45,10 @@ import {
 import { createProjectCollectionPersistence } from './project-collection-persistence';
 import { projectCollectionSearch } from './project-collection-search';
 import { ProjectShareLauncher } from './project-share';
+import {
+  convertDocumentToProject as convertWithClients,
+  type DocumentToConvert,
+} from './queries/convert-document';
 import { createProjectSources } from './queries/project-sources';
 import { ProjectAssignment } from './views/project-assignment';
 import { ProjectsCollection } from './views/projects-collection';
@@ -220,5 +225,14 @@ export function ProjectAssignmentDialog(props: {
     <Projects>
       <ProjectAssignment taskIds={props.taskIds} onClose={props.onClose} />
     </Projects>
+  );
+}
+
+/** Makes a document a project with the production clients. */
+export function convertDocumentToProject(document: DocumentToConvert) {
+  return convertWithClients(
+    initiativeClient,
+    (id) => deleteItem({ itemType: 'document', id }),
+    document
   );
 }

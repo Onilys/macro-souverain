@@ -57,6 +57,7 @@ import {
   type CloudStorageItemType,
   CloudStorageItemType as CloudStorageItemTypeMap,
 } from './generated/schemas/cloudStorageItemType';
+import type { ConvertToTaskResponse } from './generated/schemas/convertToTaskResponse';
 import type { CreateAgentRequest } from './generated/schemas/createAgentRequest';
 import type { CreateChannelLabelRequest } from './generated/schemas/createChannelLabelRequest';
 import type { CreateChannelRequest } from './generated/schemas/createChannelRequest';
@@ -1488,6 +1489,16 @@ export const storageServiceClient = {
 
     const response = result.value;
     return ok(response);
+  },
+
+  /**
+   * Turns a markdown document into a task in place: same id, content and sharing.
+   */
+  async convertDocumentToTask({ documentId }: { documentId: string }) {
+    return dssFetch<ConvertToTaskResponse>(
+      `/documents/${documentId}/convert_to_task`,
+      { method: 'POST' }
+    );
   },
 
   /**
