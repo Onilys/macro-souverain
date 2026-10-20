@@ -85,8 +85,11 @@ type SettingsPanelProps = {
 export function SettingsPanel(props: SettingsPanelProps) {
   const { closeSettings, activeTabId, selectTab } = useSettingsState();
   const splitNavigate = useSplitNavigate();
-  const { groups, searchGroups, flatTabs } = useSettingsTabs();
+  const { groups, searchGroups } = useSettingsTabs();
   const navGroups = useTeamSettingsGroups(groups);
+  // Hotkeys and touch pills follow the visible nav, which hides team pages
+  // from people without a team.
+  const navTabs = createMemo(() => navGroups().flatMap((group) => group.items));
   const signatures = useFeatureFlag(enableEmailSignatures);
 
   const activeNavigationTab = activeTabId;
@@ -144,7 +147,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
 
   // Helper to navigate to a tab by index
   function navigateToTabIndex(index: number): boolean {
-    const tabs = flatTabs();
+    const tabs = navTabs();
     if (index >= 0 && index < tabs.length) {
       const tab = tabs[index];
       if (tab) {
@@ -171,14 +174,14 @@ export function SettingsPanel(props: SettingsPanelProps) {
   }
 
   const handleTabChange = (value: string) => {
-    if (flatTabs().some((tab) => tab.tab === value)) {
+    if (navTabs().some((tab) => tab.tab === value)) {
       selectRoutedTab(value as SettingsTab);
     }
   };
 
   // Tab list for the touch pill strip.
   const tabItems = () =>
-    flatTabs().map((tab) => ({ value: tab.tab, label: tab.label }));
+    navTabs().map((tab) => ({ value: tab.tab, label: tab.label }));
 
   const content = () => (
     <Show when={activeTabId()}>
