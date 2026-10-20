@@ -564,7 +564,10 @@ never automatic resubmission. Delivery state distinguishes local queueing,
 server acceptance, provider processing, sent, failed, and unconfirmed outcomes.
 
 Deploy schema/migrations and all generation-aware backend writers before
-releasing this frontend. The outbox is unconditional; there is no feature flag or
+releasing this frontend, including before applying `ios-update`: that workflow
+embeds the PR's frontend with production endpoints and releases automatically
+after Apple approval. See the [iOS release flow](../../apps/web/docs/ios-releases.md).
+The outbox is unconditional; there is no feature flag or
 legacy send fallback. Old deployed writers do not enforce the new generation
 precondition. Verify cache failure, offline/reload, lost HTTP response, concurrent
 tabs, sign-out, Undo, stale writes, Send Later,
