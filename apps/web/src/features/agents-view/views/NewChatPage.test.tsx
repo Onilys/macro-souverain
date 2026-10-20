@@ -1079,7 +1079,7 @@ describe('agent-led new conversation', () => {
       );
     }
   );
-  it('sends the effort chosen with the current model slider', async () => {
+  it('sends the effort chosen with the thinking depth bars', async () => {
     const send = page(true, [], false, [], 'code');
     const models = await hoverAgent('Cursor');
     fireEvent.keyDown(models.getByRole('menuitem', { name: /^GPT-5/ }), {
@@ -1089,10 +1089,10 @@ describe('agent-led new conversation', () => {
     fireEvent.keyDown(screen.getByRole('button', { name: 'Agent' }), {
       key: 'Enter',
     });
-    const slider = screen.getByRole('slider', { name: 'Reasoning effort' });
-    fireEvent.keyDown(slider, { key: 'ArrowRight' });
-    expect(slider.getAttribute('aria-valuetext')).toBe('Ultra');
-    fireEvent.keyDown(slider, { key: 'Escape' });
+    const depth = screen.getByRole('radio', { name: 'Ultra' });
+    fireEvent.click(depth);
+    expect((depth as HTMLInputElement).checked).toBe(true);
+    fireEvent.keyDown(depth, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     expect(send).toHaveBeenLastCalledWith(
