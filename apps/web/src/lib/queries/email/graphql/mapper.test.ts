@@ -7,6 +7,7 @@ import { mapGraphqlEmailThreadPage } from './mapper';
 
 const message: EmailThreadMessageFieldsFragment = {
   __typename: 'GraphqlSoupEmailMessage',
+  draftGeneration: 0,
   operationStatus: null,
   calendarInvitations: [],
   id: 'message-1',

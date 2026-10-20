@@ -553,6 +553,13 @@ export const enableInboxNotifiedSort = defineFlag({
   default: onInDev,
 });
 
+// Requires atomic send admission and draft-generation fencing on the backend.
+// Stay off in dev too until that backend is deployed; an env override enables local tests.
+export const enableEmailOutbox = defineFlag({
+  key: 'enable-email-outbox',
+  env: 'ENABLE_EMAIL_OUTBOX',
+});
+
 export const enableGraphqlSoup = defineFlag({
   key: 'enable-graphql-soup',
   env: 'ENABLE_GRAPHQL_SOUP',

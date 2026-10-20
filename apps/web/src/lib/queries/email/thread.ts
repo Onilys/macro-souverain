@@ -679,6 +679,7 @@ export function useSendMessageMutation(
 }
 
 type ScheduleMessageParams = {
+  draftGeneration?: number;
   draftID: string;
   sendTime: Date;
   threadID?: string;
@@ -700,6 +701,7 @@ function _useScheduleMessageMutation(
         async () =>
           await emailClient.scheduleMessage({
             draftID: vars.draftID,
+            draftGeneration: vars.draftGeneration,
             send_time: vars.sendTime.toISOString(),
           })
       ),
@@ -725,6 +727,7 @@ function _useScheduleMessageMutation(
 }
 
 type UnscheduleMessageParams = {
+  draftGeneration?: number;
   draftID: string;
   /** Target inbox for a non-primary inbox; sent as the X-Email-Link-Id header. */
   linkId?: string;
@@ -743,6 +746,7 @@ export function useUnscheduleMessageMutation(
           await emailClient.unscheduleMessage(
             {
               draftID: vars.draftID,
+              draftGeneration: vars.draftGeneration,
             },
             vars.linkId
           )

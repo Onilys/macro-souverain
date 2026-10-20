@@ -29,6 +29,7 @@ const draft = {
 };
 const message: EmailThreadMessageFieldsFragment = {
   __typename: 'GraphqlSoupEmailMessage',
+  draftGeneration: 0,
   operationStatus: null,
   id: id(2),
   threadId: id(3),

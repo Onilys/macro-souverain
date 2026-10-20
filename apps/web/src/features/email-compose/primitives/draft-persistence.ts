@@ -50,6 +50,7 @@ export async function deleteDraftForDiscard(
  */
 export function createDraftPersistence(options: {
   session: DraftSession;
+  draftGeneration?: () => number;
   drafts: Pick<
     EmailDraftStorage,
     'saveDraft' | 'deleteDraft' | 'saveLocalDraft' | 'retryDraft' | 'readDraft'
@@ -165,6 +166,7 @@ export function createDraftPersistence(options: {
         try {
           await options.drafts.deleteDraft({
             draftId,
+            draftGeneration: options.draftGeneration?.() ?? 0,
             threadId: session.threadId(),
             ...input,
           });

@@ -173,6 +173,7 @@ it('uses a returned canonical thread identity without applying stale route respo
 function threadMessages(offset: number, count: number) {
   return Array.from({ length: count }, (_, i) => ({
     __typename: 'GraphqlSoupEmailMessage' as const,
+    draftGeneration: 0,
     operationStatus: null,
     id: `message-${offset + i}`,
     threadId: 'thread-1',

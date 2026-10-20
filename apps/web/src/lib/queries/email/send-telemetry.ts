@@ -3,6 +3,25 @@ import type { EmailSendAttemptFieldsFragment } from '@service-storage/graphql/ge
 import { CombinedError } from '@urql/core';
 import type { EmailSendIntent } from './send-queue';
 
+/** Retries get short traces correlated by the durable attempt ID across reloads. */
+export async function traceEmailSend<T>(
+  operation: 'persist' | 'submit' | 'cancel' | 'status',
+  attempt: { attemptId: string | number; linkId: string | number },
+  run: () => Promise<T>
+): Promise<T> {
+  return Telemetry.span(`email.send.${operation}`, async (span) => {
+    span.setAttr('email_send.attempt_id', attempt.attemptId);
+    span.setAttr('email_send.link_id', attempt.linkId);
+    try {
+      return await run();
+    } catch (error) {
+      // GraphQL exceptions may contain input values; export only classification.
+      span.error(`Email ${operation} failed: ${emailSendFailureKind(error)}`);
+      throw error;
+    }
+  });
+}
+
 export type EmailSendObservation = {
   operation:
     | 'enqueue'

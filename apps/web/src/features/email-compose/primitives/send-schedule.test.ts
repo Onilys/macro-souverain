@@ -725,6 +725,7 @@ describe('send and schedule ordering', () => {
       await vi.advanceTimersByTimeAsync(0);
 
       expect(composeContext.delivery.unschedule).toHaveBeenCalledWith({
+        draftGeneration: 0,
         draftId: 'draft',
         threadId: 'thread',
         inboxId: 'inbox',
@@ -1167,6 +1168,7 @@ describe('send and schedule ordering', () => {
       expect(
         context.attachmentStorage.addForwardedAttachments
       ).toHaveBeenCalledExactlyOnceWith({
+        draftGeneration: 0,
         draftId: 'draft',
         inboxId: 'inbox',
         attachments: [{ attachmentId: 'source-file' }],

@@ -41,6 +41,7 @@ export interface EmailLabel {
 }
 
 export interface EmailMessage {
+  draft_generation?: number;
   operation?: MessageOperation | null;
   calendar_invitations?: CalendarInvitation[];
   attachments: EmailAttachment[];

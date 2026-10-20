@@ -98,6 +98,7 @@ ownership. Cancel, logout, and the ten-minute timeout retire pending callbacks.
 - All API/network calls live in service-clients.
 - Keep desktop Gmail and Outlook inbox consent in the system browser with a
   `macro:///inbox-link-callback` return; webview origins are not desktop callbacks.
+- Keep approved email sends in account-scoped IndexedDB and dispatch through the fetch-only email client; cache health and unrelated mutation queues must not gate delivery. See `docs/architecture/email.md` for state and rollout invariants.
 - Retry cache bootstrap on reconnect/foreground or draft Retry only when storage was proven untouched; retain the same scope and block draft sync until the replacement queue is readable.
 - Draft autosaves preserve active email thread messages; evict inactive legacy
   caches on save and the active cache on thread exit. Revalidate GraphQL thread

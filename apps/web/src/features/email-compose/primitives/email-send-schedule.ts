@@ -79,6 +79,7 @@ export function createEmailSendSchedule(options: {
     { type: 'scheduled' }
   >['deliveryStatus'];
   draftId: Accessor<string | null | undefined>;
+  draftGeneration?: Accessor<number>;
   saveDraft: () => Promise<string | undefined>;
   threadId: Accessor<string | null | undefined>;
   /** Scheduling marks the thread done only when this reports it in the inbox. */
@@ -239,6 +240,7 @@ export function createEmailSendSchedule(options: {
   }) => {
     try {
       await delivery.unschedule({
+        draftGeneration: options.draftGeneration?.(),
         draftId: input.draftId,
         threadId: input.threadId,
         inboxId: input.inboxId,
@@ -361,6 +363,7 @@ export function createEmailSendSchedule(options: {
       try {
         await delivery.schedule(
           {
+            draftGeneration: options.draftGeneration?.(),
             draftId,
             threadId: options.threadId() ?? undefined,
             sendTime: requested.toISOString(),
@@ -504,6 +507,7 @@ export function createEmailSendSchedule(options: {
     try {
       try {
         await delivery.unschedule({
+          draftGeneration: options.draftGeneration?.(),
           draftId,
           threadId: options.threadId() ?? undefined,
           inboxId,

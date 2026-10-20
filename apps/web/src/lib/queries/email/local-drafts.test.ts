@@ -82,6 +82,27 @@ afterEach(async () => {
 });
 
 describe('draft queue recovery', () => {
+  it('preserves another device working copy when its pre-Undo server generation is rejected', async () => {
+    const local = await runtime.saveLocalDraft({
+      ...input('Offline edits from device B'),
+      draft: { subject: 'Offline edits from device B', draft_generation: 0 },
+    });
+    const attempt = await runtime.beginDraftAttempt(local, 'save');
+    await runtime.localDraftQueueLifecycle(host).onMutationAttemptResult!(
+      claimed(attempt),
+      {
+        error: {
+          graphQLErrors: [{ extensions: { code: 'DRAFT_VERSION_CONFLICT' } }],
+        },
+      } as unknown as OperationResult,
+      false
+    );
+    const retained = await runtime.readLocalDraft('local');
+    expect(retained?.content.subject).toBe('Offline edits from device B');
+    expect(retained?.status).toBe('failed');
+    expect(retained?.generation).toBe(local.generation);
+  });
+
   it('suppresses intermediate offline inbox moves once send owns the final snapshot', async () => {
     let local = await runtime.saveLocalDraft({
       ...input('Switch sender offline'),

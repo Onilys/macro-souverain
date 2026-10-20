@@ -79,6 +79,9 @@ export function useQueuedEmailSends(enabled: () => boolean = () => true) {
       if (reconcile && navigator.onLine) {
         await Promise.all(
           active.map(async (row) => {
+            // The authenticated app-shell dispatcher owns v2 reconciliation,
+            // including when no email view or composer is mounted.
+            if (row.dispatchVersion === 2) return;
             if (row.cacheMissing || row.recoveryRequired) {
               const started = performance.now();
               try {

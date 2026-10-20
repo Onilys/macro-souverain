@@ -22,7 +22,7 @@ import type { UserInfoData } from '../auth/user-info';
 import { queryClient } from '../client';
 import { createLocalDraftStore } from './local-draft-store';
 
-import type { EmailSendIntent } from './send-queue';
+import type { EmailSendIntent } from './send-intent';
 
 export const localDraftStore = createLocalDraftStore(undefined, (event) => {
   const context = {
@@ -90,7 +90,7 @@ export async function clearLocalDrafts(): Promise<void> {
   }
 }
 
-async function session() {
+export async function emailStorageSession() {
   const user = queryClient.getQueryData<UserInfoData>(
     authKeys.userInfo.queryKey
   );
@@ -127,13 +127,13 @@ async function session() {
 }
 
 export async function listLocalDrafts(): Promise<LocalDraft[]> {
-  const owner = await session();
+  const owner = await emailStorageSession();
   return await localDraftStore.list(owner);
 }
 export async function readLocalDraft(
   id: string
 ): Promise<LocalDraft | undefined> {
-  return await localDraftStore.read(await session(), id);
+  return await localDraftStore.read(await emailStorageSession(), id);
 }
 
 /** Local body HTML uses the same base64 representation as the editor's save input. */
@@ -248,7 +248,7 @@ async function finishLocalWrite(write: Promise<LocalDraft>): Promise<void> {
 }
 
 async function persistLocalDraft(input: LocalDraftInput): Promise<LocalDraft> {
-  const owner = await session();
+  const owner = await emailStorageSession();
   const id = input.clientHandles?.draftId ?? input.draft.db_id;
   if (!id)
     throw new Error('Draft identity must be minted before local persistence');
@@ -333,7 +333,7 @@ async function persistLocalDraft(input: LocalDraftInput): Promise<LocalDraft> {
 export async function restoreLocalAttachments(
   local: LocalDraft
 ): Promise<DraftFormAttachment[]> {
-  const owner = await session();
+  const owner = await emailStorageSession();
   const attachments: DraftFormAttachment[] = [];
   for (const attachment of local.attachments) {
     if (attachment.type !== 'local') {
@@ -373,7 +373,7 @@ export async function resumeLocalDraft(
   id: string,
   retireGeneration?: string
 ): Promise<void> {
-  const owner = await session();
+  const owner = await emailStorageSession();
   const draft = await localDraftStore.read(owner, id);
   if (!draft) return;
   await localDraftStore.update(owner, draft.key, (current) => ({
@@ -395,7 +395,7 @@ export async function forgetLocalDraft(
   id: string,
   expected?: Pick<LocalDraft, 'generation' | 'revision'>
 ): Promise<void> {
-  const owner = await session();
+  const owner = await emailStorageSession();
   const draft = await localDraftStore.read(owner, id);
   if (draft)
     await localDraftStore.update(owner, draft.key, (current) =>
@@ -409,7 +409,7 @@ export async function forgetLocalDraft(
 
 /** Only an explicit server Undo may start a fresh lifetime for a retired handle. */
 export async function reviveLocalDraft(id: string): Promise<void> {
-  const owner = await session();
+  const owner = await emailStorageSession();
   await localDraftStore.generation(owner, id, true);
 }
 
@@ -417,7 +417,7 @@ export async function clearLocalAttachmentReceipt(
   draftId: string,
   attachmentId: string
 ): Promise<void> {
-  const owner = await session();
+  const owner = await emailStorageSession();
   const draft = await localDraftStore.read(owner, draftId);
   if (!draft) return;
   await localDraftStore.update(owner, draft.key, (current) => ({
@@ -438,7 +438,7 @@ export async function recordLocalAttachment(
   uploaded: boolean,
   expectedGeneration?: string
 ): Promise<void> {
-  const owner = await session();
+  const owner = await emailStorageSession();
   const draft = await localDraftStore.read(owner, draftId);
   const id = fileIds.get(file);
   if (
@@ -474,7 +474,7 @@ export async function beginDraftAttempt(
   local: LocalDraft,
   operation: 'save' | 'delete'
 ): Promise<DraftAttempt> {
-  const owner = await session();
+  const owner = await emailStorageSession();
   if (local.accountId !== owner.accountId)
     throw new Error('This draft belongs to a previous account');
   const attempt: DraftAttempt = {
@@ -507,7 +507,7 @@ export async function beginDraftAttempt(
 export async function markDraftAttemptQueued(
   attempt: DraftAttempt
 ): Promise<void> {
-  const owner = await session();
+  const owner = await emailStorageSession();
   if (owner.accountId !== attempt.accountId) return;
   await localDraftStore.update(owner, attempt.draftKey, (draft) =>
     draft.generation !== attempt.generation ||
@@ -617,7 +617,7 @@ export function localDraftQueueLifecycle(
     if (await ownedBySend(mutation)) return;
     const known = legacy.get(mutation.transactionId);
     if (known) return known;
-    const owner = await session();
+    const owner = await emailStorageSession();
     const storageGeneration = await host.currentStorageGeneration();
     const saved = (await localDraftStore.attempts(owner)).find(
       (entry) =>
@@ -731,7 +731,7 @@ export function localDraftQueueLifecycle(
     return attempt;
   }
   async function prepare() {
-    const owner = await session();
+    const owner = await emailStorageSession();
     if (!host.inspectMutations)
       throw new Error('Draft recovery requires an updated cache runtime');
     const before = await localDraftStore.list(owner);
@@ -841,7 +841,7 @@ export function localDraftQueueLifecycle(
       if (await ownedBySend(mutation)) return false;
       const attempt = await resolveAttempt(mutation);
       if (!attempt) return true;
-      const owner = await session();
+      const owner = await emailStorageSession();
       if (owner.accountId !== attempt.accountId) return false;
       const local = await localDraftStore.read(owner, attempt.draftKey);
       if (!local || local.generation !== attempt.generation) return false;
@@ -871,7 +871,7 @@ async function settleDraftAttempt(
   result: OperationResult,
   superseded: boolean
 ) {
-  const owner = await session();
+  const owner = await emailStorageSession();
   if (owner.accountId !== attempt.accountId) return;
   const code = result.error?.graphQLErrors[0]?.extensions.code;
   const failed = !!result.error || result.data == null;
@@ -922,16 +922,20 @@ async function settleDraftAttempt(
 }
 
 export async function readLocalEmailSends(): Promise<EmailSendIntent[]> {
-  return await localDraftStore.sends(await session());
+  return await localDraftStore.sends(await emailStorageSession());
 }
 export async function persistLocalEmailSend(
   intent: EmailSendIntent,
   reserve = false
 ): Promise<EmailSendIntent> {
-  return await localDraftStore.putSend(await session(), intent, reserve);
+  return await localDraftStore.putSend(
+    await emailStorageSession(),
+    intent,
+    reserve
+  );
 }
 export async function removeLocalEmailSend(uuid: string): Promise<void> {
-  await localDraftStore.removeSend(await session(), uuid);
+  await localDraftStore.removeSend(await emailStorageSession(), uuid);
 }
 export function watchLocalEmailSends(changed: () => void): () => void {
   return localDraftStore.subscribe(changed);
@@ -946,14 +950,14 @@ export async function withLocalAttachmentUpload(
     generation: string
   ) => Promise<void>
 ): Promise<void> {
-  const owner = await session();
+  const owner = await emailStorageSession();
   const draft = await localDraftStore.read(owner, draftId);
   const id = fileIds.get(file);
   if (!draft || !id)
     throw new Error('Save the attachment on this device before uploading');
   const name = `macro-email-upload:${owner.accountId}:${draft.key}:${draft.generation}:${id}`;
   const run = async () => {
-    await session();
+    await emailStorageSession();
     const current = await localDraftStore.read(owner, draft.key);
     const receipt = current?.attachments.find(
       (attachment) => attachment.type === 'local' && attachment.id === id

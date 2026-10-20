@@ -411,6 +411,7 @@ it('only commits a selected time through the primary action', async () => {
   expect(composeContext.delivery.sendMessage).not.toHaveBeenCalled();
   expect(composeContext.delivery.schedule).toHaveBeenCalledExactlyOnceWith(
     {
+      draftGeneration: 0,
       draftId: 'draft',
       threadId: 'thread',
       sendTime: firstTime.toISOString(),
@@ -454,6 +455,7 @@ it('only commits a selected time through the primary action', async () => {
   await vi.advanceTimersByTimeAsync(1);
   threadView.dispose();
   expect(composeContext.delivery.unschedule).toHaveBeenCalledExactlyOnceWith({
+    draftGeneration: 0,
     draftId: 'draft',
     threadId: 'thread',
     inboxId: 'inbox',

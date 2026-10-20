@@ -15,6 +15,7 @@ import {
   flushLocalDrafts,
   listLocalDrafts,
 } from '@queries/email/local-drafts';
+import { setEmailOutboxSession } from '@queries/email/outbox-session';
 import {
   emailSendQueueSelected,
   readEmailSendIntents,
@@ -54,6 +55,7 @@ export async function clearLocalAuthSession() {
   clearPipedreamCallbacks();
   document.cookie =
     'login=false; expires=Thu, 01 Jan 1970 00:00:00 UTC; max-age=0; path=/; SameSite=Lax';
+  setEmailOutboxSession(undefined);
   syncLoginStorage(false);
   const documentContextsCleared = clearOfflineDocumentContexts();
   clearDocumentQueryCache(queryClient);
@@ -108,13 +110,13 @@ export function useLogout() {
       if (sends.some((send) => settledSendAttempt(send)?.status !== 'SENT'))
         warning = [
           warning,
-          'Signing out removes queued sends and their recovery copies from this device. Sends already accepted by the server may still be delivered; signing out does not cancel them.',
+          'Pending sends remain saved for this account and resume when you sign in again. Sends already accepted by the server may still be delivered; signing out does not cancel them.',
         ]
           .filter(Boolean)
           .join(' ');
     } catch {
       warning =
-        'Draft storage could not be checked. Signing out removes drafts, queued sends, and attachments saved only on this device. Sends already accepted by the server may still be delivered.';
+        'Draft storage could not be checked. Signing out removes unsubmitted drafts and their pending attachments. Approved sends stay saved for this account; sends already accepted by the server may still be delivered.';
     } finally {
       clearTimeout(timer);
     }

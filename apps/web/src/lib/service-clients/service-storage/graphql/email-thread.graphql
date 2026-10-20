@@ -42,6 +42,7 @@ fragment EmailThreadPageFields on GraphqlSoupEmailThread {
 }
 
 fragment EmailThreadMessageFields on GraphqlSoupEmailMessage {
+  draftGeneration
   operationStatus { state revision remoteVersion issue }
 	__typename
 	id

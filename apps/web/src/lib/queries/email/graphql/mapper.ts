@@ -72,6 +72,7 @@ export function mapGraphqlEmailMessage(
   > = new Map()
 ): ApiMessage {
   return {
+    draft_generation: message.draftGeneration,
     attachments: message.attachments.map((attachment) => ({
       db_id: attachment.id,
       provider_id: optional(attachment.providerId),

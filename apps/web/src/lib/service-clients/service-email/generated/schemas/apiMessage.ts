@@ -46,6 +46,8 @@ export interface ApiMessage {
   cc: ApiContactInfo[];
   created_at: string;
   db_id: string;
+  /** Draft edit generation; changes at send and cancellation boundaries. */
+  draft_generation: number;
   from?: ApiMessageFrom;
   global_id?: ApiMessageGlobalId;
   has_attachments: boolean;

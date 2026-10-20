@@ -154,9 +154,9 @@ The compose controllers now assemble these smaller responsibilities:
 | Module | Responsibility and boundary |
 | --- | --- |
 | `attachment-persistence.ts` | Upload/remove operations and completion tracking. Receives attachment state and three transport capabilities. A saved attachment ID does not mean its content upload has finished; every save waits for outstanding uploads. |
-| `email-send-schedule.ts` | Confirmed send time, pending changes, unscheduling and archive feedback. Scheduling saves the current draft and waits for its attachments even when a draft ID already exists; each operation retains its selected inbox. |
+| `email-send-schedule.ts` | Confirmed send time, pending changes, unscheduling and archive feedback. Independent outbox Send Later freezes its deadline in the send intent; legacy scheduling saves first. Cancellation only unlocks editing after confirmation. |
 | `draft-session.ts` / `draft-persistence.ts` | Shared draft identity, queued-write status, rejection policy, and save/delete ordering. Server identity and a committed latest save are separate facts; REST send, schedule, and uploads wait for a committed save. |
-| `send-readiness.ts` | Why an immediate send must be refused: offline, a draft the server cannot address yet (queued or unconfirmed handle), or an attachment whose upload never finished. Pure checks plus the one failure notice both controllers show. |
+| `send-readiness.ts` | Send preconditions for the selected transport. Independent outbox admission allows offline delivery with complete attachment references; legacy REST requires an online, confirmed server draft. Both reject unfinished uploads. |
 | `draft-autosave.ts` | One debounce and serialized write queue used by reply and standalone compose. Captures editor values before queueing, flushes pending edits on disposal, and exposes cancellation and completion for send/discard. |
 | `reply-recipient-fields.ts` | Recipient field expansion, drag/drop and outside interaction. Receives values, a setter and a change callback; it knows nothing about saving or sending. |
 | `reply-composer-focus.ts` | Deferred editor/recipient focus and the forward focus guard. Receives DOM accessors and an editor `focus()` capability. Its timers, animation frames and event listeners end with its owner. |
@@ -499,3 +499,53 @@ occurrence and invitation caches, including email-only views. Failed older reque
 cannot roll back a newer selection or replace its feedback. Settlement revalidates both
 projections. The on-demand local-day agenda shares occurrence queries and handles DST
 boundaries and exclusive all-day ends without mounting a calendar grid.
+
+## Independent send outbox
+
+`enable-email-outbox` selects a device email journal for Gmail and Outlook,
+independent of GraphQL normalized-cache availability and read transport.
+`send-queue.ts` freezes approval and reserves the draft in IndexedDB before
+returning local acceptance. `outbox-session.ts` runs dispatch and recovery from
+the authenticated app shell; mounted composers only observe them.
+
+`email-send-dispatcher.ts` submits immediately online through the fetch-only
+GraphQL client in `service-storage/email-send.ts`. Per-attempt database leases
+coordinate tabs, with bounded concurrency across unrelated messages. A lost
+response triggers a status read before resubmitting the identical attempt.
+Cancellation requested before any submission claim stays local; after a claim it
+requires authoritative server cancellation. Retry backoff and authentication
+pauses do not discard approval. `email-send-restoration.ts` restores content,
+fences the prior local lifetime, and retires send authority atomically. Newer
+local edits and file bytes survive restoration. Sign-out retains approved sends
+under their original account and stops dispatch; ordinary drafts retain their
+existing sign-out policy.
+
+The server accepts the frozen message, attachment set, send attempt, and delivery
+job in one Postgres transaction. The existing recovery scanner and Gmail/Outlook
+provider reconciliation continue delivery after browser closure. Attempt IDs
+provide idempotent admission, not a promise of exactly-once provider delivery:
+unknown provider outcomes remain locked and reconcile before any resend.
+Gmail submission checkpoints and Outlook coordinator revisions retain their
+provider-specific submission boundaries.
+
+`email_messages.draft_generation` advances at acceptance and confirmed
+cancellation. Save, delete, schedule, transfer, and attachment edits compare the
+captured generation under the message lock. Stale autosaves return `DRAFT_VERSION_CONFLICT` and preserve local edits for recovery; they are not classified as an already-sent message. The attempt retains draft handles
+and source inbox namespaces after provider deletion, preventing old queued saves
+from recreating the submitted draft. Versioned approval fingerprints include the
+generation, frozen signature and Send Later deadline. An explicit new Send after
+Undo uses the returned generation and a fresh attempt ID.
+
+The status panel combines device intents with actor/inbox-authorized, cursor-paged
+`pendingEmailSends`, with batched message hydration. Server listing grants observation and cancellation authority,
+never automatic resubmission. Delivery state distinguishes local queueing,
+server acceptance, provider processing, sent, failed, and unconfirmed outcomes.
+
+Roll out schema/migrations and all generation-aware backend writers before
+enabling the default-off frontend flag. Old deployed writers do not enforce the
+new generation precondition. Turning the flag off stops new outbox admissions;
+already-approved intents still recover. Verify cache failure, offline/reload,
+lost HTTP response, concurrent tabs, sign-out, Undo, stale writes, Send Later,
+completed attachments, both providers, and server sends from other devices before
+expanding rollout. The separate cache-bootstrap recovery hotfix remains useful
+for draft synchronization and does not determine send availability.

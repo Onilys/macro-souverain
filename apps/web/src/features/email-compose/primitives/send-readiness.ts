@@ -12,7 +12,7 @@ import type {
 import type { DraftIdentity } from './draft-session';
 import type { DraftFormAttachment } from './email-form-state';
 
-/** Immediate GraphQL sends accept durable local handles; attachments must be uploaded. */
+/** Durable sends accept local handles; attachment uploads must already be complete. */
 export type SendRefusal =
   | 'offline'
   | 'offline-attachments'
@@ -42,7 +42,7 @@ export function refuseSend(
   });
 }
 
-/** Legacy sending and Send Later still require connectivity. */
+/** Only legacy delivery and unfinished uploads require connectivity. */
 export function sendRefusalBeforeSave(
   connectivity: EmailConnectivity,
   queueActive = false,
@@ -83,9 +83,10 @@ export function sendRefusalAfterSave(input: {
   if (
     input.attachments.some(
       (attachment) =>
-        attachment.type === 'local' &&
-        (!attachment.attachmentId ||
-          (input.queueActive && attachment.uploaded !== true))
+        (attachment.type === 'local' &&
+          (!attachment.attachmentId ||
+            (input.queueActive && attachment.uploaded !== true))) ||
+        (attachment.type === 'remote' && attachment.uploadPending === true)
     )
   ) {
     return 'attachment-not-uploaded';

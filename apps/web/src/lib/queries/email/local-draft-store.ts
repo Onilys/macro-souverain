@@ -2,15 +2,18 @@ import type {
   DraftAttempt,
   LocalDraft,
 } from '@app/features/email-compose/core/local-draft';
-
-import type { EmailSendIntent } from './send-queue';
+import {
+  createEmailSendJournal,
+  restoreEmailSendLocks,
+} from './email-send-journal';
+import type { EmailSendIntent } from './send-intent';
 
 /** Only pre-metadata queue entries need a separate durable association. */
 type AttemptRecord = DraftAttempt & {
   transactionId: string;
   storageGeneration: string;
 };
-type Session = { accountId: string; epoch: string };
+export type DraftStorageSession = { accountId: string; epoch: string };
 type StoredDraft = LocalDraft & { epoch: string };
 const STORES = ['drafts', 'files', 'attempts', 'sends', 'meta'] as const;
 
@@ -54,12 +57,29 @@ export function createLocalDraftStore(
   };
   const open = () => {
     if (connection) return connection;
-    const request = indexedDB.open(dbName, 2);
+    const request = indexedDB.open(dbName, 3);
     const opening = new Promise<IDBDatabase>((resolve, reject) => {
       request.onupgradeneeded = () => {
         for (const name of STORES)
           if (!request.result.objectStoreNames.contains(name))
             request.result.createObjectStore(name);
+        const tx = request.transaction;
+        if (!tx) return;
+        const owner = tx.objectStore('meta').get('session');
+        owner.onsuccess = () => {
+          const session = owner.result as DraftStorageSession | undefined;
+          // Never infer legacy ownership from the next account signing in.
+          if (!session?.accountId) return;
+          const cursor = tx.objectStore('sends').openCursor();
+          cursor.onsuccess = () => {
+            const row = cursor.result;
+            if (!row) return;
+            const intent = row.value as EmailSendIntent;
+            if (!intent.accountId)
+              row.update({ ...intent, accountId: session.accountId });
+            row.continue();
+          };
+        };
       };
       request.onerror = () => {
         if (connection === opening) connection = undefined;
@@ -149,14 +169,14 @@ export function createLocalDraftStore(
   }
   function withSession<T>(
     tx: IDBTransaction,
-    session: Session,
+    session: DraftStorageSession,
     run: () => void,
     finish: (value: T) => void,
     stale: T
   ) {
     const request = tx.objectStore('meta').get('session');
     request.onsuccess = () => {
-      const current = request.result as Session | undefined;
+      const current = request.result as DraftStorageSession | undefined;
       if (
         current?.accountId !== session.accountId ||
         current.epoch !== session.epoch
@@ -167,7 +187,7 @@ export function createLocalDraftStore(
       run();
     };
   }
-  const read = async (session: Session, id: string) =>
+  const read = async (session: DraftStorageSession, id: string) =>
     await transaction<LocalDraft | undefined>('readonly', (tx, finish) => {
       withSession(
         tx,
@@ -191,12 +211,12 @@ export function createLocalDraftStore(
       );
     });
   return {
-    /** Account transitions clear old content and fence outstanding transactions. */
+    /** Account transitions clear unapproved drafts, retain approved sends, and fence old transactions. */
     async activate(
       accountId: string,
       epoch?: string,
       isCurrent = () => true
-    ): Promise<Session> {
+    ): Promise<DraftStorageSession> {
       return await transaction(
         'readwrite',
         (tx, finish) => {
@@ -209,7 +229,9 @@ export function createLocalDraftStore(
             }
             const request = meta.get('session');
             request.onsuccess = () => {
-              const previous = request.result as Session | undefined;
+              const previous = request.result as
+                | DraftStorageSession
+                | undefined;
               if (
                 !isCurrent() ||
                 (previous &&
@@ -226,12 +248,14 @@ export function createLocalDraftStore(
                 finish(previous);
                 return;
               }
-              for (const name of STORES) tx.objectStore(name).clear();
+              for (const name of STORES)
+                if (name !== 'sends') tx.objectStore(name).clear();
               const session = {
                 accountId,
                 epoch: epoch ?? crypto.randomUUID(),
               };
               meta.put(session, 'session');
+              restoreEmailSendLocks(tx, accountId);
               finish(session);
             };
           };
@@ -241,7 +265,7 @@ export function createLocalDraftStore(
     },
     read,
     async generation(
-      session: Session,
+      session: DraftStorageSession,
       key: string,
       revive = false
     ): Promise<string> {
@@ -270,7 +294,7 @@ export function createLocalDraftStore(
       if (!result) throw new Error('This draft session is no longer active');
       return result;
     },
-    async list(session: Session): Promise<LocalDraft[]> {
+    async list(session: DraftStorageSession): Promise<LocalDraft[]> {
       return await transaction('readonly', (tx, finish) =>
         withSession(
           tx,
@@ -293,7 +317,7 @@ export function createLocalDraftStore(
     },
     /** Compare the snapshot revision and commit its content and files atomically. */
     async save(
-      session: Session,
+      session: DraftStorageSession,
       input: Omit<
         LocalDraft,
         'revision' | 'acknowledgedRevision' | 'updatedAt'
@@ -422,7 +446,7 @@ export function createLocalDraftStore(
       return result;
     },
     async file(
-      session: Session,
+      session: DraftStorageSession,
       key: string,
       id: string
     ): Promise<Blob | undefined> {
@@ -440,7 +464,7 @@ export function createLocalDraftStore(
       );
     },
     async update(
-      session: Session,
+      session: DraftStorageSession,
       key: string,
       change: (draft: LocalDraft) => LocalDraft | undefined
     ): Promise<LocalDraft | undefined> {
@@ -491,151 +515,9 @@ export function createLocalDraftStore(
         )
       );
     },
-    /** Backup and reservation commit before any send can leave this device. */
-    async putSend(
-      session: Session,
-      intent: EmailSendIntent,
-      reserve = false
-    ): Promise<EmailSendIntent> {
-      const result = await transaction<EmailSendIntent | Error | undefined>(
-        'readwrite',
-        (tx, finish) =>
-          withSession(
-            tx,
-            session,
-            () => {
-              const sends = tx.objectStore('sends');
-              const request = sends.getAll();
-              request.onsuccess = () => {
-                const rows = request.result as EmailSendIntent[];
-                const previous = rows.find((row) => row.uuid === intent.uuid);
-                const ids = (row: EmailSendIntent) => [
-                  row.resolvedDraftId,
-                  String(row.metadata.payload.input.message.draftId),
-                  row.metadata.payload.workingCopy?.key,
-                ];
-                if (
-                  reserve &&
-                  rows.some(
-                    (row) =>
-                      row.uuid !== intent.uuid &&
-                      !row.metadata.payload.restoring &&
-                      ids(row).some((id) => id && ids(intent).includes(id))
-                  )
-                ) {
-                  finish(new Error('This draft is already queued for sending'));
-                  return;
-                }
-                const persist = () => {
-                  // A late send settlement must not erase a cancellation or restoration.
-                  const next =
-                    previous?.metadata.payload.restoring &&
-                    !intent.metadata.payload.restoring
-                      ? previous
-                      : {
-                          ...intent,
-                          cancellationRequested:
-                            previous?.cancellationRequested ||
-                            intent.cancellationRequested,
-                          cacheMissing: undefined,
-                        };
-                  sends.put(next, intent.uuid);
-                  for (const id of ids(next))
-                    if (id) {
-                      if (next.metadata.payload.restoring) {
-                        const lock = tx
-                          .objectStore('meta')
-                          .get(['send-lock', id]);
-                        lock.onsuccess = () => {
-                          if (lock.result === intent.uuid)
-                            tx.objectStore('meta').delete(['send-lock', id]);
-                        };
-                      } else
-                        tx.objectStore('meta').put(intent.uuid, [
-                          'send-lock',
-                          id,
-                        ]);
-                    }
-                  finish(next);
-                };
-                const copy = intent.metadata.payload.workingCopy;
-                if (!reserve || !copy) {
-                  persist();
-                  return;
-                }
-                const draft = tx.objectStore('drafts').get(copy.key);
-                draft.onsuccess = () => {
-                  const current = draft.result as LocalDraft | undefined;
-                  if (
-                    !current ||
-                    current.generation !== copy.generation ||
-                    current.revision !== copy.revision
-                  ) {
-                    finish(
-                      new Error('This draft changed while preparing the send')
-                    );
-                    return;
-                  }
-                  persist();
-                };
-              };
-            },
-            finish,
-            new Error('This draft session is no longer active')
-          )
-      );
-      if (result instanceof Error) throw result;
-      if (!result) throw new Error('This draft session is no longer active');
-      return result;
-    },
-    async sends(session: Session): Promise<EmailSendIntent[]> {
-      return await transaction('readonly', (tx, finish) =>
-        withSession(
-          tx,
-          session,
-          () => {
-            const request = tx.objectStore('sends').getAll();
-            request.onsuccess = () =>
-              finish(request.result as EmailSendIntent[]);
-          },
-          finish,
-          []
-        )
-      );
-    },
-    async removeSend(session: Session, uuid: string): Promise<void> {
-      await transaction<void>('readwrite', (tx, finish) =>
-        withSession(
-          tx,
-          session,
-          () => {
-            const request = tx.objectStore('sends').get(uuid);
-            request.onsuccess = () => {
-              const row = request.result as EmailSendIntent | undefined;
-              if (row)
-                for (const id of [
-                  row.resolvedDraftId,
-                  String(row.metadata.payload.input.message.draftId),
-                  row.metadata.payload.workingCopy?.key,
-                ]) {
-                  if (!id) continue;
-                  const lock = tx.objectStore('meta').get(['send-lock', id]);
-                  lock.onsuccess = () => {
-                    if (lock.result === uuid)
-                      tx.objectStore('meta').delete(['send-lock', id]);
-                  };
-                }
-              tx.objectStore('sends').delete(uuid);
-              finish();
-            };
-          },
-          finish,
-          undefined
-        )
-      );
-    },
+    ...createEmailSendJournal(transaction, withSession),
     async recordAttempt(
-      session: Session,
+      session: DraftStorageSession,
       attempt: AttemptRecord
     ): Promise<void> {
       await transaction<void>('readwrite', (tx, finish) =>
@@ -655,7 +537,7 @@ export function createLocalDraftStore(
       );
     },
     async removeAttempt(
-      session: Session,
+      session: DraftStorageSession,
       storageGeneration: string,
       transactionId: string
     ): Promise<void> {
@@ -688,7 +570,7 @@ export function createLocalDraftStore(
         false
       );
     },
-    async attempts(session: Session): Promise<AttemptRecord[]> {
+    async attempts(session: DraftStorageSession): Promise<AttemptRecord[]> {
       return await transaction(
         'readwrite',
         (tx, finish) =>
@@ -726,12 +608,13 @@ export function createLocalDraftStore(
         const meta = tx.objectStore('meta');
         const request = meta.get('session');
         request.onsuccess = () => {
-          const previous = request.result as Session | undefined;
+          const previous = request.result as DraftStorageSession | undefined;
           if (expectedEpoch && previous && previous.epoch !== expectedEpoch) {
             finish();
             return;
           }
-          for (const name of STORES) tx.objectStore(name).clear();
+          for (const name of STORES)
+            if (name !== 'sends') tx.objectStore(name).clear();
           if (retire && previous)
             meta.put(true, ['retired-session', previous.epoch]);
           finish();

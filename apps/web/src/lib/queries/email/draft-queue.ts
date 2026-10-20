@@ -374,6 +374,7 @@ export async function saveEmailDraftQueued(input: {
 
 /** Deletes over the queue; a commit mirrors useDeleteDraftMutation's cache effects. */
 export async function deleteEmailDraftQueued(input: {
+  draftGeneration?: number;
   draftId: string;
   threadId: string;
   completingThread?: boolean;
@@ -390,6 +391,11 @@ export async function deleteEmailDraftQueued(input: {
     mutationUuid: cached.mutationUuid ?? input.draftId,
     draftId: local?.draftId ?? String(cached.draftId),
     clientMetadata: attempt,
+    draftGeneration:
+      input.draftGeneration ??
+      local?.content.draft_generation ??
+      cached.existingDraft?.draftGeneration ??
+      0,
     threadDbId: cached.threadDbId,
   });
   if (outcome.kind === 'failed') {

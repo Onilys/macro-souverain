@@ -44,6 +44,7 @@ export function createAttachmentPersistence(options: {
   allowed?: Accessor<boolean>;
   draftId: Accessor<string | null | undefined>;
   inboxId: Accessor<string | undefined>;
+  draftGeneration?: Accessor<number>;
   services: Pick<
     EmailAttachmentStorage,
     | 'completeAttachment'
@@ -86,10 +87,12 @@ export function createAttachmentPersistence(options: {
     async upload(draftId: string, inbox = { inboxId: options.inboxId() }) {
       if (disposed || options.allowed?.() === false) return;
       const uploadGeneration = generation;
+      const draftGeneration = options.draftGeneration?.() ?? 0;
       const stillCurrent = () =>
         !disposed &&
         options.allowed?.() !== false &&
         uploadGeneration === generation &&
+        draftGeneration === (options.draftGeneration?.() ?? 0) &&
         options.draftId() === draftId &&
         options.inboxId() === inbox.inboxId;
       for (const attachment of options.attachments.list()) {
@@ -109,6 +112,7 @@ export function createAttachmentPersistence(options: {
           draftId,
           attachmentId: attachment.attachmentId,
           inboxId: inbox.inboxId,
+          draftGeneration,
         });
         if (!stillCurrent()) return;
         options.attachments.clearAttachmentId(attachment.file);
@@ -131,6 +135,7 @@ export function createAttachmentPersistence(options: {
           draftId: draftId,
           attachments: attachments.map((attachment) => attachment.file),
           inboxId: inbox.inboxId,
+          draftGeneration,
           onAttachmentAdded: (file, id) => {
             if (stillCurrent())
               options.attachments.assignAttachmentId(file, id);
@@ -170,6 +175,7 @@ export function createAttachmentPersistence(options: {
             draftId,
             attachmentId: attachment.attachmentId,
             inboxId: inbox.inboxId,
+            draftGeneration,
           });
           if (stillCurrent())
             options.attachments.markUploadComplete(attachment.attachmentId);
@@ -182,6 +188,7 @@ export function createAttachmentPersistence(options: {
         await options.services.addForwardedAttachments({
           draftId,
           inboxId: inbox.inboxId,
+          draftGeneration,
           attachments: forwarded.map(({ attachmentId }) => ({ attachmentId })),
         });
       }
@@ -203,6 +210,7 @@ export function createAttachmentPersistence(options: {
               draftId,
               attachmentId: attachment.attachmentId,
               inboxId: options.inboxId(),
+              draftGeneration: options.draftGeneration?.() ?? 0,
             }
           : undefined;
       if (options.confirmRemoval && request) {

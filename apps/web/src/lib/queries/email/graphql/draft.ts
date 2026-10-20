@@ -216,6 +216,7 @@ export function optimisticDraftEntity(
     isStarred: existing?.isStarred ?? false,
     isSent: false,
     isDraft: true,
+    draftGeneration: args.draftGeneration ?? 0,
     hasAttachments: existing?.hasAttachments ?? false,
     scheduledSendTime: args.sendTime ?? existing?.scheduledSendTime ?? null,
     scheduledSendStatus: existing?.scheduledSendStatus ?? null,
@@ -386,6 +387,7 @@ export async function executeGraphqlSaveEmailDraft(
 
 /** Input for a durable GraphQL draft delete. */
 export type GraphqlDeleteEmailDraftArgs = {
+  draftGeneration?: number;
   /** The draft to delete, by its client-generated id. */
   draftId: string;
   /** Thread the draft lives in — targets the optimistic removal from the
@@ -420,7 +422,10 @@ export async function executeGraphqlDeleteEmailDraft(
   args: GraphqlDeleteEmailDraftArgs
 ): Promise<DeleteEmailDraftOutcome> {
   const variables: DeleteEmailDraftMutationVariables = {
-    input: { draftId: args.draftId },
+    input: {
+      draftId: args.draftId,
+      draftGeneration: args.draftGeneration ?? 0,
+    },
   };
   const threadPageVariables: EmailThreadPageQueryVariables = {
     threadId: args.threadDbId,

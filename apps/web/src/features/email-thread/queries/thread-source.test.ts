@@ -19,6 +19,7 @@ function message(id: string, overrides: Partial<ApiMessage> = {}): ApiMessage {
     to: [{ email: 'viewer@example.com' }],
     cc: [],
     bcc: [],
+    draft_generation: 0,
     attachments: [],
     attachments_draft: [],
     attachments_forwarded: [],

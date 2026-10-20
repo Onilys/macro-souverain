@@ -8,6 +8,7 @@ import {
 import { toast } from '@core/component/Toast/Toast';
 import {
   ENABLE_EMAIL_SCHEDULED_SEND,
+  enableEmailOutbox,
   enableEmailSignatures,
   enableGraphqlSoup,
   isFeatureEnabled,
@@ -35,6 +36,7 @@ import {
   useRemoveForwardedAttachmentMutation,
   useUploadDraftAttachmentsMutation,
 } from '@queries/email/attachment';
+import { cancelServerEmailSend } from '@queries/email/cancel-server-send';
 import {
   transferEmailDraft,
   useDeleteDraftMutation,
@@ -65,6 +67,7 @@ import {
   findPrimaryEmailLinkId,
   nonPrimaryEmailLinkIdHeader,
 } from '@queries/email/link';
+import { confirmLocalDraftSave } from '@queries/email/local-draft-confirmation';
 import {
   clearLocalAttachmentReceipt,
   forgetLocalDraft,
@@ -77,11 +80,12 @@ import {
 import { useMailAccountsQuery } from '@queries/email/mail-accounts';
 import { useQueuedEmailSends } from '@queries/email/queued-sends';
 import {
+  cancelEmailSendAndConfirm,
   emailSendLocked,
   emailSendMatchesDraft,
-  emailSendQueueSelected,
   sendEmailQueued,
 } from '@queries/email/send-queue';
+import { serverEmailSends } from '@queries/email/server-sends';
 import {
   fetchAndCacheThread,
   fetchFreshEmailThread,
@@ -90,7 +94,6 @@ import {
 } from '@queries/email/thread';
 import { invalidateSoupEntity, refetchSoupEntity } from '@queries/soup/cache';
 import type { ApiThread } from '@service-email/generated/schemas';
-import { getGraphqlCacheHost } from '@service-storage/graphql-soup';
 import type { InfiniteData } from '@tanstack/solid-query';
 import { confirmDialog } from '@ui';
 import { type Accessor, getOwner } from 'solid-js';
@@ -147,27 +150,17 @@ export function createEmailComposeContext(
 ): EmailComposeContext {
   const accounts = useMailAccountsQuery();
   const graphqlSoupFlag = useFeatureFlag(enableGraphqlSoup);
+  const outboxFlag = useFeatureFlag(enableEmailOutbox);
   const queueActive = () =>
     draftQueueActive(
       options.threadTransport?.() ??
         (graphqlSoupFlag().enabled ? 'graphql' : 'rest')
     );
-  // Transport degradation cannot release authority held by a durable send.
-  const durableSendSelected = () =>
-    emailSendQueueSelected(
-      options.threadTransport?.() ??
-        (graphqlSoupFlag().enabled ? 'graphql' : 'rest')
-    );
-  let durableSendWasSelected = durableSendSelected();
-  const observeSends = () => {
-    durableSendWasSelected ||= durableSendSelected();
-    return durableSendWasSelected;
-  };
+  const durableSendSelected = () => outboxFlag().enabled;
+  // Retained attempts keep their authority even if rollout is turned off.
+  const observeSends = () => true;
   const sends = useQueuedEmailSends(observeSends);
-  const queuedSendForInbox = (inboxId?: string) =>
-    durableSendSelected() &&
-    inboxSource.inboxes().find((inbox) => inbox.id === (inboxId ?? primaryId()))
-      ?.provider !== 'OUTLOOK';
+  const queuedSendForInbox = (_inboxId?: string) => durableSendSelected();
   // Attach handlers run as event handlers, which have no Solid owner of
   // their own; the dialog needs the surface's.
   const dialogOwner = getOwner();
@@ -361,7 +354,7 @@ export function createEmailComposeContext(
         );
       },
       get saveLocalDraft() {
-        return queueActive()
+        return queueActive() || durableSendSelected()
           ? (input: import('@queries/email/local-drafts').LocalDraftInput) =>
               saveLocalDraft({
                 ...input,
@@ -381,10 +374,14 @@ export function createEmailComposeContext(
         return queueActive() ? retryEmailDraftSynchronization : undefined;
       },
       get readDraft() {
-        return queueActive() ? readEmailDraft : undefined;
+        return queueActive() || durableSendSelected()
+          ? readEmailDraft
+          : undefined;
       },
       get watchDrafts() {
-        return queueActive() ? watchEmailDrafts : undefined;
+        return queueActive() || durableSendSelected()
+          ? watchEmailDrafts
+          : undefined;
       },
       async saveDraft({
         completingThread,
@@ -447,10 +444,17 @@ export function createEmailComposeContext(
                 };
           return saved;
         }
+        const localId = input.clientHandles?.draftId ?? input.draft.db_id;
+        const local = localId ? await readLocalDraft(localId) : undefined;
         const result = await saveEmailComposeDraft({
           ...input,
           inboxId: inboxId ?? primaryId(),
         });
+        try {
+          await confirmLocalDraftSave(local, result);
+        } catch (error) {
+          reportError(error);
+        }
         try {
           const threadId = result.threadId;
           if (threadId) {
@@ -477,6 +481,7 @@ export function createEmailComposeContext(
         if (input.threadId && queueActive()) {
           const outcome = await deleteEmailDraftQueued({
             draftId: input.draftId,
+            draftGeneration: input.draftGeneration,
             threadId: input.threadId,
             completingThread,
           });
@@ -526,10 +531,11 @@ export function createEmailComposeContext(
     delivery: {
       queueActive: queuedSendForInbox,
       sendLocked: (draftId) =>
-        (observeSends() &&
-          (!sends.ready() ||
-            !getGraphqlCacheHost() ||
-            getGraphqlCacheHost()?.disabled === true)) ||
+        !sends.ready() ||
+        (!!draftId &&
+          serverEmailSends().some(
+            (row) => row.attempt.message?.id === draftId
+          )) ||
         (!!draftId &&
           sends
             .intents()
@@ -555,21 +561,40 @@ export function createEmailComposeContext(
             input.clientHandles?.threadId ?? input.message.thread_db_id;
           if (!draftId || !threadId)
             throw new Error('Draft identity is required to queue a send');
+          const inbox = inboxSource
+            .inboxes()
+            .find((inbox) => inbox.id === senderLinkId);
+          if (!inbox) throw new Error('The sending account is unavailable');
+          const signatureHtml =
+            input.message.include_signature === false ||
+            (input.message.replying_to_id &&
+              input.message.include_signature !== true &&
+              !inbox.settings.signature_on_replies_forwards)
+              ? ''
+              : (inbox.settings.signature ?? '');
           return await sendEmailQueued({
+            signatureHtml,
             expectedLocalVersion: input.expectedLocalVersion,
-            draft: queuedDraftSaveArgs({
-              draft: input.message,
-              handles: { draftId, threadId },
-              senderLinkId,
-              senderAccount: accounts.isSuccess
-                ? accounts.data?.links.find((link) => link.id === senderLinkId)
-                : undefined,
-              senderEmail:
-                inboxSource.inboxes().find((inbox) => inbox.id === senderLinkId)
-                  ?.email_address ??
-                viewerEmail() ??
-                '',
-            }),
+            draft: {
+              ...queuedDraftSaveArgs({
+                draft: input.message,
+                handles: { draftId, threadId },
+                senderLinkId,
+                senderAccount: accounts.isSuccess
+                  ? accounts.data?.links.find(
+                      (link) => link.id === senderLinkId
+                    )
+                  : undefined,
+                senderEmail:
+                  inboxSource
+                    .inboxes()
+                    .find((inbox) => inbox.id === senderLinkId)
+                    ?.email_address ??
+                  viewerEmail() ??
+                  '',
+              }),
+              sendTime: input.sendTime,
+            },
             attachmentIds: input.attachmentIds ?? [],
             forwardedAttachmentIds: input.forwardedAttachmentIds ?? [],
             includeSignature: input.message.include_signature,
@@ -602,9 +627,24 @@ export function createEmailComposeContext(
         }
         return result;
       },
-      async unschedule({ draftId, threadId, inboxId }) {
+      async unschedule({ draftId, threadId, inboxId, draftGeneration }) {
+        const local = sends
+          .intents()
+          .find((row) => emailSendMatchesDraft(row, draftId));
+        if (local) {
+          await cancelEmailSendAndConfirm(local);
+          return;
+        }
+        const remote = serverEmailSends().find(
+          (row) => row.attempt.message?.id === draftId
+        );
+        if (remote) {
+          await cancelServerEmailSend(remote);
+          return;
+        }
         await unschedule.mutateAsync({
           draftID: draftId,
+          draftGeneration,
           linkId: headerId(inboxId),
         });
         try {
@@ -616,7 +656,7 @@ export function createEmailComposeContext(
         }
       },
       schedule: async (
-        { draftId, threadId, sendTime, includeSignature },
+        { draftId, threadId, sendTime, includeSignature, draftGeneration },
         inboxId
       ) => {
         await requireSavedDraftForDelivery(draftId);
@@ -624,6 +664,7 @@ export function createEmailComposeContext(
           {
             draftID: draftId,
             send_time: sendTime,
+            draftGeneration,
             include_signature: includeSignature,
           },
           headerId(inboxId)
@@ -670,7 +711,7 @@ export function createEmailComposeContext(
     },
     attachmentStorage: {
       completeAttachment: completeDraftAttachment,
-      async uploadAttachments({ draftId, inboxId, ...input }) {
+      async uploadAttachments({ draftId, inboxId, draftGeneration, ...input }) {
         for (const file of input.attachments) {
           const run = async (
             receipt?: { attachmentId?: string; uploaded: boolean },
@@ -683,6 +724,7 @@ export function createEmailComposeContext(
             if (receipt?.attachmentId) {
               await removeAttachment.mutateAsync({
                 draftID: draftId,
+                draftGeneration,
                 attachmentID: receipt.attachmentId,
                 linkId: headerId(inboxId),
               });
@@ -696,11 +738,12 @@ export function createEmailComposeContext(
             }
             await upload.mutateAsync({
               draftID: draftId,
+              draftGeneration,
               attachments: [file],
               linkId: headerId(inboxId),
               onAttachmentAdded: async (uploadedFile, id) => {
                 input.onAttachmentAdded?.(uploadedFile, id);
-                if (queueActive())
+                if (queueActive() || durableSendSelected())
                   await recordLocalAttachment(
                     draftId,
                     uploadedFile,
@@ -711,7 +754,7 @@ export function createEmailComposeContext(
               },
               onAttachmentUploaded: async (uploadedFile, id) => {
                 input.onAttachmentUploaded?.(uploadedFile, id);
-                if (queueActive())
+                if (queueActive() || durableSendSelected())
                   await recordLocalAttachment(
                     draftId,
                     uploadedFile,
@@ -721,7 +764,7 @@ export function createEmailComposeContext(
                   );
               },
               onAttachmentUploadFailed: (uploadedFile) => {
-                if (queueActive())
+                if (queueActive() || durableSendSelected())
                   void recordLocalAttachment(
                     draftId,
                     uploadedFile,
@@ -733,26 +776,38 @@ export function createEmailComposeContext(
               },
             });
           };
-          if (queueActive())
+          if (queueActive() || durableSendSelected())
             await withLocalAttachmentUpload(draftId, file, run);
           else await run();
         }
       },
-      addForwardedAttachments: ({ draftId, attachments, inboxId }) =>
+      addForwardedAttachments: ({
+        draftId,
+        attachments,
+        inboxId,
+        draftGeneration,
+      }) =>
         forward.mutateAsync({
           draftID: draftId,
+          draftGeneration,
           attachments: attachments.map(({ attachmentId }) => ({
             attachmentID: attachmentId,
           })),
           linkId: headerId(inboxId),
         }),
-      removeAttachment: async ({ draftId, attachmentId, inboxId }) => {
+      removeAttachment: async ({
+        draftId,
+        attachmentId,
+        inboxId,
+        draftGeneration,
+      }) => {
         await removeAttachment.mutateAsync({
           draftID: draftId,
+          draftGeneration,
           attachmentID: attachmentId,
           linkId: headerId(inboxId),
         });
-        if (queueActive()) {
+        if (queueActive() || durableSendSelected()) {
           try {
             await clearLocalAttachmentReceipt(draftId, attachmentId);
           } catch (error) {
@@ -760,9 +815,15 @@ export function createEmailComposeContext(
           }
         }
       },
-      removeForwardedAttachment: ({ draftId, attachmentId, inboxId }) =>
+      removeForwardedAttachment: ({
+        draftId,
+        attachmentId,
+        inboxId,
+        draftGeneration,
+      }) =>
         removeForwarded.mutateAsync({
           draftID: draftId,
+          draftGeneration,
           attachmentID: attachmentId,
           linkId: headerId(inboxId),
         }),

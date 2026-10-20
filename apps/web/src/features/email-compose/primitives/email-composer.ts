@@ -189,6 +189,11 @@ export function createEmailComposer(props: EmailComposerOptions) {
   // FE only renders the preview and signals an explicit dismiss.
   const signature = () => link()?.settings.signature ?? undefined;
   const [includeSignature, setIncludeSignature] = createSignal(true);
+  const [draftGeneration, setDraftGeneration] = createSignal(
+    props.localDraft?.content.draft_generation ??
+      props.draft?.draft_generation ??
+      0
+  );
 
   const hasInboxError = createMemo(() => {
     if (props.accounts.loading()) return false;
@@ -264,6 +269,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
   });
 
   const attachmentPersistence = createAttachmentPersistence({
+    draftGeneration,
     confirmRemoval: !!props.drafts.saveLocalDraft,
     allowed: () =>
       !sendLocked() &&
@@ -342,6 +348,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
       subject: form.subject(),
       to: form.recipients().to.map(convertEmailRecipientToContactInfo),
       include_signature: includeSignature() ? undefined : false,
+      draft_generation: draftGeneration(),
     };
   }
 
@@ -393,6 +400,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
   }
 
   const persistence = createDraftPersistence({
+    draftGeneration,
     session,
     drafts: props.drafts,
     attachments: attachmentPersistence,
@@ -508,6 +516,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
     setPending: setRestoring,
     restore: (draft, change, restoredPersistence, local, attachments) => {
       persistence.restored(local);
+      setDraftGeneration(draft.draft_generation ?? 0);
       session.dispatch({
         type: 'seeded',
         draftId: draft.db_id,
@@ -557,6 +566,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
   };
 
   schedule = createEmailSendSchedule({
+    draftGeneration,
     delivery: props.delivery,
     notices: props.notices,
     initialScheduledTime: props.draft?.scheduled_send_time
@@ -833,9 +843,12 @@ export function createEmailComposer(props: EmailComposerOptions) {
 
     const offline = sendRefusalBeforeSave(
       props.connectivity,
-      props.delivery.queueActive?.(activeInboxId()) &&
-        schedule.action() === 'send',
-      form.attachments.list().length > 0
+      props.delivery.queueActive?.(activeInboxId()),
+      form.attachments
+        .list()
+        .some(
+          (attachment) => attachment.type === 'local' && !attachment.uploaded
+        )
     );
     if (offline) return refuseSend(props.notices, offline);
     if (pendingInlineMedia(editor()))
@@ -843,13 +856,30 @@ export function createEmailComposer(props: EmailComposerOptions) {
     if (attachmentLinks.uploading())
       return refuseSend(props.notices, 'files-uploading');
     const scheduleAction = schedule.action();
+    const queuedLater =
+      scheduleAction === 'schedule' &&
+      !!props.delivery.queueActive?.(activeInboxId());
+    const selectedTime = queuedLater ? schedule.selectedTime() : undefined;
+    if (
+      queuedLater &&
+      (!selectedTime ||
+        !Number.isFinite(selectedTime.getTime()) ||
+        selectedTime.getTime() <= Date.now())
+    ) {
+      props.notices.feedback.alert('Choose a future send time.');
+      return;
+    }
+    const sendTime = selectedTime?.toISOString();
     if (scheduleAction === 'unavailable') {
       props.notices.feedback.alert(
         `This email is scheduled for ${schedule.confirmedTime()?.toLocaleString()}. Choose a new time to update it, or cancel the schedule to edit.`
       );
       return;
     }
-    if (scheduleAction === 'schedule' || scheduleAction === 'update') {
+    if (
+      (scheduleAction === 'schedule' && !queuedLater) ||
+      scheduleAction === 'update'
+    ) {
       const result = await schedule.submit();
       if (result === 'scheduled') {
         const scheduledDraftId = currentDraftId();
@@ -874,7 +904,16 @@ export function createEmailComposer(props: EmailComposerOptions) {
       if (
         props.delivery.queueActive?.(activeInboxId()) &&
         props.drafts.saveLocalDraft &&
-        !form.attachments.list().length
+        form.attachments
+          .list()
+          .every((attachment) =>
+            attachment.type === 'local'
+              ? attachment.uploaded
+              : attachment.type === 'remote'
+                ? !attachment.uploadPending
+                : true
+          ) &&
+        (form.attachments.list().length === 0 || session.serverConfirmed())
       ) {
         await autosave.saveLocal();
       } else {
@@ -905,7 +944,8 @@ export function createEmailComposer(props: EmailComposerOptions) {
         completed() ||
         terminalState() ||
         schedule.pending() ||
-        schedule.action() !== 'send'
+        (schedule.action() !== 'send' &&
+          !(queuedLater && schedule.selectedTime()?.toISOString() === sendTime))
       )
         return;
 
@@ -936,6 +976,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
       try {
         setSendPhase('sending');
         const result = await props.delivery.sendMessage({
+          sendTime,
           expectedLocalVersion,
           clientHandles: {
             draftId: currentDraftId()!,
@@ -971,6 +1012,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
             // Backend includes the signature by default for new emails; only signal
             // an explicit dismiss. Omitting it falls through to the backend default.
             include_signature: includeSignature() ? undefined : false,
+            draft_generation: draftGeneration(),
           },
           inboxId: activeInboxId(),
         });
@@ -984,6 +1026,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
         setSentDraftId(currentDraftId());
         setCompleted(true);
         session.dispatch({ type: 'reset' });
+        setDraftGeneration(0);
         afterSend(result, currentLink.id);
       } finally {
         if (
@@ -1026,6 +1069,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
     clearEmailBody(editor());
     setContent('');
     session.dispatch({ type: 'reset' });
+    setDraftGeneration(0);
     form.clear();
     schedule.reset();
     setTerminalState(undefined);
@@ -1082,6 +1126,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
     identityVersion += 1;
     autosave.cancel();
     session.dispatch({ type: 'reset' });
+    setDraftGeneration(0);
     const omittedAttachments = attachmentPersistence.detach();
     attachmentLinks.detach();
     schedule.detach();
@@ -1188,6 +1233,7 @@ export function createEmailComposer(props: EmailComposerOptions) {
       identityVersion += 1;
       autosave.cancel();
       session.dispatch({ type: 'reset' });
+      setDraftGeneration(0);
       schedule.detach();
       setCompleted(true);
       setTerminalState(state.type);
@@ -1204,6 +1250,8 @@ export function createEmailComposer(props: EmailComposerOptions) {
   );
 
   draftTransfer = createDraftTransfer({
+    draftGeneration,
+    onTransferred: () => setDraftGeneration(0),
     session,
     drafts: props.drafts,
     attachments: form.attachments,

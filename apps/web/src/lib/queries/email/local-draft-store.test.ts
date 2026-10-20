@@ -546,6 +546,7 @@ const sendIntent = (
   uuid = 'attempt'
 ): import('./send-queue').EmailSendIntent => ({
   uuid,
+  accountId: 'owner',
   phase: 'pending',
   locallyCancelled: false,
   metadata: {

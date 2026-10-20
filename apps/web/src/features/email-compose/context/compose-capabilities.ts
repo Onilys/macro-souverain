@@ -79,12 +79,15 @@ export interface SaveEmailDraft {
   completingThread?: boolean;
 }
 export interface DeleteEmailDraft {
+  draftGeneration?: number;
   draftId: string;
   threadId?: string;
   inboxId?: string;
   completingThread?: boolean;
 }
 export interface SendEmailDraft {
+  /** Frozen Send Later deadline; omitted uses the server Undo Send delay. */
+  sendTime?: string;
   message: EmailDraft;
   clientHandles?: DraftClientHandles;
   /** The exact working-copy version persisted for this submission. */
@@ -98,6 +101,7 @@ export interface SendEmailDraft {
   completingThread?: boolean;
 }
 export interface UploadEmailAttachments {
+  draftGeneration?: number;
   draftId: string;
   attachments: File[];
   inboxId?: string;
@@ -106,6 +110,7 @@ export interface UploadEmailAttachments {
   onAttachmentUploadFailed?: (file: File) => void;
 }
 export interface EmailAttachmentChange {
+  draftGeneration?: number;
   draftId: string;
   attachmentId: string;
   inboxId?: string;
@@ -163,6 +168,7 @@ export interface EmailDraftStorage {
     }) => void
   ): () => void;
   transferDraft(input: {
+    draftGeneration?: number;
     operationId: string;
     draftId: string;
     sourceInboxId: string;
@@ -196,6 +202,7 @@ export interface EmailAttachmentStorage {
   completeAttachment(input: EmailAttachmentChange): Promise<void>;
   uploadAttachments(input: UploadEmailAttachments): Promise<void>;
   addForwardedAttachments(input: {
+    draftGeneration?: number;
     draftId: string;
     attachments: { attachmentId: string }[];
     inboxId?: string;
@@ -211,6 +218,7 @@ export interface EmailDelivery {
   sendLocked?: (draftId: string | undefined) => boolean;
   sendMessage(input: SendEmailDraft): Promise<PersistedEmailIdentity>;
   unschedule(input: {
+    draftGeneration?: number;
     draftId: string;
     threadId?: string;
     inboxId?: string;
@@ -220,6 +228,7 @@ export interface EmailDelivery {
       draftId: string;
       threadId?: string;
       sendTime: string;
+      draftGeneration?: number;
       includeSignature?: boolean;
     },
     inboxId?: string

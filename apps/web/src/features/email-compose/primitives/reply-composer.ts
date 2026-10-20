@@ -216,6 +216,11 @@ export function createReplyComposer(
   // Whether this reply includes the signature. Defaults on, reset per reply,
   // and dismissable via the preview ✕.
   const [includeSignature, setIncludeSignature] = createSignal(true);
+  const [draftGeneration, setDraftGeneration] = createSignal(
+    props.localDraft?.content.draft_generation ??
+      props.draft?.draft_generation ??
+      0
+  );
   // Signature HTML for the preview (and whether to show it): only for
   // replies/forwards, when the inbox's "add to replies & forwards" setting is on
   // and the user hasn't dismissed it. The backend does the actual injection on
@@ -494,6 +499,7 @@ export function createReplyComposer(
   };
 
   const attachmentPersistence = createAttachmentPersistence({
+    draftGeneration,
     confirmRemoval: !!props.drafts.saveLocalDraft,
     allowed: () =>
       !sendLocked() &&
@@ -592,6 +598,7 @@ export function createReplyComposer(
       to: form.recipients().to.map(convertEmailRecipientToContactInfo),
       body_macro: forDelivery ? prepareMacroBody(bodyMacro()) : undefined,
       include_signature: includeSignature() ? undefined : false,
+      draft_generation: draftGeneration(),
     };
   }
 
@@ -664,6 +671,7 @@ export function createReplyComposer(
   }
 
   const persistence = createDraftPersistence({
+    draftGeneration,
     session,
     drafts: props.drafts,
     attachments: attachmentPersistence,
@@ -770,6 +778,7 @@ export function createReplyComposer(
     setPending: setRestoring,
     restore: (draft, change, restoredPersistence, local, attachments) => {
       persistence.restored(local);
+      setDraftGeneration(draft.draft_generation ?? 0);
       session.dispatch({
         type: 'seeded',
         draftId: draft.db_id,
@@ -821,6 +830,8 @@ export function createReplyComposer(
   // without a text edit, so it moves to the new inbox and the choice survives a
   // refresh. Driven by the explicit switch (below) rather than inbox reactivity.
   draftTransfer = createDraftTransfer({
+    draftGeneration,
+    onTransferred: () => setDraftGeneration(0),
     session,
     drafts: props.drafts,
     attachments: form.attachments,
@@ -908,6 +919,7 @@ export function createReplyComposer(
   };
 
   schedule = createEmailSendSchedule({
+    draftGeneration,
     delivery: props.delivery,
     notices: props.notices,
     initialScheduledTime: draftSeed?.scheduled_send_time
@@ -1057,9 +1069,12 @@ export function createReplyComposer(
 
     const offline = sendRefusalBeforeSave(
       props.connectivity,
-      props.delivery.queueActive?.(sendingInbox()?.id) &&
-        schedule.action() === 'send',
-      form.attachments.list().length > 0
+      props.delivery.queueActive?.(sendingInbox()?.id),
+      form.attachments
+        .list()
+        .some(
+          (attachment) => attachment.type === 'local' && !attachment.uploaded
+        )
     );
     if (offline) return refuseSend(props.notices, offline);
     if (pendingInlineMedia(editor()))
@@ -1098,13 +1113,30 @@ export function createReplyComposer(
       });
     };
     const scheduleAction = schedule.action();
+    const queuedLater =
+      scheduleAction === 'schedule' &&
+      !!props.delivery.queueActive?.(sendingInbox()?.id);
+    const selectedTime = queuedLater ? schedule.selectedTime() : undefined;
+    if (
+      queuedLater &&
+      (!selectedTime ||
+        !Number.isFinite(selectedTime.getTime()) ||
+        selectedTime.getTime() <= Date.now())
+    ) {
+      props.notices.feedback.alert('Choose a future send time.');
+      return;
+    }
+    const sendTime = selectedTime?.toISOString();
     if (scheduleAction === 'unavailable') {
       props.notices.feedback.alert(
         `This email is scheduled for ${schedule.confirmedTime()?.toLocaleString()}. Choose a new time to update it, or cancel the schedule to edit.`
       );
       return;
     }
-    if (scheduleAction === 'schedule' || scheduleAction === 'update') {
+    if (
+      (scheduleAction === 'schedule' && !queuedLater) ||
+      scheduleAction === 'update'
+    ) {
       const result = await schedule.submit();
       if (result === 'scheduled') {
         const scheduledDraftId = savedDraftId();
@@ -1138,7 +1170,16 @@ export function createReplyComposer(
         if (
           props.delivery.queueActive?.(sendingInbox()?.id) &&
           props.drafts.saveLocalDraft &&
-          !form.attachments.list().length
+          form.attachments
+            .list()
+            .every((attachment) =>
+              attachment.type === 'local'
+                ? attachment.uploaded
+                : attachment.type === 'remote'
+                  ? !attachment.uploadPending
+                  : true
+            ) &&
+          (form.attachments.list().length === 0 || session.serverConfirmed())
         )
           await autosave.saveLocal(captureSave(willMarkDone));
         else
@@ -1178,7 +1219,11 @@ export function createReplyComposer(
       // Remember by draft so sends in separate composers cannot replace each other.
       rememberCurrentReply();
 
-      if (scheduling() || schedule.action() !== 'send') {
+      if (
+        scheduling() ||
+        (schedule.action() !== 'send' &&
+          !(queuedLater && schedule.selectedTime()?.toISOString() === sendTime))
+      ) {
         return;
       }
 
@@ -1213,6 +1258,7 @@ export function createReplyComposer(
 
       setSendPhase('sending');
       const pendingSend = props.delivery.sendMessage({
+        sendTime,
         expectedLocalVersion,
         clientHandles: {
           draftId: currentDraftId!,
@@ -1246,6 +1292,7 @@ export function createReplyComposer(
           // Replies/forwards follow the inbox's "add to replies & forwards"
           // setting on the backend; only signal an explicit per-reply dismiss.
           include_signature: includeSignature() ? undefined : false,
+          draft_generation: draftGeneration(),
         },
         inboxId,
         completingThread: willMarkDone,
@@ -1391,6 +1438,7 @@ export function createReplyComposer(
     clearEmailBody(editor());
     setBodyMacro('');
     session.dispatch({ type: 'reset' });
+    setDraftGeneration(0);
     form.reset();
     schedule.reset();
     setTerminalState(undefined);
@@ -1524,6 +1572,7 @@ export function createReplyComposer(
     identityVersion += 1;
     autosave.cancel();
     session.dispatch({ type: 'reset' });
+    setDraftGeneration(0);
     const omittedAttachments = attachmentPersistence.detach();
     attachmentLinks.detach();
     schedule.detach();

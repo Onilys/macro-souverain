@@ -7,7 +7,9 @@ import {
   type GraphqlSaveEmailDraftArgs,
 } from './graphql/draft';
 import {
+  emailStorageSession,
   forgetLocalDraft,
+  localDraftStore,
   readLocalDraft,
   resumeLocalDraft,
   reviveLocalDraft,
@@ -54,7 +56,9 @@ export async function captureSendWorkingCopy(
     local.attachments.some(
       (a) =>
         !a.attachmentId ||
-        !(a.type === 'forwarded' ? forwarded : uploaded).delete(a.attachmentId)
+        !(
+          a.type === 'forwarded' || a.type === 'native' ? forwarded : uploaded
+        ).delete(a.attachmentId)
     ) ||
     uploaded.size ||
     forwarded.size
@@ -97,6 +101,14 @@ function restoredAttachments(
       };
     });
   return [
+    ...(draft.existingDraft?.attachments ?? []).map((attachment) => ({
+      type: 'native' as const,
+      attachmentId: attachment.id,
+      fileName: attachment.filename ?? 'Attachment',
+      mimeType: attachment.mimeType ?? 'application/octet-stream',
+      fileSize: attachment.sizeBytes ?? 0,
+      referenceUrl: attachment.referenceUrl,
+    })),
     ...(draft.existingDraft?.attachmentsDraft ?? []).map((attachment) => ({
       type: 'remote' as const,
       attachmentId: attachment.id,
@@ -118,7 +130,8 @@ function restoredAttachments(
 /** Explicit cancellation restores local durability before another save can replay. */
 export async function restoreSendWorkingCopy(
   draft: GraphqlSaveEmailDraftArgs,
-  copy: SendWorkingCopy | undefined
+  copy: SendWorkingCopy | undefined,
+  serverConfirmed = false
 ): Promise<
   GraphqlSaveEmailDraftArgs & {
     restorationVersion: SendRestorationVersion;
@@ -128,7 +141,7 @@ export async function restoreSendWorkingCopy(
   let local = await readLocalDraft(copy?.key ?? String(draft.draftId));
   if (local) {
     // Keep newer edits, but fence old send-time callbacks before resuming them.
-    await resumeLocalDraft(local.key, copy?.generation);
+    await resumeLocalDraft(local.key, copy?.generation ?? local.generation);
     local = (await readLocalDraft(local.key)) ?? local;
   } else {
     const draftId = copy?.key ?? String(draft.draftId);
@@ -138,6 +151,7 @@ export async function restoreSendWorkingCopy(
       inboxId: draft.senderLinkId,
       senderEmail: draft.senderEmail,
       draft: {
+        draft_generation: draft.draftGeneration ?? 0,
         sender_email: draft.senderEmail,
         subject: draft.subject,
         to: draft.to,
@@ -157,6 +171,33 @@ export async function restoreSendWorkingCopy(
       attachments: restoredAttachments(draft, copy),
     });
   }
+  const restoredGeneration = local.generation;
+  const bound = await localDraftStore.update(
+    await emailStorageSession(),
+    local.key,
+    (current) =>
+      current.generation !== restoredGeneration
+        ? current
+        : {
+            ...current,
+            content: {
+              ...current.content,
+              draft_generation: Math.max(
+                current.content.draft_generation ?? 0,
+                draft.draftGeneration ?? 0
+              ),
+            },
+            serverDraftId: serverConfirmed
+              ? String(draft.draftId)
+              : current.serverDraftId,
+            serverThreadId: serverConfirmed
+              ? draft.threadDbId
+              : current.serverThreadId,
+          }
+  );
+  if (!bound || bound.generation !== restoredGeneration)
+    throw new Error('This restored draft changed in another tab');
+  local = bound;
   return {
     ...draft,
     restorationVersion: {
@@ -165,6 +206,7 @@ export async function restoreSendWorkingCopy(
       revision: local.revision,
     },
     draftId: local.draftId,
+    draftGeneration: local.content.draft_generation ?? 0,
     threadDbId: local.serverThreadId ?? local.threadId ?? draft.threadDbId,
     localRevision: local.revision,
     senderLinkId: local.inboxId ?? draft.senderLinkId,

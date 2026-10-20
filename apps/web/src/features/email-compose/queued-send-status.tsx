@@ -1,13 +1,23 @@
 import { fireAndForget } from '@core/util/fireAndForget';
-import { draftQueueActive } from '@queries/email/draft-queue';
+import { cancelServerEmailSend } from '@queries/email/cancel-server-send';
 import { useQueuedEmailSends } from '@queries/email/queued-sends';
+import { emailSendStorageWarning } from '@queries/email/send-intent';
 import {
   cancelEmailSendQueued,
   type EmailSendIntent,
   emailSendLocked,
+  recoverEmailSendIntent,
   restoreCancelledEmailSend,
   settledSendAttempt,
 } from '@queries/email/send-queue';
+import {
+  hasMoreServerEmailSends,
+  loadMoreServerEmailSends,
+  refreshServerEmailSends,
+  type ServerEmailSend,
+  serverEmailSends,
+  serverEmailSendsError,
+} from '@queries/email/server-sends';
 import { Button } from '@ui';
 import { createSignal, For, Show } from 'solid-js';
 
@@ -16,7 +26,7 @@ export function QueuedSendStatus(props: {
   threadId?: string;
   inboxIds?: readonly string[];
 }) {
-  const sends = useQueuedEmailSends(() => draftQueueActive());
+  const sends = useQueuedEmailSends();
   const visible = () =>
     sends.intents().filter((intent) => {
       const { draft, input } = intent.metadata.payload;
@@ -32,8 +42,30 @@ export function QueuedSendStatus(props: {
           props.inboxIds.includes(String(input.attempt.linkId)))
       );
     });
+  const visibleServer = () =>
+    serverEmailSends().filter(
+      (row) =>
+        !sends
+          .intents()
+          .some(
+            (local) =>
+              local.uuid === row.attempt.attemptId &&
+              local.metadata.payload.input.attempt.linkId === row.linkId
+          ) &&
+        row.attempt.status !== 'SENT' &&
+        row.attempt.status !== 'CANCELLED' &&
+        (!props.threadId || row.attempt.threadId === props.threadId) &&
+        (!props.inboxIds?.length || props.inboxIds.includes(row.linkId))
+    );
   return (
-    <Show when={visible().length > 0}>
+    <Show
+      when={
+        visible().length > 0 ||
+        visibleServer().length > 0 ||
+        serverEmailSendsError() ||
+        emailSendStorageWarning()
+      }
+    >
       <div
         class="shrink-0 border-b border-edge-muted p-3"
         aria-label="Queued email sends"
@@ -43,8 +75,86 @@ export function QueuedSendStatus(props: {
             <SendStatus intent={intent} refresh={() => sends.refresh(true)} />
           )}
         </For>
+        <Show when={emailSendStorageWarning()}>
+          <p class="text-xs text-ink-muted" role="alert">
+            {emailSendStorageWarning()}
+          </p>
+        </Show>
+        <For each={visibleServer()}>
+          {(row) => <ServerSendStatus row={row} />}
+        </For>
+        <Show when={serverEmailSendsError()}>
+          <p class="text-xs text-ink-muted" role="status">
+            {serverEmailSendsError()}
+          </p>
+        </Show>
+        <Show when={hasMoreServerEmailSends()}>
+          <Button
+            onClick={() =>
+              fireAndForget(loadMoreServerEmailSends(), 'email-more-sends')
+            }
+          >
+            Load more sends
+          </Button>
+        </Show>
       </div>
     </Show>
+  );
+}
+
+function ServerSendStatus(props: { row: ServerEmailSend }) {
+  const [working, setWorking] = createSignal(false);
+  const [error, setError] = createSignal<string>();
+  const status = () => props.row.attempt.status;
+  const cancellable = () => status() === 'ACCEPTED' || status() === 'FAILED';
+  const action = async () => {
+    setWorking(true);
+    setError(undefined);
+    try {
+      if (cancellable()) await cancelServerEmailSend(props.row);
+      else await refreshServerEmailSends();
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Could not update delivery status'
+      );
+    } finally {
+      setWorking(false);
+    }
+  };
+  return (
+    <div class="flex items-start justify-between gap-3 py-1">
+      <div class="min-w-0">
+        <div class="truncate text-sm text-ink">
+          {props.row.attempt.message?.subject || '(No subject)'}
+        </div>
+        <div class="text-xs text-ink-muted" role="status">
+          {status() === 'ACCEPTED'
+            ? 'Accepted by server'
+            : status() === 'FAILED'
+              ? 'Send failed before delivery. Cancel to recover this draft.'
+              : status() === 'DELIVERY_UNCONFIRMED'
+                ? 'Delivery unconfirmed. Check sent mail; we will not resend automatically.'
+                : 'Sending'}
+          <Show when={props.row.attempt.sendTime}>
+            {' · '}
+            {new Date(props.row.attempt.sendTime!).toLocaleString()}
+          </Show>
+        </div>
+        <Show when={error()}>
+          <p class="text-xs text-ink" role="alert">
+            {error()}
+          </p>
+        </Show>
+      </div>
+      <Button
+        disabled={working()}
+        onClick={() => fireAndForget(action(), 'email-server-send')}
+      >
+        {cancellable() ? 'Cancel and restore' : 'Check status'}
+      </Button>
+    </div>
   );
 }
 
@@ -65,18 +175,17 @@ function SendStatus(props: {
       return 'Delivery unconfirmed. Your email may already have been sent. Check your sent mail. We will not resend automatically.';
     if (status() === 'FAILED')
       return 'Send failed before delivery. Cancel to recover this draft.';
+    if (props.intent.dispatch?.paused) return props.intent.dispatch.error;
     if (props.intent.phase === 'failed')
       return 'Send needs attention. Cancel to recover this draft.';
-    if (
-      emailSendLocked(props.intent) &&
-      props.intent.metadata.replace &&
-      props.intent.phase === 'pending'
-    )
+    if (emailSendLocked(props.intent) && props.intent.cancellationRequested)
       return 'Cancellation pending';
-    if (status() === 'ACCEPTED') return 'Queued to send';
+    if (status() === 'ACCEPTED') return 'Accepted by server';
     if (status() === 'SENDING' || props.intent.phase === 'committed')
       return 'Sending';
-    return 'Queued to send';
+    return props.intent.submissionStarted
+      ? 'Checking server acceptance'
+      : 'Queued on this device';
   };
   const cancel = async () => {
     setWorking(true);
@@ -98,6 +207,7 @@ function SendStatus(props: {
     setWorking(true);
     setError(undefined);
     try {
+      await recoverEmailSendIntent(props.intent);
       await props.refresh();
     } catch (error) {
       setError(
@@ -115,6 +225,9 @@ function SendStatus(props: {
         </div>
         <div class="text-xs text-ink-muted" role="status">
           {label()}
+          <Show when={props.intent.metadata.payload.input.message.sendTime}>
+            {(sendTime) => <> · {new Date(sendTime()).toLocaleString()}</>}
+          </Show>
         </div>
         <Show when={error()}>
           <div class="text-xs text-ink" role="alert">
@@ -150,15 +263,18 @@ function SendStatus(props: {
           disabled={
             working() ||
             (emailSendLocked(props.intent) &&
-              props.intent.metadata.replace &&
-              props.intent.phase === 'pending')
+              props.intent.cancellationRequested)
           }
           onClick={() => fireAndForget(cancel(), 'email-compose-cancel-send')}
         >
           {emailSendLocked(props.intent) ? 'Cancel' : 'Restore draft'}
         </Button>
       </Show>
-      <Show when={status() === 'DELIVERY_UNCONFIRMED'}>
+      <Show
+        when={
+          status() === 'DELIVERY_UNCONFIRMED' || props.intent.dispatch?.paused
+        }
+      >
         <Button
           disabled={working()}
           onClick={() =>

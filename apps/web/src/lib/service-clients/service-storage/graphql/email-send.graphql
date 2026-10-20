@@ -35,3 +35,15 @@ mutation SendEmailComposeMessage($input: SendEmailMessageInput!) {
     sendTime
   }
 }
+query PendingEmailSends($after: String) {
+  user {
+    id
+    pendingEmailSends(after: $after) {
+      attempts {
+        linkId
+        attempt { ...EmailSendAttemptFields }
+      }
+      nextCursor
+    }
+  }
+}

@@ -510,6 +510,7 @@ describe.each(['reply', 'compose'] as const)(
         );
         expect(context.delivery.schedule).toHaveBeenCalledExactlyOnceWith(
           {
+            draftGeneration: 0,
             draftId: 'scheduled-server',
             threadId: 'thread',
             sendTime: '2027-01-01T12:00:00.000Z',
