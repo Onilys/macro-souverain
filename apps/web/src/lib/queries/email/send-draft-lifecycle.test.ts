@@ -8,7 +8,6 @@ import { print } from 'graphql';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { GraphqlSaveEmailDraftArgs } from './graphql/draft';
 import type { LocalDraftInput } from './local-drafts';
-import type { EmailSendIntent } from './send-queue';
 
 const auth = vi.hoisted(() => ({ user: { authenticated: true, id: 'owner' } }));
 vi.mock('../client', () => ({
@@ -198,7 +197,6 @@ it('fences old save results, stale editor callbacks, and delayed retirement afte
   expect(restored.generation).not.toBe(original.generation);
   const host = {
     inspectMutations: async () => [],
-    durableMutationIntents: async () => [],
     currentStorageGeneration: async () => 'storage',
   } as unknown as CacheHost;
   const variables = {
@@ -281,154 +279,6 @@ it('preserves a newer revision when send cleanup arrives after another local edi
   });
   await lifecycle.retireSendWorkingCopy(captured);
   expect(await drafts.readLocalDraft(original.key)).toEqual(resumed);
-});
-
-it('retires an obsolete restoration only after an earlier queue slot acknowledges newer restored edits', async () => {
-  const original = await drafts.saveLocalDraft(input());
-  const oldAttempt = await drafts.beginDraftAttempt(original, 'save');
-  const copy = await lifecycle.captureSendWorkingCopy(
-    original.key,
-    [],
-    [],
-    original
-  );
-  const claim = (
-    uuid: string,
-    attempt: typeof oldAttempt
-  ): ClaimedMutation => ({
-    transactionId: uuid,
-    uuid,
-    clientMetadata: attempt,
-    operationName: 'SaveEmailDraft',
-    superseded: false,
-    requiresConfirmation: false,
-    leaseGeneration: '1',
-    query: print(SaveEmailDraftDocument),
-    variables: { input: { draftId: original.draftId } },
-    identity: auth.user.id,
-    attemptCount: 0,
-    serverFailureCount: 0,
-  });
-  // The original autosave keeps its queue position while Send/Cancel/Restore
-  // replace a separate send UUID in the second position.
-  const queue = [claim(original.key, oldAttempt)];
-  await lifecycle.retireSendWorkingCopy(copy);
-  const { restorationVersion } = await lifecycle.restoreSendWorkingCopy(
-    args,
-    copy
-  );
-  const restored = (await drafts.readLocalDraft(original.key))!;
-  queue.push(
-    claim('send-attempt', await drafts.beginDraftAttempt(restored, 'save'))
-  );
-  const intent: EmailSendIntent = {
-    uuid: 'send-attempt',
-    phase: 'pending',
-    locallyCancelled: true,
-    metadata: {
-      kind: 'email-send-v1',
-      payload: {
-        restoring: true,
-        restorationVersion,
-        workingCopy: copy,
-        draft: args,
-        input: {
-          attachmentIds: [],
-          forwardedAttachmentIds: [],
-          attempt: { attemptId: 'send-attempt', linkId: args.senderLinkId },
-          message: {
-            draftId: args.draftId,
-            subject: args.subject,
-            linkId: args.senderLinkId,
-          },
-        },
-      },
-    },
-  };
-  const host = {
-    inspectMutations: async () => queue,
-    durableMutationIntents: async () => [intent],
-    currentStorageGeneration: async () => 'storage',
-  } as unknown as CacheHost;
-  const replay = drafts.localDraftQueueLifecycle(host);
-  const newer = await drafts.saveLocalDraft({
-    ...input(),
-    draft: { subject: 'Newer restored edit', body_text: 'Keep the new body' },
-  });
-  queue[0] = claim(original.key, await drafts.beginDraftAttempt(newer, 'save'));
-  const failed = { ...intent, phase: 'failed' as const };
-  expect(await lifecycle.supersededSendRestoration(failed)).toBe(false);
-  expect(await replay.beforeMutationAttempt!(queue[0])).toBe(true);
-  await replay.onMutationAttemptResult!(
-    queue[0],
-    {
-      operation: makeOperation(
-        'mutation',
-        createRequest(SaveEmailDraftDocument, {
-          input: { draftId: original.draftId, subject: newer.content.subject },
-        }),
-        { url: 'http://email-send.test/graphql', requestPolicy: 'network-only' }
-      ),
-      data: {
-        saveEmailDraft: {
-          draftId: 'server-draft',
-          thread: { id: 'server-thread' },
-        },
-      },
-      stale: false,
-      hasNext: false,
-    },
-    false
-  );
-  expect(await replay.beforeMutationAttempt!(queue[1])).toBe(false);
-  expect(await lifecycle.supersededSendRestoration(intent)).toBe(false);
-  // The exchange rolls this obsolete claim back with LOCAL_SUPERSEDED. The
-  // proof remains available after restart without retaining that event.
-  await drafts.localDraftStore.close();
-  vi.resetModules();
-  drafts = await import('./local-drafts');
-  lifecycle = await import('./send-draft-lifecycle');
-  expect(await lifecycle.supersededSendRestoration(failed)).toBe(true);
-  expect(await drafts.readLocalDraft(original.key)).toMatchObject({
-    generation: restorationVersion.generation,
-    acknowledgedRevision: newer.revision,
-    content: newer.content,
-  });
-  expect(
-    await lifecycle.supersededSendRestoration({
-      ...failed,
-      metadata: {
-        ...failed.metadata,
-        payload: { ...failed.metadata.payload, restoring: false },
-      },
-    })
-  ).toBe(false);
-  expect(
-    await lifecycle.supersededSendRestoration({
-      ...failed,
-      metadata: {
-        ...failed.metadata,
-        payload: { ...failed.metadata.payload, restorationVersion: undefined },
-      },
-    })
-  ).toBe(false);
-  expect(
-    await lifecycle.supersededSendRestoration({
-      ...failed,
-      metadata: {
-        ...failed.metadata,
-        payload: {
-          ...failed.metadata.payload,
-          restorationVersion: {
-            ...restorationVersion,
-            generation: original.generation,
-          },
-        },
-      },
-    })
-  ).toBe(false);
-  await drafts.forgetLocalDraft(original.key, newer);
-  expect(await lifecycle.supersededSendRestoration(failed)).toBe(false);
 });
 
 it('reuses newer edits from another restored generation instead of the old send snapshot', async () => {

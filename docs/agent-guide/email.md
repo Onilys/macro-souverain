@@ -736,15 +736,16 @@ it must not create a second delivery.
 Cancel a reconstructed send while its original HTTP request is delayed: the draft
 must stay locked until the server confirms cancellation, even if recovery's status
 lookup found no attempt. A fresh queue entry cannot prove the original was never tried.
-Repeat with an unrelated request ahead of the recovered Send in the queue.
+Repeat while the general GraphQL queue is blocked on an unrelated mutation;
+Outbox submission and cancellation must proceed independently.
 After durable reply Undo, delay the restored working-copy read until UI callbacks
 finish, then edit and send again. New edits must save using the restored generation.
 Repeat provider draft sync followed by trash and a new explicit Send: a delayed
 Undo for the trashed send must preserve the newer send's schedule and body.
-Repeat after restarting between a persisted Cancel or Restore decision and its queued
-request: recovery must finish that decision
-even when the original cache row survived. An already queued cancellation or restoration
-must keep its request rather than being replaced on every status poll.
+Restart after persisting Cancel but before submitting it: app-shell recovery must
+finish cancellation and restore the draft atomically. Repeat with no email view
+mounted. Reset the actual WASM cache and verify the independent send journal,
+approved body, attempt ID and draft reservation remain intact.
 Cancel and Restore must win over a delayed Send completion in both composers. Start
 another send after restoration, delay its preparation, then release the old response:
 the newer send must remain locked until its own preparation and delivery finish.

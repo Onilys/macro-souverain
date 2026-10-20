@@ -1,22 +1,18 @@
-import type { DurableMutationIntent } from '@graphql-cache/exchange/optimistic';
 import type {
   EmailSendAttemptFieldsFragment,
   SendEmailAttemptInput,
 } from '@service-storage/graphql/generated/graphql';
 import { createSignal } from 'solid-js';
 import type { GraphqlSaveEmailDraftArgs } from './graphql/draft';
-import type {
-  SendRestorationVersion,
-  SendWorkingCopy,
-} from './send-draft-lifecycle';
+import type { SendWorkingCopy } from './send-draft-lifecycle';
 
 /** Persisted independently of the optimistic layer, including after rejection. */
 export type EmailSendIntent = {
   uuid: string;
-  /** Persisted owner; legacy rows acquire this only from their original session. */
+  /** Owner assigned atomically when the intent is persisted. */
   accountId?: string;
   /** Version 2 is dispatched from the email store, independently of the cache. */
-  dispatchVersion?: 2;
+  dispatchVersion: 2;
   submissionStarted?: boolean;
   dispatch?: {
     generation: number;
@@ -29,23 +25,15 @@ export type EmailSendIntent = {
     paused?: boolean;
   };
   cancellationRequested?: boolean;
-  /** The disposable cache lost this record; reconcile before replaying it. */
-  cacheMissing?: boolean;
-  /** The catalog survived, but has not recorded the durable Cancel/Restore decision. */
-  recoveryRequired?: boolean;
-  /** Resolved through cache aliases on each durable journal read. */
+  /** Canonical IDs returned by server acceptance. */
   resolvedDraftId?: string;
   resolvedThreadId?: string;
   phase: 'pending' | 'committed' | 'failed';
   locallyCancelled: boolean;
   metadata: {
     kind: 'email-send-v1';
-    replace?: boolean;
-    requiresServerConfirmation?: DurableMutationIntent['requiresServerConfirmation'];
-    exclusive?: DurableMutationIntent['exclusive'];
+    requiresServerConfirmation?: boolean;
     payload: {
-      restoring?: boolean;
-      restorationVersion?: SendRestorationVersion;
       workingCopy?: SendWorkingCopy;
       input: SendEmailAttemptInput;
       draft: GraphqlSaveEmailDraftArgs;
@@ -79,7 +67,7 @@ export function isEmailSendIntent(value: unknown): value is EmailSendIntent {
   if (
     !isRecord(value) ||
     typeof value.uuid !== 'string' ||
-    (value.dispatchVersion !== undefined && value.dispatchVersion !== 2) ||
+    value.dispatchVersion !== 2 ||
     !['pending', 'committed', 'failed'].includes(String(value.phase)) ||
     typeof value.locallyCancelled !== 'boolean' ||
     !optionalBoolean(value.submissionStarted) ||
@@ -91,8 +79,7 @@ export function isEmailSendIntent(value: unknown): value is EmailSendIntent {
     !isRecord(metadata) ||
     metadata.kind !== 'email-send-v1' ||
     !isRecord(metadata.payload) ||
-    !optionalBoolean(metadata.requiresServerConfirmation) ||
-    !optionalBoolean(metadata.payload.restoring)
+    !optionalBoolean(metadata.requiresServerConfirmation)
   )
     return false;
   const { input, draft, workingCopy } = metadata.payload;

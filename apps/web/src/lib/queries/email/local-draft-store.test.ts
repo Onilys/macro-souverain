@@ -547,6 +547,7 @@ const sendIntent = (
 ): import('./send-queue').EmailSendIntent => ({
   uuid,
   accountId: 'owner',
+  dispatchVersion: 2,
   phase: 'pending',
   locallyCancelled: false,
   metadata: {
@@ -615,8 +616,16 @@ describe('independent send recovery records', () => {
       results.filter((result) => result.status === 'fulfilled')
     ).toHaveLength(1);
     expect(await first.sends(owner)).toHaveLength(1);
-    await first.removeSend(owner, (await first.sends(owner))[0].uuid);
-    await first.save(owner, snapshot('New edit', 1));
+    await first.putSend(owner, {
+      ...(await first.sends(owner))[0],
+      cancellationRequested: true,
+    });
+    await first.restoreSend(owner, (await first.sends(owner))[0].uuid);
+    const restored = (await first.read(owner, 'local'))!;
+    await first.save(owner, {
+      ...snapshot('New edit', restored.revision),
+      generation: restored.generation,
+    });
     await expect(first.putSend(owner, sendIntent(), true)).rejects.toThrow(
       'changed'
     );
@@ -632,14 +641,17 @@ describe('independent send recovery records', () => {
     );
     await store.putSend(owner, sendIntent());
     expect((await store.sends(owner))[0].cancellationRequested).toBe(true);
-    const restored = sendIntent();
-    restored.metadata.payload.restoring = true;
-    await store.putSend(owner, restored);
-    await store.putSend(owner, sendIntent());
-    expect((await store.sends(owner))[0].metadata.payload.restoring).toBe(true);
+    await store.restoreSend(owner, sendIntent().uuid);
+    await expect(store.putSend(owner, sendIntent())).rejects.toThrow(
+      'already resolved'
+    );
+    const restored = (await store.read(owner, 'local'))!;
     await expect(
-      store.save(owner, snapshot('Restored edit', 1))
-    ).resolves.toMatchObject({ revision: 2 });
+      store.save(owner, {
+        ...snapshot('Restored edit', restored.revision),
+        generation: restored.generation,
+      })
+    ).resolves.toMatchObject({ revision: restored.revision + 1 });
   });
   it('clears send content and fences old sessions on account changes and logout', async () => {
     const store = open(),
@@ -656,19 +668,28 @@ describe('independent send recovery records', () => {
   });
 });
 
-it('a late old restoration cannot release a newer send reservation', async () => {
+it('a late old cancellation cannot release a newer send reservation', async () => {
   const store = open(),
     owner = await store.activate('owner');
   await store.save(owner, snapshot());
-  const old = sendIntent('old');
-  old.metadata.payload.restoring = true;
-  await store.putSend(owner, old);
-  await store.putSend(owner, sendIntent('new'), true);
-  await store.putSend(owner, { ...old, phase: 'committed' });
-  await expect(store.save(owner, snapshot('Late edit', 1))).rejects.toThrow(
-    'Cancel and restore'
+  const old = await store.putSend(
+    owner,
+    { ...sendIntent('old'), cancellationRequested: true },
+    true
   );
-  expect(
-    (await store.sends(owner)).find((row) => row.uuid === 'new')
-  ).toBeDefined();
+  await store.restoreSend(owner, old.uuid);
+  const restored = (await store.read(owner, 'local'))!;
+  const next = sendIntent('new');
+  next.metadata.payload.workingCopy = {
+    key: restored.key,
+    generation: restored.generation,
+    revision: restored.revision,
+    attachments: [],
+  };
+  await store.putSend(owner, next, true);
+  await expect(store.putSend(owner, old)).rejects.toThrow('already resolved');
+  await expect(
+    store.save(owner, snapshot('Late edit', restored.revision))
+  ).rejects.toThrow('Cancel and restore');
+  expect((await store.sends(owner))[0].uuid).toBe('new');
 });

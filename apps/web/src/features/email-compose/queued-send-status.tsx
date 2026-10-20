@@ -32,7 +32,6 @@ export function QueuedSendStatus(props: {
       const { draft, input } = intent.metadata.payload;
       const attempt = settledSendAttempt(intent);
       return (
-        !(intent.metadata.payload.restoring && intent.phase === 'committed') &&
         attempt?.status !== 'SENT' &&
         (!props.threadId ||
           intent.resolvedThreadId === props.threadId ||
@@ -72,7 +71,7 @@ export function QueuedSendStatus(props: {
       >
         <For each={visible()}>
           {(intent) => (
-            <SendStatus intent={intent} refresh={() => sends.refresh(true)} />
+            <SendStatus intent={intent} refresh={() => sends.refresh()} />
           )}
         </For>
         <Show when={emailSendStorageWarning()}>
@@ -166,10 +165,6 @@ function SendStatus(props: {
   const [error, setError] = createSignal<string>();
   const status = () => settledSendAttempt(props.intent)?.status;
   const label = () => {
-    if (props.intent.metadata.payload.restoring)
-      return props.intent.phase === 'failed'
-        ? 'Draft restoration needs attention. Your message is saved here.'
-        : 'Restoring draft';
     if (!emailSendLocked(props.intent)) return 'Send cancelled';
     if (status() === 'DELIVERY_UNCONFIRMED')
       return 'Delivery unconfirmed. Your email may already have been sent. Check your sent mail. We will not resend automatically.';
@@ -250,14 +245,7 @@ function SendStatus(props: {
         </Show>
       </div>
       <Show
-        when={
-          status() !== 'SENDING' &&
-          status() !== 'DELIVERY_UNCONFIRMED' &&
-          !(
-            props.intent.metadata.payload.restoring &&
-            props.intent.phase === 'pending'
-          )
-        }
+        when={status() !== 'SENDING' && status() !== 'DELIVERY_UNCONFIRMED'}
       >
         <Button
           disabled={

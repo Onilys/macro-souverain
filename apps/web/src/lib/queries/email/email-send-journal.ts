@@ -16,13 +16,7 @@ export function restoreEmailSendLocks(tx: IDBTransaction, accountId: string) {
   const request = tx.objectStore('sends').getAll();
   request.onsuccess = () => {
     for (const row of request.result as EmailSendIntent[]) {
-      if (
-        row?.accountId !== accountId ||
-        (isEmailSendIntent(row) &&
-          row.metadata.payload.restoring &&
-          row.dispatchVersion !== 2)
-      )
-        continue;
+      if (row?.accountId !== accountId) continue;
       for (const id of emailSendReservedDraftIds(row))
         if (id) tx.objectStore('meta').put(row.uuid, ['send-lock', id]);
     }
@@ -66,7 +60,7 @@ export function createEmailSendJournal(
               request.onsuccess = () => {
                 const all = request.result as EmailSendIntent[];
                 const previous = all.find((row) => row?.uuid === intent.uuid);
-                if (!previous && intent.dispatchVersion === 2 && !reserve) {
+                if (!previous && !reserve) {
                   finish(new Error('This send was already resolved'));
                   return;
                 }
@@ -87,16 +81,6 @@ export function createEmailSendJournal(
                   finish(new Error('Approved send content cannot be changed'));
                   return;
                 }
-                if (
-                  previous?.dispatchVersion === 2 &&
-                  intent.metadata.payload.restoring !==
-                    previous.metadata.payload.restoring
-                ) {
-                  finish(
-                    new Error('Use atomic draft restoration for this send')
-                  );
-                  return;
-                }
                 const rows = all.filter(
                   (row) => row?.accountId === session.accountId
                 );
@@ -106,9 +90,6 @@ export function createEmailSendJournal(
                   rows.some(
                     (row) =>
                       row.uuid !== intent.uuid &&
-                      (!isEmailSendIntent(row) ||
-                        !row.metadata.payload.restoring ||
-                        row.dispatchVersion === 2) &&
                       ids(row).some((id) => id && ids(intent).includes(id))
                   )
                 ) {
@@ -117,46 +98,35 @@ export function createEmailSendJournal(
                 }
                 const persist = () => {
                   // A late send settlement must not erase a cancellation or restoration.
-                  const next =
-                    previous?.metadata.payload.restoring &&
-                    !intent.metadata.payload.restoring
-                      ? previous
-                      : {
-                          ...intent,
-                          accountId: session.accountId,
-                          dispatchVersion:
-                            previous?.dispatchVersion ?? intent.dispatchVersion,
-                          submissionStarted:
-                            previous?.submissionStarted ||
-                            intent.submissionStarted,
-                          dispatch: previous?.dispatch ?? intent.dispatch,
-                          // Only the dispatcher may settle v2 authority. A late
-                          // composer/status callback cannot regress its response.
-                          ...(previous?.dispatchVersion === 2
-                            ? {
-                                phase: previous.phase,
-                                response: previous.response,
-                                resolvedDraftId: previous.resolvedDraftId,
-                                resolvedThreadId: previous.resolvedThreadId,
-                                locallyCancelled: previous.locallyCancelled,
-                                metadata: {
-                                  ...intent.metadata,
-                                  requiresServerConfirmation:
-                                    previous.metadata
-                                      .requiresServerConfirmation,
-                                },
-                              }
-                            : {}),
-                          cancellationRequested:
-                            previous?.cancellationRequested ||
-                            intent.cancellationRequested,
-                          cacheMissing: undefined,
-                        };
-                  if (
-                    next.cancellationRequested &&
-                    next.dispatchVersion === 2 &&
-                    !next.submissionStarted
-                  ) {
+                  const next = {
+                    ...intent,
+                    accountId: session.accountId,
+                    dispatchVersion:
+                      previous?.dispatchVersion ?? intent.dispatchVersion,
+                    submissionStarted:
+                      previous?.submissionStarted || intent.submissionStarted,
+                    dispatch: previous?.dispatch ?? intent.dispatch,
+                    // Only the dispatcher may settle v2 authority. A late
+                    // composer/status callback cannot regress its response.
+                    ...(previous
+                      ? {
+                          phase: previous.phase,
+                          response: previous.response,
+                          resolvedDraftId: previous.resolvedDraftId,
+                          resolvedThreadId: previous.resolvedThreadId,
+                          locallyCancelled: previous.locallyCancelled,
+                          metadata: {
+                            ...intent.metadata,
+                            requiresServerConfirmation:
+                              previous.metadata.requiresServerConfirmation,
+                          },
+                        }
+                      : {}),
+                    cancellationRequested:
+                      previous?.cancellationRequested ||
+                      intent.cancellationRequested,
+                  };
+                  if (next.cancellationRequested && !next.submissionStarted) {
                     next.locallyCancelled = true;
                     next.metadata = {
                       ...next.metadata,
@@ -172,21 +142,11 @@ export function createEmailSendJournal(
                   }
                   sends.put(next, intent.uuid);
                   for (const id of ids(next))
-                    if (id) {
-                      if (next.metadata.payload.restoring) {
-                        const lock = tx
-                          .objectStore('meta')
-                          .get(['send-lock', id]);
-                        lock.onsuccess = () => {
-                          if (lock.result === intent.uuid)
-                            tx.objectStore('meta').delete(['send-lock', id]);
-                        };
-                      } else
-                        tx.objectStore('meta').put(intent.uuid, [
-                          'send-lock',
-                          id,
-                        ]);
-                    }
+                    if (id)
+                      tx.objectStore('meta').put(intent.uuid, [
+                        'send-lock',
+                        id,
+                      ]);
                   finish(next);
                 };
                 const copy = intent.metadata.payload.workingCopy;
@@ -302,7 +262,6 @@ export function createEmailSendJournal(
                   (!row.cancellationRequested &&
                     (row.phase === 'failed' || status === 'FAILED')) ||
                   row.locallyCancelled ||
-                  row.metadata.payload.restoring ||
                   (row.dispatch?.leaseUntil ?? 0) > now ||
                   (row.dispatch?.nextAttemptAt ?? 0) > now
                 ) {
@@ -450,16 +409,18 @@ export function createEmailSendJournal(
                 finish();
                 return;
               }
-              if (row?.dispatchVersion === 2) {
-                const sent =
-                  (
-                    row.response?.cancelEmailSend?.attempt ??
-                    row.response?.sendEmailMessage?.attempt
-                  )?.status === 'SENT';
-                if (!sent) {
-                  finish();
-                  return;
-                }
+              if (!isEmailSendIntent(row)) {
+                finish();
+                return;
+              }
+              const sent =
+                (
+                  row.response?.cancelEmailSend?.attempt ??
+                  row.response?.sendEmailMessage?.attempt
+                )?.status === 'SENT';
+              if (!sent) {
+                finish();
+                return;
               }
               if (row)
                 for (const id of [

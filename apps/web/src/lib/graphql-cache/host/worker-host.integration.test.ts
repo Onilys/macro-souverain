@@ -170,7 +170,6 @@ class IntegrationCore {
     if (request.kind === 'enqueue-optimistic-mutation') {
       result = {
         transactionId: String(request.id),
-        requestGeneration: '0',
         changed: [],
         affectedOps: [],
         reset: false,

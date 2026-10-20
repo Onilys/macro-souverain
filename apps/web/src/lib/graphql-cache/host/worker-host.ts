@@ -1203,19 +1203,6 @@ export function createWorkerCacheHost(options: WorkerHostOptions): CacheHost {
       })) as CacheRevision;
     },
 
-    async retireDurableMutationIntent(uuid) {
-      return (await initializedRequest({
-        kind: 'retire-durable-mutation-intent',
-        uuid,
-      })) as boolean;
-    },
-
-    async durableMutationIntents(): Promise<unknown[]> {
-      return (await initializedRequest({
-        kind: 'durable-mutation-intents',
-      })) as unknown[];
-    },
-
     async currentStorageGeneration(): Promise<string> {
       await ensureInitialized();
       return parseStorageGeneration(
@@ -1396,13 +1383,10 @@ export function createWorkerCacheHost(options: WorkerHostOptions): CacheHost {
     async claimNextMutation(
       owner: string,
       nowMs: number,
-      leaseExpiresAtMs: number,
-      allowDurable = true
+      leaseExpiresAtMs: number
     ): Promise<ClaimedMutation | undefined> {
       return (await initializedRequest({
-        kind: allowDurable
-          ? 'claim-next-mutation'
-          : 'claim-next-non-durable-mutation',
+        kind: 'claim-next-mutation',
         owner,
         nowMs,
         leaseExpiresAtMs,

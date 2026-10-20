@@ -9,9 +9,9 @@ beforeEach(() => vi.resetAllMocks());
 
 const intent: EmailSendIntent = {
   uuid: 'audit-attempt',
+  dispatchVersion: 2,
   phase: 'pending',
   locallyCancelled: false,
-  cacheMissing: true,
   metadata: {
     kind: 'email-send-v1',
     payload: {
@@ -50,10 +50,7 @@ it('exports only explicit lifecycle fields even when inputs contain private payl
     'email_send.attempt_id': 'audit-attempt',
     'email_send.link_id': 'audit-link',
     'email_send.phase': 'pending',
-    'email_send.cache_missing': true,
-    'email_send.recovery_required': false,
     'email_send.cancellation_requested': false,
-    'email_send.restoring': false,
   });
   expect(JSON.stringify(telemetry.warn.mock.calls)).not.toContain('PRIVATE');
 });

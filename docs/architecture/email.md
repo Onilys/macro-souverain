@@ -564,3 +564,14 @@ tabs, sign-out, Undo, stale writes, Send Later,
 completed attachments, both providers, and server sends from other devices before
 release. The separate cache-bootstrap recovery hotfix remains useful
 for draft synchronization and does not determine send availability.
+
+### Send persistence ownership
+
+The email working-copy IndexedDB database owns frozen sends, draft reservations,
+submission leases, cancellation, and atomic draft restoration. The general
+GraphQL queue owns draft autosaves and other ordinary mutations only. It has no
+send catalog or Send/Cancel replacement protocol. Composers observe the email
+journal; the authenticated app-shell dispatcher performs submission and recovery.
+The former cache-queue send format was used only in local development and tests,
+so there is no deployed format to migrate. Unsupported journal records retain
+their contents and recognizable draft reservations for recovery.

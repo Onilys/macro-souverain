@@ -2,7 +2,7 @@
 edition = "2024"
 name = "cache-wasm"
 publish = false
-# Rebuild merged cache projections with atomic durable-send claims.
+# Rebuild with draft link patches independent of email send persistence.
 version = "0.6.51"
 
 [features]

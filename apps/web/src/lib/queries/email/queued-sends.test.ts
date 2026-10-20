@@ -21,20 +21,16 @@ vi.mock('./send-queue', async (original) => ({
   retireEmailSendIntent: async () => false,
   watchEmailSends: () => () => {},
 }));
-vi.mock('./send-draft-lifecycle', () => ({
-  supersededSendRestoration: async () => false,
-}));
 
 const intent: EmailSendIntent = {
   uuid: 'attempt',
+  dispatchVersion: 2,
   phase: 'pending',
   locallyCancelled: false,
   cancellationRequested: true,
-  recoveryRequired: true,
   metadata: {
     kind: 'email-send-v1',
     payload: {
-      restoring: false,
       input: {
         attempt: { attemptId: 'attempt', linkId: 'inbox' },
         message: { draftId: 'draft', subject: 'Recovered decision' },
@@ -62,57 +58,19 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-it.each([false, true])(
-  'resumes an interrupted durable decision with a surviving catalog, restoring: %s',
-  async (restoring) => {
-    const row = {
-      ...intent,
-      metadata: {
-        ...intent.metadata,
-        payload: { ...intent.metadata.payload, restoring },
-      },
-    };
-    mocks.read.mockResolvedValue([row]);
-    let dispose = () => {};
-    const queue = createRoot((cleanup) => {
-      dispose = cleanup;
-      return useQueuedEmailSends();
-    });
-    try {
-      await queue.refresh(true);
-      expect(mocks.recover).toHaveBeenCalledWith(row);
-      expect(mocks.status).not.toHaveBeenCalled();
-      // Recording the new request stops recovery while normal polling continues.
-      mocks.recover.mockClear();
-      mocks.read.mockResolvedValue([{ ...row, recoveryRequired: false }]);
-      await queue.refresh(true);
-      expect(mocks.recover).not.toHaveBeenCalled();
-    } finally {
-      dispose();
-    }
-  }
-);
-
-it('deduplicates recurring recovery errors and reports a new failure after recovery succeeds', async () => {
+it('observes persisted sends without submitting or reconciling from the composer', async () => {
   mocks.read.mockResolvedValue([intent]);
-  mocks.recover.mockRejectedValue(new Error('PRIVATE provider failure'));
   let dispose = () => {};
   const queue = createRoot((cleanup) => {
     dispose = cleanup;
     return useQueuedEmailSends();
   });
   try {
-    await queue.refresh(true);
-    await queue.refresh(true);
-    expect(mocks.warn).toHaveBeenCalledTimes(1);
+    await queue.refresh();
     expect(queue.ready()).toBe(true);
-    expect(queue.intents()).toHaveLength(1);
-    expect(JSON.stringify(mocks.warn.mock.calls)).not.toContain('PRIVATE');
-    mocks.recover.mockResolvedValue(undefined);
-    await queue.refresh(true);
-    mocks.recover.mockRejectedValue(new Error('PRIVATE provider failure'));
-    await queue.refresh(true);
-    expect(mocks.warn).toHaveBeenCalledTimes(2);
+    expect(queue.intents()).toEqual([intent]);
+    expect(mocks.recover).not.toHaveBeenCalled();
+    expect(mocks.status).not.toHaveBeenCalled();
   } finally {
     dispose();
   }
@@ -126,15 +84,15 @@ it('reports unavailable storage once until a read succeeds, while preserving rea
     return useQueuedEmailSends();
   });
   try {
-    await queue.refresh(true);
-    await queue.refresh(true);
+    await queue.refresh();
+    await queue.refresh();
     expect(mocks.warn).toHaveBeenCalledTimes(1);
     expect(queue.ready()).toBe(false);
     mocks.read.mockResolvedValue([]);
-    await queue.refresh(true);
+    await queue.refresh();
     expect(queue.ready()).toBe(true);
     mocks.read.mockRejectedValue(new Error('PRIVATE storage failure'));
-    await queue.refresh(true);
+    await queue.refresh();
     expect(mocks.warn).toHaveBeenCalledTimes(2);
   } finally {
     dispose();
@@ -162,3 +120,24 @@ it.each([false, true])(
     clear.mockRestore();
   }
 );
+
+it('ignores a late failed read after a newer journal refresh succeeds', async () => {
+  mocks.read.mockResolvedValue([]);
+  let dispose = () => {};
+  const queue = createRoot((cleanup) => {
+    dispose = cleanup;
+    return useQueuedEmailSends();
+  });
+  await Promise.resolve();
+  const oldRead = Promise.withResolvers<EmailSendIntent[]>();
+  mocks.read.mockReturnValueOnce(oldRead.promise);
+  const oldRefresh = queue.refresh();
+  mocks.read.mockResolvedValue([intent]);
+  await queue.refresh();
+  oldRead.reject(new Error('late storage error'));
+  await oldRefresh;
+  expect(queue.ready()).toBe(true);
+  expect(queue.intents()).toEqual([intent]);
+  expect(mocks.warn).not.toHaveBeenCalled();
+  dispose();
+});

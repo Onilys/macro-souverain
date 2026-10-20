@@ -484,13 +484,7 @@ export function isCacheRequest(value: unknown): value is CacheRequest {
         isNonEmptyString(value.scope) &&
         isOptionalPositiveInteger(value.hotCapacity)
       );
-    case 'retire-durable-mutation-intent':
-      return (
-        hasOnlyKeys(value, ['id', 'kind', 'uuid']) &&
-        isNonEmptyString(value.uuid)
-      );
     case 'current-revision':
-    case 'durable-mutation-intents':
     case 'current-storage-generation':
     case 'inspect-mutations':
       return hasOnlyKeys(value, ['id', 'kind']);
@@ -627,7 +621,6 @@ export function isCacheRequest(value: unknown): value is CacheRequest {
         isSafeNonNegativeInteger(value.leaseExpiresAtMs)
       );
     case 'claim-next-mutation':
-    case 'claim-next-non-durable-mutation':
       return (
         hasOnlyKeys(value, [
           'id',

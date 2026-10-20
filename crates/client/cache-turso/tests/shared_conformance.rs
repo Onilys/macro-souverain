@@ -2,8 +2,6 @@
 
 #[path = "shared_conformance/calendar_points.rs"]
 mod calendar_points;
-#[path = "shared_conformance/recovered_send.rs"]
-mod recovered_send;
 
 use cache_core::calendar::{
     CalendarCommit, CalendarFreshness, CalendarLinkWatermark, CalendarRangeRequest,

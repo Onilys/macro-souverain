@@ -24,8 +24,8 @@ const policies = {
   SaveEmailDraft: 'custom: draft identity and thread links',
   DeleteEmailDraft: 'custom: draft removal and thread links',
   SendEmailMessage:
-    'custom: frozen send attempt, draft identity and thread links',
-  CancelEmailSend: 'custom: durable cancellation and restored draft projection',
+    'custom: independent email outbox and fetch-only submission',
+  CancelEmailSend: 'custom: independent outbox cancellation and atomic restore',
   SetFavorite: 'custom: favorite list membership',
   ReorderFavorites: 'custom: ordered favorite links',
   SetEntityProperty: 'custom: assignment identity and parent links',

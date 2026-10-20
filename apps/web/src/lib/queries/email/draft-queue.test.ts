@@ -19,7 +19,6 @@ import {
 } from './local-drafts';
 
 const mocks = vi.hoisted(() => ({
-  durableMutationIntents: vi.fn(),
   readRecordsByKeys: vi.fn(),
   onCacheChanged: vi.fn(),
   onMutationSettled: vi.fn(),
@@ -40,7 +39,6 @@ vi.mock('@service-storage/graphql-soup', () => ({
   assertEmailDraftQueueAvailable: mocks.assertQueueAvailable,
   graphqlDraftQueueBlocked: () => mocks.queueBlocked,
   getGraphqlCacheHost: () => ({
-    durableMutationIntents: mocks.durableMutationIntents,
     readRecordsByKeys: mocks.readRecordsByKeys,
     onCacheChanged: mocks.onCacheChanged,
     onMutationSettled: mocks.onMutationSettled,
@@ -84,7 +82,6 @@ const args: GraphqlSaveEmailDraftArgs = {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  mocks.durableMutationIntents.mockResolvedValue([]);
   mocks.queueBlocked = false;
   mocks.cacheEnabled = true;
   vi.mocked(queryClient.invalidateQueries).mockResolvedValue(undefined);
@@ -243,14 +240,6 @@ it('removes the resolved draft contribution when discarding an old handle', asyn
     threadDeleted: true,
     thread: { messages: [], mailDraftState: { drafts: [] } },
   });
-});
-
-it('keeps an ordinary edit behind a pending send recovery instead of replacing it', async () => {
-  const { operations } = await setup();
-  mocks.durableMutationIntents.mockResolvedValue([{ uuid: handle }]);
-  await saveEmailDraftQueued({ args: { ...args, draftId: serverId } });
-  expect(optimisticContextOf(operations[0])!.uuid).toBe(serverId);
-  expect(optimisticContextOf(operations[0])!.durableIntent).toBeUndefined();
 });
 
 it('retries a draft and thread snapshot spanning identity settlement', async () => {

@@ -6,6 +6,7 @@ import type {
   MutationInspection,
 } from '@graphql-cache/protocol';
 import type { OperationResult } from '@urql/core';
+import { IDBFactory } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const auth = vi.hoisted(() => ({ user: { authenticated: true, id: 'owner' } }));
@@ -32,9 +33,7 @@ const input = (subject = 'Draft') => ({
   attachments: [],
 });
 const queue: MutationInspection[] = [];
-const sends: unknown[] = [];
 const host = {
-  durableMutationIntents: async () => sends,
   inspectMutations: async () => queue,
   currentStorageGeneration: async () => 'storage',
 } as unknown as CacheHost;
@@ -64,9 +63,9 @@ const failure = {
 
 beforeEach(async () => {
   vi.resetModules();
+  vi.stubGlobal('indexedDB', new IDBFactory());
   localStorage.clear();
   queue.length = 0;
-  sends.length = 0;
   auth.user = { authenticated: true, id: 'owner' };
   stagedUpload.mockReset();
   native.active = false;
@@ -76,8 +75,8 @@ beforeEach(async () => {
   await runtime.localDraftStore.clear();
 });
 afterEach(async () => {
-  vi.unstubAllGlobals();
   await runtime.localDraftStore.close();
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
@@ -121,16 +120,35 @@ describe('draft queue recovery', () => {
         variables: { input: { draftId: 'local', linkId: inboxId } },
       });
     }
-    sends.push({
-      uuid: 'send',
-      metadata: {
-        kind: 'email-send-v1',
-        payload: {
-          draft: { draftId: 'local', senderLinkId: 'inbox-c' },
-          workingCopy: local,
+    await runtime.persistLocalEmailSend(
+      {
+        uuid: 'send',
+        dispatchVersion: 2,
+        phase: 'pending',
+        locallyCancelled: false,
+        metadata: {
+          kind: 'email-send-v1',
+          payload: {
+            draft: {
+              draftId: 'local',
+              threadDbId: 'thread',
+              senderLinkId: 'inbox-c',
+              senderEmail: 'sender@example.test',
+              subject: 'Frozen',
+              optimisticBodyHtml: null,
+            },
+            workingCopy: local,
+            input: {
+              attempt: { attemptId: 'send', linkId: 'inbox-c' },
+              message: { draftId: 'local', subject: 'Frozen' },
+              attachmentIds: [],
+              forwardedAttachmentIds: [],
+            },
+          },
         },
       },
-    });
+      true
+    );
     await runtime.forgetLocalDraft(local.key, local);
     const lifecycle = runtime.localDraftQueueLifecycle(host);
     for (const move of moves)
@@ -202,56 +220,84 @@ describe('draft queue recovery', () => {
       'Edited after cancellation'
     );
   });
-  it.each(['restoring', 'locally-cancelled', 'cancelled'])(
-    'syncs newer restored edits before the %s send journal is retired',
-    async (state) => {
-      const original = await runtime.saveLocalDraft(input('Original'));
-      const stale = await runtime.beginDraftAttempt(original, 'save');
-      await runtime.forgetLocalDraft('local');
-      await runtime.reviveLocalDraft('local');
-      const restored = await runtime.saveLocalDraft(input('Restored'));
-      await runtime.beginDraftAttempt(restored, 'save');
-      const edited = await runtime.saveLocalDraft(input('Newer edit'));
-      const saving = await runtime.beginDraftAttempt(edited, 'save');
-      sends.push({
+  it('syncs newer restored edits after atomic cancellation retires the send', async () => {
+    const original = await runtime.saveLocalDraft(input('Original'));
+    const stale = await runtime.beginDraftAttempt(original, 'save');
+    const send = await runtime.persistLocalEmailSend(
+      {
         uuid: 'send',
-        locallyCancelled: state === 'locally-cancelled',
+        dispatchVersion: 2,
+        phase: 'pending',
+        locallyCancelled: false,
+        cancellationRequested: true,
         metadata: {
           kind: 'email-send-v1',
           payload: {
-            draft: { draftId: 'local' },
+            draft: {
+              draftId: 'local',
+              threadDbId: 'thread',
+              senderLinkId: 'inbox',
+              senderEmail: 'sender@example.test',
+              subject: 'Original',
+              optimisticBodyHtml: null,
+            },
             workingCopy: original,
-            restoring: state === 'restoring',
+            input: {
+              attempt: { attemptId: 'send', linkId: 'inbox' },
+              message: { draftId: 'local', subject: 'Original' },
+              attachmentIds: [],
+              forwardedAttachmentIds: [],
+            },
           },
         },
-        response:
-          state === 'cancelled'
-            ? { cancelEmailSend: { attempt: { status: 'CANCELLED' } } }
-            : undefined,
-      });
-      const lifecycle = runtime.localDraftQueueLifecycle(host);
-      expect(await lifecycle.beforeMutationAttempt!(claimed(stale))).toBe(
-        false
-      );
-      expect(await lifecycle.beforeMutationAttempt!(claimed(saving))).toBe(
-        true
-      );
-      await lifecycle.onMutationAttemptResult!(claimed(saving), success, false);
-      expect(await runtime.readLocalDraft('local')).toMatchObject({
-        generation: restored.generation,
-        acknowledgedRevision: edited.revision,
-        content: { subject: 'Newer edit' },
-      });
-    }
-  );
-  it('does not resurrect or replay an obsolete draft save owned by a send', async () => {
-    sends.push({
-      uuid: 'send',
-      metadata: {
-        kind: 'email-send-v1',
-        payload: { draft: { draftId: 'local' } },
       },
+      true
+    );
+    const result = await runtime.localDraftStore.restoreSend(
+      await runtime.emailStorageSession(),
+      send.uuid
+    );
+    const edited = await runtime.saveLocalDraft(input('Newer edit'));
+    const saving = await runtime.beginDraftAttempt(edited, 'save');
+    const lifecycle = runtime.localDraftQueueLifecycle(host);
+    expect(await lifecycle.beforeMutationAttempt!(claimed(stale))).toBe(false);
+    expect(await lifecycle.beforeMutationAttempt!(claimed(saving))).toBe(true);
+    await lifecycle.onMutationAttemptResult!(claimed(saving), success, false);
+    expect(await runtime.readLocalDraft('local')).toMatchObject({
+      generation: result!.draft.generation,
+      acknowledgedRevision: edited.revision,
+      content: { subject: 'Newer edit' },
     });
+  });
+  it('does not resurrect or replay an obsolete draft save owned by a send', async () => {
+    await runtime.persistLocalEmailSend(
+      {
+        uuid: 'send',
+        dispatchVersion: 2,
+        phase: 'pending',
+        locallyCancelled: false,
+        metadata: {
+          kind: 'email-send-v1',
+          payload: {
+            draft: {
+              draftId: 'local',
+              threadDbId: 'thread',
+              senderLinkId: 'inbox',
+              senderEmail: 'sender@example.test',
+              subject: 'Frozen',
+              optimisticBodyHtml: null,
+            },
+            input: {
+              attempt: { attemptId: 'send', linkId: 'inbox' },
+              message: { draftId: 'local', subject: 'Frozen' },
+              attachmentIds: [],
+              forwardedAttachmentIds: [],
+            },
+          },
+        },
+      },
+      true
+    );
     const old: MutationInspection = {
       transactionId: 'old-save',
       uuid: 'local',

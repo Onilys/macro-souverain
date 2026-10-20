@@ -627,6 +627,11 @@ from the prediction keep their cached values on existing entities. Nested
 response keys come from the representative, so a document that selects a field
 under a different alias does not receive that field's predicted value.
 
+Email sends use the independent email working-copy database and fetch-only
+GraphQL client. The cache queue holds draft autosaves and ordinary mutations;
+it does not persist, dispatch, or cancel sends. The email dispatcher owns send
+leases and recovery, including when no composer is mounted.
+
 The durable optimistic queue owns ordering, retries, commit and rollback. The
 query author supplies no optimistic callbacks, result traversal or cache writes.
 Both the list and a detail query for that thread observe the same effective

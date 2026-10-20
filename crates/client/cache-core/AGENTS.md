@@ -56,6 +56,8 @@ GraphQL response shape for callers. A concrete `Storage` impl (e.g.
 
 ## Gotchas
 
+- Email send persistence and cancellation belong to the frontend email journal, not the normalized cache or its mutation queue.
+
 - Opaque JSON scalars must preserve floating-point values on reparse — `serde_json`
   is pulled in with the `float_roundtrip` feature; don't drop it.
 - Patches structural query changes in place instead of resending full results

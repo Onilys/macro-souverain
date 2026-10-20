@@ -44,7 +44,6 @@ export function createEmailSendDispatcher(options: {
     return (
       !row.dispatch?.paused &&
       !row.locallyCancelled &&
-      !row.metadata.payload.restoring &&
       status !== 'SENT' &&
       status !== 'CANCELLED' &&
       (row.cancellationRequested ||
@@ -67,11 +66,7 @@ export function createEmailSendDispatcher(options: {
       let attempt: EmailSendAttemptFieldsFragment | null;
       if (claimed.cancellationRequested) {
         attempt = await options.cancel(claimed, controller.signal);
-      } else if (
-        row.submissionStarted ||
-        row.phase === 'committed' ||
-        !row.dispatchVersion
-      ) {
+      } else if (row.submissionStarted || row.phase === 'committed') {
         attempt = await options.status(claimed, controller.signal);
         if (!attempt && row.phase !== 'committed')
           attempt = await options.submit(claimed, controller.signal);

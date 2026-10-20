@@ -321,12 +321,7 @@ fn restored_draft_enqueues_without_a_previously_loaded_thread_query() {
             )
             .await
             .unwrap();
-        let mut response = mutation_response();
-        response["__durableIntent"] = json!({
-            "kind": "email-send-v1",
-            "replace": true,
-            "payload": {"restoring": true}
-        });
+        let response = mutation_response();
         let (transaction, _) = engine
             .begin_optimistic_write(
                 None,
@@ -344,7 +339,7 @@ fn restored_draft_enqueues_without_a_previously_loaded_thread_query() {
                 },
             )
             .await
-            .expect("an uncached thread lookup must not reject durable restoration");
+            .expect("an uncached thread lookup must not reject a draft save");
 
         let mut engine = Engine::new(engine.into_storage());
         let selection = cache_core::record_selection::RecordSelection::parse(

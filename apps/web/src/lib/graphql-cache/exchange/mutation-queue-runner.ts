@@ -38,7 +38,6 @@ import {
   makeOperation,
   type Operation,
   type OperationResult,
-  stringifyVariables,
 } from '@urql/core';
 import { type DocumentNode, Kind, parse } from 'graphql';
 import { match } from 'ts-pattern';
@@ -204,24 +203,7 @@ function mutationErrorCode(
 }
 
 /** Server response kept until its local commit succeeds. */
-type ConfirmedMutation = {
-  transactionId: string;
-  requestKey: string;
-  result: OperationResult;
-};
-
-/** In-place cancellation changes the request while keeping its transaction ID. */
-function requestKey(mutation: {
-  query: string;
-  operationName?: string;
-  variables?: Record<string, unknown>;
-}): string {
-  return JSON.stringify([
-    mutation.query,
-    mutation.operationName,
-    stringifyVariables(mutation.variables),
-  ]);
-}
+type ConfirmedMutation = { transactionId: string; result: OperationResult };
 
 /** Phase of the claimed queue head; at most one attempt is active. */
 type HeadState =
@@ -357,12 +339,11 @@ export function createMutationQueueRunner(
   const liveQueuedOps = new Map<string, LiveQueuedOperation>();
   let storageGeneration = 0;
   let activeAttempt: AttemptToken | undefined;
-  // Queue IDs advance in order; replacements and retries advance their lease.
+  // Queue IDs advance in order; retries advance their lease.
   // Keep the watermark after settlement so a late claim cannot revive an old head.
   let latestClaim:
     | Pick<ClaimedMutation, 'transactionId' | 'leaseGeneration'>
     | undefined;
-  const requestGenerations = new Map<string, bigint>();
   // The durable queue is strictly ordered. A confirmed head keeps its server
   // response until local settlement succeeds, without repeating a server
   // effect after a cache failure. Process loss still requires server-side
@@ -377,9 +358,6 @@ export function createMutationQueueRunner(
   let drainTimer: ReturnType<typeof setTimeout> | undefined;
 
   function isNewClaim(claim: ClaimedMutation): boolean {
-    const known = requestGenerations.get(claim.transactionId);
-    if (known !== undefined && BigInt(claim.leaseGeneration) <= known)
-      return false;
     if (!latestClaim) return true;
     const id = BigInt(claim.transactionId);
     const previousId = BigInt(latestClaim.transactionId);
@@ -388,13 +366,6 @@ export function createMutationQueueRunner(
       (id === previousId &&
         BigInt(claim.leaseGeneration) > BigInt(latestClaim.leaseGeneration))
     );
-  }
-
-  function rememberGeneration(id: string, generation: string): void {
-    const next = BigInt(generation);
-    const previous = requestGenerations.get(id);
-    if (previous === undefined || next > previous)
-      requestGenerations.set(id, next);
   }
 
   function isCurrent(token: StorageEpoch | AttemptToken): boolean {
@@ -462,16 +433,9 @@ export function createMutationQueueRunner(
     };
     if (!isCurrent(epoch) || !isNewClaim(claimed)) return;
     latestClaim = claimed;
-    rememberGeneration(claimed.transactionId, claimed.leaseGeneration);
-    for (const id of requestGenerations.keys())
-      if (BigInt(id) < BigInt(claimed.transactionId))
-        requestGenerations.delete(id);
     activeAttempt = attempt;
     const confirmed = confirmedOf(head);
-    if (
-      confirmed?.transactionId === claimed.transactionId &&
-      confirmed.requestKey === requestKey(claimed)
-    ) {
+    if (confirmed?.transactionId === claimed.transactionId) {
       // claim → settling: re-apply the server's response before admission
       // hooks run, so they can never veto or resend a confirmed head.
       if (!transition(attempt, { kind: 'settling', confirmed })) return;
@@ -715,8 +679,7 @@ export function createMutationQueueRunner(
       const claimed = await host.claimNextMutation(
         owner,
         now,
-        now + QUEUE_LEASE_MS,
-        !(typeof navigator !== 'undefined' && navigator.onLine === false)
+        now + QUEUE_LEASE_MS
       );
       if (!claimed) {
         resolveLiveOperationsAsQueued();
@@ -792,18 +755,15 @@ export function createMutationQueueRunner(
     epoch: StorageEpoch
   ): Promise<OperationResult | undefined> {
     notifyOptimisticMutationEnqueued(op);
-    const previousGeneration = requestGenerations.get(enqueue.transactionId);
+    // Enqueue IDs are monotonic and immutable. A delayed acknowledgement must
+    // not replace the live observer for a head already claimed by the pump.
     const stale =
       enqueue.initialClaim.kind === 'claimed'
         ? !isNewClaim(enqueue.initialClaim.mutation)
-        : (latestClaim !== undefined &&
-            BigInt(enqueue.transactionId) <
-              BigInt(latestClaim.transactionId)) ||
-          (previousGeneration !== undefined &&
-            BigInt(enqueue.requestGeneration) <= previousGeneration);
+        : latestClaim !== undefined &&
+          BigInt(enqueue.transactionId) <= BigInt(latestClaim.transactionId);
     if (!isCurrent(epoch) || stale)
       return queuedMutationResult(op, enqueue.transactionId);
-    rememberGeneration(enqueue.transactionId, enqueue.requestGeneration);
     if (enqueue.upsertKind.kind === 'replaced-pending') {
       const removedId = enqueue.upsertKind.removedTransactionId;
       if (
@@ -973,7 +933,6 @@ export function createMutationQueueRunner(
       } else {
         const confirmed: ConfirmedMutation = {
           transactionId: attempt.transactionId,
-          requestKey: requestKey(attempt.mutation ?? deps.cacheDocument(op)),
           result,
         };
         if (!transition(attempt, confirm(confirmed))) return detachedResult();
@@ -1072,7 +1031,6 @@ export function createMutationQueueRunner(
     storageGeneration += 1;
     activeAttempt = undefined;
     latestClaim = undefined;
-    requestGenerations.clear();
     head = IDLE;
     deferredUntil = undefined;
     resolveLiveOperationsAsQueued();

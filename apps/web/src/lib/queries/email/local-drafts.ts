@@ -576,13 +576,9 @@ export function localDraftQueueLifecycle(
       return false;
     const id = text(object(mutation.variables.input).draftId);
     if (!id) return false;
-    const intents = [
-      ...(await host.durableMutationIntents()),
-      ...(await readLocalEmailSends()),
-    ];
+    const intents = await readLocalEmailSends();
     return intents.some((value) => {
       const intent = object(value);
-      if (intent.uuid === mutation.uuid) return false; // Explicit restore replaces its send.
       const metadata = object(intent.metadata);
       if (metadata.kind !== 'email-send-v1') return false;
       const payload = object(metadata.payload);
@@ -592,9 +588,7 @@ export function localDraftQueueLifecycle(
       );
       const restoredAttempt = attemptOf(mutation);
       if (
-        (payload.restoring ||
-          intent.locallyCancelled ||
-          attempt.status === 'CANCELLED') &&
+        (intent.locallyCancelled || attempt.status === 'CANCELLED') &&
         restoredAttempt &&
         restoredAttempt.generation !== object(payload.workingCopy).generation
       )
@@ -826,18 +820,10 @@ export function localDraftQueueLifecycle(
         !accountKnown() &&
         (attemptOf(mutation) ||
           legacy.has(mutation.transactionId) ||
-          mutation.operationName === 'SendEmailMessage' ||
           mutation.operationName === 'SaveEmailDraft' ||
           mutation.operationName === 'DeleteEmailDraft')
       )
         return 'defer';
-      if (mutation.operationName === 'SendEmailMessage') {
-        const send = (await readLocalEmailSends()).find(
-          (row) => row.uuid === mutation.uuid
-        );
-        if (send?.cancellationRequested || send?.metadata.payload.restoring)
-          return false;
-      }
       if (await ownedBySend(mutation)) return false;
       const attempt = await resolveAttempt(mutation);
       if (!attempt) return true;

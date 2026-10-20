@@ -278,12 +278,6 @@ function makeFakeHost(): FakeHost {
   }
 
   const host: FakeHost = {
-    async retireDurableMutationIntent() {
-      return false;
-    },
-    async durableMutationIntents() {
-      return [];
-    },
     clientId: 'test-client',
     resetStorage() {
       queue.length = 0;
@@ -396,7 +390,6 @@ function makeFakeHost(): FakeHost {
       const mutation = claimQueueHead(claim.nowMs, claim.leaseExpiresAtMs);
       return {
         transactionId,
-        requestGeneration: '0',
         revision: INITIAL_CACHE_REVISION,
         revisionAdvanced: true,
         changed: [],
@@ -3654,14 +3647,13 @@ describe('normalizedCacheExchange', () => {
         vi.restoreAllMocks();
       });
 
-      it('backs off cache wakeups while offline without claiming a send or spinning', async () => {
+      it('backs off empty cache wakeups while offline without spinning', async () => {
         vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
         const claim = vi.spyOn(host, 'claimNextMutation');
         const { forwarded } = harness(host);
         host.pushGeneration({ storage: 'reset' });
         await vi.advanceTimersByTimeAsync(1_000);
         expect(claim).toHaveBeenCalledOnce();
-        expect(claim.mock.calls[0][3]).toBe(false);
         expect(host.claims).toEqual([]);
         expect(forwarded).toHaveLength(0);
         expect(vi.getTimerCount()).toBeLessThan(5);
@@ -3716,7 +3708,6 @@ describe('normalizedCacheExchange', () => {
             'exchange:test-client',
             readyAt,
             readyAt + 300_000,
-            true,
           ]);
         }
       );
@@ -4212,31 +4203,6 @@ describe('normalizedCacheExchange', () => {
       expect(forwarded.map((op) => op.kind)).toEqual(['mutation']);
       expect(results).toHaveLength(1);
       expect(results[0]?.data).toEqual({ from: 'network' });
-    });
-
-    it('never sends a durable intent directly when local enqueue fails', async () => {
-      host.enqueueOptimisticMutation = vi
-        .fn()
-        .mockRejectedValue(new Error('disk full'));
-      const { ops, results, forwarded } = harness(host);
-      const operation = makeMutationOp(1, optimistic);
-      ops.next(
-        makeOperation('mutation', operation, {
-          ...operation.context,
-          normalizedCacheOptimistic: {
-            uuid: crypto.randomUUID(),
-            optimisticResponse: optimistic,
-            durableIntent: {
-              kind: 'email-send-v1',
-              payload: { body: 'approved' },
-            },
-          },
-        })
-      );
-      await tick();
-      expect(forwarded).toHaveLength(0);
-      expect(results[0]?.error).toBeDefined();
-      expect(host.enqueueOptimisticMutation).toHaveBeenCalledOnce();
     });
 
     it('does not forward an admitted enqueue rejected by pagehide uncertainty', async () => {

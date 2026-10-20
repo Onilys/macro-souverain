@@ -502,7 +502,6 @@ export function operationCategoryForRequest(
     .with(
       'read',
       'current-revision',
-      'durable-mutation-intents',
       'read-records-by-keys',
       'search',
       'entity-filter',
@@ -513,11 +512,9 @@ export function operationCategoryForRequest(
     .with(
       'enqueue-optimistic-mutation',
       'claim-next-mutation',
-      'claim-next-non-durable-mutation',
       'defer-optimistic-write',
       'commit-optimistic-write',
       'rollback-optimistic-write',
-      'retire-durable-mutation-intent',
       () => 'transaction' as const
     )
     .with(
@@ -545,7 +542,6 @@ export function isStorageTransactionRequest(
     'calendar-commit',
     'enqueue-optimistic-mutation',
     'claim-next-mutation',
-    'claim-next-non-durable-mutation',
     'defer-optimistic-write',
     'commit-optimistic-write',
     'rollback-optimistic-write',

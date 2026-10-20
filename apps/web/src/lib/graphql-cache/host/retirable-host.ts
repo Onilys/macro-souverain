@@ -20,9 +20,6 @@ export function createRetirableCacheHost(inner: CacheHost): CacheHost {
       return current.disabled;
     },
     currentRevision: () => current.currentRevision(),
-    retireDurableMutationIntent: (uuid) =>
-      current.retireDurableMutationIntent(uuid),
-    durableMutationIntents: () => current.durableMutationIntents(),
     currentStorageGeneration: () => current.currentStorageGeneration(),
     readQuery: (args) => current.readQuery(args),
     watchQuery: (args) =>
@@ -41,7 +38,8 @@ export function createRetirableCacheHost(inner: CacheHost): CacheHost {
     inspectMutations: () =>
       current.inspectMutations?.() ??
       Promise.reject(new Error('Queue inspection is unavailable')),
-    claimNextMutation: (...args) => current.claimNextMutation(...args),
+    claimNextMutation: (owner, nowMs, leaseExpiresAtMs) =>
+      current.claimNextMutation(owner, nowMs, leaseExpiresAtMs),
     deferOptimisticWrite: (
       transactionId,
       claim,

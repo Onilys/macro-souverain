@@ -41,6 +41,7 @@ vi.mock('@queries/email/send-queue', () => ({
 
 const intent: EmailSendIntent = {
   uuid: 'attempt',
+  dispatchVersion: 2,
   phase: 'pending',
   locallyCancelled: false,
   metadata: {

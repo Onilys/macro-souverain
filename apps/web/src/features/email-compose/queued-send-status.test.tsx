@@ -53,7 +53,6 @@ function showStatus(
       cancellationRequested: cancellationPending,
       metadata: {
         kind: 'email-send-v1',
-        replace: cancellationPending,
         payload: {
           draft: {
             draftId: 'draft',
@@ -125,7 +124,7 @@ it('keeps uncertain delivery read-only and offers only status reconciliation', a
   expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Restore draft' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Check status' }));
-  await waitFor(() => expect(mocks.refresh).toHaveBeenCalledWith(true));
+  await waitFor(() => expect(mocks.refresh).toHaveBeenCalledWith());
   expect(mocks.cancel).not.toHaveBeenCalled();
   expect(mocks.restore).not.toHaveBeenCalled();
 });

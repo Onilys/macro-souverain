@@ -2,7 +2,6 @@ import { readEmailSendStatus } from '@service-storage/email-send';
 import type { SendEmailAttemptInput } from '@service-storage/graphql/generated/graphql';
 import { v7 as uuidV7 } from 'uuid';
 import { publishDraftRestoration } from './draft-lifecycle-events';
-import { saveEmailDraftQueued } from './draft-queue';
 import type { GraphqlSaveEmailDraftArgs } from './graphql/draft';
 import {
   emailStorageSession,
@@ -15,7 +14,6 @@ import {
 } from './local-drafts';
 import {
   captureSendWorkingCopy,
-  restoreSendWorkingCopy,
   retireSendWorkingCopy,
   type SendWorkingCopy,
 } from './send-draft-lifecycle';
@@ -38,10 +36,7 @@ export function settledSendAttempt(intent: EmailSendIntent) {
 
 /** A pending cancellation never unlocks an attempted send without confirmation. */
 export function emailSendLocked(intent: EmailSendIntent): boolean {
-  if (
-    (intent.locallyCancelled && !intent.metadata.requiresServerConfirmation) ||
-    intent.metadata.payload.restoring
-  )
+  if (intent.locallyCancelled && !intent.metadata.requiresServerConfirmation)
     return false;
   return settledSendAttempt(intent)?.status !== 'CANCELLED';
 }
@@ -131,13 +126,6 @@ export async function sendEmailQueued(args: {
     metadata: {
       kind: 'email-send-v1',
       payload: { input, draft, workingCopy },
-      exclusive: {
-        entityKey: `GraphqlSoupEmailMessage:${draft.draftId}`,
-        releaseOn: {
-          responsePath: ['cancelEmailSend', 'attempt', 'status'],
-          value: 'CANCELLED',
-        },
-      },
     },
   };
   await traceEmailSend('persist', input.attempt, () =>
@@ -153,7 +141,7 @@ export async function sendEmailQueued(args: {
   };
 }
 
-/** Replaces the send request atomically, fencing any previously issued network claim. */
+/** Cancellation must win before provider submission starts. */
 export class EmailSendCancellationTooLate extends Error {
   constructor() {
     super('Delivery already started; cancellation was too late');
@@ -237,149 +225,32 @@ export async function restoreCancelledEmailSend(
 ): Promise<void> {
   const started = performance.now();
   try {
-    if (intent.dispatchVersion === 2) {
-      const result = await localDraftStore.restoreSend(
-        await emailStorageSession(),
-        intent.uuid
-      );
-      if (!result) return;
-      const { draft, intent: restoredIntent } = result;
-      publishDraftRestoration({
-        draftId: draft.serverDraftId ?? draft.draftId,
-        inboxId: draft.inboxId,
-        restoration: {
-          originalDraftId: String(
-            restoredIntent.metadata.payload.input.message.draftId
-          ),
-          threadId: draft.serverThreadId ?? draft.threadId ?? draft.draftId,
-          replyingToId: draft.content.replying_to_id,
-          includeSignature: draft.content.include_signature,
-        },
-      });
-      recordEmailSend(
-        {
-          operation: 'restore',
-          outcome: 'completed',
-          durationMs: performance.now() - started,
-        },
-        restoredIntent
-      );
-      return;
-    }
-    if (emailSendLocked(intent))
-      throw new Error('Confirm cancellation before restoring the draft');
-    const { input } = intent.metadata.payload;
-    const message = settledSendAttempt(intent)?.message;
-    const draft = {
-      ...intent.metadata.payload.draft,
-      draftId:
-        message?.id ??
-        intent.resolvedDraftId ??
-        intent.metadata.payload.draft.draftId,
-      threadDbId:
-        message?.threadId ??
-        intent.resolvedThreadId ??
-        intent.metadata.payload.draft.threadDbId,
-      draftGeneration:
-        message?.draftGeneration ??
-        intent.metadata.payload.draft.draftGeneration,
-    };
-    recordEmailSend({ operation: 'restore', outcome: 'started' }, intent);
-    // Persist restoration authority before saving a replacement working copy.
-    await persistLocalEmailSend({
-      ...intent,
-      phase: 'pending',
-      response: undefined,
-      metadata: {
-        ...intent.metadata,
-        exclusive: undefined,
-        payload: {
-          ...intent.metadata.payload,
-          restoring: true,
-          draft: {
-            ...draft,
-            bodyHtml: input.restoreBodyHtml,
-            bodyText: input.restoreBodyText,
-            bodyMacro: input.restoreBodyMacro,
-          },
-        },
-      },
-    });
-    const { restorationVersion, ...restored } = await restoreSendWorkingCopy(
-      {
-        ...draft,
-        bodyHtml: input.restoreBodyHtml,
-        bodyText: input.restoreBodyText,
-        bodyMacro: input.restoreBodyMacro,
-      },
-      intent.metadata.payload.workingCopy,
-      !!message
+    const result = await localDraftStore.restoreSend(
+      await emailStorageSession(),
+      intent.uuid
     );
-    const restoredIntent: EmailSendIntent = {
-      ...intent,
-      phase: 'pending',
-      response: undefined,
-      metadata: {
-        ...intent.metadata,
-        exclusive: undefined,
-        replace: true,
-        payload: {
-          ...intent.metadata.payload,
-          draft: restored,
-          restoring: true,
-          restorationVersion,
-        },
-      },
-    };
-    await persistLocalEmailSend(restoredIntent);
-    const outcome = await saveEmailDraftQueued({
-      args: {
-        ...restored,
-        mutationUuid: intent.uuid,
-        durableIntent: {
-          ...intent.metadata,
-          exclusive: undefined,
-          replace: true,
-          payload: {
-            ...intent.metadata.payload,
-            draft: restored,
-            restoring: true,
-            restorationVersion,
-          },
-        },
+    if (!result) return;
+    const { draft, intent: restoredIntent } = result;
+    publishDraftRestoration({
+      draftId: draft.serverDraftId ?? draft.draftId,
+      inboxId: draft.inboxId,
+      restoration: {
+        originalDraftId: String(
+          restoredIntent.metadata.payload.input.message.draftId
+        ),
+        threadId: draft.serverThreadId ?? draft.threadId ?? draft.draftId,
+        replyingToId: draft.content.replying_to_id,
+        includeSignature: draft.content.include_signature,
       },
     });
-    if (outcome.kind === 'rejected')
-      throw new Error(
-        'Unable to restore the draft. Your message is still saved in the send queue.'
-      );
     recordEmailSend(
       {
         operation: 'restore',
-        outcome: outcome.kind,
+        outcome: 'completed',
         durationMs: performance.now() - started,
       },
-      intent
+      restoredIntent
     );
-    publishDraftRestoration({
-      draftId:
-        outcome.kind === 'committed'
-          ? outcome.draftId
-          : (intent.resolvedDraftId ?? String(draft.draftId)),
-      inboxId: draft.senderLinkId,
-      restoration: {
-        originalDraftId: String(draft.draftId),
-        threadId:
-          outcome.kind === 'committed'
-            ? outcome.threadId
-            : (intent.resolvedThreadId ?? draft.threadDbId),
-        replyingToId:
-          input.message.replyingToId == null
-            ? undefined
-            : String(input.message.replyingToId),
-        includeSignature: input.includeSignature,
-      },
-    });
   } catch (error) {
     recordEmailSend(
       {
@@ -394,20 +265,16 @@ export async function restoreCancelledEmailSend(
   }
 }
 
-/** The observer retires success or a restoration superseded by an acknowledged edit. */
+/** Retire a confirmed success without discarding a newer working copy. */
 export async function retireEmailSendIntent(
   intent: EmailSendIntent
 ): Promise<boolean> {
-  if (intent.dispatchVersion === 2) {
-    const current = (await readEmailSendIntents()).find(
-      (row) => row.uuid === intent.uuid
-    );
-    if (!current) return true;
-    if (settledSendAttempt(current)?.status !== 'SENT') return false;
-    intent = current;
-  }
-  if (!intent.metadata.payload.restoring)
-    await retireSendWorkingCopy(intent.metadata.payload.workingCopy);
+  const current = (await readEmailSendIntents()).find(
+    (row) => row.uuid === intent.uuid
+  );
+  if (!current) return true;
+  if (settledSendAttempt(current)?.status !== 'SENT') return false;
+  await retireSendWorkingCopy(current.metadata.payload.workingCopy);
   await removeLocalEmailSend(intent.uuid);
   return true;
 }
@@ -416,18 +283,8 @@ export async function retireEmailSendIntent(
 export async function recoverEmailSendIntent(
   intent: EmailSendIntent
 ): Promise<void> {
-  if (intent.dispatchVersion === 2) {
-    await localDraftStore.requestSendCheck(
-      await emailStorageSession(),
-      intent.uuid
-    );
-    return;
-  }
-  const attempt = await fetchEmailSendStatus(intent);
-  if (attempt)
-    await persistLocalEmailSend({
-      ...intent,
-      phase: 'committed',
-      response: { sendEmailMessage: { attempt } },
-    });
+  await localDraftStore.requestSendCheck(
+    await emailStorageSession(),
+    intent.uuid
+  );
 }

@@ -661,7 +661,6 @@ export type MutationInspection = Pick<
 /** Claimed strict queue head, ready to be forwarded through urql. */
 export type ClaimedMutation = {
   clientMetadata?: Record<string, unknown> | null;
-  /** Monotonic unsigned-decimal queue ID within one storage generation. */
   transactionId: string;
   uuid: string;
   superseded: boolean;
@@ -686,8 +685,6 @@ export type InitialMutationClaim =
 
 /** Result returned after enqueue and the initial claim attempt complete. */
 export type EnqueueOptimisticMutationResult = OptimisticWriteResult & {
-  /** Fence of the persisted request before any initial lease claim. */
-  requestGeneration: string;
   upsertKind: MutationUpsertKind;
   initialClaim: InitialMutationClaim;
 };
@@ -747,8 +744,6 @@ export type CacheRequest = { id: number } & (
   | { kind: 'init'; scope: string; hotCapacity?: number }
   | { kind: 'current-revision' }
   | { kind: 'current-storage-generation' }
-  | { kind: 'durable-mutation-intents' }
-  | { kind: 'retire-durable-mutation-intent'; uuid: string }
   | { kind: 'inspect-mutations' }
   | {
       kind: 'read';
@@ -810,7 +805,7 @@ export type CacheRequest = { id: number } & (
       leaseExpiresAtMs: number;
     }
   | {
-      kind: 'claim-next-mutation' | 'claim-next-non-durable-mutation';
+      kind: 'claim-next-mutation';
       owner: string;
       nowMs: number;
       leaseExpiresAtMs: number;

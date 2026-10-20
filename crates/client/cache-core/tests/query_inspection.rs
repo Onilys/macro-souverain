@@ -87,7 +87,7 @@ async fn write_group(
 struct OwnerOnlyStorage(InMemoryStorage);
 
 impl Storage for OwnerOnlyStorage {
-    type Error = cache_core::durable_intent::DurableIntentError;
+    type Error = std::convert::Infallible;
 
     async fn get_batch(&self, keys: &[EntityKey<'_>]) -> Result<Vec<Option<Record>>, Self::Error> {
         assert!(
@@ -134,14 +134,11 @@ impl Storage for OwnerOnlyStorage {
         self.0.load_mutation_queue().await
     }
 
-    async fn claim_next_mutation_with_policy(
+    async fn claim_next_mutation(
         &mut self,
         request: MutationClaimRequest,
-        policy: cache_core::queue::MutationClaimPolicy,
     ) -> Result<Option<ClaimedMutation>, Self::Error> {
-        self.0
-            .claim_next_mutation_with_policy(request, policy)
-            .await
+        self.0.claim_next_mutation(request).await
     }
 
     async fn defer_mutation(

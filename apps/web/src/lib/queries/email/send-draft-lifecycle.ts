@@ -15,12 +15,6 @@ import {
   reviveLocalDraft,
   saveLocalDraft,
 } from './local-drafts';
-import type { EmailSendIntent } from './send-queue';
-
-export type SendRestorationVersion = Pick<
-  LocalDraft,
-  'key' | 'generation' | 'revision'
->;
 
 /** The working-copy lifetime handed to the durable send journal; no file blobs. */
 export type SendWorkingCopy = Pick<
@@ -132,11 +126,7 @@ export async function restoreSendWorkingCopy(
   draft: GraphqlSaveEmailDraftArgs,
   copy: SendWorkingCopy | undefined,
   serverConfirmed = false
-): Promise<
-  GraphqlSaveEmailDraftArgs & {
-    restorationVersion: SendRestorationVersion;
-  }
-> {
+): Promise<GraphqlSaveEmailDraftArgs> {
   if (copy) await forgetLocalDraft(copy.key, copy);
   let local = await readLocalDraft(copy?.key ?? String(draft.draftId));
   if (local) {
@@ -200,11 +190,6 @@ export async function restoreSendWorkingCopy(
   local = bound;
   return {
     ...draft,
-    restorationVersion: {
-      key: local.key,
-      generation: local.generation,
-      revision: local.revision,
-    },
     draftId: local.draftId,
     draftGeneration: local.content.draft_generation ?? 0,
     threadDbId: local.serverThreadId ?? local.threadId ?? draft.threadDbId,
@@ -227,18 +212,4 @@ export async function restoreSendWorkingCopy(
       ? decodeBase64Utf8(local.content.body_html)
       : null,
   };
-}
-
-/** A newer acknowledged edit makes an obsolete restoration safe to retire. */
-export async function supersededSendRestoration(
-  intent: EmailSendIntent
-): Promise<boolean> {
-  const { restoring, restorationVersion } = intent.metadata.payload;
-  if (!restoring || intent.phase !== 'failed' || !restorationVersion)
-    return false;
-  const local = await readLocalDraft(restorationVersion.key);
-  return (
-    local?.generation === restorationVersion.generation &&
-    local.acknowledgedRevision > restorationVersion.revision
-  );
 }

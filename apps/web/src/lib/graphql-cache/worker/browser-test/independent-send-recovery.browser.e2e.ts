@@ -9,7 +9,9 @@ const wasmPath = fileURLToPath(new URL('../wasm-module.ts', import.meta.url));
 test('independent send authority survives actual WASM physical cache recovery', async ({
   page,
 }) => {
-  await page.goto(`/email-send.html?scope=independent-${crypto.randomUUID()}`);
+  await page.goto(
+    `/cache-lifecycle.html?scope=independent-${crypto.randomUUID()}`
+  );
   const result = await page.evaluate(
     async ({ storePath, wasmPath }) => {
       const {
@@ -35,6 +37,7 @@ test('independent send authority survives actual WASM physical cache recovery', 
       const intent: import('../../../queries/email/send-queue').EmailSendIntent =
         {
           uuid,
+          dispatchVersion: 2,
           phase: 'pending',
           locallyCancelled: false,
           metadata: {
@@ -70,7 +73,7 @@ test('independent send authority survives actual WASM physical cache recovery', 
         };
       await store.putSend(owner, intent, true);
       const workerSource = `import {loadCacheWasm} from ${JSON.stringify(`${location.origin}/@fs${wasmPath}`)};
-try { const wasm=await loadCacheWasm(); const engine=await wasm.openCache('independent-cache-'+crypto.randomUUID()); const query='mutation SetEntityProperty($input: SetEntityPropertyInput!) { setEntityProperty(input: $input) { id displayName } }'; await engine.enqueueOptimisticMutation(undefined,${JSON.stringify(uuid)},query,'SetEntityProperty',{input:{entityId:'doc',value:{string:'Approved body'}}},{setEntityProperty:{id:'property',displayName:'Approved body'},__durableIntent:${JSON.stringify({ ...intent.metadata, deferInitialClaim: true })}},[],[],[],1,'audit',1,1000); const before=(await engine.durableMutationIntents()).length; await engine.physicalReset(); const after=(await engine.durableMutationIntents()).length; await engine.close(); postMessage({before,after}); } catch(e){postMessage({error:String(e)});}`;
+try { const wasm=await loadCacheWasm(); const engine=await wasm.openCache('independent-cache-'+crypto.randomUUID()); const query='mutation SetEntityProperty($input: SetEntityPropertyInput!) { setEntityProperty(input: $input) { id displayName } }'; await engine.enqueueOptimisticMutation(undefined,${JSON.stringify(uuid)},query,'SetEntityProperty',{input:{entityId:'doc',value:{string:'Approved body'}}},{setEntityProperty:{id:'property',displayName:'Approved body'}},[],[],[],1,'audit',1,1000); const before=(await engine.inspectMutations()).length; await engine.physicalReset(); const after=(await engine.inspectMutations()).length; await engine.close(); postMessage({before,after}); } catch(e){postMessage({error:String(e)});}`;
       const worker = new Worker(
         URL.createObjectURL(
           new Blob([workerSource], { type: 'text/javascript' })

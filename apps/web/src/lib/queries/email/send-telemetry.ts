@@ -76,10 +76,7 @@ export function recordEmailSend(
             'email_send.attempt_id': intent.uuid,
             'email_send.link_id': intent.metadata.payload.input.attempt.linkId,
             'email_send.phase': intent.phase,
-            'email_send.cache_missing': !!intent.cacheMissing,
-            'email_send.recovery_required': !!intent.recoveryRequired,
             'email_send.cancellation_requested': !!intent.cancellationRequested,
-            'email_send.restoring': !!intent.metadata.payload.restoring,
           }
         : {}),
     };
