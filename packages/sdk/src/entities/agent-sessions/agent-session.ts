@@ -12,10 +12,16 @@ import type {
 import { unwrap } from '../../utils';
 import type { MacroClient } from '../../utils/client';
 import { MacroEntity } from '../entity';
+import { EntityAccess } from '../sharing/access';
+import {
+  type SharePermissionOptions,
+  sharePermissionBody,
+} from '../sharing/permissions';
 import { User } from '../users/user';
 import { CodeExecution } from './code-execution';
 import { QueuedAction } from './queued-action';
 import { type CreateReviewOptions, SessionReview } from './review';
+import { ToolApproval } from './tool-approval';
 
 /** A GitHub pull request linked to a session. */
 export type SessionPullRequest = {
@@ -68,6 +74,33 @@ export type CreateManagedSessionOptions = {
 
 /** A managed or externally hosted coding-agent session. */
 export class AgentSession extends MacroEntity<AgentSessionResponse> {
+  /** Access requests and direct user grants. */
+  readonly access = new EntityAccess(this.client, 'agent_session', this);
+
+  /** Construct an approval handle scoped to this session. */
+  toolApprovalById(id: string): ToolApproval {
+    return ToolApproval.byId(this.client, this, id);
+  }
+
+  /** Sharing configuration. */
+  async sharePermissions() {
+    return unwrap(
+      await this.client.agentHarness.getAgentSessionPermissions({
+        path: { session_id: this.id },
+      }),
+    );
+  }
+
+  /** Replace sharing grants. */
+  async updateSharePermissions(options: SharePermissionOptions) {
+    return this.mutate((c) =>
+      c.agentHarness.updateAgentSessionPermissions({
+        path: { session_id: this.id },
+        body: sharePermissionBody(options),
+      }),
+    );
+  }
+
   /** A handle to an agent session by id. Details load on first access. */
   static byId(client: MacroClient, id: string): AgentSession {
     return new AgentSession(client, id);

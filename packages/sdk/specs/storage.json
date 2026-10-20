@@ -7100,6 +7100,95 @@
         }
       }
     },
+    "/databases/query": {
+      "post": {
+        "tags": ["databases"],
+        "summary": "Run one statement as the authenticated user. The viewer's catalog authorizes reads;\nthe SQL domain service obtains an edit receipt for every written database.",
+        "operationId": "query_databases",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SqlOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/databases/starter": {
       "post": {
         "tags": ["databases"],
@@ -23291,6 +23380,11 @@
           }
         }
       },
+      "ColumnId": {
+        "type": "string",
+        "format": "uuid",
+        "description": "Identifier of a column placement within a table."
+      },
       "ColumnKind": {
         "oneOf": [
           {
@@ -25483,6 +25577,11 @@
           }
         }
       },
+      "DatabaseId": {
+        "type": "string",
+        "format": "uuid",
+        "description": "Identifier of reusable database storage. Its optional Macro entity uses\nthe same identity, so existing routes and grants keep their IDs."
+      },
       "DatabaseOp": {
         "oneOf": [
           {
@@ -25596,6 +25695,40 @@
           }
         ],
         "description": "One write to a database: its tables, columns, options, rows or views,\ngrouped by the resource it changes. A request's ops apply in order and\ntogether, or not at all, and every op names a table of the database the\nrequest is for (or, creating one, adds it there)."
+      },
+      "DatabaseQueryRequest": {
+        "type": "object",
+        "description": "One SQL statement with an optional default database and optimistic write guards.",
+        "required": ["sql"],
+        "properties": {
+          "baseVersions": {
+            "type": "object",
+            "description": "Expected version for each table a subsequent statement writes.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/TableVersion"
+            },
+            "propertyNames": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Identifier of one table (tab) within a database."
+            }
+          },
+          "databaseId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DatabaseId",
+                "description": "Default database for resolving unqualified table names; other visible databases remain joinable."
+              }
+            ]
+          },
+          "sql": {
+            "type": "string",
+            "description": "One supported SQL statement. Writes execute once, without automatic retries."
+          }
+        }
       },
       "DatabaseView": {
         "type": "object",
@@ -28870,7 +29003,8 @@
           "closesAt",
           "confirmationMessage",
           "createdAt",
-          "updatedAt"
+          "updatedAt",
+          "isHiddenInDrive"
         ],
         "properties": {
           "audience": {
@@ -28904,6 +29038,10 @@
             "type": "string",
             "format": "uuid",
             "description": "The form."
+          },
+          "isHiddenInDrive": {
+            "type": "boolean",
+            "description": "Whether Drive leaves it, and the database behind it, out of its\nlistings, as for a channel poll."
           },
           "name": {
             "type": "string",
@@ -29452,6 +29590,10 @@
             "description": "A new database named like the form, whose one table, \"Responses\",\nstarts with only the form's own columns.",
             "required": ["kind"],
             "properties": {
+              "isHiddenInDrive": {
+                "type": "boolean",
+                "description": "Keep the form, and the database made for it, out of Drive, as\nfor a channel poll."
+              },
               "kind": {
                 "type": "string",
                 "enum": ["new"]
@@ -33814,6 +33956,11 @@
         "description": "An arithmetic operator.",
         "enum": ["add", "subtract", "multiply", "divide"]
       },
+      "OptionId": {
+        "type": "string",
+        "format": "uuid",
+        "description": "Identifier of an option of a select or tag column."
+      },
       "OptionRef": {
         "oneOf": [
           {
@@ -35727,6 +35874,99 @@
             "format": "int64",
             "description": "Responses saved.",
             "minimum": 0
+          }
+        }
+      },
+      "ResultColumn": {
+        "type": "object",
+        "description": "One result column, with what its cells mean.",
+        "required": ["name", "kind"],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/SqlOutcomeKind",
+            "description": "What its cells hold."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name or alias the statement gave it."
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SqlSelectOption"
+            },
+            "description": "For a select column, its options: its cells hold their ids."
+          },
+          "relatedTable": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TableId",
+                "description": "For a relation, the table its rows belong to; for `row_id`, the\ntable read."
+              }
+            ]
+          },
+          "target": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SqlEntityKind",
+                "description": "For an entity column, what its ids point at; `DATABASE_ROW` for a\nrelation, whose ids are rows of another table."
+              }
+            ]
+          }
+        }
+      },
+      "ResultSet": {
+        "type": "object",
+        "description": "A `SELECT`'s rows, as the engine's typed cells.",
+        "required": ["columns", "rows", "rowIds"],
+        "properties": {
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResultColumn"
+            },
+            "description": "The columns, in select-list order."
+          },
+          "rowIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RowId"
+            },
+            "description": "For a row-shaped result, the id of the row behind each result row;\nempty for an aggregate."
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SqlCell"
+                  }
+                ]
+              }
+            },
+            "description": "One cell per column per row; `null` is an empty cell."
+          },
+          "sourceTable": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TableId",
+                "description": "Table whose rows the result identities refer to; absent for aggregates."
+              }
+            ]
           }
         }
       },
@@ -38986,6 +39226,378 @@
         ],
         "description": "Source identity supplied when creating a job. One binding per Macro team in v1."
       },
+      "SqlCell": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "Text or link.",
+            "required": ["value", "type"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["text"]
+              },
+              "value": {
+                "type": "string",
+                "description": "Text or link."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "A number.",
+            "required": ["value", "type"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["number"]
+              },
+              "value": {
+                "type": "number",
+                "format": "double",
+                "description": "A number."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "A checkbox.",
+            "required": ["value", "type"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["bool"]
+              },
+              "value": {
+                "type": "boolean",
+                "description": "A checkbox."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "A date-time.",
+            "required": ["value", "type"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["date"]
+              },
+              "value": {
+                "type": "string",
+                "format": "date-time",
+                "description": "A date-time."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "The selected option ids; one for single-select columns.",
+            "required": ["value", "type"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["options"]
+              },
+              "value": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/OptionId"
+                },
+                "description": "The selected option ids; one for single-select columns."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "The referenced entity ids; one for single-valued columns.",
+            "required": ["value", "type"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["entities"]
+              },
+              "value": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "The referenced entity ids; one for single-valued columns."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "A table row's own id, the `row_id` column.",
+            "required": ["value", "type"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["row"]
+              },
+              "value": {
+                "$ref": "#/components/schemas/RowId",
+                "description": "A table row's own id, the `row_id` column."
+              }
+            }
+          }
+        ],
+        "description": "A cell as fetched. An absent cell is `NULL`; an absent multi-valued cell\nis the empty set."
+      },
+      "SqlEntityKind": {
+        "type": "string",
+        "description": "What an entity column's references point at: a kind of Macro entity, or\nthe rows of another table for a relation.\n\nSpelled as the properties system spells entity types (`USER`,\n`DATABASE_ROW`), on the wire and in SQL, where it parses\ncase-insensitively.",
+        "enum": [
+          "USER",
+          "DOCUMENT",
+          "TASK",
+          "COMPANY",
+          "CONTACT",
+          "CALL_RECORD",
+          "CHANNEL",
+          "CHAT",
+          "PROJECT",
+          "THREAD",
+          "CALENDAR_EVENT",
+          "INITIATIVE",
+          "DATABASE_ROW"
+        ]
+      },
+      "SqlOutcome": {
+        "type": "object",
+        "description": "The answer to one statement.",
+        "required": [
+          "tableDatabases",
+          "changesApplied",
+          "insertedRowIds",
+          "newVersions",
+          "readVersions",
+          "truncatedTables",
+          "statement"
+        ],
+        "properties": {
+          "changesApplied": {
+            "type": "integer",
+            "description": "How many rows a write changed.",
+            "minimum": 0
+          },
+          "insertedRowIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RowId"
+            },
+            "description": "The rows an `INSERT` created, in statement order."
+          },
+          "newVersions": {
+            "type": "object",
+            "description": "The new version of every table written.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/TableVersion"
+            },
+            "propertyNames": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Identifier of one table (tab) within a database."
+            }
+          },
+          "readVersions": {
+            "type": "object",
+            "description": "The version of every table read, for a follow-up write to guard on.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/TableVersion"
+            },
+            "propertyNames": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Identifier of one table (tab) within a database."
+            }
+          },
+          "result": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ResultSet",
+                "description": "The rows a `SELECT` returned; `None` for a write."
+              }
+            ]
+          },
+          "statement": {
+            "$ref": "#/components/schemas/SqlStatement",
+            "description": "What kind of statement ran, and what it wrote."
+          },
+          "tableDatabases": {
+            "type": "object",
+            "description": "Owning database of each visible table referenced by this outcome.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DatabaseId"
+            },
+            "propertyNames": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Identifier of one table (tab) within a database."
+            }
+          },
+          "truncatedTables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Every table the statement read, when any read hit the engine's row\ncap: the engine reports the cap per statement, so aggregates over any\nof them may be partial."
+          }
+        }
+      },
+      "SqlOutcomeKind": {
+        "type": "string",
+        "description": "The value kind of a result column.",
+        "enum": ["text", "number", "boolean", "date", "select", "entity", "row"]
+      },
+      "SqlSelectOption": {
+        "type": "object",
+        "description": "One option of a select column.",
+        "required": ["id", "label"],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/OptionId",
+            "description": "The option id."
+          },
+          "label": {
+            "type": "string",
+            "description": "The label users type in SQL."
+          }
+        }
+      },
+      "SqlStatement": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "A committed schema command. IDs remain available even without a follow-up read.",
+            "required": ["databaseId", "summary", "kind"],
+            "properties": {
+              "databaseId": {
+                "$ref": "#/components/schemas/DatabaseId",
+                "description": "Owning database."
+              },
+              "kind": {
+                "type": "string",
+                "enum": ["schema"]
+              },
+              "summary": {
+                "type": "string",
+                "description": "What changed and how to read the resulting schema."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "A `SELECT`.",
+            "required": ["kind"],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["select"]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "An `INSERT`.",
+            "required": ["tableId", "tableName", "kind"],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["insert"]
+              },
+              "tableId": {
+                "$ref": "#/components/schemas/TableId",
+                "description": "The table written."
+              },
+              "tableName": {
+                "type": "string",
+                "description": "Its name."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "An `UPDATE`.",
+            "required": ["tableId", "tableName", "kind"],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["update"]
+              },
+              "tableId": {
+                "$ref": "#/components/schemas/TableId",
+                "description": "The table written."
+              },
+              "tableName": {
+                "type": "string",
+                "description": "Its name."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "A `DELETE`.",
+            "required": ["tableId", "tableName", "kind"],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["delete"]
+              },
+              "tableId": {
+                "$ref": "#/components/schemas/TableId",
+                "description": "The table written."
+              },
+              "tableName": {
+                "type": "string",
+                "description": "Its name."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "An `ALTER COLUMN … TYPE`.",
+            "required": [
+              "tableId",
+              "tableName",
+              "columnId",
+              "columnName",
+              "to",
+              "kind"
+            ],
+            "properties": {
+              "columnId": {
+                "$ref": "#/components/schemas/ColumnId",
+                "description": "The column placement; its id survives the change."
+              },
+              "columnName": {
+                "type": "string",
+                "description": "The column's name."
+              },
+              "kind": {
+                "type": "string",
+                "enum": ["alterColumnType"]
+              },
+              "tableId": {
+                "$ref": "#/components/schemas/TableId",
+                "description": "The table."
+              },
+              "tableName": {
+                "type": "string",
+                "description": "Its name."
+              },
+              "to": {
+                "type": "string",
+                "description": "The type it became, as SQL spells it, e.g. `select[]`."
+              }
+            }
+          }
+        ],
+        "description": "The statement that ran: a read, or the table (and for a type change, the\ncolumn) it wrote."
+      },
       "StarterDatabase": {
         "type": "object",
         "description": "Starter result. A missing database means the user already started or removed it.",
@@ -39588,6 +40200,11 @@
             "description": "The table's views, in their order."
           }
         }
+      },
+      "TableId": {
+        "type": "string",
+        "format": "uuid",
+        "description": "Identifier of one table (tab) within a database."
       },
       "TableResult": {
         "oneOf": [

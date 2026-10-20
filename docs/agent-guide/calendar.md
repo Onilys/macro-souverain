@@ -147,6 +147,11 @@ show progress; the event summary and selected time stay visible. Choose another
 time preserves attendee input. All meetings returns to the profile chooser when
 multiple events exist, but is disabled while a booking response is unresolved.
 The private confirmation shows the meeting, date, timezone, location, and guest.
+In the native iOS and Android apps, standalone booking and receipt pages keep a
+sticky **Back to Macro** button below the device's top safe-area inset. It returns to
+the app through the router without reloading, including while the page is loading
+or unavailable. Browser pages and embedded booking dialogs omit this button.
+
 Public URLs and booking behavior remain unchanged. The website can frame the
 booking page and receipt without duplicate Macro branding. A completed booking
 notifies the same-origin parent page; other sites cannot frame these routes.

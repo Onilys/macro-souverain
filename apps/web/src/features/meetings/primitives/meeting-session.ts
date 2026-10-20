@@ -26,7 +26,10 @@ export function createMeetingSession(capabilities: MeetingSessionCapabilities) {
 
   async function release(session: IssuedMeetingSession) {
     try {
-      await capabilities.release(session.shareToken, session.credentials.token);
+      return await capabilities.release(
+        session.shareToken,
+        session.credentials.token
+      );
     } catch (cause) {
       // LiveKit's participant-left webhook also cleans up the session.
       console.error('Failed to release meeting participant', cause);
@@ -191,6 +194,7 @@ export function createMeetingSession(capabilities: MeetingSessionCapabilities) {
     // Start the keepalive release before awaiting local RTC disconnection:
     // navigation or tab closure must not strand server-side participation.
     const releasing = session ? release(session) : undefined;
+    let result: { callEnded: boolean } | void;
     try {
       // Cancellation must not wait for the token request it is cancelling.
       // The shared lifecycle still retains that attempt independently.
@@ -205,11 +209,12 @@ export function createMeetingSession(capabilities: MeetingSessionCapabilities) {
       console.error('Failed to disconnect meeting', cause);
     } finally {
       try {
-        await releasing;
+        result = await releasing;
       } finally {
         cleanupLifecycle.complete();
       }
     }
+    return result;
   }
 
   onCleanup(() => {

@@ -1,36 +1,40 @@
 import { ViewBreadcrumbs } from '@app/components/view-shell';
 import { SidePanel } from '@components/app/side-panel';
 import { EntityIcon } from '@core/component/EntityIcon';
+import {
+  createParamsState,
+  ParamsProvider,
+} from '@core/component/ParamsProvider';
+import { COMMENT_LINK_PARAM } from '@core/messages/comment-link';
 import { fireAndForget } from '@core/util/fireAndForget';
 import SpinnerIcon from '@phosphor/spinner.svg';
 import { Button, Tooltip } from '@ui';
 import {
-  createSignal,
+  createEffect,
+  createMemo,
   ErrorBoundary,
   For,
   type JSX,
+  on,
   onMount,
   Show,
   Suspense,
+  untrack,
 } from 'solid-js';
 import { RecordTabs } from '../components/record-tabs';
+import type { CrmCommentTarget } from '../context/workspace-context';
 import {
   COMPANY_SECTIONS,
   CONTACT_SECTIONS,
   type CompanySection,
   type ContactSection,
+  type CrmRecordRef,
+  type CrmRecordSection,
 } from '../core/record';
 import { Company } from './company-detail';
 import { Contact } from './contact-detail';
 import { CrmCopyLinkButton } from './copy-link-button';
 import { useCompanyQuery, useContactQuery } from './use-crm';
-
-/** A CRM record shown inside the workspace, with its fallback label. */
-export type CrmRecordRef = {
-  type: 'company' | 'contact';
-  id: string;
-  name: string;
-};
 
 const recordKey = (record: CrmRecordRef) => `${record.type}:${record.id}`;
 
@@ -48,34 +52,49 @@ function createRecordName(record: CrmRecordRef): () => string {
   };
 }
 
+function sectionOf<T extends CrmRecordSection>(
+  sections: readonly T[],
+  section: CrmRecordSection | undefined
+): T {
+  return sections.find((candidate) => candidate === section) ?? sections[0]!;
+}
+
 /**
  * Records opened inside the CRM workspace. Each opened record appends a
  * breadcrumb after the originating view; reopening one already in the trail
  * returns to it.
  */
 export function CrmRecordDetail(props: {
-  record: CrmRecordRef;
+  /** Opened records, oldest first; the last one is shown. */
+  records: readonly CrmRecordRef[];
+  section: CrmRecordSection | undefined;
+  commentTarget?: CrmCommentTarget;
   viewName: string;
+  onOpen: (records: readonly CrmRecordRef[]) => void;
+  onSectionChange: (section: CrmRecordSection) => void;
   onClose: () => void;
   navigation: JSX.Element;
   onOpenPipeline?: (pipelineId: string) => void;
 }) {
-  const [trail, setTrail] = createSignal<CrmRecordRef[]>([props.record]);
-  const current = () => trail()[trail().length - 1];
-  const [companySection, setCompanySection] =
-    createSignal<CompanySection>('overview');
-  const [contactSection, setContactSection] =
-    createSignal<ContactSection>('overview');
-  const returnTo = (index: number) =>
-    setTrail((records) => records.slice(0, index + 1));
+  const trail = () => props.records;
+  // Each navigation brings new record objects; only another record remounts.
+  const current = createMemo(() => trail()[trail().length - 1]!, undefined, {
+    equals: (left, right) => recordKey(left) === recordKey(right),
+  });
+  const companySection = (): CompanySection =>
+    sectionOf(COMPANY_SECTIONS, props.section);
+  const contactSection = (): ContactSection =>
+    sectionOf(CONTACT_SECTIONS, props.section);
+  const returnTo = (index: number) => {
+    if (index === trail().length - 1) return;
+    props.onOpen(trail().slice(0, index + 1));
+  };
   const open = (record: CrmRecordRef) => {
     const index = trail().findIndex(
       (entry) => recordKey(entry) === recordKey(record)
     );
     if (index !== -1) return returnTo(index);
-    if (record.type === 'company') setCompanySection('overview');
-    else setContactSection('overview');
-    setTrail((records) => [...records, record]);
+    props.onOpen([...trail(), record]);
   };
   const back = () =>
     trail().length > 1 ? returnTo(trail().length - 2) : props.onClose();
@@ -109,12 +128,15 @@ export function CrmRecordDetail(props: {
           </Tooltip>
         )}
       </ViewBreadcrumbs.Item>
-      <For each={trail()}>
-        {(record, index) => {
+      <For each={trail().map(recordKey)}>
+        {(key, index) => {
+          const record = untrack(
+            () => trail().find((entry) => recordKey(entry) === key)!
+          );
           const name = createRecordName(record);
           return (
             <ViewBreadcrumbs.Item
-              value={recordKey(record)}
+              value={key}
               metadata={{ type: record.type, id: record.id }}
               order={index() + 1}
             >
@@ -159,14 +181,14 @@ export function CrmRecordDetail(props: {
                   <RecordTabs
                     sections={COMPANY_SECTIONS}
                     value={companySection()}
-                    onChange={setCompanySection}
+                    onChange={props.onSectionChange}
                   />
                 }
               >
                 <RecordTabs
                   sections={CONTACT_SECTIONS}
                   value={contactSection()}
-                  onChange={setContactSection}
+                  onChange={props.onSectionChange}
                 />
               </Show>
             </div>
@@ -181,6 +203,7 @@ export function CrmRecordDetail(props: {
                 <RecordContent
                   record={record}
                   nested={trail().length > 1}
+                  commentTarget={props.commentTarget}
                   onBack={back}
                 >
                   <Show
@@ -226,6 +249,7 @@ export function CrmRecordDetail(props: {
 function RecordContent(props: {
   record: CrmRecordRef;
   nested: boolean;
+  commentTarget: CrmCommentTarget | undefined;
   onBack: () => void;
   children: JSX.Element;
 }) {
@@ -233,6 +257,23 @@ function RecordContent(props: {
     props.record.type === 'company'
       ? useCompanyQuery(() => props.record.id).query
       : useContactQuery(() => props.record.id);
+  // The Discussion reads its linked message from these params; each request,
+  // a new `seek`, scrolls to it again.
+  const params = createParamsState();
+  createEffect(
+    on(
+      () =>
+        props.commentTarget &&
+        `${props.commentTarget.commentId}:${props.commentTarget.seek}`,
+      () => {
+        const target = untrack(() => props.commentTarget);
+        // Without a target, a remounted Discussion must not show the last one.
+        params.navigate(
+          target ? { [COMMENT_LINK_PARAM]: target.commentId } : {}
+        );
+      }
+    )
+  );
   const error = (onRetry: () => void) => (
     <DetailError
       onRetry={onRetry}
@@ -262,7 +303,7 @@ function RecordContent(props: {
             </div>
           }
         >
-          {props.children}
+          <ParamsProvider state={params}>{props.children}</ParamsProvider>
         </Suspense>
       </Show>
     </ErrorBoundary>

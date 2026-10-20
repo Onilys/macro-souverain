@@ -319,7 +319,9 @@ first); the list keeps the row you came from focused. The inline header uses the
 email title menu: open the menu button beside the subject for **Ask AI**, **Create a
 Task**, and the other thread actions. On desktop, **Mark as unread**, **Mark done**,
 and **Previous item** / **Next item** sit at the right of that header. The arrows
-follow the current filtered list and disable at its ends. Mark done advances in
+follow the current filtered list and disable at its ends. When the open thread
+leaves the list while it stays open (a reply in Signal marks it done, or another
+device archives it), they step from its former neighbours. Mark done advances in
 that list. In a list, the Mark done, Mark as not done and Delete keys act once per
 press: a held key auto-repeats, and those repeats are ignored. Mark as unread (in
 the header or title menu) returns to the originating list with its tab, inbox, and
@@ -390,6 +392,13 @@ During send or discard, its sender and scheduling controls cannot change the ope
 Attachments that can be opened are buttons named by their filename; Tab to one
 and press Enter or Space. Removal is a separate button named `Remove <filename>`.
 Removing a forwarded file keeps the received original.
+Files that would push the email over the sending inbox's delivery limit (18 MB
+on Gmail, 25 MB on Outlook) are not attached:
+a confirmation (a drawer on phones) offers to upload them to Macro and share
+view-only links instead. Confirming inserts one link per file at the end of the
+written message, above a reply's quoted thread, and the draft autosaves; Cancel
+adds nothing. Files that fit still attach, and the same check covers files
+dropped onto the body.
 To forward from another inbox, open Forward, expand the forwarding envelope on
 desktop, and select a different account in From (already visible on mobile).
 Forwarded files must remain attached after switching to an owned or delegated
@@ -439,6 +448,10 @@ reloading. Repeat across background/resume on an iPhone. A transaction that has
 already started is never automatically replayed. Persistent failures still block
 server autosave; copy unsaved content before restarting. Storage failures and
 recovery report current page visibility and network state without draft content.
+Request errors settle only after the transaction's abort event, preserving the
+underlying IndexedDB error and waiting for rollback before recovery. To verify,
+force a request constraint failure: the prior draft must remain intact, the error
+must be `ConstraintError`, and a subsequent valid save must succeed.
 
 Repeated local-save failures show one persistent warning per composer; recovery
 or closing that composer dismisses it. A later failure shows a new warning.
@@ -500,8 +513,12 @@ Macro Markdown messages retain document mentions. Ordinary HTML bodies use an
 open shadow root: Playwright text locators can reach them, but a card's ordinary
 `innerText` or `querySelector` does not traverse that root.
 
-Sending a reply from an inbox thread marks that thread done but stays on it;
-only the explicit Mark done action opens the next email.
+Sending a reply from an inbox thread marks that thread done but stays on it.
+Send and mark done (Shift+Cmd+Enter) and Mark done open the next email, counted
+from where the thread sat when it was opened (a reply draft lifts its thread to
+the top of Signal while it is written). If the user has already moved to
+another thread when the send finishes, the replied thread is marked done
+without navigating; Undo before then leaves it in the inbox.
 Sending a message shows it in the open thread immediately, while delivery is
 still pending. It stays visible until the thread refresh confirms it, with no
 duplicate message. Failed delivery removes that message and restores the reply

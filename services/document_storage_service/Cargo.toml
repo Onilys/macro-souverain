@@ -98,6 +98,7 @@ channel_labels = { path = "../../crates/channel_labels", features = [
   "postgres",
 ] }
 crm = { path = "../../crates/crm" }
+databases_sql = { path = "../../crates/databases_sql", features = ["inbound"] }
 databases = { path = "../../crates/databases", features = [
   "entity_mutation",
   "gateway",

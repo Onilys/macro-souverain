@@ -72,6 +72,7 @@ export function createTauriNotificationInterface(
           await invoke<void>('send_macos_notification', {
             title: data.title,
             body: data.options?.body,
+            notificationId: data.notificationId,
           });
         } catch (error) {
           // OTA frontend updates can reach an older native app. Its legacy
@@ -81,7 +82,13 @@ export function createTauriNotificationInterface(
           }
           throw error;
         }
-        return createTauriNotification();
+        // Native activation carries the ID through the startup-safe navigation
+        // bridge. It also works after this webview (and its callbacks) is gone.
+        return {
+          onClick: () => {},
+          onDismiss: () => {},
+          close: () => {},
+        };
       }
 
       if (platform === 'linux') {

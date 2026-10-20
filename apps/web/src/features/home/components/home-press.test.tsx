@@ -101,6 +101,44 @@ describe('Home channel reply row', () => {
     expect(row.textContent).not.toContain('Peter');
   });
 
+  it.each([
+    { senderId: 'macro|teo@macro.com', displayName: null, label: 'Teo' },
+    { senderId: null, displayName: 'Codex', label: 'Codex' },
+    { senderId: 'test-user', displayName: null, label: 'You' },
+    { senderId: null, displayName: null, label: 'Someone' },
+  ])(
+    'names the mention sender as $label when a mention follows a reply',
+    ({ senderId, displayName, label }) => {
+      const previousReply = replyNotification('macro|peter@macro.com');
+      const { row, setNotifications } = renderThread([previousReply]);
+      expect(row.textContent).toContain('Peter in #bug-reports');
+
+      setNotifications([
+        {
+          ...replyNotification(senderId),
+          id: 'mention-notification',
+          created_at: '2026-10-01T16:35:48Z',
+          updated_at: '2026-10-01T16:35:48Z',
+          notification_event_type: 'channel_mention',
+          notification_metadata: {
+            tag: 'channel_mention',
+            content: {
+              messageId: 'mention',
+              messageContent: '@test-user',
+              threadId: 'root',
+              channelType: 'private',
+              senderDisplayName: displayName,
+            },
+          },
+        },
+        previousReply,
+      ]);
+
+      expect(row.textContent).toContain(`${label} in #bug-reports`);
+      expect(row.textContent).not.toContain('Peter');
+    }
+  );
+
   it('uses the thread author when there is no notification', () => {
     expect(renderThread().row.textContent).toContain('Peter in #bug-reports');
   });

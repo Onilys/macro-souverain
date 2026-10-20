@@ -5,6 +5,7 @@ import {
 } from '@core/context/quickAccess';
 import { exclude } from '@core/context/quickAccess/types';
 import { useUserId } from '@core/context/user';
+import { isTransientRequestError } from '@core/util/request-error';
 import { type Accessor, createMemo } from 'solid-js';
 import { contactCommandItems } from '../contact-items';
 import {
@@ -139,6 +140,22 @@ export function useEntitySearch(
     withDiscovery,
     rankItems,
     projectsEnabled: projects.enabled,
+    isSettling: () =>
+      !!activeList()?.isLoading() ||
+      projects.isLoading() ||
+      (contactsActive() && (contacts?.isLoading() ?? false)),
+    hasError: () =>
+      !!activeList()?.error() ||
+      !!projects.error() ||
+      (contactsActive() && !!contacts?.error()),
+    hasAuthoritativeError: () => {
+      const projectError = projects.error();
+      const contactError = contactsActive() ? contacts?.error() : undefined;
+      return !!(
+        (projectError && !isTransientRequestError(projectError)) ||
+        (contactError && !isTransientRequestError(contactError))
+      );
+    },
     isLoadingEntities: () =>
       (!!activeList()?.isLoading() && activeList()?.items().length === 0) ||
       projects.isLoading() ||

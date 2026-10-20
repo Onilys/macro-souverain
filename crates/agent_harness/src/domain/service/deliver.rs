@@ -134,13 +134,7 @@ where
                     }
                     let egress = self
                         .egress
-                        .provision(
-                            session_id,
-                            session.owner_user()?,
-                            &AgentMcpServers::Selected {
-                                servers: Vec::new(),
-                            },
-                        )
+                        .provision(session_id, session.owner_user()?, &session.mcp_servers)
                         .await?;
                     self.sessions
                         .set_egress_token_hash(session_id, &egress.session_token_hash)

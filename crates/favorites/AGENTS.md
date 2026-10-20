@@ -34,6 +34,10 @@ hexagonal architecture pattern.
   → `src/outbound/pg_favorites_repo.rs` → caller's feature wiring.
 - Add an AI tool action: `src/inbound/toolset.rs` → `src/domain/mutation_service.rs`.
 
+## Tool contracts
+
+- The AI adapter omits legacy chat targets; only advertise entity types supported by the domain mutation service.
+
 ## Checks
 
 - `cargo test -p favorites --all-features` (`SQLX_OFFLINE` unset).

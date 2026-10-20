@@ -42,6 +42,17 @@
       # bundle already — so embedding it in the derivation is not a new exposure.
       posthogApiKey = builtins.getEnv "VITE_POSTHOG_API_KEY";
 
+      # Without an exporter URL the bundle records spans and logs but never
+      # sends them. Default to the production OTLP proxy like the iOS build
+      # (`ios_production_telemetry` in `apps/web/scripts/ios-native-env.sh`);
+      # export either variable and build with `--impure` to send elsewhere.
+      # Export stays behind the `enable-browser-otel` PostHog flag.
+      envOr = name: fallback:
+        let value = builtins.getEnv name; in if value == "" then fallback else value;
+      otelExporterUrl =
+        envOr "VITE_OTEL_EXPORTER_URL" "https://macro-prox-prod.macroverse.workers.dev/i/otlp/v1/traces";
+      otelEnv = envOr "VITE_OTEL_ENV" "prod";
+
       rustToolchain = fenix.packages.${system}.fromToolchainFile {
         file = ../rust-toolchain.toml;
         sha256 = "sha256-qqF33vNuAdU5vua96VKVIwuc43j4EFeEXbjQ6+l4mO4=";
@@ -66,6 +77,7 @@
           && !(lib.hasPrefix "apps/web/dist/" rel)
           && !(lib.hasPrefix "apps/web/tauri/target/" rel)
           && !(lib.hasPrefix "apps/web/src/lib/graphql-cache/wasm/" rel)
+          && !(lib.hasPrefix "apps/web/src/lib/core/agent-fold/wasm/" rel)
           && !(lib.hasPrefix "packages/lexical-core/node_modules/" rel)
           && !(lib.hasPrefix "services/lexical-service/node_modules/" rel)
           && !(lib.hasPrefix "packages/loro-mirror/node_modules/" rel)
@@ -76,7 +88,8 @@
           && rel != "apps/web/node_modules"
           && rel != "apps/web/dist"
           && rel != "apps/web/tauri/target"
-          && rel != "apps/web/src/lib/graphql-cache/wasm";
+          && rel != "apps/web/src/lib/graphql-cache/wasm"
+          && rel != "apps/web/src/lib/core/agent-fold/wasm";
       };
 
       rootCargoVendorDir = craneLib.vendorCargoDeps {
@@ -120,6 +133,34 @@
         src = jsRoot;
       };
 
+      agentFoldWasmPackage = craneLib.mkCargoDerivation {
+        pname = "macro-agent-fold-wasm";
+        version = appVersion;
+        src = jsSrc;
+        cargoArtifacts = null;
+        cargoVendorDir = rootCargoVendorDir;
+        nativeBuildInputs = [
+          pkgs.binaryen
+          pkgs.wasm-bindgen-cli_0_2_126
+          pkgs.wasm-pack
+        ];
+        doCheck = false;
+        preBuild = cacheWasmPackage.preBuild;
+        buildPhaseCargoCommand = ''
+          wasm-pack build crates/folds/agent_fold \
+            --target web \
+            --release \
+            --mode no-install \
+            --out-dir "$PWD/apps/web/src/lib/core/agent-fold/wasm" \
+            -- --no-default-features
+        '';
+        installPhaseCommand = ''
+          mkdir -p $out
+          cp -a apps/web/src/lib/core/agent-fold/wasm/. $out/
+        '';
+        doInstallCargoArtifacts = false;
+      };
+
       frontend = pkgs.stdenvNoCC.mkDerivation {
         pname = "macro-tauri-frontend";
         version = appVersion;
@@ -135,43 +176,58 @@
         # Vite reads prefixed variables straight off the build environment, the
         # same way `just build-prod` picks them up in the web and Android jobs.
         VITE_POSTHOG_API_KEY = posthogApiKey;
+        VITE_OTEL_EXPORTER_URL = otelExporterUrl;
+        VITE_OTEL_ENV = otelEnv;
 
         buildPhase = ''
-            runHook preBuild
+          runHook preBuild
 
-            cp -a ${nodeModules}/. .
+          cp -a ${nodeModules}/. .
 
-            # Vite bundles TypeScript config files to a temporary sibling before
-            # loading them. The application config now lives at the app root,
-            # so make that directory writable inside the Nix build sandbox.
-            chmod u+w apps/web
+          # Vite bundles TypeScript config files to a temporary sibling before
+          # loading them. The application config now lives at the app root,
+          # so make that directory writable inside the Nix build sandbox.
+          chmod u+w apps/web
 
-            substituteInPlace apps/web/vite.base.ts \
-              --replace-fail \
-                "          // NIX_TAURI_ALIAS" \
-                '          { find: /^@tauri-apps\/api/, replacement: resolve(__dirname, "../../node_modules/@tauri-apps/api") },'
+          substituteInPlace apps/web/vite.base.ts \
+            --replace-fail \
+              "          // NIX_TAURI_ALIAS" \
+              '          { find: /^@tauri-apps\/api/, replacement: resolve(__dirname, "../../node_modules/@tauri-apps/api") },'
 
-            printf production > apps/web/tauri/src-tauri/.macro-tauri-env
-            mkdir -p apps/web/src/lib/graphql-cache/wasm
-            cp -a ${cacheWasmPackage}/. apps/web/src/lib/graphql-cache/wasm/
-            (
-              cd apps/web
-              MODE=production NODE_ENV=production bun ../../node_modules/vite/bin/vite.js build -c vite.config.ts
-              printf '${appVersion}+${gitRev}\n' > dist/semver.txt
-              BUNDLE_BUILD_NUMBER=${toString desktopRelease.bundleBuild} MIN_NATIVE_BUILD=0 bun scripts/write-bundle-manifest.mjs
-            )
+          printf production > apps/web/tauri/src-tauri/.macro-tauri-env
+          mkdir -p apps/web/src/lib/graphql-cache/wasm
+          cp -a ${cacheWasmPackage}/. apps/web/src/lib/graphql-cache/wasm/
+          mkdir -p apps/web/src/lib/core/agent-fold/wasm
+          cp -a ${agentFoldWasmPackage}/. apps/web/src/lib/core/agent-fold/wasm/
+          (
+            cd apps/web
+            MODE=production NODE_ENV=production bun ../../node_modules/vite/bin/vite.js build -c vite.config.ts
+            printf '${appVersion}+${gitRev}\n' > dist/semver.txt
+            BUNDLE_BUILD_NUMBER=${toString desktopRelease.bundleBuild} MIN_NATIVE_BUILD=0 bun scripts/write-bundle-manifest.mjs
+          )
 
-            # A supplied key that never reaches the bundle means PostHog — and
-            # every feature flag behind it — is silently off in the shipped app.
-            # Fail the build instead, the way the signed DMG fails on a missing
-            # signing identity.
-            if [ -n "''${VITE_POSTHOG_API_KEY:-}" ] \
-              && ! grep -rqF -- "$VITE_POSTHOG_API_KEY" apps/web/dist; then
-              echo "VITE_POSTHOG_API_KEY was set but Vite did not inline it into apps/web/dist" >&2
-              exit 1
-            fi
+          # A supplied key that never reaches the bundle means PostHog — and
+          # every feature flag behind it — is silently off in the shipped app.
+          # Fail the build instead, the way the signed DMG fails on a missing
+          # signing identity.
+          if [ -n "''${VITE_POSTHOG_API_KEY:-}" ] \
+            && ! grep -rqF -- "$VITE_POSTHOG_API_KEY" apps/web/dist; then
+            echo "VITE_POSTHOG_API_KEY was set but Vite did not inline it into apps/web/dist" >&2
+            exit 1
+          fi
 
-            runHook postBuild
+          runHook postBuild
+        '';
+
+        # Vite leaves new URL() imports unchanged when their generated source
+        # files are absent. Reject that otherwise-successful but broken bundle.
+        doCheck = true;
+        checkPhase = ''
+          runHook preCheck
+          for asset in apps/web/dist/assets/agent_fold-*.js apps/web/dist/assets/agent_fold_bg-*.wasm; do
+            test -s "$asset" || { echo "Missing agent fold bundle asset: $asset" >&2; exit 1; }
+          done
+          runHook postCheck
         '';
 
         installPhase = ''

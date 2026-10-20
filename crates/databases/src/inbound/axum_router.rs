@@ -1,6 +1,6 @@
 //! Axum router for the databases endpoints: typed reads and batched ops,
 //! the one write surface of a database's schema and data; SQL runs in the
-//! browser engine or the `databases_sql` tools.
+//! browser engine or the `databases_sql` HTTP/agent adapters.
 
 /// What a column's values would do under each type (`GET …/casts`), and
 /// what they become under one (`POST …/conversion`).

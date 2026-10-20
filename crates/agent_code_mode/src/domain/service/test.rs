@@ -66,7 +66,7 @@ impl ExecutionTurns for TestTurns {
 }
 
 #[derive(Default)]
-struct Credentials(Mutex<Vec<String>>);
+struct Credentials(Mutex<Vec<(String, bot_id::BotId)>>);
 #[async_trait]
 impl ExecutionCredentials for Credentials {
     async fn issue(
@@ -75,7 +75,10 @@ impl ExecutionCredentials for Credentials {
         _: &str,
         _: CancellationToken,
     ) -> Result<code_execution::domain::RunEnvironment, CodeModeError> {
-        self.0.lock().unwrap().push(identity.owner.to_string());
+        self.0
+            .lock()
+            .unwrap()
+            .push((identity.owner.to_string(), identity.agent_id));
         Ok(code_execution::domain::RunEnvironment {
             token: "run-only-secret".into(),
             ..Default::default()
@@ -127,7 +130,9 @@ fn request() -> ExecuteRequest {
 #[tokio::test]
 async fn run_uses_session_owner_and_records_source_and_result_without_credential() {
     let (service, credentials, store, _) = service();
-    let session = test_agent_session(AgentSessionId::new_from_uuid(macro_uuid::generate_uuid_v7()));
+    let mut session =
+        test_agent_session(AgentSessionId::new_from_uuid(macro_uuid::generate_uuid_v7()));
+    session.bot_id = bot_id::BotId::new_from_uuid(uuid::Uuid::from_u128(0xcafe));
     let id = ExecutionId::mint();
     let result = service
         .execute(&session, id, request(), CancellationToken::new())
@@ -136,7 +141,7 @@ async fn run_uses_session_owner_and_records_source_and_result_without_credential
     assert_eq!(result.status, ExecutionStatus::Succeeded);
     assert_eq!(
         *credentials.0.lock().unwrap(),
-        [session.owner_user().unwrap().to_string()]
+        [(session.owner_user().unwrap().to_string(), session.bot_id)]
     );
     let record = store.get(session.id, id).await.unwrap();
     assert_eq!(record.source, request().source);

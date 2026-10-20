@@ -99,9 +99,24 @@ impl SampleBuffer {
     }
 }
 
+#[derive(Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WebContentDiagnostics {
+    terminations: u64,
+    last_termination_ms: Option<u64>,
+}
+
+impl WebContentDiagnostics {
+    fn record_termination(&mut self, timestamp_ms: u64) {
+        self.terminations += 1;
+        self.last_termination_ms = Some(timestamp_ms);
+    }
+}
+
 pub struct Diagnostics {
     identity: Identity,
     buffer: Mutex<SampleBuffer>,
+    web_content: Mutex<WebContentDiagnostics>,
 }
 
 impl Diagnostics {
@@ -120,11 +135,24 @@ impl Diagnostics {
                 host_pid: std::process::id(),
             },
             buffer: Mutex::new(SampleBuffer::default()),
+            web_content: Mutex::new(WebContentDiagnostics::default()),
         }
     }
 
     pub fn is_recording(&self) -> bool {
         self.identity.recording_id.is_some()
+    }
+
+    /// Retain process termination evidence outside the WebView being reloaded.
+    pub fn record_web_content_termination(&self) -> Result<(), String> {
+        let mut web_content = self.web_content.lock().map_err(|e| e.to_string())?;
+        web_content.record_termination(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64,
+        );
+        Ok(())
     }
 }
 
@@ -134,10 +162,13 @@ pub struct Snapshot {
     identity: Identity,
     samples: Vec<MemorySample>,
     dropped_samples: u64,
+    web_content: WebContentDiagnostics,
+    bundle_reloads: Option<macro_bundle_updater_plugin::inbound::plugin::BundleReloadDiagnostics>,
 }
 
 #[tauri::command]
-pub fn read_desktop_diagnostics(
+pub fn read_desktop_diagnostics<R: tauri::Runtime>(
+    app_handle: tauri::AppHandle<R>,
     state: tauri::State<'_, Diagnostics>,
     after_sequence: Option<u64>,
 ) -> Result<Snapshot, String> {
@@ -147,6 +178,10 @@ pub fn read_desktop_diagnostics(
         identity: state.identity.clone(),
         samples,
         dropped_samples,
+        web_content: state.web_content.lock().map_err(|e| e.to_string())?.clone(),
+        bundle_reloads: macro_bundle_updater_plugin::inbound::plugin::bundle_reload_diagnostics(
+            &app_handle,
+        ),
     })
 }
 

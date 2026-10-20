@@ -1590,6 +1590,18 @@ pub async fn run() -> anyhow::Result<()> {
         )),
     );
 
+    // SQL predicates and follow-up reads use the primary, matching the catalog
+    // versions and writes; replica lag must not select stale rows for an edit.
+    let sql_service = databases_sql::DatabasesSql::new(
+        databases_service.clone(),
+        entity_access_service.clone(),
+        primary_entity_soup.clone(),
+        Arc::new(contacts::domain::service::ContactsDomainService {
+            repository: contacts::outbound::repository::DbContactsRepository::new(db.clone()),
+            notifier: None::<contacts::outbound::gateway::ConnectionGatewayNotifier>,
+        }),
+    );
+
     let favorites_service = Arc::new(FavoritesServiceImpl::new(PgFavoritesRepo::new(db.clone())));
 
     // Keep the replica-backed Soup reader alongside the primary-backed email
@@ -2110,7 +2122,7 @@ pub async fn run() -> anyhow::Result<()> {
                 entity_access_service.as_ref().clone(),
             ),
         ),
-        graphql_soup_update_hydration_loader: graphql_soup::SoupUpdateHydrationLoader(
+        graphql_primary_soup_item_loader: graphql_soup::PrimarySoupItemLoader(
             graphql_soup::soup_item_loader_with_team_access(
                 primary_entity_soup,
                 Arc::new(email_service.clone()),
@@ -2118,8 +2130,8 @@ pub async fn run() -> anyhow::Result<()> {
             ),
         ),
         // Ordinary single-entity GraphQL reads use the replica-backed Soup
-        // and email readers. Subscription hydration and mutation replies
-        // above read the primary.
+        // and email readers. Subscription hydration, `soupEntity`, and
+        // mutation replies above read the primary.
         graphql_soup_item_loader: graphql_soup::soup_item_loader_with_team_access(
             soup_service.clone(),
             Arc::new(readonly_email_service),
@@ -2138,6 +2150,10 @@ pub async fn run() -> anyhow::Result<()> {
         initiative_state: InitiativeRouterState::new(
             initiative_service,
             entity_access_service.clone(),
+            authorization_state.clone(),
+        ),
+        sql_state: databases_sql::inbound::axum_router::SqlRouterState::new(
+            sql_service,
             authorization_state.clone(),
         ),
         databases_state: databases::inbound::axum_router::DatabasesRouterState::new(

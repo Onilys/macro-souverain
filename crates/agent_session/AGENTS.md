@@ -15,6 +15,8 @@ consumer talks to.
 - `src/domain/turn_state.rs` + `src/domain/control.rs`: per-turn state and
   the control-plane commands (used by held tool-call approvals).
 - `src/inbound/axum_router.rs`: the HTTP surface.
+- `src/domain/read.rs` and `src/inbound/toolset/read_agent_session.rs`: bounded,
+  view-authorized conversation reads using the shared transcript fold.
 - `src/outbound/postgres.rs`: the session repository.
 - `src/outbound/broker_lifecycle_publisher.rs` /
   `broker_log_realtime.rs`: Kafka publication of lifecycle and log events.
@@ -29,8 +31,8 @@ consumer talks to.
 
 ## Boundaries
 
-- Depends on: `agent_runtime_protocol`, `agent_fold` (indirectly via
-  callers), `teams`, `macro_authorization`.
+- Depends on: `agent_runtime_protocol`, `agent_fold`, `teams`,
+  `macro_authorization`.
 - Used by: `agent_harness`, `agent_inmem`, `agent_egress`, `agent_trigger`,
   `agent_changes`, `agent_session_realtime`, `ai_tools` (coding-agent
   toolset), `complete_graph`, `webhook`, `search_service`, `soup_realtime`,
@@ -44,12 +46,19 @@ consumer talks to.
 - Add a lifecycle transition: `src/domain/lifecycle.rs` → `src/domain/service.rs`
   → `src/outbound/broker_lifecycle_publisher.rs` if it should publish.
 
+## Tool contracts
+
+- `src/inbound/toolset/`: session reads, creation, lifecycle actions, and sharing. Mutations preserve acting-user identity and existing owner/edit receipts; internal controls accept only prompt/stop, never human approvals.
+
 ## Checks
 
 - `cargo test -p agent_session` (`SQLX_OFFLINE` unset).
 
 ## Gotchas
 
+- `ReadAgentSession` bounds its response, not storage work: it folds the full
+  effective history like the app. Raw log limits break replay and turn numbering;
+  bounded reads need a persisted conversation projection or a fold-aware port.
 - The row's fenced log writer and the Cursor projection both lock the
   session row `FOR UPDATE`; never add a second `NOWAIT` locker without
   checking both paths (see git history on `src/domain/control.rs`).

@@ -273,3 +273,25 @@ async fn a_different_accepted_action_does_not_report_dispatch_success() {
     ));
     assert_eq!(sessions.prompted.lock().unwrap().len(), 1);
 }
+
+#[tokio::test]
+async fn creation_accepts_chat_personas_but_coding_dispatch_stays_scoped() {
+    let (service, directory, sessions, _) = fixture();
+    let chat = candidate(false, true);
+    directory.candidates.lock().unwrap().push(chat.clone());
+    assert!(matches!(
+        service.dispatch(command(chat.agent.id)).await,
+        Err(CodingAgentError::Unavailable)
+    ));
+    assert!(sessions.prepared.lock().unwrap().is_empty());
+    let created = service.create(command(chat.agent.id)).await.unwrap();
+    assert_eq!(created.agent_id, chat.agent.id);
+    assert_eq!(sessions.prompted.lock().unwrap().len(), 1);
+    assert_eq!(sessions.prompted.lock().unwrap()[0].action.owner, user());
+    directory.candidates.lock().unwrap().clear();
+    assert!(matches!(
+        service.create(command(chat.agent.id)).await,
+        Err(CodingAgentError::Unavailable)
+    ));
+    assert_eq!(sessions.prompted.lock().unwrap().len(), 1);
+}

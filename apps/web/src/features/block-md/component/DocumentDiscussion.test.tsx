@@ -121,13 +121,15 @@ function setup() {
 it('does not mount comment readers or the composer before sign-in', () => {
   setAuthenticated(undefined);
   render(() => <DocumentDiscussion editorHasFocus={false} />);
-  expect(screen.getByText('Sign in to view comments.')).toBeTruthy();
+  expect(screen.queryByText('Sign in to view comments.')).toBeNull();
   expect(mocks.conversation).not.toHaveBeenCalled();
   expect(mocks.mount).not.toHaveBeenCalled();
 
   setAuthenticated(false);
+  expect(screen.getByText('Sign in to view comments.')).toBeTruthy();
   expect(mocks.conversation).not.toHaveBeenCalled();
   setAuthenticated(true);
+  expect(screen.queryByText('Sign in to view comments.')).toBeNull();
   expect(mocks.conversation).toHaveBeenCalledOnce();
   setAuthenticated(false);
   expect(screen.getByText('Sign in to view comments.')).toBeTruthy();

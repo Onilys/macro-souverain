@@ -577,6 +577,18 @@ pub(crate) type DssUserApiKeyState =
 pub(crate) type DatabasesServiceType =
     PgDatabasesService<GatewayTableEventPublisher, DssEventBroker, EntityAccessService>;
 
+/// HTTP SQL queries over the same database, access and Soup services.
+pub(crate) type DssSqlState = databases_sql::inbound::axum_router::SqlRouterState<
+    DatabasesServiceType,
+    EntityAccessService,
+    DssSoupService,
+    contacts::domain::service::ContactsDomainService<
+        contacts::outbound::repository::DbContactsRepository,
+        Option<contacts::outbound::gateway::ConnectionGatewayNotifier>,
+    >,
+    AuthorizationService,
+>;
+
 /// Type alias for the databases router state.
 pub(crate) type DssDatabasesState =
     DatabasesRouterState<DatabasesServiceType, EntityAccessService, AuthorizationService>;
@@ -856,9 +868,10 @@ pub(crate) struct ApiContext {
     pub graphql_work_feed_context: complete_graph::WorkFeedGraphqlContext,
     pub graphql_initiative_entity_loader: graphql_initiative::InitiativeEntityLoader,
     pub graphql_agent_session_entity_loader: graphql_soup::AgentSessionEntityLoader,
-    pub graphql_soup_update_hydration_loader: graphql_soup::SoupUpdateHydrationLoader,
+    pub graphql_primary_soup_item_loader: graphql_soup::PrimarySoupItemLoader,
     pub graphql_soup_item_loader: graphql_soup::SoupItemDataLoader,
     pub databases_state: DssDatabasesState,
+    pub sql_state: DssSqlState,
     pub database_webhooks_state: DssDatabaseWebhooksState,
     pub forms_state: DssFormsState,
     pub database_starter_state: DssDatabaseStarterState,
