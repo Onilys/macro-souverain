@@ -132,6 +132,26 @@ export function createEmailSendDispatcher(options: {
         leaseGeneration,
         {
           failed: rejected && !claimed.cancellationRequested,
+          // Only the first exclusive submission can prove that no earlier
+          // request was accepted. A status rejection after a timeout cannot.
+          rejectedBeforeAdmission:
+            claimed.dispatchVersion === 2 &&
+            leaseGeneration === 1 &&
+            !row.submissionStarted &&
+            row.phase !== 'committed' &&
+            !claimed.cancellationRequested &&
+            error instanceof CombinedError &&
+            !error.networkError &&
+            error.graphQLErrors.every(
+              (entry) =>
+                !entry.path ||
+                (entry.path.length === 1 &&
+                  entry.path[0] === 'sendEmailMessage')
+            ) &&
+            codes.length > 0 &&
+            codes.every((code) =>
+              ['INBOX_NOT_FOUND', 'FORBIDDEN'].includes(String(code))
+            ),
           paused: needsAuthentication,
           error: needsAuthentication
             ? 'Reconnect your email account, then check status to resume.'

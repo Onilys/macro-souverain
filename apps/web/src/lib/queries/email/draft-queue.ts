@@ -85,11 +85,15 @@ export async function readEmailDraft(
   // Without one, preserve the read error rather than inventing an empty draft.
   if (cached?.isErr() && !local) throw cached.error;
   const selected = cached?.isOk() ? cached.value.records[0] : undefined;
-  // A confirmed sent record always wins. A fully synced working copy must
-  // also yield to newer server content, attachments, and scheduling state.
+  // Cancellation advances the server generation before restoring the local copy.
+  // An older accepted/sent cache record must not hide that restored draft.
+  // At the same or newer generation, server delivery state remains authoritative.
   if (
     selected &&
-    (!selected.record.isDraft || !local || local.status === 'synced')
+    (!local ||
+      ((selected.record.draftGeneration ?? 0) >=
+        (local.content.draft_generation ?? 0) &&
+        (!selected.record.isDraft || local.status === 'synced')))
   ) {
     return {
       draft: selected.record.isDraft

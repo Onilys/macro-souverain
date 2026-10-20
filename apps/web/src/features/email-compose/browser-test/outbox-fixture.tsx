@@ -2,6 +2,7 @@ import { createEmailSendDispatcher } from '@queries/email/email-send-dispatcher'
 import { createLocalDraftStore } from '@queries/email/local-draft-store';
 import type { EmailSendIntent } from '@queries/email/send-intent';
 import type { EmailSendAttemptFieldsFragment } from '@service-storage/graphql/generated/graphql';
+import { CombinedError } from '@urql/core';
 import { createSignal, onCleanup, onMount } from 'solid-js';
 import { render } from 'solid-js/web';
 
@@ -11,6 +12,7 @@ function OutboxFixture() {
   const [rows, setRows] = createSignal<EmailSendIntent[]>([]);
   const [ready, setReady] = createSignal(false);
   const [error, setError] = createSignal('');
+  const [restored, setRestored] = createSignal('');
   let session: Awaited<ReturnType<typeof journal.activate>>;
   let dispatcher: ReturnType<typeof createEmailSendDispatcher> | undefined;
   const refresh = async () => {
@@ -27,6 +29,16 @@ function OutboxFixture() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(row.metadata.payload.input),
     });
+    if (response.status === 403)
+      throw new CombinedError({
+        graphQLErrors: [
+          {
+            message: 'Inbox unavailable',
+            extensions: { code: 'INBOX_NOT_FOUND' },
+            path: ['sendEmailMessage'],
+          },
+        ],
+      });
     if (!response.ok) throw new Error('Network unavailable');
     return (await response.json()) as EmailSendAttemptFieldsFragment | null;
   };
@@ -79,6 +91,7 @@ function OutboxFixture() {
                 senderEmail: 'owner@example.invalid',
                 senderLinkId: 'inbox',
                 optimisticBodyHtml: null,
+                bodyText: 'Frozen message',
               },
             },
           },
@@ -136,6 +149,28 @@ function OutboxFixture() {
         Return to owner
       </button>
       <output data-testid="rows">{JSON.stringify(rows())}</output>
+      <button
+        disabled={
+          !rows().some(
+            (row) =>
+              row.locallyCancelled && !row.metadata.requiresServerConfirmation
+          )
+        }
+        onClick={async () => {
+          const row = rows().find((row) => row.locallyCancelled);
+          if (!row) return;
+          try {
+            const result = await journal.restoreSend(session, row.uuid);
+            setRestored(result?.draft.content.body_text ?? '');
+            await refresh();
+          } catch (failure) {
+            setError(String(failure));
+          }
+        }}
+      >
+        Restore draft
+      </button>
+      <output data-testid="restored">{restored()}</output>
       <output data-testid="error">{error()}</output>
     </main>
   );

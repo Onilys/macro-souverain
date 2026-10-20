@@ -1,5 +1,6 @@
 import 'fake-indexeddb/auto';
 import type { EmailSendAttemptFieldsFragment } from '@service-storage/graphql/generated/graphql';
+import { CombinedError } from '@urql/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createEmailSendDispatcher } from './email-send-dispatcher';
 import { createLocalDraftStore } from './local-draft-store';
@@ -67,6 +68,102 @@ afterEach(async () => {
 });
 
 describe('independent email dispatch', () => {
+  it.each(['INBOX_NOT_FOUND', 'FORBIDDEN'])(
+    'restores a first submission rejected with %s without inaccessible server cancellation',
+    async (code) => {
+      const storage = await setup();
+      const original = await storage.journal.putSend(
+        storage.session,
+        intent(),
+        true
+      );
+      const cancel = vi.fn();
+      const submit = vi.fn(async () => {
+        throw new CombinedError({
+          graphQLErrors: [
+            { message: 'Inbox unavailable', extensions: { code } },
+          ],
+        });
+      });
+      const runner = run({
+        ...storage,
+        submit,
+        cancel,
+        status: vi.fn(),
+        report: vi.fn(),
+      });
+      await runner.wake();
+      // A stale composer callback cannot restore the old confirmation requirement.
+      await storage.journal.putSend(storage.session, {
+        ...original,
+        cancellationRequested: true,
+      });
+      await runner.wake();
+      expect((await storage.journal.sends(storage.session))[0]).toMatchObject({
+        locallyCancelled: true,
+        metadata: { requiresServerConfirmation: false },
+      });
+      const restored = await storage.journal.restoreSend(
+        storage.session,
+        original.uuid
+      );
+      expect(restored?.draft.content.subject).toBe('Approved');
+      expect(await storage.journal.sends(storage.session)).toEqual([]);
+      expect(submit).toHaveBeenCalledTimes(1);
+      expect(cancel).not.toHaveBeenCalled();
+    }
+  );
+
+  it('keeps an inbox rejection after a lost response locked until server confirmation', async () => {
+    const storage = await setup();
+    await storage.journal.putSend(storage.session, intent(), true);
+    const first = run({
+      ...storage,
+      submit: async () => {
+        throw new Error('Response lost');
+      },
+      cancel: vi.fn(),
+      status: vi.fn(),
+      report: vi.fn(),
+    });
+    await first.wake();
+    first.dispose();
+    vi.setSystemTime(Date.now() + 31_000);
+    const denied = async () => {
+      throw new CombinedError({
+        graphQLErrors: [
+          {
+            message: 'Inbox unavailable',
+            extensions: { code: 'INBOX_NOT_FOUND' },
+          },
+        ],
+      });
+    };
+    const submit = vi.fn();
+    const second = run({
+      ...storage,
+      submit,
+      status: denied,
+      cancel: denied,
+      report: vi.fn(),
+    });
+    await second.wake();
+    const row = (await storage.journal.sends(storage.session))[0];
+    await storage.journal.putSend(storage.session, {
+      ...row,
+      cancellationRequested: true,
+    });
+    await second.wake();
+    expect(submit).not.toHaveBeenCalled();
+    await expect(
+      storage.journal.restoreSend(storage.session, row.uuid)
+    ).rejects.toThrow('Confirm cancellation');
+    expect((await storage.journal.sends(storage.session))[0]).toMatchObject({
+      locallyCancelled: false,
+      metadata: { requiresServerConfirmation: true },
+    });
+  });
+
   it('submits a durable intent without a cache or mounted composer', async () => {
     const storage = await setup();
     await storage.journal.putSend(storage.session, intent(), true);
@@ -509,4 +606,80 @@ it('uses a free network slot for a new approval while an earlier request is stal
   ).toBe('committed');
   slow.resolve({ ...accepted, attemptId: 'slow' });
   await runner.wake();
+});
+
+it.each(['network', 'nested', 'mixed'])(
+  'does not treat %s errors as definitive admission rejection',
+  async (kind) => {
+    const storage = await setup();
+    await storage.journal.putSend(storage.session, intent(), true);
+    const error = new CombinedError({
+      networkError:
+        kind === 'network' ? new Error('Connection lost') : undefined,
+      graphQLErrors: [
+        {
+          message: 'Denied',
+          extensions: { code: 'FORBIDDEN' },
+          path:
+            kind === 'nested'
+              ? ['sendEmailMessage', 'attempt', 'message']
+              : ['sendEmailMessage'],
+        },
+        ...(kind === 'mixed'
+          ? [{ message: 'Internal failure', extensions: { code: 'INTERNAL' } }]
+          : []),
+      ],
+    });
+    const runner = run({
+      ...storage,
+      submit: async () => {
+        throw error;
+      },
+      cancel: vi.fn(),
+      status: vi.fn(),
+      report: vi.fn(),
+    });
+    await runner.wake();
+    expect(
+      (await storage.journal.sends(storage.session))[0].locallyCancelled
+    ).toBe(false);
+    await expect(
+      storage.journal.restoreSend(storage.session, 'attempt')
+    ).rejects.toThrow('Confirm cancellation');
+  }
+);
+
+it('cannot unlock a newer submission with an expired first-claim rejection', async () => {
+  const { journal, session } = await setup();
+  await journal.putSend(session, intent(), true);
+  await journal.claimSend(session, 'attempt', 'first', Date.now());
+  const second = await journal.claimSend(
+    session,
+    'attempt',
+    'second',
+    Date.now() + 60_001
+  );
+  expect(
+    await journal.settleSend(session, 'attempt', 'first', 1, {
+      rejectedBeforeAdmission: true,
+      failed: true,
+      nextAttemptAt: 0,
+    })
+  ).toBe(false);
+  expect(
+    await journal.settleSend(
+      session,
+      'attempt',
+      'second',
+      second!.dispatch!.generation,
+      {
+        attempt: accepted,
+        nextAttemptAt: 0,
+      }
+    )
+  ).toBe(true);
+  expect((await journal.sends(session))[0].locallyCancelled).toBe(false);
+  await expect(journal.restoreSend(session, 'attempt')).rejects.toThrow(
+    'Confirm cancellation'
+  );
 });

@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   refresh: vi.fn(async () => {}),
   cancel: vi.fn(async () => {}),
   restore: vi.fn(async () => {}),
+  recover: vi.fn(async () => {}),
 }));
 vi.mock('@queries/email/draft-queue', () => ({ draftQueueActive: () => true }));
 vi.mock('@queries/email/queued-sends', () => ({
@@ -26,6 +27,7 @@ vi.mock('@queries/email/queued-sends', () => ({
 vi.mock('@queries/email/send-queue', () => ({
   cancelEmailSendQueued: mocks.cancel,
   restoreCancelledEmailSend: mocks.restore,
+  recoverEmailSendIntent: mocks.recover,
   settledSendAttempt: (intent: EmailSendIntent) =>
     intent.response?.sendEmailMessage?.attempt,
   emailSendLocked: () => true,
@@ -47,6 +49,8 @@ function showStatus(
       uuid: 'attempt',
       phase: cancellationPending ? 'pending' : 'committed',
       locallyCancelled: false,
+      dispatchVersion: 2,
+      cancellationRequested: cancellationPending,
       metadata: {
         kind: 'email-send-v1',
         replace: cancellationPending,
@@ -88,7 +92,7 @@ function showStatus(
 
 it('keeps an accepted preparation cancellable while waiting to submit', async () => {
   showStatus('ACCEPTED');
-  expect(screen.getByRole('status').textContent).toBe('Queued to send');
+  expect(screen.getByRole('status').textContent).toBe('Accepted by server');
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   await waitFor(() => expect(mocks.cancel).toHaveBeenCalledOnce());
   expect(mocks.restore).not.toHaveBeenCalled();
@@ -127,7 +131,7 @@ it('keeps uncertain delivery read-only and offers only status reconciliation', a
 });
 
 it('shows a status refresh error and permits checking again', async () => {
-  mocks.refresh.mockRejectedValueOnce(new Error('You are offline'));
+  mocks.recover.mockRejectedValueOnce(new Error('You are offline'));
   showStatus('DELIVERY_UNCONFIRMED');
   const checkStatus = screen.getByRole('button', { name: 'Check status' });
   fireEvent.click(checkStatus);
@@ -135,7 +139,7 @@ it('shows a status refresh error and permits checking again', async () => {
     expect(screen.getByRole('alert').textContent).toBe('You are offline')
   );
   fireEvent.click(checkStatus);
-  await waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(mocks.recover).toHaveBeenCalledTimes(2));
   expect(screen.queryByRole('alert')).toBeNull();
   expect(mocks.cancel).not.toHaveBeenCalled();
 });

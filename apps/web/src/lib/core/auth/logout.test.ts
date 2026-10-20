@@ -34,6 +34,9 @@ vi.mock('@queries/email/send-queue', () => ({
   readEmailSendIntents: vi.fn(async () => []),
   settledSendAttempt: () => ({ status: 'ACCEPTED' }),
 }));
+vi.mock('@queries/email/outbox-session', () => ({
+  setEmailOutboxSession: vi.fn(),
+}));
 vi.mock('@core/constant/servers', () => ({
   SERVER_HOSTS: { 'auth-logout': 'https://auth.example.com/oauth2/logout' },
 }));

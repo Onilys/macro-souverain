@@ -1,5 +1,31 @@
 import { expect, test } from '@playwright/test';
 
+test('an inbox rejection survives reload and restores the saved message without cancellation HTTP', async ({
+  page,
+  context,
+}) => {
+  let requests = 0;
+  await context.route('**/test-email/*', async (route) => {
+    requests++;
+    expect(route.request().url()).toContain('/submit');
+    await route.fulfill({ status: 403, json: {} });
+  });
+  await page.goto('/outbox.html');
+  await page.getByRole('button', { name: 'Send frozen message' }).click();
+  await expect(
+    page.getByRole('button', { name: 'Restore draft' })
+  ).toBeEnabled();
+  await page.reload();
+  await expect(
+    page.getByRole('button', { name: 'Restore draft' })
+  ).toBeEnabled();
+  await page.getByRole('button', { name: 'Restore draft' }).click();
+  await expect(page.getByTestId('restored')).toHaveText('Frozen message');
+  await expect(page.getByTestId('rows')).toHaveText('[]');
+  await expect(page.getByTestId('error')).toHaveText('');
+  expect(requests).toBe(1);
+});
+
 test('offline approval survives reload and account changes, then reconciles lost acceptance without resending', async ({
   page,
   context,

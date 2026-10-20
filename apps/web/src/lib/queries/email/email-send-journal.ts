@@ -138,6 +138,13 @@ export function createEmailSendJournal(
                                 response: previous.response,
                                 resolvedDraftId: previous.resolvedDraftId,
                                 resolvedThreadId: previous.resolvedThreadId,
+                                locallyCancelled: previous.locallyCancelled,
+                                metadata: {
+                                  ...intent.metadata,
+                                  requiresServerConfirmation:
+                                    previous.metadata
+                                      .requiresServerConfirmation,
+                                },
                               }
                             : {}),
                           cancellationRequested:
@@ -339,6 +346,7 @@ export function createEmailSendJournal(
         error?: string;
         failed?: boolean;
         paused?: boolean;
+        rejectedBeforeAdmission?: boolean;
         nextAttemptAt: number;
       }
     ): Promise<boolean> {
@@ -363,6 +371,19 @@ export function createEmailSendJournal(
               sends.put(
                 {
                   ...row,
+                  ...(update.rejectedBeforeAdmission &&
+                  generation === 1 &&
+                  row.dispatchVersion === 2 &&
+                  !row.response &&
+                  !update.attempt
+                    ? {
+                        locallyCancelled: true,
+                        metadata: {
+                          ...row.metadata,
+                          requiresServerConfirmation: false,
+                        },
+                      }
+                    : {}),
                   phase: update.attempt
                     ? 'committed'
                     : update.failed
