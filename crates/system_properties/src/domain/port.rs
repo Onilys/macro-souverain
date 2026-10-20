@@ -24,6 +24,12 @@ pub trait SystemPropertiesRepository: Clone + Send + Sync + 'static {
         rows: Vec<crate::domain::model::PropertyRow>,
     ) -> impl Future<Output = Result<(), SystemPropertyError>> + Send;
 
+    /// The thread a document's Source property names, if it names one.
+    fn email_attachment_source_thread(
+        &self,
+        document_id: &str,
+    ) -> impl Future<Output = Result<Option<String>, SystemPropertyError>> + Send;
+
     /// Copy all task properties from one entity to another.
     fn copy_task_properties(
         &self,

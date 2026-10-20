@@ -242,6 +242,106 @@ async fn test_bulk_insert_properties_if_absent_keeps_first_write(
     Ok(())
 }
 
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn replacing_email_attachment_properties_overwrites_the_first_email(
+    pool: Pool<Postgres>,
+) -> anyhow::Result<()> {
+    use crate::domain::model::{EmailAttachmentInput, EmailAttachmentProperty, SourceEntity};
+    use crate::domain::service::{SystemPropertiesService, SystemPropertiesServiceImpl};
+    let service = SystemPropertiesServiceImpl::new(PgSystemPropertiesRepository::new(pool.clone()));
+    let document_id = "email-doc-replaced";
+    let input = |thread_id: &str, subject: &str| EmailAttachmentInput {
+        entity_id: document_id.to_string(),
+        properties: EmailAttachmentProperty {
+            source: Some(SourceEntity {
+                entity_type: EntityType::Thread,
+                entity_id: thread_id.to_string(),
+                specific_message_id: None,
+            }),
+            subject: Some(subject.to_string()),
+            ..Default::default()
+        },
+    };
+
+    assert_eq!(
+        service.email_attachment_source_thread(document_id).await?,
+        None
+    );
+    service
+        .set_email_attachment_properties(vec![input("first-thread", "first subject")])
+        .await?;
+    service
+        .set_email_attachment_properties(vec![input("second-thread", "second subject")])
+        .await?;
+    assert_eq!(
+        service.email_attachment_source_thread(document_id).await?,
+        Some("first-thread".to_string())
+    );
+
+    service
+        .replace_email_attachment_properties(vec![input("second-thread", "second subject")])
+        .await?;
+    assert_eq!(
+        service.email_attachment_source_thread(document_id).await?,
+        Some("second-thread".to_string())
+    );
+    let subject = sqlx::query_scalar!(
+        r#"
+        SELECT values
+        FROM entity_properties
+        WHERE entity_id = $1 AND property_definition_id = $2
+        "#,
+        document_id,
+        SystemPropertyKey::SUBJECT_UUID,
+    )
+    .fetch_one(&pool)
+    .await?;
+    assert_eq!(
+        subject.unwrap(),
+        serde_json::json!({"type": "String", "value": "second subject"})
+    );
+
+    Ok(())
+}
+
+#[sqlx::test(migrator = "MACRO_DB_MIGRATIONS")]
+async fn email_attachment_source_thread_ignores_other_references(
+    pool: Pool<Postgres>,
+) -> anyhow::Result<()> {
+    let repo = PgSystemPropertiesRepository::new(pool.clone());
+    repo.bulk_upsert_properties(vec![
+        PropertyRow::entity_reference(
+            "channel-source",
+            EntityType::Document,
+            SystemPropertyKey::SOURCE_UUID,
+            EntityType::Channel,
+            vec!["channel-id".to_string()],
+            None,
+        ),
+        PropertyRow::entity_reference(
+            "task-source",
+            EntityType::Task,
+            SystemPropertyKey::SOURCE_UUID,
+            EntityType::Thread,
+            vec!["thread-id".to_string()],
+            None,
+        ),
+    ])
+    .await?;
+
+    assert_eq!(
+        repo.email_attachment_source_thread("channel-source")
+            .await?,
+        None
+    );
+    assert_eq!(
+        repo.email_attachment_source_thread("task-source").await?,
+        None
+    );
+
+    Ok(())
+}
+
 // ============================================================================
 // copy_task_properties tests
 // ============================================================================

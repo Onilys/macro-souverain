@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT values->'value'->0->>'entity_id' AS thread_id\n            FROM entity_properties\n            WHERE entity_id = $1\n              AND entity_type = 'DOCUMENT'\n              AND property_definition_id = $2\n              AND values->'value'->0->>'entity_type' = 'THREAD'\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "thread_id",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "bf59c0cae9174e33fbb262ffc9ad8ca5d14296f1df07518aab2d92706c0c04ae"
+}

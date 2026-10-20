@@ -140,6 +140,27 @@ impl SystemPropertiesRepository for PgSystemPropertiesRepository {
         Ok(())
     }
 
+    async fn email_attachment_source_thread(
+        &self,
+        document_id: &str,
+    ) -> Result<Option<String>, SystemPropertyError> {
+        let thread_id = sqlx::query_scalar!(
+            r#"
+            SELECT values->'value'->0->>'entity_id' AS thread_id
+            FROM entity_properties
+            WHERE entity_id = $1
+              AND entity_type = 'DOCUMENT'
+              AND property_definition_id = $2
+              AND values->'value'->0->>'entity_type' = 'THREAD'
+            "#,
+            document_id,
+            SystemPropertyKey::SOURCE_UUID,
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(thread_id.flatten())
+    }
+
     async fn copy_task_properties(
         &self,
         from_task_id: &str,

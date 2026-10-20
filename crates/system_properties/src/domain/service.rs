@@ -31,6 +31,19 @@ pub trait SystemPropertiesService: Clone + Send + Sync + 'static {
         items: Vec<EmailAttachmentInput>,
     ) -> impl Future<Output = Result<(), SystemPropertyError>> + Send;
 
+    /// Set email attachment properties for multiple entities, overwriting
+    /// existing values. Only properties that are `Some` will be written.
+    fn replace_email_attachment_properties(
+        &self,
+        items: Vec<EmailAttachmentInput>,
+    ) -> impl Future<Output = Result<(), SystemPropertyError>> + Send;
+
+    /// The email thread a document's Source property names, if it names one.
+    fn email_attachment_source_thread(
+        &self,
+        document_id: &str,
+    ) -> impl Future<Output = Result<Option<String>, SystemPropertyError>> + Send;
+
     /// Associate an entity with CRM companies and contacts through the
     /// Companies and Contacts properties.
     ///
@@ -125,6 +138,29 @@ where
             .collect();
 
         self.repository.bulk_insert_properties_if_absent(rows).await
+    }
+
+    #[tracing::instrument(err, skip(self, items))]
+    async fn replace_email_attachment_properties(
+        &self,
+        items: Vec<EmailAttachmentInput<'_>>,
+    ) -> Result<(), SystemPropertyError> {
+        let rows: Vec<PropertyRow> = items
+            .into_iter()
+            .flat_map(|item| collect_email_property_rows(&item.entity_id, item.properties))
+            .collect();
+
+        self.repository.bulk_upsert_properties(rows).await
+    }
+
+    #[tracing::instrument(err, skip(self))]
+    async fn email_attachment_source_thread(
+        &self,
+        document_id: &str,
+    ) -> Result<Option<String>, SystemPropertyError> {
+        self.repository
+            .email_attachment_source_thread(document_id)
+            .await
     }
 
     #[tracing::instrument(err, skip(self))]
