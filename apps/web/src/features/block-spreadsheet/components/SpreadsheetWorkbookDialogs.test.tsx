@@ -114,6 +114,37 @@ describe('workbook dialogs', () => {
     expect(restoreFocus).toHaveBeenCalled();
   });
 
+  it('keeps replace collapsed until the replace toggle is pressed', async () => {
+    const [open, setOpen] = createSignal(true);
+    render(() => (
+      <SpreadsheetFindDialog
+        open={open()}
+        onClose={() => setOpen(false)}
+        query="Budget"
+        onQuery={() => {}}
+        replacement=""
+        onReplacement={() => {}}
+        options={{ matchCase: false, entireCell: false, formulas: false }}
+        onOptions={() => {}}
+        matchCount={1}
+        matchIndex={0}
+        readonly={false}
+        notice=""
+        onFind={() => {}}
+        onReplace={() => {}}
+      />
+    ));
+    expect(screen.queryByRole('textbox', { name: 'Replace with' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Replace' }));
+    expect(
+      await screen.findByRole('textbox', { name: 'Replace with' })
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Hide replace' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('textbox', { name: 'Replace with' })).toBeNull()
+    );
+  });
+
   it('focuses and selects the sheet name on opening and reopening, and Escape closes', async () => {
     const view = sheetDialog();
     const trigger = view.getByRole('button', { name: 'Rename' });
