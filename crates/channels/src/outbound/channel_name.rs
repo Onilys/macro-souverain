@@ -184,7 +184,7 @@ pub async fn match_channel_names(
             SELECT
                 vc.id AS channel_id,
                 CASE
-                    WHEN other.user_id LIKE 'bot|%' THEN COALESCE(system_bot.name, bot.name)
+                    WHEN other.user_id LIKE 'bot|%' THEN COALESCE(system_bot.name, bot.name, 'Bot')
                     ELSE COALESCE(
                         NULLIF(
                             concat_ws(

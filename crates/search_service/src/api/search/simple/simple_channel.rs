@@ -15,7 +15,9 @@ pub(in crate::api::search) struct FilterChannelResponse {
 }
 
 /// Performs the viewer-aware name search over the channels the user is in,
-/// narrowed by the filters' `channel_ids` and `channel_types`.
+/// narrowed by the filters' `channel_ids` and `channel_types`. Organization
+/// channels no longer exist (`comms_channels.org_id` is always null), so an
+/// `org_id` filter matches no channel, as it does for the message index.
 #[tracing::instrument(skip(db, filters, term), fields(term_len = term.len()), err)]
 pub(in crate::api::search) async fn search_names<'a>(
     db: &sqlx::Pool<sqlx::Postgres>,
@@ -32,6 +34,9 @@ pub(in crate::api::search) async fn search_names<'a>(
         }
         models_search_cursor::SearchCursorOption::NotDone(c) => c,
     };
+    if filters.org_id.is_some() {
+        return Ok((vec![], models_search_cursor::SearchCursorOption::Done));
+    }
     let channel_ids = filters
         .channel_ids
         .iter()
@@ -133,3 +138,6 @@ pub(in crate::api::search) async fn filter_channels(
 
     Ok(FilterChannelResponse { channel_ids })
 }
+
+#[cfg(test)]
+mod test;

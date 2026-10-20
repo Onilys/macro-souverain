@@ -17,6 +17,7 @@ const CLAUDE_DM: &str = "99999999-9999-9999-9999-999999999999";
 const DEAL_DESK_DM: &str = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 const DESIGN_DECKS: &str = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
 const HOLLIS_DM: &str = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+const UNKNOWN_BOT_DM: &str = "dddddddd-dddd-dddd-dddd-dddddddddddd";
 
 const MEMBER: &str = "macro|member@test.com";
 const GABRIEL: &str = "macro|gabriel@test.com";
@@ -415,6 +416,19 @@ async fn persona_direct_messages_are_found_by_bot_name(pool: Pool<Postgres>) -> 
     .await?;
     assert_eq!(ids(&owned_bot), [DEAL_DESK_DM]);
     assert_eq!(owned_bot.items[0].name, "<macro_em>Deal</macro_em> Desk");
+
+    let bot_without_row = search_channel_names(
+        &pool,
+        &user(MEMBER),
+        ChannelNameSearchScope::default(),
+        "bot".to_string(),
+        false,
+        10,
+        None,
+    )
+    .await?;
+    assert_eq!(ids(&bot_without_row), [UNKNOWN_BOT_DM]);
+    assert_eq!(bot_without_row.items[0].name, "<macro_em>Bot</macro_em>");
     Ok(())
 }
 
@@ -580,7 +594,7 @@ async fn results_match_the_names_the_viewer_sees(pool: Pool<Postgres>) -> anyhow
     .await?;
     let resolved_names =
         batch_resolve_channel_names(&pool, &channel_ids, MacroUserIdStr(viewer.clone())).await?;
-    assert_eq!(resolved_names.len(), 10);
+    assert_eq!(resolved_names.len(), 11);
 
     for term in [
         "mac",
@@ -599,6 +613,7 @@ async fn results_match_the_names_the_viewer_sees(pool: Pool<Postgres>) -> anyhow
         "member",
         "peter teo",
         "macro plan",
+        "bot",
         "zzz",
     ] {
         let expected: BTreeSet<Uuid> = resolved_names

@@ -40,7 +40,8 @@ VALUES
     ('99999999-9999-9999-9999-999999999999', NULL, 'direct_message', 'macro|member@test.com', '2024-01-09 10:00:00+00', '2024-12-09 10:00:00+00'),
     ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', NULL, 'direct_message', 'macro|member@test.com', '2024-01-10 10:00:00+00', '2024-12-10 10:00:00+00'),
     ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Design Decks', 'public', 'macro|member@test.com', '2024-01-11 10:00:00+00', '2024-12-11 10:00:00+00'),
-    ('cccccccc-cccc-cccc-cccc-cccccccccccc', NULL, 'direct_message', 'macro|member@test.com', '2024-01-12 10:00:00+00', '2024-12-12 10:00:00+00');
+    ('cccccccc-cccc-cccc-cccc-cccccccccccc', NULL, 'direct_message', 'macro|member@test.com', '2024-01-12 10:00:00+00', '2024-12-12 10:00:00+00'),
+    ('dddddddd-dddd-dddd-dddd-dddddddddddd', NULL, 'direct_message', 'macro|member@test.com', '2024-01-13 10:00:00+00', '2024-12-13 10:00:00+00');
 
 INSERT INTO comms_channel_participants (channel_id, role, user_id, left_at)
 VALUES
@@ -62,4 +63,7 @@ VALUES
     ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'member', 'bot|b0000000-0000-0000-0000-000000000001', NULL),
     ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'owner', 'macro|member@test.com', NULL),
     ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'owner', 'macro|member@test.com', NULL),
-    ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'member', 'macro|hollis@test.com', NULL);
+    ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'member', 'macro|hollis@test.com', NULL),
+    -- A bot with no `bots` row (deleted or unknown) shows as "Bot".
+    ('dddddddd-dddd-dddd-dddd-dddddddddddd', 'owner', 'macro|member@test.com', NULL),
+    ('dddddddd-dddd-dddd-dddd-dddddddddddd', 'member', 'bot|b0000000-0000-0000-0000-000000000002', NULL);
