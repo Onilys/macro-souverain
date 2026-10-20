@@ -62,7 +62,14 @@ export function SplitPanel(props: SplitPanelProps) {
   const panelSize = createElementSize(panelRef);
   let pointerTarget: Element | undefined;
 
-  const layoutRefs: SplitPanelContextType['layoutRefs'] = {};
+  const [headerLeft, setHeaderLeft] = createSignal<HTMLDivElement>();
+  const [headerRight, setHeaderRight] = createSignal<HTMLDivElement>();
+  const layoutRefs: SplitPanelContextType['layoutRefs'] = {
+    headerLeft,
+    setHeaderLeft,
+    headerRight,
+    setHeaderRight,
+  };
   const headerCollapseController = createPriorityCollapseController();
   const toolbarCollapseController = createPriorityCollapseController();
   const ownedSlots = createOwnedSlots();

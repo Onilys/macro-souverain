@@ -126,7 +126,12 @@ function PopoverSplitModal(props: {
     setContentOffsetTop,
     bottomPanel: () => undefined,
     registerBottomPanel: () => () => {},
-    layoutRefs: {},
+    layoutRefs: {
+      headerLeft: () => undefined,
+      setHeaderLeft: () => undefined,
+      headerRight: () => undefined,
+      setHeaderRight: () => undefined,
+    },
     titleFileMenuRef,
     setTitleFileMenuRef,
     titleFileMenuTrigger,

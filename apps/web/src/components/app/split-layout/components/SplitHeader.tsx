@@ -496,7 +496,7 @@ export function SplitHeader(props: {
             class="relative min-w-0 h-full shrink overflow-hidden touch:overflow-visible"
             contentClass="h-full flex items-center gap-0.5 pl-2 touch:pl-0 touch:gap-2 touch:max-w-full"
             contentRef={(element) => {
-              panel.layoutRefs.headerLeft = element;
+              panel.layoutRefs.setHeaderLeft(element);
             }}
           />
 
@@ -504,7 +504,7 @@ export function SplitHeader(props: {
             <div
               class="contents"
               ref={(ref) => {
-                panel.layoutRefs.headerRight = ref;
+                panel.layoutRefs.setHeaderRight(ref);
               }}
             />
             <SoupNavigationButtons />
@@ -521,13 +521,12 @@ export function SplitHeaderLeft(props: ParentProps) {
     throw new Error('<SplitHeaderLeft> must be used within a <SplitLayout>');
 
   return (
-    <Show when={ctx.layoutRefs.headerLeft}>
-      <Portal
-        mount={ctx.layoutRefs.headerLeft}
-        ref={(div) => (div.style.display = 'contents')}
-      >
-        {props.children}
-      </Portal>
+    <Show when={ctx.layoutRefs.headerLeft()}>
+      {(mount) => (
+        <Portal mount={mount()} ref={(div) => (div.style.display = 'contents')}>
+          {props.children}
+        </Portal>
+      )}
     </Show>
   );
 }
@@ -538,13 +537,12 @@ export function SplitHeaderRight(props: ParentProps) {
     throw new Error('<SplitHeaderRight> must be used within a <SplitLayout>');
 
   return (
-    <Show when={ctx.layoutRefs.headerRight}>
-      <Portal
-        mount={ctx.layoutRefs.headerRight}
-        ref={(div) => (div.style.display = 'contents')}
-      >
-        {props.children}
-      </Portal>
+    <Show when={ctx.layoutRefs.headerRight()}>
+      {(mount) => (
+        <Portal mount={mount()} ref={(div) => (div.style.display = 'contents')}>
+          {props.children}
+        </Portal>
+      )}
     </Show>
   );
 }

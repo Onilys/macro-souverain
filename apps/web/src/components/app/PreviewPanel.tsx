@@ -56,7 +56,14 @@ export type PreviewFrameProps = {
  * split-panel context scoped to the preview. Content mounts as children.
  */
 export function PreviewFrame(props: PreviewFrameProps) {
-  const scopedLayoutRefs: SplitPanelContextType['layoutRefs'] = {};
+  const [headerLeft, setHeaderLeft] = createSignal<HTMLDivElement>();
+  const [headerRight, setHeaderRight] = createSignal<HTMLDivElement>();
+  const scopedLayoutRefs: SplitPanelContextType['layoutRefs'] = {
+    headerLeft,
+    setHeaderLeft,
+    headerRight,
+    setHeaderRight,
+  };
   const headerCollapseController = createPriorityCollapseController();
   const toolbarCollapseController = createPriorityCollapseController();
   const [interactedWith, setInteractedWith] = createSignal(false);
@@ -115,13 +122,13 @@ export function PreviewFrame(props: PreviewFrameProps) {
               : 'flex h-full items-center gap-1'
           }
           contentRef={(element) => {
-            scopedLayoutRefs.headerLeft = element;
+            scopedLayoutRefs.setHeaderLeft(element);
           }}
         />
         <div
           class="flex h-full grow shrink items-center justify-end gap-1"
           ref={(ref) => {
-            scopedLayoutRefs.headerRight = ref;
+            scopedLayoutRefs.setHeaderRight(ref);
           }}
         />
       </ViewShell.TopBar>

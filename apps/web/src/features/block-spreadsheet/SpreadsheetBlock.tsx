@@ -88,7 +88,12 @@ function SpreadsheetBlockContent(props: { share?: string }) {
       panel: splitPanel.isInlinePreview
         ? undefined
         : (splitPanel.panelRef() ?? undefined),
-      chrome: Object.values(splitPanel.layoutRefs),
+      chrome: [
+        splitPanel.layoutRefs.headerLeft(),
+        splitPanel.layoutRefs.headerRight(),
+        splitPanel.layoutRefs.toolbarLeft,
+        splitPanel.layoutRefs.toolbarRight,
+      ],
     });
   const canAutofocus = useCanAutofocusSplitContent();
   const { navigatedFromJK } = useNavigatedFromJK();

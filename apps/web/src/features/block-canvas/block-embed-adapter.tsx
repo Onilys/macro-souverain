@@ -58,7 +58,14 @@ function CanvasBlockEmbedContent(props: CanvasEmbedViewProps) {
   const slots = createOwnedSlots();
   const header = createPriorityCollapseController();
   const toolbar = createPriorityCollapseController();
-  const layoutRefs: SplitPanelContextType['layoutRefs'] = {};
+  const [headerLeft, setHeaderLeft] = createSignal<HTMLDivElement>();
+  const [headerRight, setHeaderRight] = createSignal<HTMLDivElement>();
+  const layoutRefs: SplitPanelContextType['layoutRefs'] = {
+    headerLeft,
+    setHeaderLeft,
+    headerRight,
+    setHeaderRight,
+  };
   // A local panel handle prevents an embedded block from changing the outer
   // canvas title, navigation history, toolbar, or hotkey registrations.
   const handle: SplitHandle = {
@@ -145,12 +152,12 @@ function CanvasBlockEmbedContent(props: CanvasEmbedViewProps) {
           class="min-w-0 flex-1"
           contentClass="flex items-center gap-1"
           contentRef={(element) => {
-            layoutRefs.headerLeft = element;
+            layoutRefs.setHeaderLeft(element);
           }}
         />
         <div
           ref={(element) => {
-            layoutRefs.headerRight = element;
+            layoutRefs.setHeaderRight(element);
           }}
           class="flex items-center"
         />
