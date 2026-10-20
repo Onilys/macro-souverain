@@ -3,7 +3,6 @@ import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { Popover } from '@kobalte/core/popover';
 import CaretDownIcon from '@phosphor/caret-down.svg';
 import CheckIcon from '@phosphor/check.svg';
-import FolderIcon from '@phosphor/folder-simple.svg';
 import GitBranchIcon from '@phosphor/git-branch.svg';
 import GithubIcon from '@phosphor/github-logo.svg';
 import { Button, createCommandListController } from '@ui';
@@ -198,11 +197,11 @@ export function RepositoryPicker(props: {
         triggerClass="pill min-w-0 max-w-full text-ink"
         trigger={
           <>
-            <FolderIcon class="size-4 shrink-0" />
+            <GithubIcon class="size-4 shrink-0" />
             <span class="truncate">
               {props.repoUrl
                 ? repositoryLabel(props.repoUrl)
-                : 'Choose repository'}
+                : 'Choose automatically'}
             </span>
             <CaretDownIcon class="size-3 shrink-0" />
           </>

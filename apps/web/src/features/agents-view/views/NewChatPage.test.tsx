@@ -563,13 +563,13 @@ describe('agent-led new conversation', () => {
       (screen.getByRole('textbox', { name: 'Draft' }) as HTMLInputElement).value
     ).toBe('Keep this prompt');
   });
-  it('starts a new conversation on Choose repository, not the last used one', async () => {
+  it('starts a new conversation on Choose automatically, not the last used one', async () => {
     mocks.recentIds = [CURSOR_BOT_ID];
     mocks.recentUrls = ['https://github.com/macro-inc/macro'];
     const send = page(true, [], false, [], 'code');
     expect(
       screen.getByRole('button', { name: 'Repository' }).textContent
-    ).toContain('Choose repository');
+    ).toContain('Choose automatically');
     expect(
       screen.getByRole('button', { name: 'Repository' }).textContent
     ).not.toContain('macro-inc/macro');

@@ -449,7 +449,7 @@ the shimmer.
   Selecting Chat hides the repository controls and keeps the mode switch in
   the settings row, without remounting the editor or losing the draft. Reduced-motion
   preferences disable the animation. The hidden drawer is inert. **Repository**
-  (**Choose repository** until one is picked) opens a searchable list:
+  (**Choose automatically** with a GitHub icon until one is picked) opens a searchable list:
   **Choose automatically**, then the repositories the signed-in user reaches
   through Macro's GitHub App (`GET /agent-repositories` on the agent harness),
   recently used ones first. A new conversation always starts on **Choose
