@@ -1617,7 +1617,7 @@ describe('getChannelEntityTarget', () => {
     expect(getChannelEntityTarget(entity)).toEqual({
       kind: 'message',
       messageId: 'notif-msg',
-      threadId: undefined,
+      threadId: 'notif-msg',
     });
   });
 
@@ -2058,9 +2058,9 @@ describe('getChannelEntityTarget', () => {
       } else {
         expect(search).toMatchObject({
           messageId: ['message'],
+          threadId: ['message'],
           seek: [expect.any(String)],
         });
-        expect(search?.threadId).toBeUndefined();
       }
       expect(bulkMarkAsRead).toHaveBeenCalledExactlyOnceWith([
         parentNotification,
@@ -2115,7 +2115,7 @@ describe('getChannelEntityTarget', () => {
     expect(getChannelEntityTarget(entity)).toEqual({
       kind: 'message',
       messageId: 'unread-older-msg',
-      threadId: undefined,
+      threadId: 'unread-older-msg',
     });
   });
 

@@ -24,13 +24,22 @@ const mocks = vi.hoisted(() => ({
   active: (): boolean => true,
   searchOpen: (): boolean => false,
   searchText: (): string => '',
+  authenticated: (): boolean | undefined => true,
+  target: (): { messageId: string; threadId?: string } | undefined => undefined,
   sourceEnabled: (_scope: string): boolean => false,
   selectedQuery: vi.fn(),
   markRead: vi.fn(),
   resolveTarget: vi.fn(() => ({ kind: 'message', messageId: 'unread' })),
   refresh: vi.fn(async () => {}),
+  prefetchTarget: vi.fn(async () => {}),
 }));
 
+vi.mock('@core/context/user', () => ({
+  useIsAuthenticated: () => () => mocks.authenticated(),
+}));
+vi.mock('@channel/queries/prefetch-channel-target', () => ({
+  prefetchChannelTarget: mocks.prefetchTarget,
+}));
 vi.mock('@app/features/agent-dms/queries/search-pool', () => ({
   useAgentDmSearchPool: () => () => [],
 }));
@@ -154,7 +163,11 @@ vi.mock('./channels-view-context', () => ({
     mobileLayout: () => mocks.mobileLayout(),
     selectedChannel: () =>
       mocks.selectedId()
-        ? { type: 'channel', id: mocks.selectedId() }
+        ? {
+            type: 'channel',
+            id: mocks.selectedId(),
+            target: mocks.target(),
+          }
         : undefined,
     setAsideWidth: vi.fn(),
   }),
@@ -231,6 +244,8 @@ beforeEach(() => {
   mocks.active = () => true;
   mocks.searchOpen = () => false;
   mocks.searchText = () => '';
+  mocks.authenticated = () => true;
+  mocks.target = () => undefined;
   [mocks.selectedId, setSelectedId] = createSignal<string | undefined>('one');
   [mocks.rows, setRows] = createSignal([row('one', 'new'), row('two')]);
   const [query, update] = createStore<QueryState>({
@@ -301,6 +316,45 @@ describe('mobile dock search wiring', () => {
 });
 
 describe('channel selection loading and recovery', () => {
+  it('prefetches an explicit target while uncached channel metadata is loading', () => {
+    const target = { messageId: 'reply', threadId: 'root' };
+    mocks.target = () => target;
+    setRows([]);
+    setQuery({ isLoading: true, isFetching: true, data: undefined });
+    render(() => <ChannelsView />);
+    expect(mocks.prefetchTarget).toHaveBeenCalledExactlyOnceWith('one', target);
+    expect(
+      screen.getByRole('status', { name: 'Loading conversation' })
+    ).toBeTruthy();
+    expect(screen.queryByTestId('channel-detail')).toBeNull();
+    setQuery({
+      isLoading: false,
+      isFetching: false,
+      data: { entities: [full('one', [])] },
+    });
+    expect(screen.getByTestId('channel-detail').textContent).toBe('one');
+    expect(mocks.prefetchTarget).toHaveBeenCalledOnce();
+  });
+
+  it.each([false, undefined])(
+    'waits for confirmed authentication before prefetching a target from %s',
+    (initial) => {
+      const [authenticated, setAuthenticated] = createSignal<
+        boolean | undefined
+      >(initial);
+      mocks.authenticated = authenticated;
+      const target = { messageId: 'root', threadId: 'root' };
+      mocks.target = () => target;
+      render(() => <ChannelsView />);
+      expect(mocks.prefetchTarget).not.toHaveBeenCalled();
+      setAuthenticated(true);
+      expect(mocks.prefetchTarget).toHaveBeenCalledExactlyOnceWith(
+        'one',
+        target
+      );
+    }
+  );
+
   it.each(['pointerDown', 'keyDown', 'wheel'] as const)(
     'stays at latest after %s and notification hydration',
     (event) => {

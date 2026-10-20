@@ -88,3 +88,6 @@ it.each([
     );
   }
 );
+vi.mock('@channel/queries/prefetch-channel-target', () => ({
+  prefetchChannelTarget: vi.fn(async () => {}),
+}));
