@@ -1,4 +1,8 @@
 import { ModelCatalogMenu } from '@core/component/AI/component/input/ModelCatalogPicker';
+import {
+  type ModelEffortConfig,
+  ModelEffortMenu,
+} from '@core/component/AI/component/input/ModelEffortMenu';
 import { ModelIcon } from '@core/component/AI/component/ProviderIcon';
 import { modelLabel } from '@core/component/AI/constant/model-label';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
@@ -32,6 +36,8 @@ export type AgentPickerProps = {
   showModelLabel?: boolean;
   effortLabel?: string;
   effortSelection?: EffortSelection;
+  effort?: ModelEffortConfig;
+  onEffortChange?: (value: string) => void;
   onSelect: (agent: RosterAgent, model?: string) => void;
   /** Supply only when the host can persist and apply effort selections. */
   onSelectEffort?: (
@@ -84,7 +90,7 @@ function DesktopAgentPicker(props: AgentPickerProps) {
     setOpen(false);
   };
   return (
-    <Dropdown open={open()} onOpenChange={setOpen} placement="top-end">
+    <Dropdown open={open()} onOpenChange={setOpen} placement="bottom-end">
       <Dropdown.Trigger
         variant="ghost"
         aria-label="Agent"
@@ -95,7 +101,7 @@ function DesktopAgentPicker(props: AgentPickerProps) {
             : `${props.selected?.name ?? 'Choose agent'} · ${label()}`
         }
         class={cn(
-          'h-[33.75px] min-w-0 max-w-full gap-[5.625px] px-[7.5px] text-base font-normal text-ink-muted light-mode:text-composer-placeholder',
+          'h-9 min-w-0 max-w-full gap-1 rounded-full border-0 bg-transparent px-2 text-base font-normal text-ink hover:bg-ink/5 data-expanded:bg-ink/5',
           props.triggerClass
         )}
       >
@@ -121,127 +127,141 @@ function DesktopAgentPicker(props: AgentPickerProps) {
         <Show when={rawModel()}>
           <ModelIcon model={model()} class="size-[15px] shrink-0" />
         </Show>
-        <span class="min-w-0 truncate text-left leading-5">{label()}</span>
-        <CaretDownIcon class="size-[15px] shrink-0" />
+        <span class="min-w-0 truncate text-left leading-5">
+          {baseLabel()} <span class="text-ink-muted">{props.effortLabel}</span>
+        </span>
+        <CaretDownIcon class="size-4 shrink-0 text-ink-muted" />
       </Dropdown.Trigger>
       <Dropdown.Content
-        class="w-88 max-w-[calc(100vw-1rem)] overflow-hidden"
+        class="w-70 max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border-0 after:hidden shadow-[0_0_0_1px_var(--color-drop-shadow),0_2px_8px_0_var(--color-drop-shadow),0_4px_80px_8px_var(--color-drop-shadow)]"
+        onCloseAutoFocus={props.onCloseAutoFocus}
         onPointerDown={(event: PointerEvent) => event.stopPropagation()}
         onMouseDown={(event: MouseEvent) => event.stopPropagation()}
       >
-        <div class="flex min-h-0 max-h-[min(28rem,var(--kb-popper-content-available-height))] flex-col">
-          <div
-            class="min-h-0 space-y-1 overflow-y-auto overscroll-contain px-2 pb-2"
-            classList={{ 'pt-2': !macro() }}
-          >
-            <Show when={macro()}>
-              {(agent) => (
-                <ModelCatalogMenu
-                  autoFocusSearch
-                  value={
-                    props.selected?.id === agent().id ? (model() ?? null) : null
-                  }
-                  disabled={Boolean(agent().unavailableReason)}
-                  options={macroCatalog.models().map((option) => ({
-                    id: option.id,
-                    label: modelLabel(option.id, option.name),
-                    description: option.description ?? undefined,
-                    group: option.group ?? undefined,
-                  }))}
-                  onSelect={(id) => choose(agent(), id)}
-                  modelRow={
-                    props.onSelectEffort
-                      ? (row) => (
-                          <AgentModelMenuItem
-                            {...row}
-                            harness={agent().harness}
-                            effortValue={
-                              row.selected
-                                ? props.effortSelection?.value
-                                : undefined
-                            }
-                            onSelectEffort={(effort) =>
-                              chooseEffort(agent(), row.option.id, effort)
-                            }
-                          />
-                        )
-                      : undefined
-                  }
-                  emptyMessage={macroCatalog.message()}
-                />
-              )}
-            </Show>
-            <For each={groups()}>
-              {(group) => (
-                <Dropdown.Group class="bg-transparent py-0">
-                  <Dropdown.GroupLabel class="h-6 font-medium text-ink-muted">
-                    {group.label}
-                  </Dropdown.GroupLabel>
-                  <For each={group.agents}>
-                    {(agent) => (
-                      <AgentPickerRow
-                        agent={agent}
-                        selected={agent.id === props.selected?.id}
-                        modelOverride={
-                          agent.id === props.selected?.id
-                            ? props.modelOverride
-                            : undefined
-                        }
-                        effortSelection={
-                          agent.id === props.selected?.id
-                            ? props.effortSelection
-                            : undefined
-                        }
-                        onSelect={(model) => choose(agent, model)}
-                        onSelectEffort={
-                          props.onSelectEffort
-                            ? (model, effort) =>
-                                chooseEffort(agent, model, effort)
-                            : undefined
-                        }
-                        onConnect={() => {
-                          setOpen(false);
-                          props.onConnect(agent);
-                        }}
-                      />
-                    )}
-                  </For>
-                </Dropdown.Group>
-              )}
-            </For>
-            <Show when={!props.loading && !macro() && groups().length === 0}>
-              <p role="status" class="px-3 py-2 text-sm text-ink-muted">
-                No agents available
-              </p>
-            </Show>
-            <Show when={props.loading}>
-              <div
-                role="status"
-                class="bg-menu px-3 py-2 text-xs text-ink-muted"
-              >
-                Loading agents…
-              </div>
-            </Show>
-            <Dropdown.Group class="items-end bg-transparent px-1.5 pt-1 pb-0">
-              <Dropdown.Item
-                closeOnSelect
-                class={buttonClasses({
-                  variant: 'strong',
-                  size: 'sm',
-                  glass: false,
-                  class: 'w-auto gap-1.5 data-highlighted:overlay-hover',
-                })}
-                onSelect={() => {
-                  setOpen(false);
-                  props.onCreate();
-                }}
-              >
-                <PlusIcon class="size-4" />
-                Create agent
-              </Dropdown.Item>
-            </Dropdown.Group>
+        <ModelEffortMenu
+          model={model()}
+          label={baseLabel()}
+          config={props.effort}
+          value={props.effortSelection?.value}
+          disabled={Boolean(props.selected?.unavailableReason)}
+          onChange={props.onEffortChange}
+        >
+          <div class="flex min-h-0 max-h-[min(28rem,var(--kb-popper-content-available-height))] flex-col">
+            <div
+              class="min-h-0 space-y-1 overflow-y-auto overscroll-contain px-2 pb-2"
+              classList={{ 'pt-2': !macro() }}
+            >
+              <Show when={macro()}>
+                {(agent) => (
+                  <ModelCatalogMenu
+                    autoFocusSearch
+                    value={
+                      props.selected?.id === agent().id
+                        ? (model() ?? null)
+                        : null
+                    }
+                    disabled={Boolean(agent().unavailableReason)}
+                    options={macroCatalog.models().map((option) => ({
+                      id: option.id,
+                      label: modelLabel(option.id, option.name),
+                      description: option.description ?? undefined,
+                      group: option.group ?? undefined,
+                    }))}
+                    onSelect={(id) => choose(agent(), id)}
+                    modelRow={
+                      props.onSelectEffort
+                        ? (row) => (
+                            <AgentModelMenuItem
+                              {...row}
+                              harness={agent().harness}
+                              effortValue={
+                                row.selected
+                                  ? props.effortSelection?.value
+                                  : undefined
+                              }
+                              onSelectEffort={(effort) =>
+                                chooseEffort(agent(), row.option.id, effort)
+                              }
+                            />
+                          )
+                        : undefined
+                    }
+                    emptyMessage={macroCatalog.message()}
+                  />
+                )}
+              </Show>
+              <For each={groups()}>
+                {(group) => (
+                  <Dropdown.Group class="bg-transparent py-0">
+                    <Dropdown.GroupLabel class="h-6 font-medium text-ink-muted">
+                      {group.label}
+                    </Dropdown.GroupLabel>
+                    <For each={group.agents}>
+                      {(agent) => (
+                        <AgentPickerRow
+                          agent={agent}
+                          selected={agent.id === props.selected?.id}
+                          modelOverride={
+                            agent.id === props.selected?.id
+                              ? props.modelOverride
+                              : undefined
+                          }
+                          effortSelection={
+                            agent.id === props.selected?.id
+                              ? props.effortSelection
+                              : undefined
+                          }
+                          onSelect={(model) => choose(agent, model)}
+                          onSelectEffort={
+                            props.onSelectEffort
+                              ? (model, effort) =>
+                                  chooseEffort(agent, model, effort)
+                              : undefined
+                          }
+                          onConnect={() => {
+                            setOpen(false);
+                            props.onConnect(agent);
+                          }}
+                        />
+                      )}
+                    </For>
+                  </Dropdown.Group>
+                )}
+              </For>
+              <Show when={!props.loading && !macro() && groups().length === 0}>
+                <p role="status" class="px-3 py-2 text-sm text-ink-muted">
+                  No agents available
+                </p>
+              </Show>
+              <Show when={props.loading}>
+                <div
+                  role="status"
+                  class="bg-menu px-3 py-2 text-xs text-ink-muted"
+                >
+                  Loading agents…
+                </div>
+              </Show>
+              <Dropdown.Group class="items-end bg-transparent px-1.5 pt-1 pb-0">
+                <Dropdown.Item
+                  closeOnSelect
+                  class={buttonClasses({
+                    variant: 'strong',
+                    size: 'sm',
+                    glass: false,
+                    class: 'w-auto gap-1.5 data-highlighted:overlay-hover',
+                  })}
+                  onSelect={() => {
+                    setOpen(false);
+                    props.onCreate();
+                  }}
+                >
+                  <PlusIcon class="size-4" />
+                  Create agent
+                </Dropdown.Item>
+              </Dropdown.Group>
+            </div>
           </div>
-        </div>
+        </ModelEffortMenu>
       </Dropdown.Content>
     </Dropdown>
   );

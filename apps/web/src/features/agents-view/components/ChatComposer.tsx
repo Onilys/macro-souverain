@@ -328,7 +328,7 @@ export function ChatComposer(props: {
           data-composer-expanded={
             (isTouchDevice() && !collapsed()) || undefined
           }
-          class="relative z-10 min-w-0 rounded-[32px] transition-[height] duration-200 ease-[cubic-bezier(0.77,0,0.175,1)] motion-reduce:transition-none"
+          class="relative z-10 min-w-0 rounded-[28px] touch:rounded-[32px] transition-[height] duration-200 ease-[cubic-bezier(0.77,0,0.175,1)] motion-reduce:transition-none"
           style={{
             height: height() === undefined ? undefined : `${height()}px`,
           }}
@@ -341,7 +341,7 @@ export function ChatComposer(props: {
           >
             <Show when={canAttach()}>
               <Input.DropOverlay
-                class="rounded-[32px]"
+                class="rounded-[28px] touch:rounded-[32px]"
                 hint="Drop files here to send them to the agent"
               />
             </Show>

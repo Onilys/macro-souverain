@@ -262,6 +262,8 @@ function page(
 function openAgents() {
   const trigger = screen.getByRole('button', { name: 'Agent' });
   fireEvent.keyDown(trigger, { key: 'Enter' });
+  const overview = screen.queryByRole('menuitem', { name: 'Choose model' });
+  if (overview) fireEvent.keyDown(overview, { key: 'Enter' });
   return trigger;
 }
 async function selectAgent(name: RegExp) {
@@ -1077,6 +1079,29 @@ describe('agent-led new conversation', () => {
       );
     }
   );
+  it('sends the effort chosen with the current model slider', async () => {
+    const send = page(true, [], false, [], 'code');
+    const models = await hoverAgent('Cursor');
+    fireEvent.keyDown(models.getByRole('menuitem', { name: /^GPT-5/ }), {
+      key: 'Enter',
+    });
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Agent' }), {
+      key: 'Enter',
+    });
+    const slider = screen.getByRole('slider', { name: 'Reasoning effort' });
+    fireEvent.keyDown(slider, { key: 'ArrowRight' });
+    expect(slider.getAttribute('aria-valuetext')).toBe('Ultra');
+    fireEvent.keyDown(slider, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(send).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        modelOverride: 'gpt-5',
+        effortOverride: { configId: 'cursor_effort', value: 'ultra' },
+      })
+    );
+  });
   it('passes opaque effort and clears it with the model override after sending', async () => {
     const send = page(true, [], false, [], 'code');
     const models = await hoverAgent('Cursor');

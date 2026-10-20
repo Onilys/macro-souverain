@@ -14,6 +14,7 @@ import {
 import { fastModeEnabled } from '@core/component/AI/signal/speed';
 import { useSettingsState } from '@core/constant/SettingsState';
 import { useUserId } from '@core/context/user';
+import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { fireAndForget } from '@core/util/fireAndForget';
 import { uploadFile } from '@core/util/upload';
 import ChatIcon from '@phosphor/chat-circle.svg';
@@ -340,6 +341,17 @@ export function NewChatPage(props: {
         selectedEffort()?.name ?? effortLabel(effort(), effortOverride()?.value)
       }
       effortSelection={effortOverride()}
+      effort={effort()}
+      onEffortChange={(value) => {
+        const config = effort();
+        const choice = config?.options.find((choice) => choice.value === value);
+        if (config && choice)
+          setEffortSelection({
+            configId: config.id,
+            ...choice,
+            target: JSON.stringify(capabilityTarget()),
+          });
+      }}
       onCloseAutoFocus={restoreInputFocus}
       onSelect={selectAgent}
       onSelectEffort={selectAgent}
@@ -360,6 +372,7 @@ export function NewChatPage(props: {
     <div ref={tourTarget(AGENTS_TOUR.modeSwitch)} class="shrink-0">
       <Tabs
         aria-label="Conversation mode"
+        fullWidth
         list={(['chat', 'code'] as const).map((mode) => ({
           value: mode,
           label: () => (
@@ -376,7 +389,8 @@ export function NewChatPage(props: {
         }))}
         value={mode()}
         onChange={(value) => setMode(value === 'code' ? 'code' : 'chat')}
-        labelClass="px-3 touch:px-2.5"
+        class="h-9 w-56 touch:w-24 rounded-full bg-ink/3 [&>[role=presentation]]:border-ink/10 [&>[role=presentation]]:bg-composer light-mode:[&>[role=presentation]]:bg-panel [&>[role=presentation]]:shadow-[0_1px_6px_0_color-mix(in_srgb,var(--color-ink)_5%,transparent)]"
+        labelClass="h-9 px-4 text-sm touch:px-2.5"
       />
     </div>
   );
@@ -417,19 +431,21 @@ export function NewChatPage(props: {
       selector={
         <div class="flex min-w-0 items-center gap-1">
           {agentSelector()}
-          <EffortSelector
-            onCloseAutoFocus={restoreInputFocus}
-            onOpenChange={setEffortPickerOpen}
-            config={effort()}
-            value={effortOverride()?.value}
-            disabled={Boolean(blocked())}
-            onChange={(choice) =>
-              setEffortSelection({
-                ...choice,
-                target: JSON.stringify(capabilityTarget()),
-              })
-            }
-          />
+          <Show when={isTouchDevice()}>
+            <EffortSelector
+              onCloseAutoFocus={restoreInputFocus}
+              onOpenChange={setEffortPickerOpen}
+              config={effort()}
+              value={effortOverride()?.value}
+              disabled={Boolean(blocked())}
+              onChange={(choice) =>
+                setEffortSelection({
+                  ...choice,
+                  target: JSON.stringify(capabilityTarget()),
+                })
+              }
+            />
+          </Show>
           <Show
             when={['macro-inmem', 'in-memory'].includes(
               selected()?.harness ?? ''

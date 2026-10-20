@@ -33,6 +33,8 @@ type ModelCatalogPickerProps = {
   pending?: boolean;
   triggerLabel?: JSX.Element;
   children?: JSX.Element;
+  /** Optional overview that can reveal the complete catalog. */
+  menu?: (catalog: JSX.Element) => JSX.Element;
   emptyMessage?: string;
   triggerClass?: string;
   contentClass?: string;
@@ -179,6 +181,27 @@ export function ModelCatalogPicker(props: ModelCatalogPickerProps) {
   const selected = () =>
     props.options.find((option) => option.id === props.value) ?? null;
   const displayValue = () => selected()?.label ?? props.placeholder ?? 'Model';
+  const catalog = () => (
+    <ModelCatalogMenu
+      value={props.value}
+      options={props.options}
+      disabled={props.disabled || props.pending}
+      onSelect={(id) => {
+        props.onSelect(id);
+        setOpen(false);
+      }}
+      onClose={() => setOpen(false)}
+      modelRow={props.modelRow}
+      emptyMessage={props.emptyMessage}
+      searchPlaceholder={props.searchPlaceholder}
+      autoFocusSearch
+      searchRef={(element) => {
+        searchRef = element;
+      }}
+    >
+      {props.children}
+    </ModelCatalogMenu>
+  );
 
   return (
     <Dropdown
@@ -221,24 +244,7 @@ export function ModelCatalogPicker(props: ModelCatalogPickerProps) {
           focusSearchAfterMenuOpen(() => searchRef);
         }}
       >
-        <ModelCatalogMenu
-          value={props.value}
-          options={props.options}
-          disabled={props.disabled || props.pending}
-          onSelect={(id) => {
-            props.onSelect(id);
-            setOpen(false);
-          }}
-          onClose={() => setOpen(false)}
-          modelRow={props.modelRow}
-          emptyMessage={props.emptyMessage}
-          searchPlaceholder={props.searchPlaceholder}
-          searchRef={(element) => {
-            searchRef = element;
-          }}
-        >
-          {props.children}
-        </ModelCatalogMenu>
+        {props.menu ? props.menu(catalog()) : catalog()}
       </Dropdown.Content>
     </Dropdown>
   );

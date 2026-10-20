@@ -92,9 +92,14 @@ an external harness result.
 
 ## Model menu interaction
 
-The selected model also has a **speedometer-style effort** button beside its model selector
-in new-chat and running-session composers. It opens a compact desktop popover
-or a dedicated bottom sheet on mobile. Its needle reflects the selected level. A simple list shows the supported effort levels and checks the current choice. Selecting a level applies it and closes the menu; models with fewer than two choices hide the button.
+Desktop new-chat and running-session model selectors open a compact overview
+with the current model and a discrete **Reasoning effort** slider. Slider stops
+come directly from the runtime's advertised choices and retain their opaque
+values. Arrow keys change one level at a time; pointer drags commit on release.
+The menu stays open while the header and accessible value update. The model
+header opens the full catalog, with a back row to return to the overview. Models
+with fewer than two choices open the catalog directly. Mobile retains the
+adjacent speedometer button and its dedicated effort sheet.
 
 On desktop, effort remains available in each model’s submenu.
 Discovery runs when the submenu opens, scoped to that model and harness;

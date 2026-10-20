@@ -344,21 +344,12 @@
 		position: relative;
 		display: grid;
 		grid-template-rows: 0fr;
+		margin-inline: 12px;
 		border-radius: 0 0 20px 20px;
-		background: color-mix(in oklch, var(--surface-1) 40%, var(--surface-2));
+		background: color-mix(in srgb, var(--panel) 95%, var(--ink));
 		opacity: 0;
 		visibility: hidden;
 		transition: grid-template-rows 100ms cubic-bezier(0.77, 0, 0.175, 1), opacity 100ms cubic-bezier(0.23, 1, 0.32, 1), visibility 100ms;
-	}
-
-	:where(.agents-view, .agents-view-portal) .composer-drawer::before {
-		content: '';
-		position: absolute;
-		inset: 0;
-		border: 1px solid var(--edge-muted);
-		border-top: 0;
-		border-radius: inherit;
-		pointer-events: none;
 	}
 
 	/* Continue the repository bar behind the input's adjacent rounded corners. */
@@ -368,9 +359,8 @@
 		bottom: 100%;
 		left: 0;
 		right: 0;
-		height: 32px;
+		height: 28px;
 		background: inherit;
-		border-inline: 1px solid var(--edge-muted);
 		pointer-events: none;
 	}
 
@@ -388,13 +378,14 @@
 	:where(.agents-view, .agents-view-portal) .composer-drawer-content {
 		display: flex;
 		align-items: center;
-		min-height: 44px;
-		padding: 4px 10px;
+		min-height: 48px;
+		padding: 6px 8px;
 		transform: translateY(-12px);
 		transition: transform 100ms cubic-bezier(0.77, 0, 0.175, 1);
 	}
 
 	:where(.agents-view, .agents-view-portal) .composer-drawer[data-placement="top"] {
+		margin-inline: 0;
 		border-radius: 0;
 		background: transparent;
 	}

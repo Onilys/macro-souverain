@@ -354,7 +354,9 @@ the shimmer.
   Rename, Favorite, Copy link, Share, Archive, Delete, and the other session
   actions. Archived sessions are grouped at the bottom under **Archived**.
 - The starting page has **Chat / Code** in the composer’s inset bar, below the input on
-  desktop and above it on phones. The choice limits the offered agents and is
+  desktop and above it on phones. On desktop, the borderless footer is inset 12px
+  from the 28px-radius input; Chat / Code share one track with a softly raised
+  selected segment. The choice limits the offered agents and is
   remembered per user. Switching modes preserves the draft and attachments and
   clears model and effort overrides from the previous mode. It does not filter
   the conversation sidebar. Session composers start at one line and grow with
@@ -377,7 +379,9 @@ the shimmer.
   including the Suggested choices and effort/speed variants. Your agents
   follow Suggested and More models in the root menu. Choosing a model
   does not reorder the sections. Search matches names, IDs, and provider names. The compact borderless search
-  field receives focus when the selector opens or reopens. Its opaque header
+  field receives focus when the catalog opens. If the current model supports
+  effort, the desktop selector first shows a compact model-and-effort overview;
+  choose **Choose model** to open this full catalog. Its opaque header
   meets the top of the scroll area so rows cannot show through above it.
   **Built-in**, **Your agents**, and **Needs connection** groups follow when
   they have entries. Each agent row shows its runtime and model, or its setup
@@ -478,7 +482,13 @@ the shimmer.
   provider icons, search, **Suggested** first, and **More models** for the
   complete provider catalog. Desktop opens a submenu; phone widths show
   the catalog in place with a Back action. Search includes every model.
-- A compact **speedometer-style effort** button with a simple arc and needle beside the model selector opens a simple list of effort levels with a check beside the current choice: a popover centered below the button on desktop, or its own bottom sheet on mobile. Choosing a level applies it and closes the menu. Mobile shows it alongside the model control after the input expands. It is hidden when the model has fewer than two effort choices.
+- Desktop combines model and effort in one compact popover. The current model
+  appears above a slider with a stop for each advertised effort level. Arrow keys
+  adjust the level; pointer drags commit on release. The popover stays open, and
+  **Choose model** opens the full catalog. On mobile, the **speedometer-style
+  effort** button opens its own sheet after the input expands. Choosing a level
+  applies it and closes the sheet. Models with fewer than two effort choices
+  omit the slider and mobile effort button.
   Model-specific effort choices remain available in desktop model submenus.
   Free and Pro users start new conversations at the lowest advertised level,
   unless they explicitly choose another. Existing sessions keep their current setting.
@@ -1704,12 +1714,15 @@ There is no periodic PR lookup polling.
 
 ### Agent reasoning effort
 
-Open the model selector and hover a model to choose its reasoning effort in the
-submenu on desktop, opened with Right Arrow. On mobile, tap a model to select it,
-then use the adjacent effort button to adjust effort.
+On desktop, open the model selector to adjust the current model with the
+**Reasoning effort** slider. The header and accessible value announce the
+selected level. Arrow keys move between supported levels; the menu stays open
+until dismissed. Choose **Choose model** to browse the full catalog; other models
+still offer their own effort submenu with Right Arrow. On mobile, tap a model
+to select it, then use the adjacent effort button to adjust effort.
 Cursor and Macro's in-memory agent load the hovered model's own advertised
-choices. The selected label includes the effort, such as `Sonnet 5.5 · High`;
-the composer also offers a separate effort button for the selected model. Models without effort
+choices. The selected label includes the effort, such as `Sonnet 5.5 High`.
+Models without effort
 support remain selectable through `Use <model>` (or a desktop click/Enter).
 Default keeps the model's existing behavior.
 
@@ -1947,12 +1960,15 @@ that chat remains usable, and that a non-owner cannot submit. Sending an email o
 creating an event is a real action, including from a local app connected to dev.
 ## Agent reasoning effort
 
-Open the model selector and hover a model to choose its reasoning effort in the
-submenu on desktop, opened with Right Arrow. On mobile, tap a model to select it,
-then use the adjacent effort button to adjust effort.
+On desktop, open the model selector to adjust the current model with the
+**Reasoning effort** slider. The header and accessible value announce the
+selected level. Arrow keys move between supported levels; the menu stays open
+until dismissed. Choose **Choose model** to browse the full catalog; other models
+still offer their own effort submenu with Right Arrow. On mobile, tap a model
+to select it, then use the adjacent effort button to adjust effort.
 Cursor and Macro's in-memory agent load the hovered model's own advertised
-choices. The selected label includes the effort, such as `Sonnet 5 · High`;
-the composer also offers a separate effort button for the selected model. Models without effort
+choices. The selected label includes the effort, such as `Sonnet 5.5 High`.
+Models without effort
 support remain selectable through `Use <model>` (or a desktop click/Enter).
 Default keeps the model's existing behavior.
 
