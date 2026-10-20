@@ -1,7 +1,7 @@
 import CaretLeft from '@phosphor/caret-left.svg';
 import CaretRight from '@phosphor/caret-right.svg';
 import type { SessionConfigOption } from '@service-agent-fold/generated/types';
-import { Dropdown, RadioGroup } from '@ui';
+import { Dropdown, Slider } from '@ui';
 import { createSignal, For, type JSX, Show } from 'solid-js';
 import { ModelIcon } from '../ProviderIcon';
 
@@ -9,20 +9,6 @@ export type ModelEffortConfig = Extract<
   SessionConfigOption,
   { type: 'select' }
 >;
-
-const depthDescriptions: Partial<Record<string, string>> = {
-  default: 'Let the model choose how much to think.',
-  auto: 'Let the model choose how much to think.',
-  none: 'Keep thinking to a minimum.',
-  minimal: 'Keep thinking to a minimum.',
-  low: 'A little thought for straightforward tasks.',
-  light: 'A little thought for straightforward tasks.',
-  medium: 'More time to work through the details.',
-  high: 'Take extra care with harder problems.',
-  xhigh: 'Spend more time on complex problems.',
-  max: 'Spend more time on complex problems.',
-  ultra: 'Spend more time on complex problems.',
-};
 
 /** A compact model overview; browsing retains the complete model/agent catalog. */
 export function ModelEffortMenu(props: {
@@ -38,17 +24,21 @@ export function ModelEffortMenu(props: {
   let overview: HTMLElement | undefined;
   const choices = () => props.config?.options ?? [];
   const available = () => choices().length > 1 && !!props.onChange;
-  const [previewValue, setPreviewValue] = createSignal<string>();
-  const selectedValue = () => props.value ?? props.config?.currentValue;
-  const selected = () =>
-    choices().find((choice) => choice.value === selectedValue()) ??
-    choices()[0];
-  const preview = () =>
-    choices().find((choice) => choice.value === previewValue()) ?? selected();
-  const description = () =>
-    preview()?.description ??
-    depthDescriptions[preview()?.value.toLowerCase() ?? ''] ??
-    'Set how deeply the model works through your request.';
+  const [dragIndex, setDragIndex] = createSignal<number>();
+  let dragging = false;
+  const index = () =>
+    dragIndex() ??
+    Math.max(
+      0,
+      choices().findIndex(
+        (choice) => choice.value === (props.value ?? props.config?.currentValue)
+      )
+    );
+  const label = () => choices()[index()]?.name;
+  const commit = (next: number) => {
+    const choice = choices()[next];
+    if (choice && !props.disabled) props.onChange?.(choice.value);
+  };
 
   return (
     <Show
@@ -76,28 +66,42 @@ export function ModelEffortMenu(props: {
           ref={overview}
           closeOnSelect={false}
           aria-label="Choose model"
-          class="mb-3 h-10 gap-2 rounded-lg px-1"
+          class="mb-2 h-9 gap-2 rounded-xl px-0 hover:bg-transparent"
           onSelect={() => setBrowsing(true)}
         >
           <ModelIcon
             model={props.model}
             class="size-4 shrink-0 text-ink-muted"
           />
-          <span class="flex min-w-0 flex-1 items-center gap-2">
+          <span class="flex min-w-0 flex-1 items-center justify-center gap-1">
             <span class="truncate text-base font-medium">{props.label}</span>
-            <CaretRight class="ml-auto size-3 shrink-0 text-ink-muted" />
+            <span class="shrink-0 text-base font-normal text-ink-muted">
+              {label()}
+            </span>
+            <CaretRight class="size-3 shrink-0 text-ink-muted" />
           </span>
         </Dropdown.Item>
-        <RadioGroup
-          orientation="horizontal"
-          value={selected()?.value}
+        <Slider
+          class="px-3.5"
+          aria-label="Reasoning effort"
+          minValue={0}
+          maxValue={Math.max(1, choices().length - 1)}
+          step={1}
+          value={[index()]}
+          getValueLabel={() => label() ?? ''}
           disabled={props.disabled}
-          onChange={(value) => {
-            if (!props.disabled) props.onChange?.(value);
-            setPreviewValue(undefined);
+          onChange={([next]) => {
+            if (dragging) setDragIndex(next);
+            else commit(next);
           }}
-          onPointerLeave={() => setPreviewValue(undefined)}
-          on:keydown={(event: KeyboardEvent) => {
+          onChangeEnd={([next]) => {
+            if (!dragging) return;
+            dragging = false;
+            commit(next);
+            setDragIndex(undefined);
+          }}
+          onKeyDown={(event: KeyboardEvent) => {
+            // Arrow keys belong to the slider, not the menu's roving focus.
             if (
               [
                 'ArrowLeft',
@@ -110,47 +114,54 @@ export function ModelEffortMenu(props: {
             )
               event.stopPropagation();
           }}
-          class="gap-1 border-t border-edge-muted pt-3"
         >
-          <RadioGroup.Label class="px-1 text-xs text-ink-muted">
-            Thinking depth
-          </RadioGroup.Label>
-          <div class="flex items-end gap-1">
-            <For each={choices()}>
-              {(choice, i) => (
-                <RadioGroup.Item
-                  value={choice.value}
-                  class="group/depth min-w-0 flex-1"
-                  onPointerEnter={() => {
-                    if (!props.disabled) setPreviewValue(choice.value);
-                  }}
-                >
-                  <RadioGroup.ItemControl class="h-11 w-full items-end rounded-md border-0 bg-transparent pb-2 hover:bg-ink/4 data-checked:border-0 data-disabled:cursor-default peer-focus-visible:ring-offset-2">
-                    <span
-                      aria-hidden="true"
-                      class="w-3 rounded-sm transition-colors motion-reduce:transition-none"
-                      classList={{
-                        'bg-accent': choice.value === selected()?.value,
-                        'bg-ink/20 group-hover/depth:bg-ink/40':
-                          choice.value !== selected()?.value,
-                      }}
-                      style={{
-                        height: `${8 + (24 * i()) / Math.max(1, choices().length - 1)}px`,
-                      }}
-                    />
-                  </RadioGroup.ItemControl>
-                  <RadioGroup.ItemLabel class="sr-only">
-                    {choice.name}
-                  </RadioGroup.ItemLabel>
-                </RadioGroup.Item>
-              )}
-            </For>
-          </div>
-          <div class="min-h-16 px-1 pt-1 text-sm leading-5">
-            <span class="font-medium text-ink">{preview()?.name}</span>
-            <span class="text-ink-muted"> · {description()}</span>
-          </div>
-        </RadioGroup>
+          <Slider.Track
+            class="my-0 h-6 bg-transparent"
+            onPointerDown={() => {
+              dragging = true;
+            }}
+            onPointerCancel={() => {
+              dragging = false;
+              setDragIndex(undefined);
+            }}
+          >
+            <div
+              aria-hidden="true"
+              class="pointer-events-none absolute -inset-x-3.5 inset-y-0 rounded-full bg-ink/10 shadow-[inset_0_0_0_0.5px_color-mix(in_srgb,var(--color-ink)_10%,transparent)]"
+            />
+            <Slider.Fill class="bg-blue" style={{ left: '-14px' }} />
+            <div
+              aria-hidden="true"
+              class="pointer-events-none absolute inset-x-0 inset-y-0 flex items-center justify-between"
+            >
+              <For each={choices()}>
+                {(_, i) => (
+                  <span
+                    class="size-1 rounded-full"
+                    classList={{
+                      'bg-panel/40': i() <= index(),
+                      'bg-ink-muted/50': i() > index(),
+                    }}
+                  />
+                )}
+              </For>
+            </div>
+            <Slider.Thumb
+              onPointerDown={() => {
+                dragging = true;
+              }}
+              onPointerCancel={() => {
+                dragging = false;
+                setDragIndex(undefined);
+              }}
+              aria-label="Reasoning effort"
+              aria-valuetext={label()}
+              class="size-7 border-ink/15 bg-composer-action shadow-[0_0_2px_0_color-mix(in_srgb,var(--color-ink)_10%,transparent)] light-mode:bg-panel focus-visible:ring-blue focus-visible:ring-offset-0"
+            >
+              <Slider.Input />
+            </Slider.Thumb>
+          </Slider.Track>
+        </Slider>
       </div>
     </Show>
   );

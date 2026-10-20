@@ -493,13 +493,12 @@ the shimmer.
   complete provider catalog. Desktop opens a submenu; phone widths show
   the catalog in place with a Back action. Search includes every model.
 - Desktop combines model and effort in one compact popover. The current model
-  appears in its own row above **Thinking depth**: progressively taller bars for
-  each advertised effort level. Hover previews a level without changing it;
-  click or arrow keys select it. The popover stays open, and
+  appears above a slider with a stop for each advertised effort level. Arrow keys
+  adjust the level; pointer drags commit on release. The popover stays open, and
   **Choose model** opens the full catalog. On mobile, the **speedometer-style
   effort** button opens its own sheet after the input expands. Choosing a level
   applies it and closes the sheet. Models with fewer than two effort choices
-  omit the depth bars and mobile effort button.
+  omit the slider and mobile effort button.
   Model-specific effort choices remain available in desktop model submenus.
   Free and Pro users start new conversations at the lowest advertised level,
   unless they explicitly choose another. Existing sessions keep their current setting.
@@ -1722,10 +1721,9 @@ There is no periodic PR lookup polling.
 ### Agent reasoning effort
 
 On desktop, open the model selector to adjust the current model with the
-**Thinking depth** bars. The selected bar uses the accent color, with its label
-and description below. Hover previews another level without selecting it; click
-or arrow keys select a supported level. The menu stays open until dismissed.
-Choose **Choose model** to browse the full catalog; other models
+**Reasoning effort** slider. The header and accessible value announce the
+selected level. Arrow keys move between supported levels; the menu stays open
+until dismissed. Choose **Choose model** to browse the full catalog; other models
 still offer their own effort submenu with Right Arrow. On mobile, tap a model
 to select it, then use the adjacent effort button to adjust effort.
 Cursor and Macro's in-memory agent load the hovered model's own advertised
@@ -1969,10 +1967,9 @@ creating an event is a real action, including from a local app connected to dev.
 ## Agent reasoning effort
 
 On desktop, open the model selector to adjust the current model with the
-**Thinking depth** bars. The selected bar uses the accent color, with its label
-and description below. Hover previews another level without selecting it; click
-or arrow keys select a supported level. The menu stays open until dismissed.
-Choose **Choose model** to browse the full catalog; other models
+**Reasoning effort** slider. The header and accessible value announce the
+selected level. Arrow keys move between supported levels; the menu stays open
+until dismissed. Choose **Choose model** to browse the full catalog; other models
 still offer their own effort submenu with Right Arrow. On mobile, tap a model
 to select it, then use the adjacent effort button to adjust effort.
 Cursor and Macro's in-memory agent load the hovered model's own advertised

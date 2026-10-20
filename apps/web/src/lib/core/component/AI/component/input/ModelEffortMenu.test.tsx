@@ -6,7 +6,6 @@ import {
   screen,
   waitFor,
 } from '@solidjs/testing-library';
-import userEvent from '@testing-library/user-event';
 import { Dropdown } from '@ui';
 import { createSignal } from 'solid-js';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -35,7 +34,6 @@ beforeEach(() => {
     }
   );
   vi.stubGlobal('scrollTo', vi.fn());
-  vi.stubGlobal('CSS', { escape: (value: string) => value });
 });
 afterEach(() => {
   cleanup();
@@ -78,52 +76,24 @@ function setup(disabled = false) {
   return change;
 }
 
-it('selects a named depth without dismissing the menu', () => {
+it('adjusts named effort stops with the keyboard without dismissing the menu', async () => {
   const change = setup();
-  const high = screen.getByRole('radio', { name: 'High' });
-  fireEvent.click(high);
+  const slider = await screen.findByRole('slider', {
+    name: 'Reasoning effort',
+  });
+  slider.focus();
+  expect(slider.getAttribute('aria-valuetext')).toBe('Low');
+  fireEvent.keyDown(slider, { key: 'ArrowRight' });
   expect(change).toHaveBeenLastCalledWith('high');
-  expect((high as HTMLInputElement).checked).toBe(true);
+  expect(slider.getAttribute('aria-valuetext')).toBe('High');
   expect(screen.getByRole('menu')).toBeTruthy();
-  expect(
-    screen.getByText('Take extra care with harder problems.', { exact: false })
-  ).toBeTruthy();
-});
-
-it('previews a hovered level without changing the selected depth', () => {
-  const change = setup();
-  const high = screen.getByRole('radio', { name: 'High' });
-  fireEvent.pointerEnter(
-    high.closest('[data-kb-radio-group-item]') ?? high.parentElement!
-  );
-  expect(
-    screen.getByText('Take extra care with harder problems.', { exact: false })
-  ).toBeTruthy();
-  expect(change).not.toHaveBeenCalled();
-  expect(
-    (screen.getByRole('radio', { name: 'Low' }) as HTMLInputElement).checked
-  ).toBe(true);
-  fireEvent.pointerLeave(
-    screen.getByRole('radiogroup', { name: 'Thinking depth' })
-  );
-  expect(
-    screen.getByText('A little thought for straightforward tasks.', {
-      exact: false,
-    })
-  ).toBeTruthy();
-});
-
-it('changes depth with arrow keys while keeping menu focus in the control', async () => {
-  const user = userEvent.setup();
-  const change = setup();
-  const low = screen.getByRole('radio', { name: 'Low' });
-  await user.click(low);
-  await user.keyboard('{ArrowRight}');
-  expect(change).toHaveBeenLastCalledWith('high');
-  expect(document.activeElement).toBe(
-    screen.getByRole('radio', { name: 'High' })
-  );
-  expect(screen.getByRole('menu')).toBeTruthy();
+  fireEvent.keyDown(slider, { key: 'ArrowRight' });
+  expect(change).toHaveBeenLastCalledWith('max');
+  fireEvent.keyDown(slider, { key: 'ArrowRight' });
+  expect(change).toHaveBeenLastCalledWith('max');
+  fireEvent.keyDown(slider, { key: 'ArrowLeft' });
+  fireEvent.keyDown(slider, { key: 'ArrowLeft' });
+  expect(change).toHaveBeenLastCalledWith('low');
 });
 
 it('opens the catalog, returns to effort, and dismisses with Escape', async () => {
@@ -132,26 +102,24 @@ it('opens the catalog, returns to effort, and dismisses with Escape', async () =
     key: 'Enter',
   });
   expect(screen.getByRole('menuitem', { name: 'Other model' })).toBeTruthy();
-  expect(
-    screen.queryByRole('radiogroup', { name: 'Thinking depth' })
-  ).toBeNull();
+  expect(screen.queryByRole('slider', { name: 'Reasoning effort' })).toBeNull();
   fireEvent.keyDown(
     screen.getByRole('menuitem', { name: 'Model and effort' }),
     { key: 'Enter' }
   );
-  const depth = screen.getByRole('radio', { name: 'Low' });
+  const slider = screen.getByRole('slider', { name: 'Reasoning effort' });
   await waitFor(() =>
     expect(document.activeElement).toBe(
       screen.getByRole('menuitem', { name: 'Choose model' })
     )
   );
-  fireEvent.keyDown(depth, { key: 'Escape' });
+  fireEvent.keyDown(slider, { key: 'Escape' });
   await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
 });
 
 it('does not change a disabled effort control', () => {
   const change = setup(true);
-  fireEvent.keyDown(screen.getByRole('radio', { name: 'Low' }), {
+  fireEvent.keyDown(screen.getByRole('slider', { name: 'Reasoning effort' }), {
     key: 'ArrowRight',
   });
   expect(change).not.toHaveBeenCalled();
@@ -172,5 +140,5 @@ it('shows the catalog directly for a model with no effort configuration', () => 
     key: 'Enter',
   });
   expect(screen.getByRole('menuitem', { name: 'Basic model' })).toBeTruthy();
-  expect(screen.queryByRole('radiogroup')).toBeNull();
+  expect(screen.queryByRole('slider')).toBeNull();
 });

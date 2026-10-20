@@ -92,15 +92,14 @@ an external harness result.
 
 ## Model menu interaction
 
-Desktop new-chat and running-session model selectors open a compact overview.
-The current model has its own row above a **Thinking depth** control: progressively
-taller bars, one for each runtime-advertised choice. The selected bar uses the
-accent color. Hover previews a level's label and description without changing it;
-clicking or using the radio group's arrow keys selects it while keeping the menu
-open. Leaving the bars restores the selected level's description. The model row
-opens the full catalog, with a back row to return to the overview. Models with
-fewer than two choices open the catalog directly. Mobile retains the adjacent
-speedometer button and its dedicated effort sheet.
+Desktop new-chat and running-session model selectors open a compact overview
+with the current model and a discrete **Reasoning effort** slider. Slider stops
+come directly from the runtime's advertised choices and retain their opaque
+values. Arrow keys change one level at a time; pointer drags commit on release.
+The menu stays open while the header and accessible value update. The model
+header opens the full catalog, with a back row to return to the overview. Models
+with fewer than two choices open the catalog directly. Mobile retains the
+adjacent speedometer button and its dedicated effort sheet.
 
 On desktop, effort remains available in each model’s submenu.
 Discovery runs when the submenu opens, scoped to that model and harness;
