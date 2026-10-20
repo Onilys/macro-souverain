@@ -12,15 +12,24 @@ use super::models::resolve;
 #[cfg(test)]
 mod test;
 
-/// The model a hard Auto prompt escalates to.
-pub const ESCALATED_MODEL: &str = "anthropic/claude-opus-5-5";
+/// The model a prompt needing high intelligence runs on.
+pub const HIGH_MODEL: &str = "anthropic/claude-opus-5-5";
 
-/// The question Jev answers about the turn's prompt.
-const QUESTION: &str = "Does answering this request require high intelligence: deep reasoning, \
-     complex multi-step work, difficult code, or careful analysis?";
+/// The model a simple prompt runs on.
+pub const LOW_MODEL: &str = "google/gemini-3.8-flash";
 
-/// Jev's probability at or above which a prompt escalates.
-const ESCALATION_THRESHOLD: f32 = 0.5;
+/// Asked first: a yes runs the turn on [`HIGH_MODEL`].
+const HIGH_QUESTION: &str = "Does answering this request require high intelligence: deep \
+     reasoning, complex multi-step work, difficult code, or careful analysis?";
+
+/// Asked alongside: a yes, without a yes to [`HIGH_QUESTION`], runs the turn
+/// on [`LOW_MODEL`].
+const LOW_QUESTION: &str = "Is this request simple enough for a small, fast model: a greeting, \
+     small talk, a quick factual lookup, or a single small action like renaming, tagging, or \
+     moving one item?";
+
+/// Jev's probability at or above which a question counts as yes.
+const YES_THRESHOLD: f32 = 0.5;
 
 /// Choose the routable model for one Auto turn from its prompt.
 pub trait AutoModelSelector: Send + Sync {
@@ -46,8 +55,8 @@ impl AutoModelSelector for DefaultAutoModel {
     }
 }
 
-/// Asks Jev whether the prompt needs high intelligence, and escalates to
-/// [`ESCALATED_MODEL`] when it does.
+/// Asks Jev how much intelligence the prompt needs: [`HIGH_MODEL`] for hard
+/// prompts, [`LOW_MODEL`] for simple ones, Auto's default otherwise.
 pub struct JevAutoModel<Classifier> {
     classifier: Classifier,
 }
@@ -68,26 +77,32 @@ impl<Classifier: YesNoClassifier> AutoModelSelector for JevAutoModel<Classifier>
         Box::pin(async move {
             let span = tracing::info_span!(
                 "agent.auto_model",
-                agent.auto_model.probability = tracing::field::Empty,
+                agent.auto_model.high = tracing::field::Empty,
+                agent.auto_model.low = tracing::field::Empty,
                 agent.auto_model.selected = tracing::field::Empty,
                 agent.auto_model.outcome = tracing::field::Empty,
             );
-            let question = YesNoQuestion::try_from(QUESTION).expect("the question is valid");
+            let questions = [HIGH_QUESTION, LOW_QUESTION].map(|question| {
+                YesNoQuestion::try_from(question).expect("the questions are valid")
+            });
             let answer = self
                 .classifier
                 .classify(
                     UsageContext::new(AiFeature::AgentSession, owner.clone()),
                     &serde_json::json!({ "request": prompt }),
-                    std::slice::from_ref(&question),
+                    &questions,
                 )
                 .instrument(span.clone())
                 .await;
             let selected = match answer.as_deref() {
-                Ok([probability]) => {
-                    span.record("agent.auto_model.probability", probability.get());
+                Ok([high, low]) => {
+                    span.record("agent.auto_model.high", high.get());
+                    span.record("agent.auto_model.low", low.get());
                     span.record("agent.auto_model.outcome", "classified");
-                    if probability.get() >= ESCALATION_THRESHOLD {
-                        ESCALATED_MODEL
+                    if high.get() >= YES_THRESHOLD {
+                        HIGH_MODEL
+                    } else if low.get() >= YES_THRESHOLD {
+                        LOW_MODEL
                     } else {
                         resolve(super::models::AUTO_MODEL)
                     }

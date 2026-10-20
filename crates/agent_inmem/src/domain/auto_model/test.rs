@@ -5,7 +5,7 @@ use jev::domain::{JevError, Probability, YesNoClassifier, YesNoQuestion};
 use macro_user_id::user_id::MacroUserIdStr;
 use serde_json::{Value, json};
 
-use super::{AutoModelSelector, DefaultAutoModel, ESCALATED_MODEL, JevAutoModel};
+use super::{AutoModelSelector, DefaultAutoModel, HIGH_MODEL, JevAutoModel, LOW_MODEL};
 
 const DEEPSEEK: &str = "fireworks/deepseek-v4p1-flash-1017";
 
@@ -52,25 +52,43 @@ fn owner() -> MacroUserIdStr<'static> {
 
 #[tokio::test]
 async fn a_hard_prompt_escalates_to_opus() {
-    let selector = JevAutoModel::new(FakeClassifier::answering(Ok(vec![0.9])));
+    let selector = JevAutoModel::new(FakeClassifier::answering(Ok(vec![0.9, 0.6])));
 
     let model = selector
         .select(&owner(), "Prove the scheduler cannot deadlock")
         .await;
 
-    assert_eq!(model, ESCALATED_MODEL);
-    assert_eq!(ESCALATED_MODEL, "anthropic/claude-opus-5-5");
+    assert_eq!(model, HIGH_MODEL);
+    assert_eq!(HIGH_MODEL, "anthropic/claude-opus-5-5");
     let seen = selector.classifier.seen.lock().unwrap();
     assert_eq!(
         seen[0].0,
         json!({ "request": "Prove the scheduler cannot deadlock" })
     );
-    assert_eq!(seen[0].1.len(), 1);
+    assert_eq!(seen[0].1.len(), 2);
 }
 
 #[tokio::test]
-async fn an_easy_prompt_stays_on_deepseek() {
-    let selector = JevAutoModel::new(FakeClassifier::answering(Ok(vec![0.1])));
+async fn a_simple_prompt_drops_to_gemini() {
+    let selector = JevAutoModel::new(FakeClassifier::answering(Ok(vec![0.03, 0.98])));
+
+    assert_eq!(selector.select(&owner(), "hi").await, LOW_MODEL);
+    assert_eq!(LOW_MODEL, "google/gemini-3.8-flash");
+}
+
+#[tokio::test]
+async fn an_ordinary_prompt_stays_on_deepseek() {
+    let selector = JevAutoModel::new(FakeClassifier::answering(Ok(vec![0.2, 0.3])));
+
+    assert_eq!(
+        selector.select(&owner(), "Summarize this doc").await,
+        DEEPSEEK
+    );
+}
+
+#[tokio::test]
+async fn a_short_answer_stays_on_deepseek() {
+    let selector = JevAutoModel::new(FakeClassifier::answering(Ok(vec![0.9])));
 
     assert_eq!(selector.select(&owner(), "hi").await, DEEPSEEK);
 }
