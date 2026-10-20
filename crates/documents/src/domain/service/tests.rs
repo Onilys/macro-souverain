@@ -3529,7 +3529,7 @@ async fn converting_a_document_to_a_task_fills_only_missing_defaults() {
     repo.expect_get_owner_team().returning(move |_| {
         Box::pin(std::future::ready(Ok(Some(OwnerTeam {
             team_id,
-            default_link_share: TeamLinkShareDefault(None),
+            default_link_share: models_permissions::share_permission::TeamLinkShareDefault(None),
         }))))
     });
     let expected_document = uuid::Uuid::from_u128(42);
