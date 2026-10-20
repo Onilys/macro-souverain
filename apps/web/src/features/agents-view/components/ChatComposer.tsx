@@ -13,6 +13,11 @@ import { useMacroMentionLinkResolver } from '@components/app/split-layout/split-
 import { preloadAgentFold } from '@core/agent-fold/client';
 import { buildConfig } from '@core/component/LexicalMarkdown/builder/MarkdownConfigBuilder';
 import { MarkdownShell } from '@core/component/LexicalMarkdown/builder/MarkdownShell';
+import {
+  TYPE_AGENT_COMMAND_SYMBOL_COMMAND,
+  TYPE_AT_SYMBOL_COMMAND,
+  TYPE_SKILL_SYMBOL_COMMAND,
+} from '@core/component/LexicalMarkdown/plugins';
 import { createComposerLayout } from '@core/component/LexicalMarkdown/utils/create-composer-layout';
 import { toast } from '@core/component/Toast/Toast';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
@@ -20,10 +25,15 @@ import { useTouchOutsideToDismissKeyboard } from '@core/mobile/useTouchOutsideTo
 import { fireAndForget } from '@core/util/fireAndForget';
 import { handleFileFolderDrop } from '@core/util/upload';
 import { $insertReferencedPaste } from '@macro-inc/lexical-core';
-import PlusIcon from '@phosphor/plus.svg';
 import { makeEventListener } from '@solid-primitives/event-listener';
 import { createResizeObserver } from '@solid-primitives/resize-observer';
 import { Button, ComposerSurface, SendButton } from '@ui';
+import {
+  $getRoot,
+  $getSelection,
+  $isRangeSelection,
+  $isTextNode,
+} from 'lexical';
 import {
   createEffect,
   createSignal,
@@ -33,6 +43,7 @@ import {
   Show,
 } from 'solid-js';
 import { IMAGE_INPUT_WARNING } from '../../block-agent/state/image-input';
+import { AgentComposerAddMenu } from '../views/ComposerAddMenu';
 
 /** Shared input that starts on one line and grows with the draft. */
 export function ChatComposer(props: {
@@ -226,6 +237,37 @@ export function ChatComposer(props: {
     if (event.type === 'pointerdown') editor.controls.focus();
   };
 
+  const openTypeahead = (kind: 'library' | 'skills') => {
+    editor.lexical.focus(() => {
+      editor.lexical.update(
+        () => {
+          if (!$isRangeSelection($getSelection())) $getRoot().selectEnd();
+          const selection = $getSelection();
+          if (!$isRangeSelection(selection)) return;
+          const node = selection.anchor.getNode();
+          const preceding = $isTextNode(node)
+            ? node
+                .getTextContent()
+                .slice(selection.anchor.offset - 1, selection.anchor.offset)
+            : '';
+          if (preceding && !/\s/.test(preceding)) selection.insertText(' ');
+        },
+        {
+          discrete: true,
+          onUpdate: () =>
+            editor.lexical.dispatchCommand(
+              kind === 'library'
+                ? TYPE_AT_SYMBOL_COMMAND
+                : props.session
+                  ? TYPE_AGENT_COMMAND_SYMBOL_COMMAND
+                  : TYPE_SKILL_SYMBOL_COMMAND,
+              undefined
+            ),
+        }
+      );
+    });
+  };
+
   const editorRow = () => (
     <div
       classList={{
@@ -366,9 +408,17 @@ export function ChatComposer(props: {
                     <Input.AttachFilesAction
                       accept={null}
                       disabled={disabled()}
-                    >
-                      <PlusIcon />
-                    </Input.AttachFilesAction>
+                      trigger={(openFiles) => (
+                        <AgentComposerAddMenu
+                          openFiles={openFiles}
+                          openLibrary={() => openTypeahead('library')}
+                          openSkills={() => openTypeahead('skills')}
+                          getEditor={() => editor.lexical.getRootElement()}
+                          session={!!props.session}
+                          disabled={disabled()}
+                        />
+                      )}
+                    />
                   </div>
                 </Show>
                 {editorRow()}

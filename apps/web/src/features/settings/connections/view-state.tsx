@@ -9,9 +9,16 @@ import type { ProviderId } from './model';
 export type ConnectionsMode = 'connected' | 'discover';
 
 /** Navigation belongs to one mounted Agents Connections page, not global settings. */
-export function createConnectionsViewState() {
-  const [mode, setMode] = createSignal<ConnectionsMode>('connected');
-  const [provider, setProvider] = createSignal<ProviderId | null>(null);
+export function createConnectionsViewState(initial?: {
+  mode?: ConnectionsMode;
+  provider?: ProviderId;
+}) {
+  const [mode, setMode] = createSignal<ConnectionsMode>(
+    initial?.mode ?? 'connected'
+  );
+  const [provider, setProvider] = createSignal<ProviderId | null>(
+    initial?.provider ?? null
+  );
   return {
     mode,
     provider,

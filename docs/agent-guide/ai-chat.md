@@ -353,6 +353,15 @@ the shimmer.
   Right-click (or long-press on mobile) opens the same entity menu as Home:
   Rename, Favorite, Copy link, Share, Archive, Delete, and the other session
   actions. Archived sessions are grouped at the bottom under **Archived**.
+- The agent composer's **+ (Add)** menu offers **Add photos & files**,
+  **Add from library** (`@` references), and **Use a skill** (`/`; sessions show
+  **Skills & commands**). Desktop uses a scrollable menu; phones use a bottom
+  sheet with the same actions. Selecting a reference or skill restores editor
+  focus before opening its picker and preserves the existing draft.
+  Connected apps open their own connection settings, without inserting a prompt.
+  **Add connections** opens Discover; **Manage connections** opens Connected.
+  Disabled connections remain available to manage. A partial loading failure
+  offers Retry without hiding uploads, references, or skills.
 - The starting page has **Chat / Code** in the composer’s inset bar, below the input on
   desktop and above it on phones. On desktop, the borderless footer is inset 12px
   from the 28px-radius input; Chat / Code share one track with a softly raised

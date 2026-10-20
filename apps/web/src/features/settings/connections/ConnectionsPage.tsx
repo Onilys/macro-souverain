@@ -11,11 +11,16 @@ import { createEffect, createSignal, on, Show, Suspense } from 'solid-js';
 import { SettingsPage } from '../primitives';
 import { ConnectedView } from './ConnectedView';
 import { DiscoverView } from './DiscoverView';
-import { capabilitiesFor } from './model';
+import { capabilitiesFor, type ProviderId } from './model';
 import { PipedreamAiProvider } from './PipedreamAiProvider';
 import { SlackChannelImportFlow } from './slack-channel-import/SlackChannelImportFlow';
 import { useConnectionsModel } from './use-connections-model';
-import { ConnectionsViewProvider, useConnectionsView } from './view-state';
+import {
+  type ConnectionsMode,
+  ConnectionsViewProvider,
+  createConnectionsViewState,
+  useConnectionsView,
+} from './view-state';
 
 function MacroMcpSignpost(props: { onOpen: () => void }) {
   return (
@@ -32,9 +37,17 @@ function MacroMcpSignpost(props: { onOpen: () => void }) {
   );
 }
 
-export function ConnectionsPage(props: { onOpenMacroMcp: () => void }) {
+export function ConnectionsPage(props: {
+  onOpenMacroMcp: () => void;
+  initialMode?: ConnectionsMode;
+  initialProvider?: ProviderId;
+}) {
+  const view = createConnectionsViewState({
+    mode: props.initialMode,
+    provider: props.initialProvider,
+  });
   return (
-    <ConnectionsViewProvider>
+    <ConnectionsViewProvider value={view}>
       <ConnectionsContent onOpenMacroMcp={props.onOpenMacroMcp} />
     </ConnectionsViewProvider>
   );
