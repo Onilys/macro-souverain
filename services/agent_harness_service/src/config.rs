@@ -81,6 +81,9 @@ pub struct Config {
     pub posthog_api_key: PosthogApiKey,
     /// Same regional origin as the frontend's PostHog project.
     pub posthog_host: PosthogHost,
+    /// Jev credential. Unset deployments run every Auto turn on its default
+    /// model instead of escalating hard prompts.
+    pub typesafe_api_key: jev::outbound::TypesafeApiKey,
     /// Pinned Deno executable. Unset hosts do not advertise code execution.
     pub deno_binary: Option<String>,
     /// Default-off quota admission and prospective usage counting.

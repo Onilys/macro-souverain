@@ -928,7 +928,7 @@ async fn run_turn(
         session_id: state.session_id,
         awaiting: Arc::clone(&awaiting),
         owner: state.owner.clone(),
-        model: super::models::resolve(&model).to_owned(),
+        model,
         reasoning_effort,
         speed,
         identity,

@@ -28,6 +28,7 @@ dashmap = { workspace = true }
 futures = { workspace = true }
 feature_flags = { path = "../feature_flags" }
 genai_telemetry = { path = "../genai_telemetry" }
+jev = { path = "../jev" }
 macro_user_id = { path = "../macro_user_id" }
 model_owner = { path = "../model_owner" }
 roles_and_permissions = { path = "../roles_and_permissions", default-features = false, features = ["ports"] }
