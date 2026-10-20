@@ -202,6 +202,9 @@ Slack aliases must not duplicate cards. New Slack connections use `slack_v2`;
 existing `slack` accounts remain recognized. Production release requires a real
 Slack authorization and a successful read-only tool call, not just fixture tests.
 Cards use the Pipedream logo, with bundled icons and a generic plug as fallbacks.
+The catalog scrolls with the page; Continue stays visible in a sticky footer.
+At desktop and phone widths, verify scrolling over the cards moves the page,
+the last row remains reachable, and Continue stays fully visible after searching.
 
 GitHub uses Macro's native OAuth/re-authorization flow and returns to the tools
 step. It shows **Account linked**, distinct from agent-tool readiness. A

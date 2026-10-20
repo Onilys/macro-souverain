@@ -148,6 +148,7 @@ function PanelDemo() {
 export default defineDoc({
   name: 'Tour',
   category: 'Overlays',
+  propTypes: ['TourRootProps'],
   description:
     'Composable product tours. Features declare named targets with `defineTourTargets` and attach them with `tourTarget`; a tour lists steps that point at them.',
   status: 'beta',

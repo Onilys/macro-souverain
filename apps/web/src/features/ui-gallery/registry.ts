@@ -34,7 +34,7 @@ const uiComponentModules = import.meta.glob(
  * the page you open pays for it.
  */
 const componentSources = import.meta.glob<string>(
-  '../../components/ui/components/*.tsx',
+  '../../components/ui/components/**/*.tsx',
   { query: '?raw', import: 'default' }
 );
 

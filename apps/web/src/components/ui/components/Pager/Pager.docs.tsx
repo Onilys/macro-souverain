@@ -1,7 +1,7 @@
 import { defineDoc } from '@app/features/ui-gallery/types';
 import { fireAndForget } from '@core/util/fireAndForget';
 import { createSignal, For } from 'solid-js';
-import { Button } from '../button';
+import { Button } from '../Button';
 import { createPager, Pager, PagerSwipeGestures } from './index';
 
 // #region demo:swipe
@@ -60,7 +60,7 @@ export default defineDoc({
     'A controlled page rail with direct touch tracking and speed-based swipe settling. Programmatic navigation defaults to 140ms; swipe settling takes 150–300ms. Reduced motion skips transitions.',
   import:
     "import { createPager, Pager, PagerSwipeGestures } from '@ui/components/Pager';",
-  propTypes: ['PagerOptions', 'PagerSwipeGesturesProps'],
+  propTypes: ['PagerRootProps', 'PagerViewportProps', 'PagerPageProps'],
   demos: [
     {
       id: 'swipe',

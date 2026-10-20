@@ -98,7 +98,12 @@ export interface PagerController<PageId> {
   ) => () => void;
 }
 
-/** Creates a generic transform-driven pager for any ordered set of pages. */
+/**
+ * Creates a generic transform-driven pager for any ordered set of pages.
+ * @do Update activePage synchronously in onPageChange so the rail can recenter.
+ * @do Gate navigation on page readiness and exclude interactive targets from swipes.
+ * @dont Add competing transforms or transitions to the page rail.
+ */
 export function createPager<PageId>(
   options: PagerOptions<PageId>
 ): PagerController<PageId> {
