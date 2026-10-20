@@ -35,7 +35,11 @@ describe('document remount', () => {
   // task must remount to show the task view.
   it('remounts when the same document reopens as a task', () => {
     expect(
-      firstChangedDepth(routes, entry('/home/md/doc-1'), entry('/home/task/doc-1'))
+      firstChangedDepth(
+        routes,
+        entry('/home/md/doc-1'),
+        entry('/home/task/doc-1')
+      )
     ).toBeDefined();
   });
 
