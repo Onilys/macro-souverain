@@ -61,6 +61,11 @@ Then trigger the interaction and read `window.__inst.log`. `'1,2,3' → '' → '
 
 ## Development Patterns
 
+Desktop Home and Agents new-conversation and active-session composers show the shared **Run agents
+on this computer** invitation until this installation is paired or the current
+user dismisses it locally. Keep the invitation tied to bundled macrod support,
+not to account-wide paired runtime count; a user can pair several computers.
+
 ### General
 - All API/network calls live in service-clients.
 - Shared server-state queries and mutations live in `src/lib/queries`; keep

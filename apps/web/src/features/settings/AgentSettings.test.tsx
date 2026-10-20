@@ -42,6 +42,14 @@ afterEach(() => {
 });
 
 describe('AgentSettings section tabs', () => {
+  it('shows only Runtimes when Agents is still rolling out', () => {
+    render(() => (
+      <AgentSettings initialSection="runtimes" showAgents={false} />
+    ));
+    expect(screen.getByText('Built-in runtimes')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Agents' })).toBeNull();
+  });
+
   it('keeps the scroll offset when the section swaps its page', () => {
     render(() => <AgentSettings />);
     const page = () =>

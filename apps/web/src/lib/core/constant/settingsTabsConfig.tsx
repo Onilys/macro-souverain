@@ -25,6 +25,7 @@ import { useHasPermission } from '../context/user';
 import { isMobile } from '../mobile/isMobile';
 import { isNativeMobilePlatform } from '../mobile/isNativeMobilePlatform';
 import { isTouchDevice } from '../mobile/isTouchDevice';
+import { isDesktopPlatform } from '../util/platform';
 import {
   botManagement,
   DEV_MODE_ENV,
@@ -318,10 +319,10 @@ export const useSettingsTabAvailable = () => {
         return ENABLE_APP_STORE_QR_CODE && !isNativeMobilePlatform();
       case 'Agent':
         return !isNativeMobilePlatform();
-      // Configurable agents are still rolling out; keep both tabs behind the
-      // same enable-chat-v3-agents gate as the channel mention surfaces, so
-      // settings never advertises agents to a user who cannot mention one.
+      // The bundled desktop runtime can be set up from Home even while the
+      // configurable Agents view is still rolling out.
       case 'Harness':
+        return isDesktopPlatform() || chatV3AgentsFlag().enabled;
       case 'Agents':
         return chatV3AgentsFlag().enabled;
       case 'Bots':

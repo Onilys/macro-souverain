@@ -11,6 +11,7 @@ import { Harness } from './Harness';
 /** One management surface, mounted by both Settings and the Agents workspace. */
 export function AgentSettings(props: {
   initialSection?: AgentManagementSection;
+  showAgents?: boolean;
 }) {
   const [searchParams] = useSearchParams();
   const [section, setSection] = createSignal<AgentManagementSection>(
@@ -32,13 +33,15 @@ export function AgentSettings(props: {
   };
 
   const navigation = () => (
-    <AgentManagementNavigation
-      section={section()}
-      onChange={(section) => {
-        setStartPairing(false);
-        showSection(section);
-      }}
-    />
+    <Show when={props.showAgents !== false}>
+      <AgentManagementNavigation
+        section={section()}
+        onChange={(section) => {
+          setStartPairing(false);
+          showSection(section);
+        }}
+      />
+    </Show>
   );
 
   return (
