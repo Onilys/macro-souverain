@@ -672,7 +672,7 @@ impl LexicalClient {
     /// Sanitizes an agent prompt and optionally composes it with why the
     /// agent was called via the lexical service, so internal nodes and
     /// escaping are handled by Lexical rather than by the caller.
-    #[tracing::instrument(skip(self, prompt_markdown, trigger), err)]
+    #[tracing::instrument(skip_all, err)]
     pub async fn compose_agent_context(
         &self,
         prompt_markdown: &str,
@@ -681,9 +681,12 @@ impl LexicalClient {
         trigger: Option<&TriggerContext>,
     ) -> Result<String> {
         let url = format!("{}/agent-context", self.url);
+        let mut headers = reqwest::header::HeaderMap::new();
+        macro_tower_layers::inject_trace_headers(&mut headers);
         let response = check_response(
             self.client
                 .post(&url)
+                .headers(headers)
                 .json(&AgentContextRequest {
                     prompt_markdown,
                     instructions,

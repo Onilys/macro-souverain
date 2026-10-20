@@ -407,7 +407,8 @@ async fn drive_turn(
     // reply), `silent` (no line fit this follow-up), `turn_first` (the
     // turn's model spoke first), `no_verdict` (the
     // fast model failed or answered without one) or `timeout`.
-    let opener_span = if summarizing {
+    let use_opener = !summarizing && opener::can_open(&messages, instructions.as_deref());
+    let opener_span = if !use_opener {
         tracing::Span::none()
     } else {
         tracing::info_span!(
@@ -420,7 +421,7 @@ async fn drive_turn(
         )
     };
     // A closed receiver has no verdict, and the turn's own stream follows.
-    let mut opening_line = if summarizing {
+    let mut opening_line = if !use_opener {
         mpsc::channel(1).1
     } else {
         opener_span.in_scope(|| {

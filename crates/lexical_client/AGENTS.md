@@ -41,6 +41,8 @@ to read or render document content.
 - The internal-access header name (`x-internal-auth-key`) must match what
   `lexical_service` expects; it's not read from `macro_auth`'s header
   constants.
+- Keep agent-context composition instrumented with propagated trace headers;
+  never record its instructions, people, prompt, or trigger as span fields.
 
 ## Related
 

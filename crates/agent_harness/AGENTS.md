@@ -45,6 +45,12 @@ External runtimes receive the session's configured MCP selection when binding,
 including enabled owner connections and custom servers under `OwnerConnections`.
 Use `external_mcp_servers` to preserve the host-reachable egress URL override.
 
+Wrap the shared prompt composer with `UserInstructionsPromptComposer` so every
+runtime receives the session owner's live AI Instructions document on each
+prompt. Keep owner selection in the domain; `PgUserInstructions` resolves the
+existing mapping and renders the document through Lexical. Read failures fail
+composition instead of silently dropping preferences.
+
 ## Checks
 
 - `cargo test -p agent_harness` (`SQLX_OFFLINE` unset).

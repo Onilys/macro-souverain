@@ -24,6 +24,8 @@ pub mod runtime_registry;
 pub mod session_tasks;
 pub mod sidecar;
 pub mod tool_approvals;
+/// Reads saved AI instructions from their live document.
+pub mod user_instructions;
 
 /// Provider-neutral in-process ACP transport.
 pub mod acp_pipe;

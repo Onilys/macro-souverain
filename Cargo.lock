@@ -427,6 +427,7 @@ dependencies = [
  "kafka_util",
  "lexical_client",
  "macro_authorization",
+ "macro_db_client",
  "macro_db_migrator",
  "macro_env_var",
  "macro_event_broker",

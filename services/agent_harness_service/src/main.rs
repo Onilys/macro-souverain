@@ -56,6 +56,7 @@ use agent_harness::domain::service::AgentHarnessService;
 use agent_harness::domain::trigger_router::{
     RoutedTrigger, agent_trigger_bot_id, route_agent_trigger,
 };
+use agent_harness::domain::user_instructions::UserInstructionsPromptComposer;
 use agent_harness::inbound::model_load::AgentModelsRouterState;
 use agent_harness::inbound::repositories::AgentRepositoriesRouterState;
 use agent_harness::inbound::runtime_gateway::RuntimeGatewayState;
@@ -81,6 +82,7 @@ use agent_harness::outbound::runtime_registry::{HarnessKeyedConnections, Runtime
 use agent_harness::outbound::tool_approvals::{
     ReleaseHeldCallsOnTurnEnd, SessionToolApprovalAnnouncer,
 };
+use agent_harness::outbound::user_instructions::PgUserInstructions;
 use agent_inmem::domain::engine::TurnEngine;
 use agent_inmem::outbound::acp_mcp::AcpMcpConnector;
 use agent_inmem::outbound::egress_mcp::EgressMcpClient;
@@ -1032,7 +1034,10 @@ async fn run() -> anyhow::Result<()> {
         LexicalPromptMentions::new(lexical.clone(), PgSessionAccess::new(pool.clone()));
     let prompt_context =
         MessagePromptContextAdapter::new(message_service.clone(), Arc::clone(&entity_access));
-    let prompt_composer = LexicalAgentPromptComposer::new(lexical);
+    let prompt_composer = UserInstructionsPromptComposer::new(
+        PgUserInstructions::new(pool.clone(), lexical.clone()),
+        LexicalAgentPromptComposer::new(lexical),
+    );
 
     // One connection per harness, shared by every session of every agent
     // bound to it. Held here because the gateway puts dialed-in sockets into

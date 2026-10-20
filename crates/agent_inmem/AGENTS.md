@@ -48,6 +48,9 @@ milliseconds instead of waiting on container provisioning.
 
 - Keep session-aware `NameSearch`, `ContentSearch`, and `ListEntities` native in
   code mode; legacy `ReadChat` must not appear in either runtime tool catalog.
+- Skip the fast opener when session instructions or the current prompt's
+  trusted instructions are present; that model strips context and cannot honor
+  them. Saved AI Instructions arrive through the harness's shared composer.
 - Replay tool calls using `_meta.macro.toolName`; ACP titles may be human-readable
   MCP labels, so only use the title for older frames without tool-name metadata.
 

@@ -58,6 +58,7 @@ macro_event_broker = { path = "../macro_event_broker", features = ["outbound"] }
 macro_authorization = { path = "../macro_authorization", features = ["axum"] }
 macro_tower_layers = { path = "../macro_tower_layers" }
 macro_user_id = { path = "../macro_user_id" }
+macro_db_client = { path = "../macro_db_client" }
 macro_uuid = { path = "../macro_uuid" }
 model = { path = "../model" }
 model-entity = { path = "../model-entity" }

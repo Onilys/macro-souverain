@@ -237,6 +237,37 @@ pub(super) fn transcript(messages: &[ChatMessage]) -> String {
 const AGENT_CONTEXT_OPEN: &str = "<m-agent-context>";
 const AGENT_CONTEXT_CLOSE: &str = "</m-agent-context>";
 
+/// The fast reply does not read instructions. Let the full model answer when
+/// the session or current prompt has them, including for greetings that would
+/// otherwise cancel the full model. Do not inspect older turns: preferences
+/// may have been cleared since then.
+pub(super) fn can_open(messages: &[ChatMessage], instructions: Option<&str>) -> bool {
+    if instructions.is_some_and(|text| !text.trim().is_empty()) {
+        return false;
+    }
+    let Some(ChatMessage {
+        role: Role::User,
+        content: ChatMessageContent::Text(text),
+        ..
+    }) = messages.last()
+    else {
+        return false;
+    };
+    let Some(payload) = text.trim_start().strip_prefix(AGENT_CONTEXT_OPEN) else {
+        return true;
+    };
+    #[derive(serde::Deserialize)]
+    struct Context {
+        text: String,
+    }
+    // Stream one JSON value: the closing markdown tag follows the envelope.
+    // Deserialization also handles the transformer's escaped angle brackets.
+    let context = serde_json::Deserializer::from_str(payload)
+        .into_iter::<Context>()
+        .next();
+    matches!(context, Some(Ok(context)) if !context.text.contains("<instructions>"))
+}
+
 /// `text` without its hidden `<m-agent-context>` blocks: session metadata the
 /// app prepends for the turn's model, which the opening line's model would
 /// otherwise remark on instead of the user's words.

@@ -396,3 +396,29 @@ fn opening_transcript_leaves_out_the_hidden_agent_context() {
         "User: what is going on in my workspace"
     );
 }
+
+#[test]
+fn saved_or_session_instructions_leave_greetings_to_the_full_model() {
+    let mut messages = vec![agent::types::ChatMessage {
+        content: agent::types::ChatMessageContent::Text(
+            r#"<m-agent-context>{"version":1,"text":"\u003cinstructions>Answer in French.\u003c/instructions>"}</m-agent-context>
+hi"#.to_owned(),
+        ),
+        role: agent::types::Role::User,
+        attachments: None,
+    }];
+    assert!(!opener::can_open(&messages, None));
+
+    // A later prompt without saved instructions can use the fast path again.
+    messages.push(agent::types::ChatMessage {
+        content: agent::types::ChatMessageContent::Text(
+            r#"<m-agent-context>{"version":1,"text":"\u003csession owner=\"owner@example.com\"/>"}</m-agent-context>
+hi"#.to_owned(),
+        ),
+        role: agent::types::Role::User,
+        attachments: None,
+    });
+    assert!(opener::can_open(&messages, None));
+    assert!(!opener::can_open(&messages, Some("Answer in French.")));
+    assert!(opener::can_open(&messages, Some(" \n")));
+}

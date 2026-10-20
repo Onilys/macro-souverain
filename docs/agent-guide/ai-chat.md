@@ -43,6 +43,31 @@ does not display as connected. Regular AI chat does not expose discovery or
 automatic continuation. A selected-app agent keeps its configured MCP scope;
 authorization does not add apps outside that scope.
 
+## Saved AI instructions
+
+Open Cmd+K, search **instructions**, and choose **Open AI instructions**.
+The document applies to legacy chats and new agent sessions. Agent sessions
+read their owner's current saved document on every prompt, including prompts
+from channels, routines, and collaborators. Agent-specific instructions remain
+in place alongside these personal preferences. An unavailable document service
+fails prompt composition rather than silently ignoring the preferences.
+
+Verify with a test account:
+
+1. Save **Answer in French** in AI Instructions, then start a new agent session
+   and send **Hi**. The greeting should be in French.
+2. Change it to **Answer in Spanish**, wait for the document to save, and send
+   another prompt in the same session. The answer should follow the new text.
+3. Clear the document, wait for save, and verify a subsequent prompt uses no
+   saved preference. Repeat in a new session with no instructions document.
+4. Verify a channel-triggered session also follows its owner's instructions;
+   another participant's personal instructions must not replace the owner's.
+5. Verify an agent's own configured task still applies with personal
+   instructions present, and repeat with a connected coding runtime.
+
+The fast opening-line shortcut is skipped when saved or session instructions
+are present, so the full model also handles greetings and acknowledgements.
+
 ## Checking first-response latency
 
 From outside an editor, press `c`, then `a`, type a prompt, and press Enter.

@@ -20,6 +20,8 @@ sessions: agent-session trigger events in, sandboxed coding agent sessions
 - `src/containers.rs`: Daytona sandbox lifecycle; local Docker opt-in.
 - `src/trigger.rs`: turns channel/webhook triggers into sessions.
 - `src/internal_mcp.rs`: the internal MCP server exposed to running sessions.
+- `UserInstructionsPromptComposer` in `src/main.rs`: wraps shared prompt
+  composition with the owner's live AI Instructions document for all runtimes.
 
 ## Scope
 

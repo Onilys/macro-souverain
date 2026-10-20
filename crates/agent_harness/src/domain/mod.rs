@@ -21,6 +21,8 @@ pub mod sandbox;
 pub mod service;
 /// Policy for turning broker trigger events into harness work.
 pub mod trigger_router;
+/// Adds the owner's saved AI instructions to each runtime's prompt.
+pub mod user_instructions;
 
 /// Per-owner hosted Codex runtime authorization.
 pub mod codex;
