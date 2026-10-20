@@ -18,8 +18,11 @@ import {
   getGraphqlCacheHost,
   getGraphqlSoupClient,
   graphqlCacheEnabled,
+  graphqlCacheRecoveryState,
   graphqlDraftQueueBlocked,
+  retryGraphqlCacheInitialization,
 } from '@service-storage/graphql-soup';
+import { ResultAsync } from 'neverthrow';
 import { queryClient } from '../client';
 import {
   invalidateAllSoup,
@@ -44,10 +47,22 @@ import {
   markDraftAttemptQueued,
   readLocalDraft,
   restoreLocalAttachments,
+  resumeLocalDraft,
 } from './local-drafts';
 import { fetchAndCacheThread, type ThreadQueryTransport } from './thread';
 
-export { assertEmailDraftQueueAvailable };
+export {
+  assertEmailDraftQueueAvailable,
+  graphqlCacheRecoveryState,
+  retryGraphqlCacheInitialization as recoverDraftSynchronization,
+};
+
+export async function retryEmailDraftSynchronization(
+  id: string
+): Promise<void> {
+  await retryGraphqlCacheInitialization();
+  await resumeLocalDraft(id);
+}
 
 /** Read content and persistence state together, including resolved local handles. */
 export async function readEmailDraft(
@@ -56,14 +71,20 @@ export async function readEmailDraft(
 ) {
   const local = await readLocalDraft(draftId);
   const host = getGraphqlCacheHost();
-  const result = host
-    ? await readRecordsByKeys(
-        host,
-        selectRecords(EmailThreadMessageFieldsFragmentDoc),
-        [`GraphqlSoupEmailMessage:${local?.serverDraftId ?? draftId}`]
+  const cached = host
+    ? await ResultAsync.fromPromise(
+        readRecordsByKeys(
+          host,
+          selectRecords(EmailThreadMessageFieldsFragmentDoc),
+          [`GraphqlSoupEmailMessage:${local?.serverDraftId ?? draftId}`]
+        ),
+        (error: unknown) => error
       )
     : undefined;
-  const selected = result?.records[0];
+  // The independent working copy remains readable when cache startup fails.
+  // Without one, preserve the read error rather than inventing an empty draft.
+  if (cached?.isErr() && !local) throw cached.error;
+  const selected = cached?.isOk() ? cached.value.records[0] : undefined;
   // A confirmed sent record always wins. A fully synced working copy must
   // also yield to newer server content, attachments, and scheduling state.
   if (

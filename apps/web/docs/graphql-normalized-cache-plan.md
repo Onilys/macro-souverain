@@ -228,7 +228,13 @@ registration gets sixty seconds per attempt, with three attempts; engine recover
 retains its bounded five retries. Exhausted bootstrap retries preserve the cache
 scope only when the coordinator explicitly proves storage was untouched, not from
 a page's last-seen phase. Missing/broken transports remain conservatively
-uncertain.
+uncertain. Pages retry proven untouched bootstrap and owner-lock failures on reconnect,
+foregrounding, or explicit draft Retry, with jittered exponential backoff capped
+at thirty seconds. A newly registered host restarts an exhausted untouched
+coordinator at a new owner epoch with `open-existing`; failed hosts remain
+excluded. Draft writes stay blocked until the replacement opens and inspects
+the preserved mutation queue. Unknown storage failures still require explicit
+recovery or an update; retry never rotates the scope or clears persisted data.
 
 A build's coordinator has its build time in the SharedWorker name, so builds
 use separate coordinators even when their coordinator script URL is identical.

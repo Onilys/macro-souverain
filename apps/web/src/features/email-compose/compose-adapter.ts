@@ -44,7 +44,10 @@ import {
   assertEmailDraftQueueAvailable,
   deleteEmailDraftQueued,
   draftQueueActive,
+  graphqlCacheRecoveryState,
   readEmailDraft,
+  recoverDraftSynchronization,
+  retryEmailDraftSynchronization,
   saveEmailDraftQueued,
   watchEmailDrafts,
 } from '@queries/email/draft-queue';
@@ -66,7 +69,6 @@ import {
   forgetLocalDraft,
   readLocalDraft,
   recordLocalAttachment,
-  resumeLocalDraft,
   reviveLocalDraft,
   saveLocalDraft,
 } from '@queries/email/local-drafts';
@@ -300,6 +302,8 @@ export function createEmailComposeContext(
       reportError,
     },
     drafts: {
+      syncAvailability: graphqlCacheRecoveryState,
+      recoverSynchronization: recoverDraftSynchronization,
       async transferDraft(input) {
         const result = await transferEmailDraft(input);
         return {
@@ -332,7 +336,7 @@ export function createEmailComposeContext(
           : undefined;
       },
       get retryDraft() {
-        return queueActive() ? resumeLocalDraft : undefined;
+        return queueActive() ? retryEmailDraftSynchronization : undefined;
       },
       get readDraft() {
         return queueActive() ? readEmailDraft : undefined;

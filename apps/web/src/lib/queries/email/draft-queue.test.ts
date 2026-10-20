@@ -424,3 +424,15 @@ it('does not reopen unsynced content over an authoritative sent record', async (
   expect((await readEmailDraft(serverId))?.draft).toBeUndefined();
   expect(restoreLocalAttachments).not.toHaveBeenCalled();
 });
+
+it('returns the working copy when cache initialization fails during the status read', async () => {
+  await setup();
+  const local = workingCopy('dirty');
+  vi.mocked(readLocalDraft).mockResolvedValue(local);
+  mocks.readRecordsByKeys.mockRejectedValue(
+    new Error('cache bootstrap failed')
+  );
+  expect(await readEmailDraft(serverId, { attachments: false })).toMatchObject({
+    local,
+  });
+});

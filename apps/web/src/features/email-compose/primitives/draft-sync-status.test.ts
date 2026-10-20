@@ -28,7 +28,11 @@ it('offers retry discard when a crash interrupted deletion before admission', as
     local: draft,
     persistence: 'queued' as const,
   }));
-  const discard = vi.fn(async () => {});
+  const recover = vi.fn(async () => {});
+  context.drafts.recoverSynchronization = recover;
+  const discard = vi.fn(async () => {
+    expect(recover).toHaveBeenCalledOnce();
+  });
   const status = createRoot((dispose) => {
     disposers.push(dispose);
     return createDraftSyncStatus({
@@ -159,4 +163,38 @@ it('offers retry for server failures while newer edits remain saved locally', as
   await vi.waitFor(() =>
     expect(status.state()).toMatchObject({ failed: true, action: 'retry' })
   );
+});
+
+it('keeps local edits visible with an actionable synchronization status during recovery', async () => {
+  const context = createComposeContext();
+  const [availability, setAvailability] = createSignal<
+    'unavailable' | 'recovering' | 'ready'
+  >('unavailable');
+  context.drafts.syncAvailability = availability;
+  context.drafts.saveLocalDraft = vi.fn();
+  context.drafts.readDraft = vi.fn(async () => ({
+    local: { ...draft, status: 'dirty' as const },
+    persistence: 'queued' as const,
+  }));
+  const status = createRoot((dispose) => {
+    disposers.push(dispose);
+    return createDraftSyncStatus({
+      drafts: context.drafts,
+      draftId: () => 'draft',
+      localSaveState: () => 'saved',
+      acknowledgeSaved: () => true,
+      retry: vi.fn(),
+      discard: vi.fn(),
+    });
+  });
+  await vi.waitFor(() =>
+    expect(status.state()?.message).toBe(
+      'Saved on this device; waiting to sync'
+    )
+  );
+  expect(status.state()?.action).toBe('retry');
+  setAvailability('recovering');
+  expect(status.state()?.action).toBeUndefined();
+  setAvailability('ready');
+  expect(status.state()?.message).toBe('Draft saved');
 });

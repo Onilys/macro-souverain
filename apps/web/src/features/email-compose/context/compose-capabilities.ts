@@ -105,6 +105,12 @@ export interface EmailAttachmentChange {
 export class DraftTransferAborted extends Error {}
 
 export interface EmailDraftStorage {
+  recoverSynchronization?(): Promise<void>;
+  syncAvailability?():
+    | 'ready'
+    | 'recovering'
+    | 'unavailable'
+    | 'recovery-required';
   /** Reload canonical provider content after an explicit conflict resolution. */
   reloadDraft?(
     draftId: string,

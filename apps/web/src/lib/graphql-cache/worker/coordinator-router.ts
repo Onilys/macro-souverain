@@ -522,6 +522,12 @@ export class CoordinatorRouter {
         tabId: message.tabId,
       })
     );
+    if (
+      this.coreValue.state.kind === 'failed' &&
+      this.coreValue.state.storageUntouched
+    ) {
+      this.resetRecoveryRetries();
+    }
     const actions = this.coreValue.registerTab(message.tabId);
     this.applyActions(actions);
     // Late joiners must use the same startup budget as the elected owner.

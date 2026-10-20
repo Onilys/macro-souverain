@@ -753,3 +753,14 @@ A confirmed save archives the thread and advances within the invoking list.
 Cancel and failed saves keep the current email. H on a pending snooze edits it;
 **Remove reminder** returns it to the inbox. Bare H in a reply or search field
 remains ordinary typing.
+
+### Cache initialization recovery
+
+With the GraphQL draft queue enabled, block the cache WASM download until its
+bootstrap retries fail. Compose text and verify it remains saved on this device
+with a synchronization status and Retry. Restore network access and reconnect or
+press Retry: the same composer and working copy must remain, and synchronization
+must resume only after the preserved queue is readable. Repeat while another tab
+holds the cache owner lock; recovery must never steal the lock or erase its queue.
+Storage/schema failures that cannot prove preservation show recovery/update
+instructions instead of repeatedly reopening potentially damaged storage.

@@ -73,6 +73,7 @@ import { batch, createSignal, untrack } from 'solid-js';
 import { match, P } from 'ts-pattern';
 import { delegateChannelNotificationRefresh } from '../../queries/channel/notification-refresh';
 import { soupOptimisticResolvers } from '../../queries/optimistic-resolvers';
+import { createCacheRecovery } from './cache-recovery';
 import { emailCacheDeletionKeys } from './email-cache-deletions';
 import type { SoupApiItem } from './generated/schemas/soupApiItem';
 import type { SoupCalendarEventSoupPropertiesField } from './generated/schemas/soupCalendarEventSoupPropertiesField';
@@ -270,11 +271,18 @@ async function isLegacyProjectionValidationError(
 
 export async function dssGraphqlFetch(
   input: RequestInfo | URL,
-  init?: RequestInit
+  init?: RequestInit,
+  queueOwner?: CacheHost
 ): Promise<Response> {
+  const retiredQueue =
+    queueOwner?.disabled ||
+    (cachedCacheHost !== undefined && cachedCacheHost !== queueOwner);
   // Even an in-flight cached client can fall back after queue initialization
   // fails. Check at transport time so it cannot overtake preserved mutations.
-  if (graphqlDraftQueueBlocked() && typeof init?.body === 'string') {
+  if (
+    (retiredQueue || graphqlDraftQueueBlocked()) &&
+    typeof init?.body === 'string'
+  ) {
     const payload = JSON.parse(init.body) as {
       query?: string;
       operationName?: string;
@@ -293,8 +301,13 @@ export async function dssGraphqlFetch(
               selection.name.value
             )
         )
-      )
+      ) {
+        if (retiredQueue)
+          throw new Error(
+            'Draft sync client was replaced. Retry using the recovered queue.'
+          );
         assertEmailDraftQueueAvailable();
+      }
     }
   }
   return Telemetry.span('graphql.transport', async (span) => {
@@ -456,6 +469,34 @@ function getUncachedRealtimeClient(): Client {
 }
 
 let cacheInitializationFailed = false;
+const cacheRecovery = createCacheRecovery(() =>
+  Telemetry.span('graphql.cache_recovery', async (span) => {
+    const session = cacheSessionGeneration;
+    cachedClient = undefined;
+    getGraphqlSoupClient();
+    const host = cachedCacheHost;
+    if (!host || host.disabled)
+      throw new Error('Local cache could not restart.');
+    await host.currentRevision();
+    span.event('engine_ready');
+    // Opening the engine is insufficient: inspect the preserved queue before
+    // making draft writes available again.
+    await host.inspectMutations?.();
+    span.event('queue_readable');
+    if (
+      session !== cacheSessionGeneration ||
+      host !== cachedCacheHost ||
+      host.disabled
+    )
+      throw new Error('Cache recovery was superseded.');
+    cacheInitializationFailed = false;
+    setCacheAvailability((version) => version + 1);
+  })
+);
+let cacheSessionGeneration = 0;
+
+export const graphqlCacheRecoveryState = cacheRecovery.state;
+export const retryGraphqlCacheInitialization = cacheRecovery.retry;
 // Changes when the session abandons its cache so reactive readers of the
 // availability getters below (query options, effects) move to network paths.
 const [cacheAvailability, setCacheAvailability] = createSignal(0);
@@ -486,6 +527,9 @@ export function setGraphqlSoupSessionActive(active: boolean): void {
 }
 
 function disposeSessionClients(): void {
+  cacheSessionGeneration += 1;
+  cacheRecovery.reset();
+  cacheInitializationFailed = false;
   const cleanup = cachedCacheCleanup;
   cachedCacheCleanup = undefined;
   cachedCacheHost = undefined;
@@ -530,12 +574,12 @@ export function graphqlDraftQueueBlocked(): boolean {
 export function assertEmailDraftQueueAvailable(): void {
   if (graphqlDraftQueueBlocked()) {
     throw new Error(
-      'Draft sync is unavailable while queued changes are preserved. Reload or update Macro to resume the queue before saving or discarding.'
+      'Draft sync is unavailable while queued changes are preserved. Retry draft synchronization to resume the queue. If recovery requires an update, update Macro before saving or discarding.'
     );
   }
 }
 
-function fallbackAfterInitializationFailure(): void {
+function fallbackAfterInitializationFailure(error: unknown): void {
   const cleanup = cachedCacheCleanup;
   cachedCacheCleanup = undefined;
   cachedCacheHost = undefined;
@@ -549,6 +593,7 @@ function fallbackAfterInitializationFailure(): void {
   } catch {
     // Initialization-failure cleanup cannot alter GraphQL transport fallback.
   }
+  cacheRecovery.failed(error);
   setCacheAvailability((version) => version + 1);
 }
 
@@ -565,7 +610,7 @@ export function getGraphqlCacheHost(): CacheHost | undefined {
  * engine by the identity witness on `QueryRoot.user.id` (a response for a
  * different user wipes and rebinds the cache). See @graphql-cache/scope.
  * Failures fall back to uncached reads. Draft mutations remain blocked until
- * a reload or native update can resume the preserved queue.
+ * recovery has reopened and inspected the preserved queue.
  */
 export function getGraphqlSoupClient(): Client {
   if (!sessionActive()) return graphqlSoupClient;
@@ -633,17 +678,17 @@ export function getGraphqlSoupClient(): Client {
     const onInitializationError = (error: Error) => {
       if (!host || cachedCacheHost !== host) return;
       // Another context holds the database: a tab on another deployed build,
-      // or a closing tab whose worker still has the files open. This page
-      // simply runs uncached until it reloads.
+      // or a closing tab whose worker still has the files open. Retry later
+      // without stealing the lock or changing the cache scope.
       if (isOwnerLockUnavailableError(error)) {
-        fallbackAfterInitializationFailure();
+        fallbackAfterInitializationFailure(error);
         console.info(
-          `[graphql-cache] ${error.message}; using the network until reload`
+          `[graphql-cache] ${error.message}; using the network while waiting to retry`
         );
         return;
       }
       reportCacheError(error, 'initialization');
-      fallbackAfterInitializationFailure();
+      fallbackAfterInitializationFailure(error);
       toast.failure(
         error instanceof NativeCacheUpgradeRequiredError
           ? 'Macro update required'
@@ -652,7 +697,9 @@ export function getGraphqlSoupClient(): Client {
           subtext:
             error instanceof NativeCacheUpgradeRequiredError
               ? error.message
-              : 'Macro will continue without local caching for this session.',
+              : cacheRecovery.state() === 'unavailable'
+                ? 'Drafts remain on this device. Reconnect or retry draft synchronization.'
+                : 'Queued changes are preserved. Update or reload Macro to recover local storage.',
         }
       );
       console.warn(
@@ -714,10 +761,12 @@ export function getGraphqlSoupClient(): Client {
           graphqlSoupSubscriptionExchange(graphqlWsClient),
           fetchExchange,
         ],
-        fetch: dssGraphqlFetch,
+        fetch: (input, init) => dssGraphqlFetch(input, init, host),
       });
       cachedCacheHost = host;
-      cacheInitializationFailed = false;
+      // A replacement stays blocked until its persisted queue is readable.
+      if (cacheRecovery.state() !== 'recovering')
+        cacheInitializationFailed = false;
       unregisterHost = registerCacheHost(host);
       subscriptionsLifecycle.replace(client, host);
       cachedCacheCleanup = cleanup;
@@ -729,6 +778,7 @@ export function getGraphqlSoupClient(): Client {
       cachedCacheHost = undefined;
       cachedCacheCleanup = undefined;
       cacheInitializationFailed = true;
+      cacheRecovery.failed(error);
       setCacheAvailability((version) => version + 1);
       console.warn('graphql cache init failed; using uncached client', error);
       return isFeatureEnabled(enableGraphqlSoup)

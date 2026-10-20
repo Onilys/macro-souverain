@@ -58,6 +58,23 @@ export function createDraftSyncStatus(options: {
         draft?.status ?? ''
       ) ||
       deletePending();
+    const availability = options.drafts.syncAvailability?.() ?? 'ready';
+    if (disk !== 'failed' && availability !== 'ready') {
+      return {
+        message: draft
+          ? 'Saved on this device; waiting to sync'
+          : 'Draft synchronization unavailable',
+        detail:
+          availability === 'recovering'
+            ? 'Reconnecting to saved changes…'
+            : availability === 'recovery-required'
+              ? 'Queued changes are preserved. Update or reload Macro to recover local storage.'
+              : 'Reconnect or retry to resume draft synchronization.',
+        failed: true,
+        action: availability === 'unavailable' ? 'retry' : undefined,
+        canKeepEditing: false,
+      };
+    }
     // Only a newly persisted version restarts the brief acknowledgement.
     // Queue notifications and identity adoption do not count as another save.
     if (!failed) {
@@ -101,6 +118,7 @@ export function createDraftSyncStatus(options: {
     setBusy(true);
     setActionError(undefined);
     try {
+      await options.drafts.recoverSynchronization?.();
       await action();
       await refetch();
     } catch (error) {
