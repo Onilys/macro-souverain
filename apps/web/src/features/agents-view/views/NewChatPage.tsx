@@ -222,7 +222,11 @@ export function NewChatPage(props: {
   };
 
   const connect = (agent: RosterAgent) => {
-    if (agent.harness === 'cursor') openSettings('Harness');
+    // Both land on Settings → Runtimes: Cursor to save an API key, macrod to
+    // restart the local runtime (one click on desktop) or re-pair it.
+    if (agent.harness === 'cursor' || agent.harness === 'macrod') {
+      openSettings('Harness');
+    }
   };
 
   const attachmentTracker = createMemo(() => {

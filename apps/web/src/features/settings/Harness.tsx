@@ -23,6 +23,7 @@ import { createSignal, For, onMount, Show } from 'solid-js';
 import { ClaudeConnection } from '../claude-connection/claude-connection';
 import { CodexHarness } from './codex/views/CodexHarness';
 import { CursorDefaultModel } from './components/cursor-default-model';
+import { LocalRuntimeCard } from './components/local-runtime-card';
 import {
   CURSOR_KEY_FORMAT_ERROR,
   CURSOR_KEY_PLACEHOLDER,
@@ -143,6 +144,7 @@ export function Harness(props: { onBack?: () => void } = {}) {
             </Button>
           }
         >
+          <LocalRuntimeCard />
           <div>
             <h2 class="mb-3 px-6 text-sm font-semibold text-ink">
               Built-in runtimes

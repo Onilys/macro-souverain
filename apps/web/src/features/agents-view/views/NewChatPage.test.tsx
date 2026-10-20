@@ -706,7 +706,7 @@ describe('agent-led new conversation', () => {
     });
   });
 
-  it('keeps a disconnected paired agent visible with its availability reason', () => {
+  it('keeps a disconnected paired agent visible and offers to reconnect it', () => {
     page(
       true,
       [
@@ -723,8 +723,11 @@ describe('agent-led new conversation', () => {
     );
     openAgents();
     const row = screen.getByRole('menuitem', { name: /Laptop agent/ });
-    expect(row.getAttribute('aria-disabled')).toBe('true');
-    expect(row.textContent).toContain('Its runtime is disconnected');
+    // The row stays clickable: selecting it opens Settings → Runtimes, where
+    // the runtime can be restarted (one click on desktop) or re-paired.
+    expect(row.getAttribute('aria-disabled')).not.toBe('true');
+    expect(row.getAttribute('title')).toBe('Its runtime is disconnected');
+    expect(row.textContent).toContain('Reconnect runtime');
   });
 
   it.each([false, true])(
@@ -752,13 +755,14 @@ describe('agent-led new conversation', () => {
       }).filter((agent) => agent.kind === 'coder');
       const onCreate = vi.fn();
       const onSelect = vi.fn();
+      const onConnect = vi.fn();
       render(() => (
         <AgentPicker
           agents={roster}
           selected={roster[0]}
           loading={false}
           onSelect={onSelect}
-          onConnect={vi.fn()}
+          onConnect={onConnect}
           onCreate={onCreate}
         />
       ));
@@ -774,7 +778,9 @@ describe('agent-led new conversation', () => {
       expect(saved.textContent).toContain('Reviewer');
       expect(saved.textContent).toContain('Laptop · Sonnet 5.5');
       expect(offline.textContent).toContain('Offline agent');
-      expect(offline.textContent).toContain('Its runtime is disconnected');
+      // The disconnected row stays clickable: it offers to reconnect the
+      // runtime (opens Settings → Runtimes) and keeps the reason as a tooltip.
+      expect(offline.textContent).toContain('Reconnect runtime');
       expect(
         within(picker).queryByText('Connect the runtime to load models.')
       ).toBeNull();
@@ -782,13 +788,26 @@ describe('agent-led new conversation', () => {
       const unavailable = within(offline).getByRole(
         touch ? 'button' : 'menuitem'
       );
+      // The desktop row keeps the reason as a tooltip; the drawer row has no
+      // title attribute.
+      if (!touch) {
+        expect(unavailable.getAttribute('title')).toBe(
+          'Its runtime is disconnected'
+        );
+      }
       expect(
         touch
           ? unavailable.hasAttribute('disabled')
           : unavailable.getAttribute('aria-disabled') === 'true'
-      ).toBe(true);
-      fireEvent.click(unavailable);
-      expect(onSelect).not.toHaveBeenCalled();
+      ).toBe(false);
+      if (touch) {
+        fireEvent.click(unavailable);
+        expect(onSelect).not.toHaveBeenCalled();
+        expect(onConnect).toHaveBeenCalledOnce();
+        // Connecting closes the drawer; reopen it for the create assertion.
+        fireEvent.click(screen.getByRole('button', { name: 'Agent' }));
+        await screen.findByRole('dialog');
+      }
       const create = within(picker).getByRole(touch ? 'button' : 'menuitem', {
         name: 'Create agent',
       });
