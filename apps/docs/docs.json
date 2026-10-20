@@ -67,13 +67,18 @@
             "group": "Calendar",
             "icon": "calendar",
             "root": "product/calendar",
-            "pages": ["product/booking-links"]
+            "pages": [
+              "product/booking-links"
+            ]
           },
           {
             "group": "Agents",
             "icon": "wand-magic-sparkles",
             "root": "product/agents",
-            "pages": ["product/routines", "product/skills"]
+            "pages": [
+              "product/routines",
+              "product/skills"
+            ]
           },
           "product/crm",
           "product/calls"
