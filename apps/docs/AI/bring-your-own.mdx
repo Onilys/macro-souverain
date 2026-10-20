@@ -2,13 +2,8 @@
 title: "Bring your own agent"
 sidebarTitle: "Bring your own agent"
 icon: "terminal"
-tag: "Coming soon"
 description: "Bring Claude Code, OpenCode, OpenClaw, or Hermes into your Macro workspace with macrod."
 ---
-
-<Info>
-  Bring Your Own Agent will be available soon.
-</Info>
 
 Use your local coding agent from Macro. `macrod` runs on your computer, connects your agent to Macro, and keeps its sessions available from your workspace.
 
@@ -16,7 +11,7 @@ Use your local coding agent from Macro. `macrod` runs on your computer, connects
 
 An **agent** combines a name, instructions, a default model, and a runtime. A **runtime** is the harness that powers it: Macro AI, a built-in coding harness, or an agent running on your own machine.
 
-Manage both in **Settings → General → Agents**. Connect your machine in **Runtimes**, then create an agent that uses it in **Agents**.
+Manage both in **Settings → Agents**. Connect your machine on the **Runtimes** tab (also listed as **Settings → Runtimes**), then create an agent that uses it on the **Agents** tab.
 
 ## Before you start
 
@@ -34,7 +29,7 @@ You need a macOS or Linux computer that can stay online and an installed, authen
   <Step title="Install macrod">
     Download the `macrod` archive for your operating system and architecture from [Macro releases](https://github.com/macro-inc/macro/releases), then extract it.
 
-    Open **Settings → General → Agents → Runtimes → New runtime** in Macro. The page walks you through installation, configuration, and pairing.
+    Open **Settings → Runtimes → New runtime** in Macro. The page walks you through installation, configuration, and pairing.
   </Step>
 
   <Step title="Run macrod">
@@ -64,7 +59,7 @@ You need a macOS or Linux computer that can stay online and an installed, authen
   <Step title="Enter your pairing code">
     The **Pair macrod** panel shows a device code and a link to Macro. If you are already in the terminal overview, press <kbd>p</kbd> to open pairing. Press <kbd>c</kbd> to copy the code.
 
-    Open the pairing link, or go to **Settings → General → Agents → Runtimes → New runtime**. Enter your code and click **Look up**.
+    Open the pairing link, or go to **Settings → Runtimes → New runtime**. Enter your code and click **Look up**.
 
     <Frame caption="Example only—enter the code from your own macrod terminal.">
       ![The macrod terminal with a device code and approval link in the Pair macrod panel](/images/macrod-pairing-example.png)
@@ -84,7 +79,7 @@ Review sharing and channel access, then save the agent. @mention it in a channel
 
 ## Keep your runtime connected
 
-Leave `macrod` running and your computer awake while you use the runtime. Its terminal shows your sessions, configuration, and logs. You can also check the runtime in **Settings → General → Agents → Runtimes**.
+Leave `macrod` running and your computer awake while you use the runtime. Its terminal shows your sessions, configuration, and logs. You can also check the runtime in **Settings → Runtimes**.
 
 To reconnect later, run `macrod` from the same directory so it loads your saved configuration. If you revoke the runtime, pair it again before using it.
 

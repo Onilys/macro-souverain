@@ -3,23 +3,33 @@
   "theme": "maple",
   "name": "Macro",
   "appearance": {
-    "default": "dark",
+    "default": "system",
     "strict": true
   },
   "colors": {
-    "primary": "#ff8f05",
-    "light": "#ff8f05",
-    "dark": "#ff8f05"
+    "primary": "#000000",
+    "light": "#ffffff",
+    "dark": "#000000"
   },
   "background": {
     "color": {
-      "dark": "#090909"
+      "light": "#f5f1e8",
+      "dark": "#000000"
     }
   },
-  "favicon": {
-    "light": "/favicon.svg",
-    "dark": "/favicon.svg"
+  "fonts": {
+    "heading": {
+      "family": "Roboto Slab",
+      "source": "/fonts/roboto-slab-variable.woff2",
+      "format": "woff2"
+    },
+    "body": {
+      "family": "Inter",
+      "source": "/fonts/inter-variable.woff2",
+      "format": "woff2"
+    }
   },
+  "favicon": "/favicon.svg",
   "navigation": {
     "pages": [
       "index",
@@ -29,26 +39,44 @@
       {
         "group": "Features",
         "pages": [
-          "product/inbox",
           "product/search",
           "product/unified-memory",
+          "product/projects",
           "product/tagging"
         ]
       },
       {
         "group": "Blocks",
         "pages": [
-          "product/agents",
+          "product/home",
+          {
+            "group": "Drive",
+            "icon": "folder",
+            "root": "product/drive",
+            "pages": [
+              "product/docs",
+              "product/spreadsheets",
+              "product/canvas",
+              "product/snippets"
+            ]
+          },
           "product/email",
-          "product/docs",
-          "product/canvas",
-          "product/tasks",
-          "product/snippets",
           "product/channels",
-          "product/calls",
-          "product/calendar",
-          "product/folders",
-          "product/crm"
+          "product/tasks",
+          {
+            "group": "Calendar",
+            "icon": "calendar",
+            "root": "product/calendar",
+            "pages": ["product/booking-links"]
+          },
+          {
+            "group": "Agents",
+            "icon": "wand-magic-sparkles",
+            "root": "product/agents",
+            "pages": ["product/routines", "product/skills"]
+          },
+          "product/crm",
+          "product/calls"
         ]
       },
       {
@@ -272,6 +300,16 @@
       }
     ]
   },
+  "redirects": [
+    {
+      "source": "/product/inbox",
+      "destination": "/product/home"
+    },
+    {
+      "source": "/product/folders",
+      "destination": "/product/drive"
+    }
+  ],
   "navbar": {
     "primary": {
       "type": "button",
