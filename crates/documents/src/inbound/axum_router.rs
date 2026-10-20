@@ -10,6 +10,7 @@
 //! - `POST /github_prs/tasks` — get the tasks linked to each of a batch of GitHub pull requests
 //! - `GET /{document_id}/short_id` — get document short ID
 //! - `GET`/`PUT /{document_id}/team_share` — get/set the document's team-share state
+//! - `POST /{document_id}/convert_to_task` — turn a markdown document into a task in place
 //! - `POST /create_markdown` — create and initialize a markdown document
 //! - `POST /create_snippet` — create and initialize a snippet document
 //! - `POST /create_skill` — create and initialize a skill document
@@ -20,6 +21,7 @@
 mod tests;
 
 pub mod content_uploaded;
+pub mod convert_to_task;
 pub mod copy_document;
 pub mod create_document;
 #[cfg(feature = "document_create")]
@@ -75,6 +77,7 @@ use self::create_skill::create_skill_handler;
 #[cfg(feature = "document_create")]
 use self::create_snippet::create_snippet_handler;
 use self::{
+    convert_to_task::convert_to_task_handler,
     copy_document::copy_document_handler,
     create_document::create_document_handler,
     create_task::create_task_handler,
@@ -270,6 +273,10 @@ where
         .route(
             "/{document_id}/copy",
             axum::routing::post(copy_document_handler::<T, Svc, Auth>),
+        )
+        .route(
+            "/{document_id}/convert_to_task",
+            axum::routing::post(convert_to_task_handler::<T, Svc, Auth>),
         )
         .route(
             "/{document_id}/duplicates",

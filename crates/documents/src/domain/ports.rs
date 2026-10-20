@@ -35,11 +35,12 @@ use model::sync_service::SyncServiceVersionID;
 use model_entity::Entity;
 
 use super::models::{
-    BranchNameContext, CopyDocumentRepoArgs, CreateDocumentRepoArgs, CreateTaskRequest,
-    DocumentError, DocumentTeamShare, DocumentTeamShareResponse, EditDocumentRepoArgs,
-    EditDocumentServiceArgs, EmailImportRepoOutcome, GithubPullRequestTasksResponse,
-    GithubPullRequestsResponse, ImportEmailAttachmentRepoArgs, LocationQueryParams, NewDocument,
-    OwnerTeam, TaskBranchName, TaskIdentity, TeamTaskMetadata, TeamTaskNumber,
+    BranchNameContext, ConvertToTaskResponse, CopyDocumentRepoArgs, CreateDocumentRepoArgs,
+    CreateTaskRequest, DocumentError, DocumentTeamShare, DocumentTeamShareResponse,
+    EditDocumentRepoArgs, EditDocumentServiceArgs, EmailImportRepoOutcome,
+    GithubPullRequestTasksResponse, GithubPullRequestsResponse, ImportEmailAttachmentRepoArgs,
+    LocationQueryParams, NewDocument, OwnerTeam, TaskBranchName, TaskIdentity, TeamTaskMetadata,
+    TeamTaskNumber,
 };
 
 /// Repository for accessing document data from the database.
@@ -185,6 +186,15 @@ pub trait DocumentRepo: Send + Sync + 'static {
     fn edit_document(
         &self,
         args: EditDocumentRepoArgs,
+    ) -> impl Future<Output = Result<(), DocumentError>> + Send;
+
+    /// Make an existing markdown document a task in place, numbering it within
+    /// `team_id` when given. Repeating the call on a task changes nothing; a
+    /// document of another subtype is a `Conflict`.
+    fn convert_document_to_task(
+        &self,
+        document_id: &uuid::Uuid,
+        team_id: Option<uuid::Uuid>,
     ) -> impl Future<Output = Result<(), DocumentError>> + Send;
 
     /// Update a document's `updatedAt` timestamp.
@@ -381,6 +391,14 @@ pub trait TaskPropertiesPort: Send + Sync + 'static {
         value: Option<models_properties::api::requests::SetPropertyValue>,
     ) -> impl Future<Output = anyhow::Result<()>> + Send;
 
+    /// Carry a document's property values over to the task it became and
+    /// attach the missing task properties. Returns the task property
+    /// definitions that hold a value afterwards.
+    fn convert_document_properties_to_task(
+        &self,
+        entity_id: &str,
+    ) -> impl Future<Output = anyhow::Result<Vec<uuid::Uuid>>> + Send;
+
     /// Copy all task property values from one task to another.
     fn copy_task_properties(
         &self,
@@ -569,6 +587,17 @@ pub trait DocumentService: Send + Sync + 'static {
         document_context: DocumentBasic,
         args: EditDocumentServiceArgs,
     ) -> impl Future<Output = Result<(), DocumentError>> + Send;
+
+    /// Turn a markdown document into a task in place: same id, content, sharing
+    /// and history. Its document properties carry over, and the task defaults
+    /// (assigned to `principal`, not started) fill only what it lacks. Safe to
+    /// repeat on a document that is already a task.
+    fn convert_to_task(
+        &self,
+        entity_access_receipt: EntityAccessReceipt<EditAccessLevel>,
+        document_context: DocumentBasic,
+        principal: &CreationPrincipal,
+    ) -> impl Future<Output = Result<ConvertToTaskResponse, DocumentError>> + Send;
 
     /// Updates the tasks status to what is provided
     fn update_task_status(

@@ -235,6 +235,7 @@ use utoipa::OpenApi;
         documents_hex::inbound::axum_router::create_document::create_document_handler,
         documents_hex::inbound::axum_router::create_markdown::create_markdown_handler,
         documents_hex::inbound::axum_router::copy_document::copy_document_handler,
+        documents_hex::inbound::axum_router::convert_to_task::convert_to_task_handler,
         documents::save_document::save_document_handler,
         documents::pre_save::presave_document_handler,
         documents_hex::inbound::axum_router::edit_document::edit_document_handler,
@@ -588,6 +589,7 @@ use utoipa::OpenApi;
             documents_hex::domain::models::CopyDocumentRequest,
             documents_hex::domain::models::CopyDocumentQueryParams,
             documents_hex::domain::models::CopyDocumentResponse, // Copy document
+            documents_hex::domain::models::ConvertToTaskResponse,
             documents_hex::domain::models::EditDocumentServiceArgs,
             EditDocumentResponse, // Edit document
             UserDocumentsResponse,

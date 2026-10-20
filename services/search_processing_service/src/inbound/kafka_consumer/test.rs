@@ -32,6 +32,7 @@ use channels::domain::{
     models::{ChannelSender, ChannelType},
 };
 use chrono::Utc;
+use document_sub_type::DocumentSubType;
 use documents::domain::events::{
     DocumentContentUploadedMetadata, DocumentCopiedMetadata, DocumentCreatedMetadata,
     DocumentDeletedMetadata, DocumentInteractionMetadata, DocumentPurgedMetadata,
@@ -902,6 +903,7 @@ fn document_event_cases() -> Vec<(DocumentTopicEvent, DocumentEventDescription)>
                 project_id: None,
                 file_type: None,
                 share_permission_updated: false,
+                sub_type: None,
             }),
             DocumentEventDescription {
                 action: DocumentIndexAction::RefreshName,
@@ -921,9 +923,33 @@ fn document_event_cases() -> Vec<(DocumentTopicEvent, DocumentEventDescription)>
                 project_id: Some(PROJECT_ID.to_string()),
                 file_type: None,
                 share_permission_updated: true,
+                sub_type: None,
             }),
             DocumentEventDescription {
                 action: DocumentIndexAction::Ignore,
+                document_id: DOCUMENT_ID.to_string(),
+                event_type: "document.updated",
+            },
+        ),
+        (
+            DocumentTopicEvent::Updated(DocumentUpdatedMetadata {
+                document_id: DOCUMENT_ID.to_string(),
+                owner: owner.clone(),
+                actor_user_id: Some(user.clone()),
+                actor: None,
+                on_behalf_of: None,
+                document_name: None,
+                previous_project_id: None,
+                project_id: None,
+                file_type: None,
+                share_permission_updated: false,
+                sub_type: Some(DocumentSubType::Task),
+            }),
+            DocumentEventDescription {
+                action: DocumentIndexAction::ExtractSync {
+                    file_type: FileType::Md,
+                    document_version_id: None,
+                },
                 document_id: DOCUMENT_ID.to_string(),
                 event_type: "document.updated",
             },

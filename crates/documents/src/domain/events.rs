@@ -83,6 +83,10 @@ pub struct DocumentUpdatedMetadata {
     pub file_type: Option<FileTypeUpdate>,
     /// Whether share permissions were updated.
     pub share_permission_updated: bool,
+    /// New subtype when the document changed kind in place (a document
+    /// became a task); `None` when unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sub_type: Option<DocumentSubType>,
 }
 
 /// Metadata for [`DocumentTopicEvent::Deleted`].

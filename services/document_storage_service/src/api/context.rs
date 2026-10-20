@@ -336,6 +336,18 @@ impl TaskPropertiesPort for TaskPropertiesAdapter {
             .map_err(Into::into)
     }
 
+    async fn convert_document_properties_to_task(
+        &self,
+        entity_id: &str,
+    ) -> anyhow::Result<Vec<uuid::Uuid>> {
+        use system_properties::SystemPropertiesService as _;
+
+        self.system_properties
+            .convert_document_properties_to_task(entity_id)
+            .await
+            .map_err(Into::into)
+    }
+
     async fn copy_task_properties(
         &self,
         from_task_id: &str,

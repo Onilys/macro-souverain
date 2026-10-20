@@ -62,12 +62,12 @@ use super::events::{
     DocumentInteractionMetadata, DocumentMacroEvent, DocumentUpdatedMetadata, InteractionReason,
 };
 use super::models::{
-    CloudFrontConfig, CopyDocumentRepoArgs, CreateDocumentRepoArgs, CreateTaskRequest,
-    DocumentError, DocumentTeamShareResponse, EditDocumentRepoArgs, EditDocumentServiceArgs,
-    EmailImportRepoOutcome, FileTypeUpdate, GithubPullRequest, GithubPullRequestTasks,
-    GithubPullRequestTasksResponse, GithubPullRequestsResponse, ImportEmailAttachmentRepoArgs,
-    LocationQueryParams, MAX_GITHUB_PULL_REQUEST_TASK_LOOKUP, NewDocument, TaskBranchName,
-    TaskIdentity, TeamTaskMetadata,
+    CloudFrontConfig, ConvertToTaskResponse, CopyDocumentRepoArgs, CreateDocumentRepoArgs,
+    CreateTaskRequest, DocumentError, DocumentTeamShareResponse, EditDocumentRepoArgs,
+    EditDocumentServiceArgs, EmailImportRepoOutcome, FileTypeUpdate, GithubPullRequest,
+    GithubPullRequestTasks, GithubPullRequestTasksResponse, GithubPullRequestsResponse,
+    ImportEmailAttachmentRepoArgs, LocationQueryParams, MAX_GITHUB_PULL_REQUEST_TASK_LOOKUP,
+    NewDocument, TaskBranchName, TaskIdentity, TeamTaskMetadata,
 };
 #[cfg(feature = "document_create")]
 use super::ports::create::DocumentCreationService;
@@ -211,6 +211,31 @@ fn published_document_actors(auth: &EntityAccessAuth) -> PublishedDocumentActors
             PublishedDocumentActors::default()
         }
     }
+}
+
+/// The properties a new task gets when none are given: assigned to the user
+/// behind `principal`, if any, and not started.
+fn default_task_properties(principal: &CreationPrincipal) -> Vec<PropertyInput> {
+    principal
+        .user()
+        .map(|user| PropertyInput {
+            property_id: ASSIGNEES_PROPERTY_ID.to_string(),
+            value: SetPropertyValue::MultiEntityReference {
+                references: vec![EntityReference {
+                    entity_id: user.as_ref().to_string(),
+                    entity_type: models_properties::EntityType::User,
+                    specific_message_id: None,
+                }],
+            },
+        })
+        .into_iter()
+        .chain([PropertyInput {
+            property_id: STATUS_PROPERTY_ID.to_string(),
+            value: SetPropertyValue::SelectOption {
+                option_id: NOT_STARTED_STATUS_OPTION_ID,
+            },
+        }])
+        .collect()
 }
 
 fn short_id_for_entity_id(entity_id: &str) -> Result<String, DocumentError> {
@@ -639,6 +664,38 @@ impl<
     async fn cleanup_document(&self, document_id: &str) {
         if let Err(e) = self.repo.delete_document_by_id(document_id).await {
             tracing::error!(error=?e, document_id=?document_id, "failed to clean up document");
+        }
+    }
+
+    /// Set task property values as `principal`. A value that fails to set is
+    /// logged and skipped, so one bad property never fails the task.
+    async fn set_task_properties(
+        &self,
+        principal: &CreationPrincipal,
+        document_id: &str,
+        properties: &[PropertyInput],
+    ) {
+        for property_input in properties {
+            let Ok(property_uuid) = uuid::Uuid::parse_str(&property_input.property_id) else {
+                tracing::warn!(property_id=?property_input.property_id, "invalid property_id UUID, skipping");
+                continue;
+            };
+
+            let _ = self
+                .task_properties_service
+                .set_entity_property(
+                    principal,
+                    document_id,
+                    property_uuid,
+                    Some(property_input.value.clone()),
+                )
+                .await
+                .inspect_err(|e| {
+                    tracing::warn!(
+                            error=?e,
+                            property_uuid=?property_uuid,
+                            "unable to set entity property")
+                });
         }
     }
 
@@ -1740,6 +1797,7 @@ impl<
                 project_id: args.project_id,
                 file_type: args.file_type,
                 share_permission_updated,
+                sub_type: None,
             },
         ));
 
@@ -2094,55 +2152,123 @@ impl<
         request: &CreateTaskRequest,
     ) -> Result<(), DocumentError> {
         // Use provided properties or assign default ones for task
-        let properties = if let Some(properties) = request.property_values.as_ref() {
-            properties
-        } else {
-            &principal
-                .user()
-                .map(|user| PropertyInput {
-                    property_id: ASSIGNEES_PROPERTY_ID.to_string(),
-                    value: SetPropertyValue::MultiEntityReference {
-                        references: vec![EntityReference {
-                            entity_id: user.as_ref().to_string(),
-                            entity_type: models_properties::EntityType::User,
-                            specific_message_id: None,
-                        }],
-                    },
-                })
-                .into_iter()
-                .chain([PropertyInput {
-                    property_id: STATUS_PROPERTY_ID.to_string(),
-                    value: SetPropertyValue::SelectOption {
-                        option_id: NOT_STARTED_STATUS_OPTION_ID,
-                    },
-                }])
-                .collect::<Vec<_>>()
+        let properties = match request.property_values.as_ref() {
+            Some(properties) => properties,
+            None => &default_task_properties(principal),
         };
+        self.set_task_properties(principal, document_id, properties)
+            .await;
+        Ok(())
+    }
 
-        for property_input in properties {
-            let Ok(property_uuid) = uuid::Uuid::parse_str(&property_input.property_id) else {
-                tracing::warn!(property_id=?property_input.property_id, "invalid property_id UUID, skipping");
-                continue;
-            };
-
-            let _ = self
-                .task_properties_service
-                .set_entity_property(
-                    principal,
-                    document_id,
-                    property_uuid,
-                    Some(property_input.value.clone()),
-                )
-                .await
-                .inspect_err(|e| {
-                    tracing::warn!(
-                            error=?e,
-                            property_uuid=?property_uuid,
-                            "unable to set entity property")
-                });
+    #[tracing::instrument(
+        err,
+        skip(self, entity_access_receipt, document_context, principal),
+        fields(document_id = %document_context.document_id)
+    )]
+    async fn convert_to_task(
+        &self,
+        entity_access_receipt: EntityAccessReceipt<EditAccessLevel>,
+        document_context: DocumentBasic,
+        principal: &CreationPrincipal,
+    ) -> Result<ConvertToTaskResponse, DocumentError> {
+        if document_context.deleted_at.is_some() {
+            return Err(DocumentError::BadRequest(
+                "cannot convert a deleted document".to_string(),
+            ));
+        }
+        let is_markdown = document_context
+            .file_type
+            .as_deref()
+            .and_then(|file_type| FileType::from_str(file_type).ok())
+            == Some(FileType::Md);
+        if !is_markdown {
+            return Err(DocumentError::BadRequest(
+                "only markdown documents can become tasks".to_string(),
+            ));
+        }
+        match document_context.sub_type {
+            None | Some(DocumentSubType::Task) => {}
+            Some(sub_type) => {
+                return Err(DocumentError::BadRequest(format!(
+                    "a {sub_type} cannot become a task"
+                )));
+            }
         }
 
-        Ok(())
+        let document_id = entity_access_receipt.entity().entity_id.clone();
+        let document_uuid = uuid::Uuid::parse_str(&document_id)
+            .map_err(|_| DocumentError::BadRequest("invalid document id".to_string()))?;
+        // Team tasks are numbered within the persisted owner's team, as at creation.
+        let team_id = self
+            .repo
+            .get_owner_team(&document_context.owner)
+            .await
+            .map_err(|e| DocumentError::Internal(e.into()))?
+            .map(|team| team.team_id);
+        self.repo
+            .convert_document_to_task(&document_uuid, team_id)
+            .await?;
+
+        let valued_properties = self
+            .task_properties_service
+            .convert_document_properties_to_task(&document_id)
+            .await
+            .map_err(|e| {
+                tracing::error!(error=?e, "failed to convert document properties to task properties");
+                DocumentError::Internal(anyhow!("failed to attach task properties"))
+            })?;
+        let defaults: Vec<PropertyInput> = default_task_properties(principal)
+            .into_iter()
+            .filter(|input| {
+                uuid::Uuid::parse_str(&input.property_id)
+                    .is_ok_and(|id| !valued_properties.contains(&id))
+            })
+            .collect();
+        self.set_task_properties(principal, &document_id, &defaults)
+            .await;
+
+        let _ = self
+            .connection_service
+            .send_invalidation_event(InvalidationEvent::<()> {
+                invalidation_reason: InvalidationReason::Content,
+                entity_id: Cow::Borrowed(&document_id),
+                entity_type: entity_access_receipt.entity().entity_type,
+                invalidated_by: entity_access_receipt.auth().clone(),
+                metadata: None,
+            })
+            .await
+            .inspect_err(|e| {
+                tracing::error!(error=?e, "failed to send invalidation event");
+            });
+
+        let PublishedDocumentActors {
+            actor,
+            on_behalf_of,
+            actor_user_id,
+        } = published_document_actors(entity_access_receipt.auth());
+        self.publish_document_event(&DocumentMacroEvent::updated(
+            document_id.clone(),
+            DocumentUpdatedMetadata {
+                document_id: document_id.clone(),
+                owner: document_context.owner.clone(),
+                actor_user_id,
+                actor,
+                on_behalf_of,
+                document_name: None,
+                previous_project_id: document_context.project_id.clone(),
+                project_id: None,
+                file_type: None,
+                share_permission_updated: false,
+                sub_type: Some(DocumentSubType::Task),
+            },
+        ));
+
+        let team_task = self.team_task_metadata_for_document(&document_id).await?;
+        Ok(ConvertToTaskResponse {
+            team_id: team_task.as_ref().map(|task| task.team_id),
+            team_task_id: team_task.map(|task| task.task_num),
+        })
     }
 
     #[tracing::instrument(err, skip(self, entity_access_receipt))]

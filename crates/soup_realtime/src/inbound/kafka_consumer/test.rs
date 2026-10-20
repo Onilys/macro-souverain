@@ -76,6 +76,7 @@ fn updated_event() -> Event<DocumentTopicEvent> {
         project_id: None,
         file_type: None,
         share_permission_updated: false,
+        sub_type: None,
     }))
 }
 
@@ -173,6 +174,7 @@ fn moving_a_document_out_of_a_project_updates_the_previous_project() {
         project_id: None,
         file_type: None,
         share_permission_updated: false,
+        sub_type: None,
     });
 
     let patches = patches_from_document_event(&event);

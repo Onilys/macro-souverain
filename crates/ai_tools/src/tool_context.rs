@@ -771,6 +771,12 @@ impl TaskPropertiesPort for NoOpTaskProperties {
     ) -> anyhow::Result<()> {
         Ok(())
     }
+    async fn convert_document_properties_to_task(
+        &self,
+        _entity_id: &str,
+    ) -> anyhow::Result<Vec<uuid::Uuid>> {
+        Ok(Vec::new())
+    }
 }
 
 /// Adapter implementing [`TaskPropertiesPort`] with the real properties services.
@@ -818,6 +824,16 @@ impl TaskPropertiesPort for TaskPropertiesAdapter {
             .set_entity_property(&entity_access_receipt, property_definition_id, value)
             .await
             .map(|_| ())
+            .map_err(Into::into)
+    }
+
+    async fn convert_document_properties_to_task(
+        &self,
+        entity_id: &str,
+    ) -> anyhow::Result<Vec<uuid::Uuid>> {
+        self.system_properties
+            .convert_document_properties_to_task(entity_id)
+            .await
             .map_err(Into::into)
     }
 

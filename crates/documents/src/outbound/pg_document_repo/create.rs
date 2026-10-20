@@ -488,3 +488,55 @@ pub async fn insert_new_document<B: BotFacts>(
         sub_type,
     ))
 }
+
+/// Marks an existing markdown document as a task, numbering it within `team_id`
+/// when it becomes one. A document that is already a task is left unchanged, so
+/// a retried conversion never allocates a second number.
+#[tracing::instrument(skip(transaction), err)]
+pub async fn convert_document_to_task(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    document_id: &uuid::Uuid,
+    team_id: Option<&uuid::Uuid>,
+) -> Result<(), DocumentError> {
+    let inserted = sqlx::query!(
+        r#"
+        INSERT INTO document_sub_type (document_id, sub_type)
+        VALUES ($1, $2)
+        ON CONFLICT (document_id) DO NOTHING
+        "#,
+        &document_id.to_string(),
+        DocumentSubType::Task as _
+    )
+    .execute(transaction.as_mut())
+    .await?
+    .rows_affected()
+        == 1;
+
+    if !inserted {
+        let current = sqlx::query_scalar!(
+            r#"SELECT sub_type AS "sub_type: DocumentSubType" FROM document_sub_type WHERE document_id = $1"#,
+            &document_id.to_string(),
+        )
+        .fetch_one(transaction.as_mut())
+        .await?;
+        if current != DocumentSubType::Task {
+            return Err(DocumentError::Conflict(format!(
+                "document is already a {current}"
+            )));
+        }
+        return Ok(());
+    }
+
+    if let Some(team_id) = team_id {
+        allocate_team_task_number(transaction, team_id, document_id).await?;
+    }
+
+    sqlx::query!(
+        r#"UPDATE "Document" SET "updatedAt" = NOW() WHERE id = $1"#,
+        &document_id.to_string(),
+    )
+    .execute(transaction.as_mut())
+    .await?;
+
+    Ok(())
+}

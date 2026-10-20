@@ -411,6 +411,15 @@ impl DocumentService for FakeDocumentService {
         panic!("unexpected edit_document call")
     }
 
+    async fn convert_to_task(
+        &self,
+        _entity_access_receipt: EntityAccessReceipt<entity_access::domain::models::EditAccessLevel>,
+        _document_context: model::document::DocumentBasic,
+        _principal: &model_owner::CreationPrincipal,
+    ) -> Result<crate::domain::models::ConvertToTaskResponse, DocumentError> {
+        panic!("unexpected convert_to_task call")
+    }
+
     async fn update_task_status(
         &self,
         _entity_access_receipt: EntityAccessReceipt<entity_access::domain::models::EditAccessLevel>,

@@ -176,6 +176,13 @@ impl TaskPropertiesPort for TestTaskPropertiesPort {
     ) -> anyhow::Result<()> {
         Ok(())
     }
+
+    async fn convert_document_properties_to_task(
+        &self,
+        _entity_id: &str,
+    ) -> anyhow::Result<Vec<uuid::Uuid>> {
+        Ok(Vec::new())
+    }
 }
 
 #[derive(Default)]
@@ -2749,6 +2756,8 @@ type PropertyWrite = (CreationPrincipal, uuid::Uuid, Option<SetPropertyValue>);
 #[derive(Default, Clone)]
 struct RecordingTaskPropertiesPort {
     writes: Arc<Mutex<Vec<PropertyWrite>>>,
+    /// Task properties that already hold a value after a conversion.
+    valued_after_conversion: Vec<uuid::Uuid>,
 }
 
 impl TaskPropertiesPort for RecordingTaskPropertiesPort {
@@ -2780,6 +2789,13 @@ impl TaskPropertiesPort for RecordingTaskPropertiesPort {
         _to_task_id: &str,
     ) -> anyhow::Result<()> {
         Ok(())
+    }
+
+    async fn convert_document_properties_to_task(
+        &self,
+        _entity_id: &str,
+    ) -> anyhow::Result<Vec<uuid::Uuid>> {
+        Ok(self.valued_after_conversion.clone())
     }
 }
 
@@ -3494,4 +3510,122 @@ async fn task_identity_treats_a_deleted_task_as_missing() {
         .await;
 
     assert!(matches!(result, Err(DocumentError::NotFound(_))));
+}
+
+fn markdown_document_context(document_id: &str) -> DocumentBasic {
+    DocumentBasic {
+        sub_type: None,
+        ..task_document_context(document_id)
+    }
+}
+
+#[tokio::test]
+async fn converting_a_document_to_a_task_fills_only_missing_defaults() {
+    let document_id = uuid::Uuid::from_u128(42).to_string();
+    let team_id = uuid::Uuid::from_u128(7);
+    let assignees = uuid::Uuid::parse_str(ASSIGNEES_PROPERTY_ID).unwrap();
+    let status = uuid::Uuid::parse_str(STATUS_PROPERTY_ID).unwrap();
+    let mut repo = make_mock_repo();
+    repo.expect_get_owner_team().returning(move |_| {
+        Box::pin(std::future::ready(Ok(Some(OwnerTeam {
+            team_id,
+            default_link_share: TeamLinkShareDefault(None),
+        }))))
+    });
+    let expected_document = uuid::Uuid::from_u128(42);
+    repo.expect_convert_document_to_task()
+        .withf(move |id, team| *id == expected_document && *team == Some(team_id))
+        .times(1)
+        .returning(|_, _| Box::pin(std::future::ready(Ok(()))));
+    repo.expect_get_team_task_metadata().returning(move |_| {
+        Box::pin(std::future::ready(Ok(Some(TeamTaskMetadata {
+            team_id,
+            task_num: 12,
+        }))))
+    });
+    // The document already had assignees, so only the status default is written.
+    let task_properties = RecordingTaskPropertiesPort {
+        valued_after_conversion: vec![assignees],
+        ..Default::default()
+    };
+    let event_broker = TestEventBroker::default();
+    let service = DocumentServiceImpl::new(
+        repo,
+        test_cloudfront_config(),
+        sync_service_client::SyncServiceClient::new(
+            "test-sync-key".to_string(),
+            "http://sync-service.test".to_string(),
+        ),
+        TestUploadUrlPort,
+        task_properties.clone(),
+        TestConnectionService::default(),
+        TestEntityAccessManagementService::default(),
+        TestForeignEntityService::default(),
+        event_broker.clone(),
+    );
+    let principal = CreationPrincipal::User(test_user());
+
+    let response = crate::domain::ports::DocumentService::convert_to_task(
+        &service,
+        edit_receipt(&document_id),
+        markdown_document_context(&document_id),
+        &principal,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(
+        response,
+        ConvertToTaskResponse {
+            team_id: Some(team_id),
+            team_task_id: Some(12),
+        }
+    );
+    let writes = task_properties.writes.lock().unwrap().clone();
+    assert_eq!(
+        writes
+            .into_iter()
+            .map(|(_, property, value)| (property, value))
+            .collect::<Vec<_>>(),
+        vec![(
+            status,
+            Some(SetPropertyValue::SelectOption {
+                option_id: NOT_STARTED_STATUS_OPTION_ID,
+            })
+        )]
+    );
+    let published = event_broker.published();
+    let published = published.lock().unwrap();
+    assert_eq!(published.len(), 1);
+    assert_eq!(published[0].payload["event_type"], "document.updated");
+    assert_eq!(published[0].payload["metadata"]["sub_type"], "task");
+}
+
+#[tokio::test]
+async fn converting_refuses_other_subtypes_and_non_markdown_documents() {
+    let document_id = uuid::Uuid::from_u128(42).to_string();
+    let snippet = DocumentBasic {
+        sub_type: Some(DocumentSubType::Snippet),
+        ..task_document_context(&document_id)
+    };
+    let pdf = DocumentBasic {
+        file_type: Some("pdf".to_string()),
+        ..markdown_document_context(&document_id)
+    };
+
+    for document in [snippet, pdf] {
+        let mut repo = make_mock_repo();
+        repo.expect_convert_document_to_task().times(0);
+        let service = make_test_service(repo);
+
+        let result = crate::domain::ports::DocumentService::convert_to_task(
+            &service,
+            edit_receipt(&document_id),
+            document,
+            &CreationPrincipal::User(test_user()),
+        )
+        .await;
+
+        assert!(matches!(result, Err(DocumentError::BadRequest(_))));
+    }
 }

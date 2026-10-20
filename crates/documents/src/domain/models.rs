@@ -605,6 +605,19 @@ pub struct CreateTaskResponse {
     pub team_task_id: Option<i32>,
 }
 
+/// Response for converting a markdown document into a task in place.
+#[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "axum", derive(utoipa::ToSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct ConvertToTaskResponse {
+    /// The team this task number is scoped to.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub team_id: Option<uuid::Uuid>,
+    /// The task number assigned within the team.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub team_task_id: Option<i32>,
+}
+
 /// Request body for creating a snippet — a reusable markdown document that can
 /// be inserted into any markdown area.
 #[derive(serde::Serialize, serde::Deserialize, Debug)]

@@ -491,6 +491,7 @@ fn document_event_cases() -> Vec<EventCase> {
                     project_id: None,
                     file_type: None,
                     share_permission_updated: false,
+                    sub_type: None,
                 }),
                 2,
             )),

@@ -121,6 +121,7 @@ fn attributed_update_and_delete_map_to_activities() {
         project_id: None,
         file_type: None,
         share_permission_updated: false,
+        sub_type: None,
     }));
     let activity = single_activity(updated.event.ingest(updated.event_id));
     assert_eq!(activity.action, Action::Edited);
@@ -151,6 +152,7 @@ fn delegated_update_stays_on_the_user_feed() {
         project_id: None,
         file_type: None,
         share_permission_updated: false,
+        sub_type: None,
     }));
     let activity = single_activity(updated.event.ingest(updated.event_id));
     assert_eq!(activity.action, Action::Edited);
@@ -174,6 +176,7 @@ fn unattributable_mutations_are_dropped() {
         project_id: None,
         file_type: None,
         share_permission_updated: true,
+        sub_type: None,
     }));
     assert_eq!(updated.event.ingest(updated.event_id), Ingest::Ignore);
 

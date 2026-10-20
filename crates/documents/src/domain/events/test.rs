@@ -59,6 +59,7 @@ fn owner_bearing_events_round_trip_all_owner_kinds_as_strings() {
                 project_id: None,
                 file_type: None,
                 share_permission_updated: false,
+                sub_type: None,
             }),
             DocumentTopicEvent::ContentUploaded(DocumentContentUploadedMetadata {
                 document_id: DOCUMENT_ID.to_string(),

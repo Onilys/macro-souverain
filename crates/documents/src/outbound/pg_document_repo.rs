@@ -611,6 +611,18 @@ impl<B: BotFacts + 'static> DocumentRepo for PgDocumentRepo<B> {
         Ok(EmailImportRepoOutcome::Created(metadata))
     }
 
+    #[tracing::instrument(err, skip(self))]
+    async fn convert_document_to_task(
+        &self,
+        document_id: &uuid::Uuid,
+        team_id: Option<uuid::Uuid>,
+    ) -> Result<(), DocumentError> {
+        let mut transaction = self.pool.begin().await?;
+        create::convert_document_to_task(&mut transaction, document_id, team_id.as_ref()).await?;
+        transaction.commit().await?;
+        Ok(())
+    }
+
     #[tracing::instrument(err, skip(self, args))]
     async fn edit_document(&self, args: EditDocumentRepoArgs) -> Result<(), DocumentError> {
         use share_permission_db_utils::team_share;

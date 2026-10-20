@@ -256,6 +256,15 @@ impl DocumentService for StubDocumentService {
     ) -> Result<DocumentContent, DocumentError> {
         unimplemented!()
     }
+    async fn convert_to_task(
+        &self,
+        _entity_access_receipt: EntityAccessReceipt<EditAccessLevel>,
+        _document_context: DocumentBasic,
+        _principal: &CreationPrincipal,
+    ) -> Result<documents::domain::models::ConvertToTaskResponse, DocumentError> {
+        panic!("unexpected convert_to_task call")
+    }
+
     async fn update_task_status(
         &self,
         receipt: EntityAccessReceipt<EditAccessLevel>,

@@ -45,7 +45,14 @@ pub(super) fn describe_document_event(event: &DocumentTopicEvent) -> DocumentEve
             event_type: "document.created",
         },
         DocumentTopicEvent::Updated(metadata) => DocumentEventDescription {
-            action: if metadata.document_name.is_some() {
+            // A subtype change re-indexes the whole document, so its sub_type and
+            // properties match its new kind. Only markdown documents have subtypes.
+            action: if metadata.sub_type.is_some() {
+                DocumentIndexAction::ExtractSync {
+                    file_type: FileType::Md,
+                    document_version_id: None,
+                }
+            } else if metadata.document_name.is_some() {
                 DocumentIndexAction::RefreshName
             } else {
                 DocumentIndexAction::Ignore
