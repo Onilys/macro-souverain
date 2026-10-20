@@ -2111,6 +2111,7 @@ dependencies = [
  "secretsmanager_client",
  "serde",
  "serde_json",
+ "serde_urlencoded",
  "serde_utils",
  "ses_client",
  "sha1 0.10.6",
