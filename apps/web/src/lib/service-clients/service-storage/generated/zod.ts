@@ -17517,6 +17517,30 @@ export const getDocumentBranchNameResponse = zod
   .describe('Branch name response.');
 
 /**
+ * Turns a markdown document into a task in place, keeping its id, content and
+sharing. Requires edit access to the document.
+ * @summary Handler for `POST /documents/{document_id}/convert_to_task`.
+ */
+export const convertDocumentToTaskParams = zod.object({
+  document_id: zod.string().describe('Document ID'),
+});
+
+export const convertDocumentToTaskResponse = zod
+  .object({
+    teamId: zod
+      .uuid()
+      .nullish()
+      .describe('The team this task number is scoped to.'),
+    teamTaskId: zod
+      .number()
+      .nullish()
+      .describe('The task number assigned within the team.'),
+  })
+  .describe(
+    'Response for converting a markdown document into a task in place.'
+  );
+
+/**
  * Copies an existing document, creating a new document with the same content.
 Does not require re-uploading the document file.
  * @summary Handler for `POST /documents/{document_id}/copy`.

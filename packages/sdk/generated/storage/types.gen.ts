@@ -3576,6 +3576,20 @@ export type ConversationSeal = {
 export type ConversationStatus = 'awaiting_uploads' | 'queued' | 'importing' | 'completed' | 'skipped' | 'failed';
 
 /**
+ * Response for converting a markdown document into a task in place.
+ */
+export type ConvertToTaskResponse = {
+    /**
+     * The team this task number is scoped to.
+     */
+    teamId?: string | null;
+    /**
+     * The task number assigned within the team.
+     */
+    teamTaskId?: number | null;
+};
+
+/**
  * One row's converted value.
  */
 export type ConvertedCell = {
@@ -5774,6 +5788,7 @@ export type DocumentUpdatedMetadata = {
      * Whether share permissions were updated.
      */
     share_permission_updated: boolean;
+    sub_type?: null | DocumentSubType;
 };
 
 export type EditAnchorRequest = EditPdfAnchorRequest & {
@@ -19456,6 +19471,34 @@ export type GetDocumentBranchNameResponses = {
 };
 
 export type GetDocumentBranchNameResponse = GetDocumentBranchNameResponses[keyof GetDocumentBranchNameResponses];
+
+export type ConvertDocumentToTaskData = {
+    body?: never;
+    path: {
+        /**
+         * Document ID
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/documents/{document_id}/convert_to_task';
+};
+
+export type ConvertDocumentToTaskErrors = {
+    400: ErrorResponse;
+    401: ErrorResponse;
+    404: ErrorResponse;
+    409: ErrorResponse;
+    500: ErrorResponse;
+};
+
+export type ConvertDocumentToTaskError = ConvertDocumentToTaskErrors[keyof ConvertDocumentToTaskErrors];
+
+export type ConvertDocumentToTaskResponses = {
+    200: ConvertToTaskResponse;
+};
+
+export type ConvertDocumentToTaskResponse = ConvertDocumentToTaskResponses[keyof ConvertDocumentToTaskResponses];
 
 export type CopyDocumentData = {
     body: CopyDocumentRequest;

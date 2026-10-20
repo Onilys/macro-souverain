@@ -10174,6 +10174,87 @@
         }
       }
     },
+    "/documents/{document_id}/convert_to_task": {
+      "post": {
+        "tags": ["document"],
+        "summary": "Handler for `POST /documents/{document_id}/convert_to_task`.",
+        "description": "Turns a markdown document into a task in place, keeping its id, content and\nsharing. Requires edit access to the document.",
+        "operationId": "convert_document_to_task",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "description": "Document ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConvertToTaskResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/documents/{document_id}/copy": {
       "post": {
         "tags": ["document"],
@@ -23942,6 +24023,22 @@
           "failed"
         ]
       },
+      "ConvertToTaskResponse": {
+        "type": "object",
+        "description": "Response for converting a markdown document into a task in place.",
+        "properties": {
+          "teamId": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "The team this task number is scoped to."
+          },
+          "teamTaskId": {
+            "type": ["integer", "null"],
+            "format": "int32",
+            "description": "The task number assigned within the team."
+          }
+        }
+      },
       "ConvertedCell": {
         "type": "object",
         "description": "One row's converted value.",
@@ -27089,6 +27186,17 @@
           "share_permission_updated": {
             "type": "boolean",
             "description": "Whether share permissions were updated."
+          },
+          "sub_type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DocumentSubType",
+                "description": "New subtype when the document changed kind in place (a document\nbecame a task); `None` when unchanged."
+              }
+            ]
           }
         }
       },
