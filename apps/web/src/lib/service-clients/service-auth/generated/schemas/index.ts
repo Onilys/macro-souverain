@@ -51,6 +51,8 @@ export * from './cursorModelOption';
 export * from './cursorModelsResponse';
 export * from './denyReason';
 export * from './emailConnectionProviders';
+export * from './emailConnectionProvidersOutlookAdminConsentUrl';
+export * from './emailConnectionProvidersParams';
 export * from './emptyResponse';
 export * from './enrichedGithubPullRequest';
 export * from './enrichedGithubPullRequestAdditions';

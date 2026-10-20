@@ -424,6 +424,12 @@ export type DenyReason = 'allowance_exhausted' | 'free_allowance_exhausted' | 'o
 export type EmailConnectionProviders = {
     gmail: boolean;
     outlook: boolean;
+    /**
+     * Where a Microsoft 365 administrator approves Macro for their whole
+     * directory. Present when Outlook is configured and the request named an
+     * `original_url` for the administrator's browser to return to.
+     */
+    outlook_admin_consent_url?: string | null;
 };
 
 /**
@@ -2720,9 +2726,20 @@ export type CreateInProgressLinkResponse2 = CreateInProgressLinkResponses[keyof 
 export type EmailConnectionProvidersData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * **OPTIONAL**. Where the admin-consent flow returns to; required for `outlook_admin_consent_url`.
+         */
+        original_url?: string;
+    };
     url: '/link/email/providers';
 };
+
+export type EmailConnectionProvidersErrors = {
+    400: ErrorResponse;
+};
+
+export type EmailConnectionProvidersError = EmailConnectionProvidersErrors[keyof EmailConnectionProvidersErrors];
 
 export type EmailConnectionProvidersResponses = {
     200: EmailConnectionProviders;

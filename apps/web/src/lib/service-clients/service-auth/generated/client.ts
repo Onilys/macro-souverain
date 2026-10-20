@@ -26,6 +26,7 @@ import type {
   CursorApiKeyStatus,
   CursorModelsResponse,
   EmailConnectionProviders,
+  EmailConnectionProvidersParams,
   EmptyResponse,
   EnrichGithubPullRequestsProxyRequest,
   EnrichGithubPullRequestsResponse,
@@ -2222,22 +2223,47 @@ export type emailConnectionProvidersResponse200 = {
   status: 200;
 };
 
+export type emailConnectionProvidersResponse400 = {
+  data: ErrorResponse;
+  status: 400;
+};
+
 export type emailConnectionProvidersResponseSuccess =
   emailConnectionProvidersResponse200 & {
     headers: Headers;
   };
+export type emailConnectionProvidersResponseError =
+  emailConnectionProvidersResponse400 & {
+    headers: Headers;
+  };
 
 export type emailConnectionProvidersResponse =
-  emailConnectionProvidersResponseSuccess;
+  | emailConnectionProvidersResponseSuccess
+  | emailConnectionProvidersResponseError;
 
-export const getEmailConnectionProvidersUrl = () => {
-  return `/link/email/providers`;
+export const getEmailConnectionProvidersUrl = (
+  params?: EmailConnectionProvidersParams
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/link/email/providers?${stringifiedParams}`
+    : `/link/email/providers`;
 };
 
 export const emailConnectionProviders = async (
+  params?: EmailConnectionProvidersParams,
   options?: RequestInit
 ): Promise<emailConnectionProvidersResponse> => {
-  const res = await fetch(getEmailConnectionProvidersUrl(), {
+  const res = await fetch(getEmailConnectionProvidersUrl(params), {
     ...options,
     method: 'GET',
   });
@@ -3342,6 +3368,11 @@ export type oauth2CallbackResponse200 = {
   status: 200;
 };
 
+export type oauth2CallbackResponse303 = {
+  data: void;
+  status: 303;
+};
+
 export type oauth2CallbackResponse304 = {
   data: ErrorResponse;
   status: 304;
@@ -3371,6 +3402,7 @@ export type oauth2CallbackResponseSuccess = oauth2CallbackResponse200 & {
   headers: Headers;
 };
 export type oauth2CallbackResponseError = (
+  | oauth2CallbackResponse303
   | oauth2CallbackResponse304
   | oauth2CallbackResponse307
   | oauth2CallbackResponse400

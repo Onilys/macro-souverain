@@ -1772,6 +1772,17 @@
       "get": {
         "tags": ["link::outlook"],
         "operationId": "email_connection_providers",
+        "parameters": [
+          {
+            "name": "original_url",
+            "in": "query",
+            "description": "**OPTIONAL**. Where the admin-consent flow returns to; required for `outlook_admin_consent_url`.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -1779,6 +1790,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/EmailConnectionProviders"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2831,6 +2852,9 @@
         "responses": {
           "200": {
             "description": ""
+          },
+          "303": {
+            "description": "Back to the app with link identifiers, an `email_link_error`, or an `email_link_notice`"
           },
           "304": {
             "description": "",
@@ -5650,6 +5674,10 @@
           },
           "outlook": {
             "type": "boolean"
+          },
+          "outlook_admin_consent_url": {
+            "type": ["string", "null"],
+            "description": "Where a Microsoft 365 administrator approves Macro for their whole\ndirectory. Present when Outlook is configured and the request named an\n`original_url` for the administrator's browser to return to."
           }
         }
       },
