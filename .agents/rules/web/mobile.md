@@ -24,18 +24,23 @@ read their code, and follow that pattern rather than inventing a new one.
   `mobile:` decide phone layout (touch and under 640px). Hide a desktop
   control and show its touch replacement with the same one, or tablets get
   neither. Native checks (`isPlatform` in `@core/util/platform`) are for
-  native bridges, not layout.
+  native bridges and platform-specific visual effects, not layout.
 - Gate hover and press styles with `not-touch:`; iOS leaves hover stuck.
 - No action lives only behind hover. `HoverCard` renders nothing on touch,
   so give it a tap path that opens a sheet, as `UserCardTrigger` does.
+- Keep tooltips disabled on touch devices, including focus and controlled-open states.
 - Keep `@ui` Button's touch sizing (no `noTouchResize` without cause); rows
   are 44px on touch (`touch:min-h-[44px]`).
-- Long-press goes through the `touchHandler` directive. A touch drag scrolls:
-  selecting or dragging starts only after a long press, and horizontal
-  swipes ignore the left edge (iOS back swipe).
-- Primary nav fires `hapticImpact('light')` on pointer down and acts on
-  click, so a held or cancelled touch does nothing. `glass` and `island`
-  controls get press animation from `installGlassPress`; add none.
+- Long-press goes through the `touchHandler` directive. On scrollable rows,
+  selecting or dragging starts only after a long press; dedicated reorder
+  handles instead drag after a small movement with no hold delay and reserve
+  scrolling for the rest of the row. Horizontal swipes ignore the left edge
+  (iOS back swipe).
+- Keep navigation, filter pills, and create-menu taps silent; keep haptics for
+  long press and use `hapticImpact('light')` for valid message/AI sends. Navigation
+  acts on click so held or cancelled touches do nothing. `glass` and `island`
+  controls and channel inputs get iOS-app-only press animation from
+  `installGlassPress`; reuse it and keep Android and web free of the effect.
 
 ## Sheets, menus, and dialogs
 

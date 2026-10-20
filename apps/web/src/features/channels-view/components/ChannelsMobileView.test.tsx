@@ -35,7 +35,12 @@ vi.mock('@app/features/next-soup/actions', () => ({
 vi.mock('@app/features/next-soup/utils', () => ({
   openEntityInSplitFromUnifiedList: mocks.openSplit,
 }));
-vi.mock('@app/features/soup', () => ({ SoupEntityContextMenu: mocks.pass }));
+vi.mock('@app/features/soup', () => ({
+  SoupEntityContextMenu: (props: { children?: JSX.Element }) => (
+    <div>{props.children}</div>
+  ),
+}));
+vi.mock('@core/mobile/isTouchDevice', () => ({ isTouchDevice: () => true }));
 vi.mock('@app/lib/debugSettings', () => ({
   DEBUG_SETTING_KEYS: {},
   useDebugSetting: () => () => false,
@@ -81,7 +86,7 @@ vi.mock('./rail/ChannelRailItems', () => ({
   CONVERSATION_CARD_HEIGHT: 80,
   ConversationCard: (props: {
     channel: ChannelEntity;
-    onActivate: () => void;
+    onActivate: (event: MouseEvent) => void;
   }) => <button onClick={props.onActivate}>{props.channel.name}</button>,
 }));
 vi.mock('./rail/hooks/useChannelCalls', () => ({
@@ -123,7 +128,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   HTMLElement.prototype.scrollTo = vi.fn();
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 describe('mobile channel activation', () => {
   it('opens recent conversations immediately at latest with top-level read marking', async () => {
@@ -181,5 +189,56 @@ describe('mobile channel activation', () => {
     } finally {
       log.mockRestore();
     }
+  });
+});
+
+describe('mobile channel press feedback', () => {
+  it('highlights a held row and cancels when the finger scrolls or the touch is cancelled', () => {
+    vi.useFakeTimers();
+    render(() => (
+      <ChannelsMobileView
+        source={source}
+        searchQuery=""
+        onClearSearch={() => {}}
+      />
+    ));
+    const button = screen.getByRole('button', { name: 'One' });
+    const row = button.closest('[data-soup-entity]')!;
+    fireEvent.touchStart(button, { touches: [{ clientX: 20, clientY: 20 }] });
+    vi.advanceTimersByTime(20);
+    expect(row.classList.contains('touch-highlight')).toBe(true);
+    vi.advanceTimersByTime(500);
+    expect(row.classList.contains('touch-highlight')).toBe(true);
+    expect(mocks.openSplit).not.toHaveBeenCalled();
+    fireEvent.touchMove(button, { touches: [{ clientX: 20, clientY: 40 }] });
+    expect(row.classList.contains('touch-highlight')).toBe(false);
+    fireEvent.touchStart(button, { touches: [{ clientX: 20, clientY: 20 }] });
+    vi.advanceTimersByTime(20);
+    expect(row.classList.contains('touch-highlight')).toBe(true);
+    fireEvent.touchCancel(button);
+    expect(row.classList.contains('touch-highlight')).toBe(false);
+  });
+
+  it('keeps the tapped row highlighted while navigation is pending and clears after it finishes', async () => {
+    vi.useFakeTimers();
+    const opened = Promise.withResolvers<void>();
+    mocks.openSplit.mockReturnValueOnce(opened.promise);
+    render(() => (
+      <ChannelsMobileView
+        source={source}
+        searchQuery=""
+        onClearSearch={() => {}}
+      />
+    ));
+    const button = screen.getByRole('button', { name: 'One' });
+    const row = button.closest('[data-soup-entity]')!;
+    fireEvent.click(button);
+    expect(row.classList.contains('touch-highlight')).toBe(true);
+    vi.advanceTimersByTime(600);
+    expect(row.classList.contains('touch-highlight')).toBe(true);
+    opened.resolve();
+    await opened.promise;
+    await vi.runAllTimersAsync();
+    expect(row.classList.contains('touch-highlight')).toBe(false);
   });
 });

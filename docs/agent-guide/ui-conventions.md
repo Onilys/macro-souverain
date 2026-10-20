@@ -26,6 +26,18 @@ to enable glass on all devices, or `glass={false}` to disable it everywhere.
 Embedded and low-emphasis actions use `ghost`; inline calendar-invitation text
 actions remove the transparent border to keep their text alignment.
 
+Glass rims stay highlighted around most of the perimeter, with short soft gaps
+at the top-right and bottom-left corners. Light themes keep a soft highlight
+through those corners so they are only slightly dimmer. The iOS app also uses shared
+[glass press feedback](navigation.md#mobile-glass-feedback).
+
+## Mobile filters
+
+Adjacent checked options in a filter section share one continuous selection
+surface, rounded only at the top and bottom of each run. Unchecking a middle
+option splits the surface into separate rounded groups; isolated selections and
+single-select rows keep their rounded shape.
+
 ## Dialog actions
 
 Cancel uses a ghost button. Confirm, save, and create actions use strong: the

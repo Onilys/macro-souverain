@@ -18,6 +18,24 @@ export type MeetingLocalTracks = {
   camera?: MediaStreamTrack;
 };
 
+export type MeetingMediaDiagnostics = {
+  setupId: string;
+  microphone:
+    | 'not_requested'
+    | 'pending'
+    | 'granted'
+    | 'blocked'
+    | 'failed'
+    | 'cancelled';
+  camera:
+    | 'not_requested'
+    | 'pending'
+    | 'granted'
+    | 'blocked'
+    | 'failed'
+    | 'cancelled';
+};
+
 export type MeetingMediaPreferences = {
   microphoneEnabled: boolean;
   cameraEnabled: boolean;

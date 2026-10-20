@@ -26,7 +26,7 @@ const signalInsertFilter: SoupApiItemFilter = (item) =>
   soupItemMatchesHomeTab(item, 'signal');
 
 /** Presence in the loaded unread page, never a total or a pagination loop. */
-export function useSidebarUnread() {
+export function useNavigationUnread() {
   const notificationSource = useGlobalNotificationSource();
   const graphqlFlag = useFeatureFlag(enableGraphqlSoup);
   const channels = createChannelUnreadQuery(

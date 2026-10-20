@@ -93,12 +93,14 @@ ownership. Cancel, logout, and the ten-minute timeout retire pending callbacks.
   shared HttpOnly dev cookies are not visible to JavaScript or localStorage.
 - Disable GraphQL cache sessions and clear login hints on confirmed auth 401s,
   even with retained user data; preserve session state on transient failures.
+- Mobile dock customization shares the navigation island’s measured capacity; persist ordering per user with `mobile-dock-order.ts`, preserve gated destinations, and keep Search and More fixed. Reorder handles drag without a hold delay; the rest of each row scrolls.
+- Share sidebar and mobile dock unread presence through `components/app/use-navigation-unread.ts`; keep badges reactive to read/done changes and avoid fetching extra pages for counts.
 - Mobile dock search owns transient category/mode state in `features/command/mobile`; reuse the shared entity source and explicit full-text adapter rather than overlaying the dock query on view tabs or saved facets. See `docs/agent-guide/search.md` at the repository root.
 - Keep mobile search sessions, result order, loaded rows, and scroll state with their Search history entry; preserve order before opening a result so viewedAt updates cannot move it on Back. Refresh row data in place and append later pages. Scope saved rows and scroll measurements to their account and reset result adapters/scrollers on account changes. Query/category changes rerank; a fresh dock search supplies a new session ID in Search's route state, including when reusing a native pane.
 - Keep Quick Access cache availability reactive to the GraphQL rollout flag; it can arrive after the provider mounts, and email has no legacy source fallback.
 - Virtualize mobile name results like desktop Command Menu; local Quick Access sources are unbounded, and mounting them all stalls iOS keyboard focus during layout. Load additional search pages near the scroll end instead of reserving a paging bar.
 - Reconcile mobile full-text rows by entity ID so appending a page preserves DOM rows and scroll position; restore after responsive row measurement and disable browser scroll anchoring so layout changes cannot override the saved history offset.
-- Reserve only the safe-area inset above mobile Search and Channels; their hidden split headers must not leave a blank strip or extend the top fade.
+- Reserve the safe area plus the category row above mobile Search, and only the safe area above Channels; their hidden split headers must not add another blank strip.
 - Follow [mobile layout and chrome](../../.agents/rules/web/mobile.md#layout-and-chrome) for full-frame views and record tabs; verify their first controls below the navigation with a nonzero safe area on phones and tablets.
 - Show only the Recent conversation feed in mobile Channels, without view tabs or a persisted mobile tab selection.
 - Mount the mobile search input before focusing it inside the dock tap; keep navigation in that handler so focus does not trigger a second navigation or lose iOS keyboard activation.
@@ -112,11 +114,15 @@ ownership. Cancel, logout, and the ten-minute timeout retire pending callbacks.
 - Route explicit call exits using the server's `callEnded` result: ended calls
   open their record; ongoing channel and scheduled calls return to the channel
   and Calendar. Preserve the session ID before disconnecting.
+- Diagnose browser call media with `call.media.*` spans and the `meeting.setup.id`
+  on `meeting.join`; keep provider messages, device labels/IDs, and call-link
+  tokens out of telemetry. See [call diagnostics](../../docs/agent-guide/calls.md#browser-call-diagnostics).
 - Keep desktop Gmail and Outlook inbox consent in the system browser with a
   `macro:///inbox-link-callback` return; webview origins are not desktop callbacks.
 - Keep send reservations, leases, and cancellation in the email journal; the general GraphQL queue handles draft autosaves only.
 - Always persist composer sends in account-scoped IndexedDB and dispatch through the fetch-only email client, without a feature flag; cache health and unrelated mutation queues must not gate delivery. See `docs/architecture/email.md` for state and rollout invariants.
 - Retry cache bootstrap on reconnect/foreground or draft Retry only when storage was proven untouched; retain the same scope and block draft sync until the replacement queue is readable.
+- Touch email replies and forwards use the full-screen composer with the shared new-email header actions; preserve thread state underneath and flush local edits before closing.
 - Draft autosaves preserve active email thread messages; evict inactive legacy
   caches on save and the active cache on thread exit. Revalidate GraphQL thread
   pages only when a save cannot patch the message list (missing snapshot or a

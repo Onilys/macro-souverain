@@ -336,7 +336,7 @@ those older results must not hide a failure for the new, uncached query.
 
 With `enable-tasks-reviews` enabled (on by default in development),
 `Reviews` is available in desktop navigation and the mobile bottom dock's
-`More views` drawer, not the mobile Tasks tabs.
+`More views` drawer (or directly in the dock after Customize dock), not the mobile Tasks tabs.
 It opens a separate `/app/reviews` shell whose sidebar lists `Pull requests`,
 `Authored by me`, `Assigned to me`, `Involves me`, and `Review requests`;
 `Involves me` is selected by default. The selected tab is stored in the URL and

@@ -2,6 +2,8 @@ import { useCrmContactDiscovery } from '@app/features/crm/record-adapter';
 import { openEntityInSplitFromUnifiedList } from '@app/features/next-soup/utils';
 import { projectRouteId } from '@app/features/projects/core/route';
 import { createSoupRowStore } from '@app/features/soup/collection/row-store';
+import { MobileTopEdgeFade } from '@components/app/mobile/MobileEdgeFade';
+import { MobileViewsRow } from '@components/app/mobile/MobileViewsRow';
 import { useEntryState } from '@components/app/split-layout/entry-state';
 import { useSplitLayout } from '@components/app/split-layout/layout';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
@@ -176,7 +178,7 @@ function MobileNameResults(props: {
   return (
     <div
       ref={setContainer}
-      class="flex h-full min-h-0 flex-col px-3 mobile:pt-(--mobile-content-inset-top) mobile:pb-(--mobile-content-inset-bottom)"
+      class="flex h-full min-h-0 flex-col px-3 touch:pt-(--mobile-content-inset-top) touch:pb-(--mobile-content-inset-bottom)"
     >
       <Show when={state.query().trim() && category() !== 'projects'}>
         <div
@@ -333,7 +335,7 @@ function MobileFullTextResults(props: {
           });
         loadMoreNearEnd();
       }}
-      class="soup-list h-full overflow-y-auto overscroll-none [overflow-anchor:none] mobile:pt-(--mobile-content-inset-top) mobile:pb-(--mobile-content-inset-bottom)"
+      class="soup-list h-full overflow-y-auto overscroll-none [overflow-anchor:none] touch:pt-(--mobile-content-inset-top) touch:pb-(--mobile-content-inset-bottom)"
     >
       <ListEntityMetadataQueryProvider>
         <ListLayoutProvider
@@ -392,17 +394,35 @@ export function MobileSearchResults() {
   const accountId = useUserId();
   const authenticated = useIsAuthenticated();
   return (
-    <Show when={authenticated() === true ? accountId() : undefined} keyed>
-      {(id) => (
-        <Suspense fallback={<p role="status">Loading…</p>}>
-          <Show
-            when={session.mode() === 'full-text'}
-            fallback={<MobileNameResults session={session} accountId={id} />}
+    <div
+      class="relative size-full min-h-0 min-w-0"
+      style={{
+        '--mobile-content-inset-top': 'calc(var(--safe-top, 0px) + 3.75rem)',
+      }}
+    >
+      <MobileViewsRow session={session} />
+      <Show when={authenticated() === true ? accountId() : undefined} keyed>
+        {(id) => (
+          <Suspense
+            fallback={
+              <p
+                role="status"
+                class="px-3 touch:pt-(--mobile-content-inset-top)"
+              >
+                Loading…
+              </p>
+            }
           >
-            <MobileFullTextResults session={session} accountId={id} />
-          </Show>
-        </Suspense>
-      )}
-    </Show>
+            <Show
+              when={session.mode() === 'full-text'}
+              fallback={<MobileNameResults session={session} accountId={id} />}
+            >
+              <MobileFullTextResults session={session} accountId={id} />
+            </Show>
+          </Suspense>
+        )}
+      </Show>
+      <MobileTopEdgeFade />
+    </div>
   );
 }

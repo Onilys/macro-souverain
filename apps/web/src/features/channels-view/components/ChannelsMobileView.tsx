@@ -1,5 +1,9 @@
 import { createListController } from '@app/components/list';
 import { toEntityActionListState } from '@app/features/next-soup/actions';
+import {
+  persistSoupNavigationTouchHighlight,
+  soupNavigationTouchHighlight,
+} from '@app/features/next-soup/soup-view/soup-navigation-touch-highlight';
 import { openEntityInSplitFromUnifiedList } from '@app/features/next-soup/utils';
 import { SoupEntityContextMenu } from '@app/features/soup';
 import { DEBUG_SETTING_KEYS, useDebugSetting } from '@app/lib/debugSettings';
@@ -107,8 +111,9 @@ export function ChannelsMobileView(props: {
   onCleanup(() => {
     opening += 1;
   });
-  const openChannel = async (channel: ChannelEntity) => {
+  const openChannel = async (channel: ChannelEntity, event: MouseEvent) => {
     const request = ++opening;
+    const finishTouchHighlight = persistSoupNavigationTouchHighlight(event);
     try {
       await openEntityInSplitFromUnifiedList(channel, {
         splitHandle: panel.handle,
@@ -121,6 +126,8 @@ export function ChannelsMobileView(props: {
       if (request !== opening) return;
       console.error('Failed to open conversation', error);
       toast.failure('Unable to open conversation. Please try again.');
+    } finally {
+      finishTouchHighlight?.();
     }
   };
 
@@ -136,7 +143,10 @@ export function ChannelsMobileView(props: {
         onRefresh={props.source.refresh}
       />
       <div
-        ref={setViewport}
+        ref={(element) => {
+          setViewport(element);
+          soupNavigationTouchHighlight(element);
+        }}
         class="scrollbar-hidden size-full min-h-0 overflow-y-auto overscroll-none"
       >
         <div
@@ -224,29 +234,40 @@ export function ChannelsMobileView(props: {
                     });
                   }}
                 >
-                  <ConversationCard
-                    id={`${listId}-channel:${channel.id}`}
-                    class="border-b border-edge-muted/50 px-(--mobile-chrome-gutter) touch:pl-6"
-                    channel={channel}
-                    showLatestMessage
-                    senderId={channel.latestRootMessage?.senderId}
-                    mentionedCurrentUser={channelMentionsUser(
-                      channel,
-                      currentUserId()
-                    )}
-                    unread={channelActivity.unreadChannelIds().has(channel.id)}
-                    muted={isMutedItem(notificationSource.mutedEntities(), {
-                      item_id: channel.id,
-                      item_type: 'channel',
-                    })}
-                    callStatus={channelActivity.callStatuses().get(channel.id)}
-                    incomingCallId={channelActivity
-                      .incomingCallIds()
-                      .get(channel.id)}
-                    selected={false}
-                    focused={false}
-                    onActivate={() => openChannel(channel)}
-                  />
+                  <div data-soup-entity>
+                    <ConversationCard
+                      id={`${listId}-channel:${channel.id}`}
+                      class="border-b border-edge-muted/50 px-(--mobile-chrome-gutter) touch:pl-6"
+                      channel={channel}
+                      showLatestMessage
+                      senderId={channel.latestRootMessage?.senderId}
+                      mentionedCurrentUser={channelMentionsUser(
+                        channel,
+                        currentUserId()
+                      )}
+                      unread={channelActivity
+                        .unreadChannelIds()
+                        .has(channel.id)}
+                      muted={isMutedItem(notificationSource.mutedEntities(), {
+                        item_id: channel.id,
+                        item_type: 'channel',
+                      })}
+                      callStatus={channelActivity
+                        .callStatuses()
+                        .get(channel.id)}
+                      incomingCallId={channelActivity
+                        .incomingCallIds()
+                        .get(channel.id)}
+                      selected={false}
+                      focused={false}
+                      onActivate={(event) =>
+                        fireAndForget(
+                          openChannel(channel, event),
+                          'channels-view'
+                        )
+                      }
+                    />
+                  </div>
                 </SoupEntityContextMenu>
               )}
             </Virtualizer>

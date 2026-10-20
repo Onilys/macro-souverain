@@ -3,7 +3,7 @@ import type { UnifiedNotification } from '@notifications/types';
 import type { NotificationState } from '@service-storage/graphql/generated/graphql';
 import { createRoot, createSignal } from 'solid-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { useSidebarUnread } from './use-sidebar-unread';
+import { useNavigationUnread } from './use-navigation-unread';
 
 const mocks = vi.hoisted(() => ({
   home: vi.fn(),
@@ -130,7 +130,7 @@ function setup(graphql = false) {
     mocks.email.mockReturnValue(query);
     mocks.notifications.mockImplementation(notifications);
     return {
-      unread: useSidebarUnread(),
+      unread: useNavigationUnread(),
       setLoading,
       setEmails,
       setNotifications,
@@ -141,7 +141,7 @@ function setup(graphql = false) {
   });
 }
 
-describe('sidebar unread presence', () => {
+describe('navigation unread presence', () => {
   it('does not read pending resources or badge unrelated navigation', () => {
     const { unread } = setup();
     for (const id of ['home', 'mail', 'channels', 'documents', 'agents']) {

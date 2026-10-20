@@ -271,6 +271,7 @@ export function ConversationCard(props: ConversationCardProps) {
   return (
     <div
       id={props.id}
+      data-channel-conversation
       role="treeitem"
       tabIndex={-1}
       class={cn(

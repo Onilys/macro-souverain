@@ -11,7 +11,7 @@ import { createThreadNavigation } from '../primitives/thread-navigation';
 import { createThreadReplyArea } from '../primitives/thread-reply-area';
 import { BottomReplyButtons } from './bottom-reply-buttons';
 import { MessageList } from './message-list';
-import { MobileEmailComposeDrawer } from './mobile-email-compose-drawer';
+import { MobileEmailCompose } from './mobile-email-compose';
 export type EmailThreadViewProps = {
   title: string;
   threadId: Accessor<string>;
@@ -156,7 +156,7 @@ export function EmailThreadView(props: EmailThreadViewProps) {
                 )}
               </Show>
               <Show when={isTouchDevice()}>
-                <MobileEmailComposeDrawer
+                <MobileEmailCompose
                   markdownDomRef={(el) => {
                     navigation.setMarkdownDomRef(el);
                   }}

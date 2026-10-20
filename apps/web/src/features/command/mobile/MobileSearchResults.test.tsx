@@ -599,7 +599,11 @@ it('restores loaded name pages and scroll before refresh resolves, without a loa
   fireEvent.scroll(screen.getByRole('region', { name: 'Search results' }), {
     target: { scrollTop: 800 },
   });
-  fireEvent.click(screen.getAllByRole('button')[0]);
+  fireEvent.click(
+    within(screen.getByRole('region', { name: 'Search results' })).getAllByRole(
+      'button'
+    )[0]
+  );
   view.unmount();
 
   setLoading(true);
@@ -867,9 +871,17 @@ it('keeps a covered native search entry independent of a new dock session', () =
   SearchState.open();
   SearchState.setQuery('new search');
   SearchState.setCategory('tasks');
+  expect(
+    screen.getByRole('button', { name: 'Email' }).getAttribute('aria-pressed')
+  ).toBe('true');
+  expect(
+    screen.getByRole('button', { name: 'Tasks' }).getAttribute('aria-pressed')
+  ).toBe('false');
+  fireEvent.click(screen.getByRole('button', { name: 'Files' }));
+  expect(SearchState.category()).toBe('tasks');
   mocks.setActive(true);
   expect(SearchState.query()).toBe('original');
-  expect(SearchState.category()).toBe('email');
+  expect(SearchState.category()).toBe('documents');
 });
 
 it('loads another name page near the end without a persistent paging bar', async () => {
