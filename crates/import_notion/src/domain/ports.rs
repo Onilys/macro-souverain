@@ -26,7 +26,7 @@ pub enum NotionError {
     #[error("the Notion connection may not read this object")]
     Forbidden,
     /// Notion answered with an error the importer does not handle.
-    #[error("Notion returned {status}: {body}")]
+    #[error("Notion could not complete the request: {body}")]
     Upstream {
         /// The HTTP status.
         status: u16,

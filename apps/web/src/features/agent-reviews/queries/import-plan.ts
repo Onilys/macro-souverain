@@ -24,7 +24,6 @@ const planMetadataSchema = z.object({
     decision: z.enum(['copy', 'tasks', 'skip', 'hand']),
     reason: z.string().nullish(),
     rows: z.number().nullish(),
-    moreRows: z.boolean().optional(),
   }),
 });
 
@@ -47,7 +46,6 @@ export function decodePlanEntries(
         decision: plan.decision,
         reason: plan.reason ?? null,
         rows: plan.rows ?? null,
-        moreRows: plan.moreRows ?? false,
         status: entity.status,
         error: entity.last_error ?? null,
       },

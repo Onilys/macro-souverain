@@ -154,8 +154,7 @@ export function ImportPlanRow(props: {
       </span>
       <Show when={props.node.kind === 'database' && props.node.rows !== null}>
         <span class="shrink-0 text-xs text-ink-muted">
-          {props.node.rows}
-          {props.node.moreRows ? '+' : ''} rows
+          {props.node.rows} rows
         </span>
       </Show>
       <Show

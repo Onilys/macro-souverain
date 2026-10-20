@@ -25,7 +25,7 @@ const MARKDOWN_DEPTH: u8 = 8;
 const MARKDOWN_CONCURRENCY: usize = 4;
 
 /// Everything in `scope`: standalone pages (rows and trashed objects
-/// excluded) and data sources with a summary of their first page of rows.
+/// excluded) and data sources with their rows counted.
 ///
 /// `progress` is called as the counts grow, and once more with the final,
 /// scoped counts. Roots that are not shared with the connection are skipped,
@@ -171,7 +171,14 @@ pub async fn full_markdown<Api: NotionApi>(
             .map(|id| async move {
                 match api.page_markdown(&id).await {
                     Ok(block) => Ok((id, Some(block))),
-                    Err(NotionError::NotFound | NotionError::Forbidden) => {
+                    // Not readable as markdown: unshared, gone, or not a page
+                    // at all (an embedded database answers 400). The page
+                    // keeps the placeholder rather than failing outright.
+                    Err(
+                        NotionError::NotFound
+                        | NotionError::Forbidden
+                        | NotionError::Upstream { status: 400, .. },
+                    ) => {
                         tracing::warn!(block = %id, "unknown block is not readable; keeping its placeholder");
                         Ok((id, None))
                     }
@@ -353,30 +360,42 @@ fn parent_id(parent: &NotionParent) -> Option<NotionId> {
     }
 }
 
-/// A data source with its first page of rows, or `None` when its rows
+/// A data source with its rows counted, or `None` when its rows
 /// cannot be read.
 async fn summarize<Api: NotionApi>(
     api: &Api,
     source: NotionDataSource,
 ) -> Result<Option<DataSourceSummary>, NotionError> {
-    match api.query_data_source(&source.id, None).await {
-        Ok(rows) => Ok(Some(DataSourceSummary {
-            row_count: rows.results.len(),
-            more_rows: rows.next_cursor.is_some(),
-            sample_titles: rows
-                .results
+    // Every row is counted, so the plan can say how much it will write.
+    let mut row_count = 0;
+    let mut sample_titles = Vec::new();
+    let mut cursor = None;
+    loop {
+        let page = match api.query_data_source(&source.id, cursor).await {
+            Ok(page) => page,
+            Err(NotionError::NotFound | NotionError::Forbidden) => {
+                tracing::warn!(data_source = %source.id, "data source rows are not readable; leaving it out");
+                return Ok(None);
+            }
+            Err(error) => return Err(error),
+        };
+        row_count += page.results.len();
+        sample_titles.extend(
+            page.results
                 .iter()
-                .take(SAMPLE_TITLES)
-                .map(|row| row.title.clone())
-                .collect(),
-            source,
-        })),
-        Err(NotionError::NotFound | NotionError::Forbidden) => {
-            tracing::warn!(data_source = %source.id, "data source rows are not readable; leaving it out");
-            Ok(None)
+                .take(SAMPLE_TITLES.saturating_sub(sample_titles.len()))
+                .map(|row| row.title.clone()),
+        );
+        match page.next_cursor {
+            Some(next) => cursor = Some(next),
+            None => break,
         }
-        Err(error) => Err(error),
     }
+    Ok(Some(DataSourceSummary {
+        row_count,
+        sample_titles,
+        source,
+    }))
 }
 
 #[cfg(test)]

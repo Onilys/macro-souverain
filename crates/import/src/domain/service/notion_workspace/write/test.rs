@@ -324,6 +324,7 @@ async fn a_data_source_becomes_a_database_with_typed_columns_rows_bodies_and_pen
         &source_item,
         folder,
         &PeopleMap::new(),
+        &Cancel::default(),
     )
     .await
     .unwrap();
@@ -425,5 +426,46 @@ async fn a_data_source_becomes_a_database_with_typed_columns_rows_bodies_and_pen
     assert_eq!(
         written.relations[0].links,
         [(RowId::from_uuid(Uuid::from_u128(700)), vec![id('8')])]
+    );
+}
+
+#[tokio::test]
+async fn a_cancelled_import_stops_before_writing_rows() {
+    let notion = FakeNotion {
+        source: NotionDataSource {
+            id: id('e'),
+            database_id: id('f'),
+            title: "Bugs".to_string(),
+            database_parent: NotionParent::Workspace,
+            in_trash: false,
+            properties: Vec::new(),
+        },
+        rows: vec![notion_row('1', "Login fails", vec![])],
+        bodies: HashMap::new(),
+    };
+    let writer = FakeWriter::default();
+    let cancel = Cancel::default();
+    cancel.stop();
+    let mut source_item = item(1, None, "Bugs");
+    source_item.kind = ImportKind::DataSource;
+
+    let outcome = write_database(
+        &notion,
+        &writer,
+        &user(),
+        &source_item,
+        Uuid::from_u128(42),
+        &PeopleMap::new(),
+        &cancel,
+    )
+    .await;
+
+    assert_eq!(outcome.unwrap_err().to_string(), "Cancelled");
+    let batches = writer.batches.lock().unwrap();
+    assert_eq!(batches.len(), 1, "only the schema was written");
+    assert!(
+        !batches[0]
+            .iter()
+            .any(|op| matches!(op, DatabaseOp::Rows { .. }))
     );
 }

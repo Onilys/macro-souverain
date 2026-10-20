@@ -53,7 +53,6 @@ fn the_tree_puts_parents_first_and_plans_every_object_under_its_page() {
                 ],
             },
             row_count: 12,
-            more_rows: true,
             sample_titles: vec!["Fix login".to_string()],
         }],
     };
@@ -113,7 +112,6 @@ fn the_tree_puts_parents_first_and_plans_every_object_under_its_page() {
     let plan = meta.plan.unwrap();
     assert_eq!(plan.decision, NotionDecision::Tasks);
     assert_eq!(plan.rows, Some(12));
-    assert!(plan.more_rows);
     assert_eq!(plan.path, ["Engineering"]);
     assert_eq!(meta.url.as_deref(), Some(id('f').url().as_str()));
 

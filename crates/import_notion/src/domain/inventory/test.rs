@@ -19,7 +19,11 @@ struct FakeWorkspace {
     databases: HashMap<NotionId, Vec<NotionId>>,
     /// Rows by data source id; the first page of a query.
     rows: HashMap<NotionId, Paged<NotionPage>>,
+    /// The page after the first, by data source id, for any cursor.
+    later_rows: HashMap<NotionId, Vec<NotionPage>>,
     markdown: HashMap<NotionId, PageMarkdown>,
+    /// Ids that are databases, which Notion refuses to render as markdown.
+    databases_not_pages: Vec<NotionId>,
     markdown_requests: Mutex<Vec<NotionId>>,
 }
 
@@ -54,6 +58,12 @@ impl NotionApi for FakeWorkspace {
 
     async fn page_markdown(&self, id: &NotionId) -> Result<PageMarkdown, NotionError> {
         self.markdown_requests.lock().unwrap().push(id.clone());
+        if self.databases_not_pages.contains(id) {
+            return Err(NotionError::Upstream {
+                status: 400,
+                body: "Provided ID is a database, not a page.".into(),
+            });
+        }
         self.markdown.get(id).cloned().ok_or(NotionError::NotFound)
     }
 
@@ -75,8 +85,14 @@ impl NotionApi for FakeWorkspace {
     async fn query_data_source(
         &self,
         id: &NotionId,
-        _cursor: Option<String>,
+        cursor: Option<String>,
     ) -> Result<Paged<NotionPage>, NotionError> {
+        if cursor.is_some() {
+            return Ok(Paged {
+                results: self.later_rows.get(id).cloned().unwrap_or_default(),
+                next_cursor: None,
+            });
+        }
         Ok(self.rows.get(id).cloned().unwrap_or(Paged {
             results: Vec::new(),
             next_cursor: None,
@@ -146,6 +162,14 @@ async fn everything_lists_documents_and_summarized_data_sources_without_rows_or_
                 next_cursor: Some("more".into()),
             },
         )]),
+        later_rows: HashMap::from([(
+            roadmap.id.clone(),
+            vec![NotionPage {
+                id: NotionId::parse("7d0c5bd5b4a04f3a9c7d0c5bd5b4a04f").unwrap(),
+                title: "Ship billing".into(),
+                ..row.clone()
+            }],
+        )]),
         ..FakeWorkspace::default()
     };
     let reports = Mutex::new(Vec::new());
@@ -162,9 +186,8 @@ async fn everything_lists_documents_and_summarized_data_sources_without_rows_or_
             pages: vec![plan],
             data_sources: vec![DataSourceSummary {
                 source: roadmap,
-                row_count: 1,
-                more_rows: true,
-                sample_titles: vec!["Ship onboarding".into()],
+                row_count: 2,
+                sample_titles: vec!["Ship onboarding".into(), "Ship billing".into()],
             }],
         }
     );
@@ -293,7 +316,6 @@ async fn roots_keep_their_descendants_through_rows_and_databases() {
         vec![DataSourceSummary {
             source: roadmap,
             row_count: 0,
-            more_rows: false,
             sample_titles: vec![],
         }]
     );
@@ -469,5 +491,30 @@ async fn full_markdown_keeps_the_placeholder_of_an_unreadable_block() {
     assert_eq!(
         markdown,
         "Intro <unknown alt=\"c7f0aa501f0e4a529a17e2f6f3a3b0c1\"/>"
+    );
+}
+
+#[tokio::test]
+async fn a_database_embedded_in_a_page_keeps_its_placeholder_instead_of_failing_the_page() {
+    let page = NotionId::parse("598337872cf94fdf8782e53db20768a5").unwrap();
+    let embedded = NotionId::parse("e617ab741aa546b19d317930ff338b29").unwrap();
+    let workspace = FakeWorkspace {
+        markdown: HashMap::from([(
+            page.clone(),
+            PageMarkdown {
+                markdown: "Welcome <unknown alt=\"e617ab741aa546b19d317930ff338b29\"/> Outro"
+                    .into(),
+                unknown_block_ids: vec![embedded.clone()],
+            },
+        )]),
+        databases_not_pages: vec![embedded],
+        ..FakeWorkspace::default()
+    };
+
+    let markdown = full_markdown(&workspace, &page).await.unwrap();
+
+    assert_eq!(
+        markdown,
+        "Welcome <unknown alt=\"e617ab741aa546b19d317930ff338b29\"/> Outro"
     );
 }

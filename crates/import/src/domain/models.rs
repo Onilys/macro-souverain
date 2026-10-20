@@ -622,9 +622,6 @@ pub struct NotionPlanItem {
     /// For a data source: rows counted while planning.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rows: Option<u32>,
-    /// For a data source: whether it has more rows than `rows`.
-    #[serde(default)]
-    pub more_rows: bool,
     /// For a task list: which columns hold the task fields.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub task_fields: Option<NotionTaskFields>,
@@ -872,6 +869,14 @@ pub struct NotionImportReport {
     pub skip: u32,
     /// Objects that need handling by hand.
     pub hand: u32,
+    /// Pages written as documents.
+    pub documents: u32,
+    /// Data sources written as databases.
+    pub databases: u32,
+    /// Rows those databases hold, every one counted while planning.
+    pub database_rows: u32,
+    /// Tasks the task lists become, one per row.
+    pub task_rows: u32,
     /// Plan objects already imported.
     pub imported: u32,
     /// Plan objects still waiting to be written.

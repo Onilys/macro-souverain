@@ -45,6 +45,29 @@ pub(super) const DOCUMENT_ENTITY: &str = "md";
 pub(super) const DATABASE_ENTITY: &str = "database";
 pub(super) const FOLDER_ENTITY: &str = "project";
 
+/// Set once the user cancels; long writes check it between batches, rows
+/// and tasks so a stop takes effect within seconds.
+#[derive(Debug, Default)]
+pub(super) struct Cancel(std::sync::atomic::AtomicBool);
+
+impl Cancel {
+    /// Mark the import cancelled.
+    pub fn stop(&self) {
+        self.0.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Whether the import was cancelled.
+    pub fn stopped(&self) -> bool {
+        self.0.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Fail with "Cancelled" once the import was cancelled.
+    pub fn ensure_running(&self) -> anyhow::Result<()> {
+        anyhow::ensure!(!self.stopped(), "Cancelled");
+        Ok(())
+    }
+}
+
 /// A plan row ready to write.
 #[derive(Debug, Clone, PartialEq)]
 pub(super) struct WriteItem {
@@ -209,6 +232,7 @@ pub(super) async fn write_database<Api: NotionApi, Writer: WorkspaceWriter>(
     item: &WriteItem,
     folder: Uuid,
     people: &PeopleMap,
+    cancel: &Cancel,
 ) -> anyhow::Result<WrittenDatabase> {
     let source = api.data_source(&item.notion_id).await?;
     let created = writer
@@ -298,6 +322,7 @@ pub(super) async fn write_database<Api: NotionApi, Writer: WorkspaceWriter>(
         ..WrittenDatabase::default()
     };
     for (index, batch) in owned_batches(&rows).into_iter().enumerate() {
+        cancel.ensure_running()?;
         let start = index * ROWS_PER_BATCH;
         let cells: Vec<Vec<CellWrite>> = batch
             .iter()
@@ -365,6 +390,7 @@ pub(super) async fn write_database<Api: NotionApi, Writer: WorkspaceWriter>(
         &rows,
         &written,
         page_column,
+        cancel,
     )
     .await?;
     Ok(written)
@@ -424,6 +450,7 @@ async fn write_row_bodies<Api: NotionApi, Writer: WorkspaceWriter>(
     rows: &[NotionPage],
     written: &WrittenDatabase,
     page_column: ColumnId,
+    cancel: &Cancel,
 ) -> anyhow::Result<()> {
     let bodies_folder: tokio::sync::OnceCell<Uuid> = tokio::sync::OnceCell::new();
     let bodies_name = capped_name(&format!("{} pages", item.title));
@@ -432,6 +459,7 @@ async fn write_row_bodies<Api: NotionApi, Writer: WorkspaceWriter>(
             let bodies_folder = &bodies_folder;
             let bodies_name = &bodies_name;
             async move {
+                cancel.ensure_running()?;
                 let markdown = page_markdown(&full_markdown(api, &row.id).await?);
                 if markdown.is_empty() {
                     return Ok(None);
@@ -485,6 +513,7 @@ async fn write_row_bodies<Api: NotionApi, Writer: WorkspaceWriter>(
         return Ok(());
     };
     for batch in owned_batches(&changes) {
+        cancel.ensure_running()?;
         writer
             .apply_database_ops(
                 user,
@@ -514,6 +543,7 @@ pub(super) async fn link_relations<Writer: WorkspaceWriter>(
     writer: &Writer,
     user: &MacroUserIdStr<'static>,
     databases: &HashMap<NotionId, WrittenDatabase>,
+    cancel: &Cancel,
 ) -> anyhow::Result<()> {
     let rows: HashMap<&NotionId, WrittenRow> = databases
         .values()
@@ -521,6 +551,7 @@ pub(super) async fn link_relations<Writer: WorkspaceWriter>(
         .collect();
     for database in databases.values() {
         for relation in &database.relations {
+            cancel.ensure_running()?;
             let Some(target) = relation
                 .target
                 .as_ref()
@@ -607,6 +638,7 @@ pub(super) async fn write_tasks<Api: NotionApi, Writer: WorkspaceWriter>(
     item: &WriteItem,
     folder: Uuid,
     people: &PeopleMap,
+    cancel: &Cancel,
 ) -> anyhow::Result<Uuid> {
     let rows = all_rows(api, &item.notion_id).await?;
     let tasks_folder = writer
@@ -617,6 +649,9 @@ pub(super) async fn write_tasks<Api: NotionApi, Writer: WorkspaceWriter>(
         .map(|row| {
             let failures = &failures;
             async move {
+                if cancel.stopped() {
+                    return;
+                }
                 let outcome: anyhow::Result<()> = async {
                     let content = page_markdown(&full_markdown(api, &row.id).await?);
                     let body = task_body(&row, &content, &item.task_fields, people);
@@ -644,6 +679,7 @@ pub(super) async fn write_tasks<Api: NotionApi, Writer: WorkspaceWriter>(
         .buffer_unordered(BODY_CONCURRENCY)
         .collect::<Vec<()>>()
         .await;
+    cancel.ensure_running()?;
     let failed = failures.into_inner().unwrap_or_default();
     anyhow::ensure!(
         failed < rows.len() || rows.is_empty(),

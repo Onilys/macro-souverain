@@ -46,8 +46,6 @@ pub(super) struct TriageTable {
     pub columns: Vec<String>,
     /// Rows counted.
     pub rows: usize,
-    /// Whether there are more rows than `rows`.
-    pub more_rows: bool,
     /// The first few row titles.
     pub sample_titles: Vec<String>,
 }

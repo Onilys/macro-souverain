@@ -61,7 +61,7 @@ function entity(
     metadata: {
       title,
       url: `https://notion.so/${id}`,
-      plan: { path: [], moreRows: false, ...plan },
+      plan: { path: [], ...plan },
     },
     created_at: '2026-10-19T00:00:00Z',
     updated_at: '2026-10-19T00:00:00Z',
@@ -161,7 +161,7 @@ describe('import review', () => {
     const decide = setup();
     expect(
       screen.getByText(
-        '3 pages · 1 database — 1 to copy, 1 as tasks, 1 skipped, 1 needs you'
+        'Notion shared 3 pages and 1 database — importing 1 page, 40 tasks · 1 skipped, 1 needs you'
       )
     ).toBeTruthy();
     expect(screen.queryByText('Other review')).toBeNull();
@@ -172,7 +172,7 @@ describe('import review', () => {
     ).toBe(true);
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'Import Roadmap' }));
-    expect(screen.getByRole('button', { name: 'Import 1 item' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Import 1 page' })).toBeTruthy();
     await waitFor(() =>
       expect(decide).toHaveBeenCalledWith({
         action: 'edit',
@@ -182,11 +182,9 @@ describe('import review', () => {
       })
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Import 1 item' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Import 1 page' }));
     const dialog = await screen.findByRole('dialog');
-    fireEvent.click(
-      within(dialog).getByRole('button', { name: 'Import 1 item' })
-    );
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
     await waitFor(() =>
       expect(decide).toHaveBeenLastCalledWith({
         action: 'submit',

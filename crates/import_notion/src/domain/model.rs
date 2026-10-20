@@ -347,10 +347,8 @@ pub enum ImportScope {
 pub struct DataSourceSummary {
     /// The data source.
     pub source: NotionDataSource,
-    /// Rows counted, up to the first page of results.
+    /// Every row the data source holds.
     pub row_count: usize,
-    /// Whether there are more rows than `row_count`.
-    pub more_rows: bool,
     /// The titles of the first few rows.
     pub sample_titles: Vec<String>,
 }

@@ -6,6 +6,7 @@ import {
   type ImportProgress,
   importCount,
   importReviewPhase,
+  importVolume,
   initiallyCollapsed,
   planCounts,
   planSummary,
@@ -72,6 +73,7 @@ export function createImportReview(sources: ImportReviewSources) {
     Boolean(record().notificationId);
   const editable = () => !locked() && phase().kind === 'plan';
   const count = () => importCount(sources.entries(), draft().excluded);
+  const volume = () => importVolume(sources.entries(), draft().excluded);
 
   function setIncluded(id: string, included: boolean) {
     const current = item();
@@ -117,12 +119,16 @@ export function createImportReview(sources: ImportReviewSources) {
     phase,
     progress,
     summary: () =>
-      planSummary(progress()?.counts ?? planCounts(sources.entries())),
+      planSummary(
+        progress()?.counts ?? planCounts(sources.entries()),
+        volume()
+      ),
     nodes: () => visiblePlanNodes(nodes(), collapsedIds()),
     hasPlan: () => sources.entries().length > 0,
     isCollapsed: (id: string) => collapsedIds().has(id),
     isExcluded: (id: string) => draft().excluded.includes(id),
     count,
+    volume,
     editable,
     working: controller.busy,
     stopping,

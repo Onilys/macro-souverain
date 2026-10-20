@@ -13,7 +13,6 @@ export type ImportPlanEntry = {
   decision: ImportPlanDecision;
   reason: string | null;
   rows: number | null;
-  moreRows: boolean;
   status: 'staged' | 'importing' | 'imported' | 'discarded';
   error: string | null;
 };
@@ -185,6 +184,60 @@ export function importCount(
   ).length;
 }
 
+/** What approving the plan writes, in real numbers: every row is counted. */
+export type ImportVolume = {
+  documents: number;
+  databases: number;
+  rows: number;
+  taskLists: number;
+  tasks: number;
+};
+
+/** The volume the plan writes, leaving out `excluded` entries. */
+export function importVolume(
+  entries: ImportPlanEntry[],
+  excluded: readonly string[]
+): ImportVolume {
+  const volume: ImportVolume = {
+    documents: 0,
+    databases: 0,
+    rows: 0,
+    taskLists: 0,
+    tasks: 0,
+  };
+  for (const entry of entries) {
+    if (excluded.includes(entry.id)) continue;
+    match(entry.decision)
+      .with('copy', () => {
+        if (entry.kind === 'database') {
+          volume.databases += 1;
+          volume.rows += entry.rows ?? 0;
+        } else {
+          volume.documents += 1;
+        }
+      })
+      .with('tasks', () => {
+        volume.taskLists += 1;
+        volume.tasks += entry.rows ?? 0;
+      })
+      .with('skip', 'hand', () => {})
+      .exhaustive();
+  }
+  return volume;
+}
+
+/** e.g. "54 pages, 18 databases (405 rows), 33 tasks". */
+export function volumeLabel(volume: ImportVolume): string {
+  const parts = [
+    volume.documents > 0 ? plural(volume.documents, 'page', 'pages') : '',
+    volume.databases > 0
+      ? `${plural(volume.databases, 'database', 'databases')} (${plural(volume.rows, 'row', 'rows')})`
+      : '',
+    volume.taskLists > 0 ? plural(volume.tasks, 'task', 'tasks') : '',
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(', ') : 'nothing';
+}
+
 export function planCounts(entries: ImportPlanEntry[]): ImportPlanCounts {
   const counts: ImportPlanCounts = {
     pages: 0,
@@ -206,19 +259,23 @@ function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
 }
 
-/** e.g. "42 pages · 3 databases — 38 to copy, 1 as tasks, 3 skipped, 1 needs you". */
-export function planSummary(counts: ImportPlanCounts): string {
-  const size = [
+/**
+ * e.g. "Notion shared 56 pages and 24 databases — importing 54 pages,
+ * 18 databases (405 rows), 33 tasks · 6 skipped, 1 needs you".
+ */
+export function planSummary(
+  counts: ImportPlanCounts,
+  volume: ImportVolume
+): string {
+  const shared = [
     counts.pages > 0 ? plural(counts.pages, 'page', 'pages') : '',
     counts.databases > 0
       ? plural(counts.databases, 'database', 'databases')
       : '',
   ]
     .filter(Boolean)
-    .join(' · ');
-  const decisions = [
-    counts.copy > 0 ? `${counts.copy} to copy` : '',
-    counts.tasks > 0 ? `${counts.tasks} as tasks` : '',
+    .join(' and ');
+  const left = [
     counts.skip > 0 ? `${counts.skip} skipped` : '',
     counts.hand > 0
       ? `${counts.hand} ${counts.hand === 1 ? 'needs' : 'need'} you`
@@ -226,7 +283,13 @@ export function planSummary(counts: ImportPlanCounts): string {
   ]
     .filter(Boolean)
     .join(', ');
-  return [size, decisions].filter(Boolean).join(' — ');
+  return [
+    shared ? `Notion shared ${shared}` : '',
+    `importing ${volumeLabel(volume)}`,
+  ]
+    .filter(Boolean)
+    .join(' — ')
+    .concat(left ? ` · ${left}` : '');
 }
 
 /** Progress counted from the plan rows, when the run reports another review. */

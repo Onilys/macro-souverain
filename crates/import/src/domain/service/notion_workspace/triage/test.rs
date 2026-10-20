@@ -16,7 +16,6 @@ fn table(key: &str, title: &str) -> TriageItem {
         table: Some(TriageTable {
             columns: vec!["Name (title)".to_string(), "Status (status)".to_string()],
             rows: 12,
-            more_rows: false,
             sample_titles: vec!["Fix login".to_string()],
         }),
         kind: ImportKind::DataSource,

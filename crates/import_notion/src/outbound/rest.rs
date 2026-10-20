@@ -458,9 +458,16 @@ fn failure(response: TransportResponse) -> Failure {
 }
 
 fn upstream(response: TransportResponse) -> NotionError {
+    // Notion explains itself in `message`; keep that rather than the JSON
+    // around it, which is no use to a reader.
+    let explained = serde_json::from_str::<WireError>(&response.body)
+        .ok()
+        .and_then(|error| error.message)
+        .filter(|message| !message.trim().is_empty());
+    let body = explained.unwrap_or(response.body);
     NotionError::Upstream {
         status: response.status,
-        body: response.body.chars().take(ERROR_BODY_CHARS).collect(),
+        body: body.chars().take(ERROR_BODY_CHARS).collect(),
     }
 }
 

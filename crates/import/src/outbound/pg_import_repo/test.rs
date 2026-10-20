@@ -908,7 +908,7 @@ fn plan_row(foreign_id: &str, parent: Option<&str>, title: &str) -> PlanRow {
             "title": title,
             "url": null,
             "summary": null,
-            "plan": { "decision": "copy", "path": [], "moreRows": false }
+            "plan": { "decision": "copy", "path": [] }
         }),
     }
 }

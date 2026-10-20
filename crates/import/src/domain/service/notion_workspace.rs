@@ -45,6 +45,8 @@ mod test;
 
 /// Failures and by-hand items a report lists, at most.
 const REPORT_LIST_LIMIT: usize = 50;
+/// How often a running write checks whether the user cancelled it.
+const CANCEL_CHECK_EVERY: Duration = Duration::from_secs(3);
 /// How often progress is pushed to the client while a job runs.
 const NOTIFY_EVERY: Duration = Duration::from_secs(2);
 
@@ -476,6 +478,9 @@ where
             folders.insert(*folder_row, folder);
         }
 
+        let cancel = std::sync::Arc::new(write::Cancel::default());
+        let _watch = self.watch_cancel(user, std::sync::Arc::clone(&cancel));
+        let cancel = cancel.as_ref();
         let throttle = Throttle::new();
         let databases: tokio::sync::Mutex<HashMap<NotionId, write::WrittenDatabase>> =
             tokio::sync::Mutex::new(HashMap::new());
@@ -488,11 +493,14 @@ where
                 let databases = &databases;
                 let throttle = &throttle;
                 async move {
-                    if self.cancelled(user).await {
+                    if cancel.stopped() {
                         return true;
                     }
                     let outcome = self
-                        .write_item(api, user, &item, team_id, folders, parents, root, people, databases)
+                        .write_item(
+                            api, user, &item, team_id, folders, parents, root, people, databases,
+                            cancel,
+                        )
                         .await;
                     let succeeded = match outcome {
                         Ok(()) => true,
@@ -518,8 +526,9 @@ where
 
         let databases = databases.into_inner();
         if !databases.is_empty()
-            && !self.cancelled(user).await
-            && let Err(error) = write::link_relations(self.creator.as_ref(), user, &databases).await
+            && !cancel.stopped()
+            && let Err(error) =
+                write::link_relations(self.creator.as_ref(), user, &databases, cancel).await
         {
             tracing::warn!(error = ?error, "notion relations were not linked");
         }
@@ -538,6 +547,7 @@ where
         root: Uuid,
         people: &values::PeopleMap,
         databases: &tokio::sync::Mutex<HashMap<NotionId, write::WrittenDatabase>>,
+        cancel: &write::Cancel,
     ) -> Result<()> {
         // One copy per team: a teammate's import stands in for this one.
         if let Some(existing) = self
@@ -556,16 +566,30 @@ where
         let (entity_id, entity_type) = match (item.kind, item.decision) {
             (ImportKind::DataSource, NotionDecision::Tasks) => {
                 let folder = write::folder_for(item, false, folders, parents, root);
-                let tasks =
-                    write::write_tasks(api, self.creator.as_ref(), user, item, folder, people)
-                        .await?;
+                let tasks = write::write_tasks(
+                    api,
+                    self.creator.as_ref(),
+                    user,
+                    item,
+                    folder,
+                    people,
+                    cancel,
+                )
+                .await?;
                 (tasks.to_string(), write::FOLDER_ENTITY)
             }
             (ImportKind::DataSource, _) => {
                 let folder = write::folder_for(item, false, folders, parents, root);
-                let written =
-                    write::write_database(api, self.creator.as_ref(), user, item, folder, people)
-                        .await?;
+                let written = write::write_database(
+                    api,
+                    self.creator.as_ref(),
+                    user,
+                    item,
+                    folder,
+                    people,
+                    cancel,
+                )
+                .await?;
                 let id = written.database_id.to_string();
                 databases
                     .lock()
@@ -627,6 +651,26 @@ where
                 (notion_user.id, values::Person { email, macro_user })
             })
             .collect()
+    }
+
+    /// Set `cancel` within a few seconds of the user cancelling; stops when
+    /// dropped.
+    fn watch_cancel(
+        &self,
+        user: &MacroUserIdStr<'static>,
+        cancel: std::sync::Arc<write::Cancel>,
+    ) -> AbortOnDrop {
+        let service = self.clone();
+        let user = user.clone();
+        AbortOnDrop(tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(CANCEL_CHECK_EVERY).await;
+                if service.cancelled(&user).await {
+                    cancel.stop();
+                    return;
+                }
+            }
+        }))
     }
 
     /// Whether the user cancelled the import.
@@ -716,11 +760,23 @@ pub(super) fn report(
             ImportKind::DataSource => report.data_sources += 1,
             _ => report.pages += 1,
         }
-        match plan.decision {
-            NotionDecision::Copy => report.copy += 1,
-            NotionDecision::Tasks => report.tasks += 1,
-            NotionDecision::Skip => report.skip += 1,
-            NotionDecision::Hand => report.hand += 1,
+        let rows = plan.rows.unwrap_or(0);
+        match (plan.decision, row.kind) {
+            (NotionDecision::Copy, ImportKind::DataSource) => {
+                report.copy += 1;
+                report.databases += 1;
+                report.database_rows += rows;
+            }
+            (NotionDecision::Copy, _) => {
+                report.copy += 1;
+                report.documents += 1;
+            }
+            (NotionDecision::Tasks, _) => {
+                report.tasks += 1;
+                report.task_rows += rows;
+            }
+            (NotionDecision::Skip, _) => report.skip += 1,
+            (NotionDecision::Hand, _) => report.hand += 1,
         }
         let reported = || NotionReportItem {
             import_id: row.id,

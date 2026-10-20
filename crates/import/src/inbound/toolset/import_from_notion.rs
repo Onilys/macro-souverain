@@ -128,10 +128,7 @@ fn scope(roots: &[String]) -> ToolResult<ImportScope> {
 
 /// What the model should know and do next.
 pub(super) fn message(action: NotionImportAction, report: &NotionImportReport) -> String {
-    let planned = format!(
-        "{} pages and {} databases: {} to copy, {} task lists to turn into tasks, {} to skip, {} to handle by hand",
-        report.pages, report.data_sources, report.copy, report.tasks, report.skip, report.hand
-    );
+    let planned = planned_summary(report);
     let hand = if report.hand_items.is_empty() {
         String::new()
     } else {
@@ -155,7 +152,7 @@ pub(super) fn message(action: NotionImportAction, report: &NotionImportReport) -
         ),
         (_, Some(RunStatus::Running)) => "Still reading the Notion workspace and planning; this continues in the background. Check again with action `status` in a minute.".to_string(),
         (_, Some(RunStatus::Ready)) if report.review_id.is_none() => format!(
-            "The plan is ready: {planned}. Present it to the user now with PresentReview (kind \"import\", a short title such as \"Import from Notion\", drafts [{{\"source\":\"notion\"}}]). Nothing is written until they approve it.{hand}"
+            "The plan is ready: {planned}. Tell the user these numbers as they are, then present the plan now with PresentReview (kind \"import\", a short title such as \"Import from Notion\", drafts [{{\"source\":\"notion\"}}]). Nothing is written until they approve it.{hand}"
         ),
         (_, Some(RunStatus::Ready)) => format!(
             "The plan ({planned}) is presented and waiting for the user's approval.{hand}"
@@ -182,4 +179,34 @@ pub(super) fn message(action: NotionImportAction, report: &NotionImportReport) -
             "No Notion import has been planned yet. Use action `plan`.".to_string()
         }
     }
+}
+
+/// The plan in exact numbers, so the agent repeats what will really be
+/// written rather than a count of top-level objects.
+pub(super) fn planned_summary(report: &NotionImportReport) -> String {
+    let mut parts = Vec::new();
+    if report.documents > 0 {
+        parts.push(format!("{} pages as documents", report.documents));
+    }
+    if report.databases > 0 {
+        parts.push(format!(
+            "{} databases with {} rows",
+            report.databases, report.database_rows
+        ));
+    }
+    if report.tasks > 0 {
+        parts.push(format!(
+            "{} task lists as {} tasks",
+            report.tasks, report.task_rows
+        ));
+    }
+    let writes = if parts.is_empty() {
+        "nothing".to_string()
+    } else {
+        parts.join(", ")
+    };
+    format!(
+        "of the {} pages and {} databases Notion shared, it imports {writes}; {} skipped, {} to handle by hand",
+        report.pages, report.data_sources, report.skip, report.hand
+    )
 }

@@ -3,10 +3,12 @@ import { Card } from '@ui/components/Card';
 import { ConfirmDialog } from '@ui/components/ConfirmDialog';
 import { createMemo, createSignal, For, type JSX, Show } from 'solid-js';
 import { match } from 'ts-pattern';
-import type {
-  ImportPlanNode,
-  ImportProgress,
-  ImportReviewPhase,
+import {
+  type ImportPlanNode,
+  type ImportProgress,
+  type ImportReviewPhase,
+  type ImportVolume,
+  volumeLabel,
 } from '../core/import-plan';
 import { ImportPlanRow } from './import-plan-row';
 
@@ -128,6 +130,7 @@ export function ImportPlanCard(props: {
   working: boolean;
   stopping: boolean;
   count: number;
+  volume: ImportVolume;
   alert?: string;
   onReload?: () => void;
   onToggleExpanded: (id: string) => void;
@@ -199,8 +202,8 @@ export function ImportPlanCard(props: {
       </Show>
       <Show when={failures().length > 0}>
         <section aria-label="Failures" class="flex flex-col gap-1">
-          <h4 class="text-xs font-medium text-failure">
-            {plural(failures().length, 'object')} failed
+          <h4 class="text-xs font-medium text-ink-muted">
+            {plural(failures().length, 'object')} couldn't be imported
           </h4>
           <ul class="flex flex-col gap-0.5">
             <For each={failures()}>
@@ -230,15 +233,15 @@ export function ImportPlanCard(props: {
             disabled={!props.editable || props.count === 0}
             onClick={() => setConfirming(true)}
           >
-            Import {plural(props.count, 'item')}
+            Import {volumeLabel(props.volume)}
           </Button>
         </footer>
         <ConfirmDialog
           open={confirming()}
           onOpenChange={setConfirming}
-          title={`Import ${plural(props.count, 'item')}?`}
+          title={`Import ${volumeLabel(props.volume)}?`}
           body="Pages become documents and databases are copied into Macro. You can stop the import while it runs; anything already imported stays."
-          confirmLabel={`Import ${plural(props.count, 'item')}`}
+          confirmLabel="Import"
           onConfirm={() => {
             if (!confirming()) return;
             setConfirming(false);

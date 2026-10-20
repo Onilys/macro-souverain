@@ -15,8 +15,7 @@ fn row(
         decision,
         reason: (decision == NotionDecision::Hand).then(|| "Mixed records".to_string()),
         path: Vec::new(),
-        rows: None,
-        more_rows: false,
+        rows: (kind == ImportKind::DataSource).then_some(10),
         task_fields: None,
     };
     ImportEntity {
@@ -117,6 +116,17 @@ fn the_report_counts_the_current_plan_and_lists_what_needs_attention() {
         (2, 1, 1, 1)
     );
     assert_eq!((report.imported, report.writing, report.waiting), (1, 1, 1));
+    // Exact numbers: Bugs (tasks, 10 rows); CRM is by hand, so no database
+    // is copied.
+    assert_eq!(
+        (
+            report.documents,
+            report.databases,
+            report.database_rows,
+            report.task_rows
+        ),
+        (2, 0, 0, 10)
+    );
     assert_eq!(report.hand_items.len(), 1);
     assert_eq!(report.hand_items[0].title, "CRM");
     assert_eq!(

@@ -64,6 +64,7 @@ export function ImportReview(props: {
         working={review.working()}
         stopping={review.stopping()}
         count={review.count()}
+        volume={review.volume()}
         alert={alert()}
         onReload={
           review.error() || review.stale()

@@ -139,7 +139,6 @@ impl PlanTree {
                         .table
                         .as_ref()
                         .map(|table| u32::try_from(table.rows).unwrap_or(u32::MAX)),
-                    more_rows: node.table.as_ref().is_some_and(|table| table.more_rows),
                     task_fields: (verdict.decision == NotionDecision::Tasks)
                         .then_some(verdict.task_fields)
                         .flatten(),
@@ -184,7 +183,6 @@ fn data_source_node(summary: &DataSourceSummary) -> Node {
         table: Some(TriageTable {
             columns,
             rows: summary.row_count,
-            more_rows: summary.more_rows,
             sample_titles: summary.sample_titles.clone(),
         }),
     }

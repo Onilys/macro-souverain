@@ -390,6 +390,7 @@ struct WirePerson {
 #[derive(Deserialize)]
 pub(super) struct WireError {
     pub code: Option<String>,
+    pub message: Option<String>,
 }
 
 impl From<WireParent> for NotionParent {

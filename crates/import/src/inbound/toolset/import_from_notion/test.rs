@@ -10,6 +10,10 @@ fn a_ready_plan_tells_the_agent_to_present_it_for_review() {
         tasks: 1,
         skip: 3,
         hand: 1,
+        documents: 36,
+        databases: 2,
+        database_rows: 412,
+        task_rows: 33,
         hand_items: vec![crate::domain::models::NotionReportItem {
             import_id: uuid::Uuid::nil(),
             title: "CRM".to_string(),
@@ -22,7 +26,7 @@ fn a_ready_plan_tells_the_agent_to_present_it_for_review() {
 
     assert_eq!(
         message(NotionImportAction::Plan, &report),
-        "The plan is ready: 40 pages and 3 databases: 38 to copy, 1 task lists to turn into tasks, 3 to skip, 1 to handle by hand. Present it to the user now with PresentReview (kind \"import\", a short title such as \"Import from Notion\", drafts [{\"source\":\"notion\"}]). Nothing is written until they approve it. Objects to handle by hand (with your own tools, after the import): \"CRM\" (Mixed records)."
+        "The plan is ready: of the 40 pages and 3 databases Notion shared, it imports 36 pages as documents, 2 databases with 412 rows, 1 task lists as 33 tasks; 3 skipped, 1 to handle by hand. Tell the user these numbers as they are, then present the plan now with PresentReview (kind \"import\", a short title such as \"Import from Notion\", drafts [{\"source\":\"notion\"}]). Nothing is written until they approve it. Objects to handle by hand (with your own tools, after the import): \"CRM\" (Mixed records)."
     );
 }
 

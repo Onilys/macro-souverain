@@ -5,11 +5,13 @@ import {
   type ImportProgress,
   importCount,
   importReviewPhase,
+  importVolume,
   initiallyCollapsed,
   planCounts,
   planSummary,
   setExcluded,
   visiblePlanNodes,
+  volumeLabel,
 } from './import-plan';
 
 const entries: ImportPlanEntry[] = [
@@ -21,7 +23,6 @@ const entries: ImportPlanEntry[] = [
     decision: 'copy',
     reason: null,
     rows: null,
-    moreRows: false,
     status: 'staged',
     error: null,
   },
@@ -33,7 +34,6 @@ const entries: ImportPlanEntry[] = [
     decision: 'tasks',
     reason: 'Rows have a status and an owner',
     rows: 40,
-    moreRows: true,
     status: 'staged',
     error: null,
   },
@@ -45,7 +45,6 @@ const entries: ImportPlanEntry[] = [
     decision: 'copy',
     reason: null,
     rows: null,
-    moreRows: false,
     status: 'staged',
     error: null,
   },
@@ -57,7 +56,6 @@ const entries: ImportPlanEntry[] = [
     decision: 'skip',
     reason: 'Empty page',
     rows: null,
-    moreRows: false,
     status: 'staged',
     error: null,
   },
@@ -69,7 +67,6 @@ const entries: ImportPlanEntry[] = [
     decision: 'hand',
     reason: 'Holds credentials',
     rows: null,
-    moreRows: false,
     status: 'staged',
     error: null,
   },
@@ -133,9 +130,38 @@ describe('setExcluded', () => {
 
 describe('planSummary', () => {
   it('reads the plan size and decisions', () => {
-    expect(planSummary(planCounts(entries))).toBe(
-      '4 pages · 1 database — 2 to copy, 1 as tasks, 1 skipped, 1 needs you'
+    expect(planSummary(planCounts(entries), importVolume(entries, []))).toBe(
+      'Notion shared 4 pages and 1 database — importing 2 pages, 40 tasks · 1 skipped, 1 needs you'
     );
+  });
+});
+
+describe('importVolume', () => {
+  it('counts every row a database or task list writes, without what was left out', () => {
+    const database: ImportPlanEntry = {
+      id: 'bugs',
+      parentId: null,
+      kind: 'database',
+      title: 'Bugs',
+      decision: 'copy',
+      reason: null,
+      rows: 405,
+      status: 'staged',
+      error: null,
+    };
+    const all = [...entries, database];
+    expect(importVolume(all, [])).toEqual({
+      documents: 2,
+      databases: 1,
+      rows: 405,
+      taskLists: 1,
+      tasks: 40,
+    });
+    expect(volumeLabel(importVolume(all, []))).toBe(
+      '2 pages, 1 database (405 rows), 40 tasks'
+    );
+    expect(volumeLabel(importVolume(all, ['roadmap', 'bugs']))).toBe('2 pages');
+    expect(volumeLabel(importVolume([], []))).toBe('nothing');
   });
 });
 
