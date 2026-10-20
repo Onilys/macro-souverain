@@ -10,12 +10,17 @@ import type { SoupState } from '../../next-soup/create-soup-state';
 import type { QueryStore } from '../../next-soup/filters/filter-store/query-store';
 import type { CrmRecordRef, CrmRecordSection } from '../core/record';
 
+/** A new `seek` asks to show the same message again. */
+export type CrmCommentTarget = { commentId: string; seek: string };
+
 /** Records opened inside the workspace; the route holds them. */
 export type CrmRecordNavigation = {
   /** Records opened from the list, oldest first; empty on the list. */
   records: Accessor<readonly CrmRecordRef[]>;
   /** The shown record's tab; none is its Overview. */
   section: Accessor<CrmRecordSection | undefined>;
+  /** A Discussion message of the shown record to scroll to. */
+  commentTarget: Accessor<CrmCommentTarget | undefined>;
   /** Shows the last record of `trail` at its Overview. */
   open(trail: readonly CrmRecordRef[]): void;
   setSection(section: CrmRecordSection): void;

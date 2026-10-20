@@ -76,6 +76,14 @@ With a composer open, save a changed signature or reply-signature preference and
 verify its preview updates. Once the account refresh completes, reopen a composer
 offline and confirm it uses the saved settings.
 
+### Notification permission prompt
+
+After onboarding, an eligible desktop app user sees **Enable Desktop
+Notifications**. Select **Enable** to request permission through the native
+notification provider; macOS uses its system permission dialog. The web prompt
+continues to say **Enable Browser Notifications** and uses browser permissions.
+Select **Hide** to dismiss the prompt.
+
 ### Notification snoozes
 
 Open **Settings → Notifications** to see **Snoozed items** and their local resume
@@ -543,3 +551,17 @@ OAuth token.
 The Codex section and its auth/config requests were exercised in Chromium with
 mocked backend responses on 2026-09-15. Provider login and a full deployed Macro
 session were not exercised by that UI check.
+
+### GitHub reconnect recovery
+
+When GitHub reports that reauthentication is required, reconnect starts OAuth
+without first deleting the current Macro link. Cancelling OAuth preserves it.
+Selecting a different GitHub account fails without changing the connection; use
+Disconnect first to switch accounts.
+A successful callback refreshes the grant; if its old FusionAuth identity was
+deleted, all Macro accounts sharing that GitHub account move to the new grant.
+Verify reconnect both as the original linker and as another sharing account,
+and verify an upstream outage leaves the current links intact and reports an error.
+The Macro link survives a failed reconnect, but replacing the FusionAuth grant
+is not atomic. A crash or failed restoration may leave it missing; retry OAuth
+to recreate it after the provider recovers.

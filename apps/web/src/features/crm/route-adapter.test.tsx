@@ -42,12 +42,15 @@ let route: CrmRoute;
 function Customers() {
   route = createCrmRoute();
   return (
-    <p data-testid="customers">
-      {`tab:${route.tab()} section:${route.section() ?? '-'} records:${route
-        .records()
-        .map((record) => `${record.type}:${record.id}:${record.name}`)
-        .join(',')}`}
-    </p>
+    <>
+      <p data-testid="customers">
+        {`tab:${route.tab()} section:${route.section() ?? '-'} records:${route
+          .records()
+          .map((record) => `${record.type}:${record.id}:${record.name}`)
+          .join(',')}`}
+      </p>
+      <p data-testid="comment">{route.commentTarget()?.commentId ?? '-'}</p>
+    </>
   );
 }
 
@@ -191,4 +194,19 @@ it('shows another list in place of an open record', async () => {
   await go(-1);
   await shows('tab:active section:- records:company:acme:Acme');
   expect(url()).toBe('/companies/company/acme');
+});
+
+it('shows a linked Discussion message only on the record it was asked for', async () => {
+  const { url, shows } = renderCustomers(
+    '/companies/company/acme?s0.crm-record.commentId=m1&s0.crm-record.seek=s1'
+  );
+  await shows('tab:active section:- records:company:acme:');
+  expect(screen.getByTestId('comment').textContent).toBe('m1');
+
+  route.open([acme, maya]);
+  await shows(
+    'tab:active section:- records:company:acme:Acme,contact:maya:Maya'
+  );
+  expect(screen.getByTestId('comment').textContent).toBe('-');
+  expect(url()).toBe('/companies/contact/maya');
 });

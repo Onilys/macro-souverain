@@ -723,6 +723,7 @@ dependencies = [
  "macro_db_migrator",
  "macro_event_broker",
  "macro_event_topics",
+ "macro_tower_layers",
  "macro_user_id",
  "macro_uuid",
  "messages",
@@ -1030,6 +1031,7 @@ dependencies = [
  "channels",
  "chat",
  "chrono",
+ "clap",
  "cognition",
  "collab_surface",
  "connection",
@@ -1564,13 +1566,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "129397200fe83088e8a68407a8e2b1f826cf0086b21ccdb866a722c8bcd3a94f"
 dependencies = [
  "askama_parser",
- "basic-toml",
  "memchr",
  "proc-macro2",
  "quote",
  "rustc-hash 2.1.2",
- "serde",
- "serde_derive",
  "syn 2.0.117",
 ]
 
@@ -1581,8 +1580,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6ab5630b3d5eaf232620167977f95eb51f3432fc76852328774afbd242d4358"
 dependencies = [
  "memchr",
- "serde",
- "serde_derive",
  "winnow 0.7.15",
 ]
 
@@ -3060,15 +3057,6 @@ name = "base64ct"
 version = "1.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
-
-[[package]]
-name = "basic-toml"
-version = "0.1.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba62675e8242a4c4e806d12f11d136e626e6c8361d6b829310732241652a178a"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "bcrypt-pbkdf"
@@ -5780,6 +5768,7 @@ dependencies = [
  "strum 0.27.2",
  "thiserror 2.0.18",
  "tokio",
+ "utoipa",
  "uuid",
  "wasm-bindgen",
 ]
@@ -5866,6 +5855,7 @@ dependencies = [
  "ai_toolset",
  "anyhow",
  "async-trait",
+ "axum",
  "bot_id",
  "chrono",
  "contacts",
@@ -5875,7 +5865,9 @@ dependencies = [
  "entity_access",
  "filter_ast",
  "item_filters",
+ "macro_authorization",
  "macro_user_id",
+ "model-error-response",
  "model_owner",
  "models_databases",
  "models_grouping",
@@ -5889,7 +5881,9 @@ dependencies = [
  "soup",
  "thiserror 2.0.18",
  "tokio",
+ "tower 0.5.3",
  "tracing",
+ "utoipa",
  "uuid",
  "workspace-hack",
 ]
@@ -6493,6 +6487,7 @@ dependencies = [
  "crm",
  "database_webhooks",
  "databases",
+ "databases_sql",
  "dictation",
  "document_sub_type",
  "documents",
@@ -8770,6 +8765,7 @@ dependencies = [
  "urlencoding",
  "utoipa",
  "uuid",
+ "wiremock",
  "workspace-hack",
 ]
 

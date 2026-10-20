@@ -41,6 +41,10 @@ between the sandbox and the rest of the product.
 - Add a trigger source: `crates/agent_trigger` (context) →
   `src/domain/trigger_router.rs` → `src/inbound/kafka.rs`.
 
+External runtimes receive the session's configured MCP selection when binding,
+including enabled owner connections and custom servers under `OwnerConnections`.
+Use `external_mcp_servers` to preserve the host-reachable egress URL override.
+
 ## Checks
 
 - `cargo test -p agent_harness` (`SQLX_OFFLINE` unset).

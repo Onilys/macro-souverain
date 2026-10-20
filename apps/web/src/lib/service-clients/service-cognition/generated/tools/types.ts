@@ -38,12 +38,12 @@ export type ToolPropertyTargetEntityType =
   | 'document'
   | 'initiative'
   | 'project'
-  | 'chat'
   | 'thread'
   | 'channel'
   | 'call'
   | 'user'
-  | 'company';
+  | 'company'
+  | 'chat';
 /**
  * Structured output from a deterministic workbook operation.
  */
@@ -249,15 +249,18 @@ export type BotOwnerSummary =
  * offered to the model.
  */
 export type SearchMatchType = 'partial' | 'exact';
-export type UnifiedSearchIndex =
+/**
+ * Searchable entities exposed to agents. Legacy conversations are not tool targets.
+ */
+export type SearchEntityType =
   | 'agent_sessions'
   | 'documents'
-  | 'chats'
   | 'emails'
   | 'channels'
   | 'projects'
   | 'call_records'
-  | 'calendar_events';
+  | 'calendar_events'
+  | 'chats';
 /**
  * Which tag set a tag belongs to, relative to the caller.
  */
@@ -269,18 +272,15 @@ export type TagMatch = 'any' | 'all';
 /**
  * A search result annotated with the caller-visible tags on the item.
  */
-export type TaggedSearchResult = {
+export type TaggedSessionAwareSearchResult = {
   /**
    * Tags on this item visible to the user.
    */
   tags?: AppliedTag[];
-} & TaggedSearchResult1;
-export type TaggedSearchResult1 =
+} & TaggedSessionAwareSearchResult1;
+export type TaggedSessionAwareSearchResult1 =
   | (DocumentSearchResponseItemWithMetadata & {
       type: 'document';
-    })
-  | (ChatSearchResponseItemWithMetadata & {
-      type: 'chat';
     })
   | (EmailSearchResponseItemWithMetadata & {
       type: 'email';
@@ -795,6 +795,37 @@ export type BookingEventTypeId = string;
  * The supported meaning of qualification at the booking step.
  */
 export type Qualification = 'advisory' | 'required';
+export type SessionAwareSearchResult =
+  | (DocumentSearchResponseItemWithMetadata & {
+      type: 'document';
+    })
+  | (ChatSearchResponseItemWithMetadata & {
+      type: 'chat';
+    })
+  | (EmailSearchResponseItemWithMetadata & {
+      type: 'email';
+    })
+  | (ChannelMessageSearchResponseItem & {
+      type: 'channelMessage';
+    })
+  | (ChannelNameSearchResponseItem & {
+      type: 'channel';
+    })
+  | (ProjectSearchResponseItemWithMetadata & {
+      type: 'project';
+    })
+  | (CallRecordSearchResponseItemWithMetadata & {
+      type: 'call';
+    })
+  | (CrmCompanySearchResponseItem & {
+      type: 'company';
+    })
+  | (CalendarEventSearchResponseItemWithMetadata & {
+      type: 'calendarEvent';
+    })
+  | (AgentSessionSearchResponseItem & {
+      type: 'agentSession';
+    });
 /**
  * Outcome describes actual completion, including uncertain interrupted work.
  */
@@ -3577,13 +3608,14 @@ export type ConferenceProvider = 'microsoft_teams' | 'google_meet' | 'other';
 export type ItemType =
   | 'calendar_event'
   | 'document'
-  | 'ai_chat'
+  | 'agent_session'
   | 'project'
   | 'email'
   | 'channel'
   | 'channel_thread'
   | 'call'
-  | 'foreign_entity';
+  | 'foreign_entity'
+  | 'ai_chat';
 /**
  * Sort order for the list entities AI tool.
  */
@@ -3659,18 +3691,38 @@ export type EntityItem =
     }
   | {
       /**
-       * Chat id.
+       * Session id for ReadAgentSession and session actions.
        */
       id: string;
       /**
-       * Chat name.
+       * Session title.
        */
       name: string;
       /**
-       * Tags on the chat visible to the user.
+       * Owner's principal id.
        */
-      tags?: AppliedTag[];
-      type: 'aiChat';
+      ownerId: string;
+      /**
+       * Agent persona id.
+       */
+      botId: string;
+      /**
+       * Whether the session is archived.
+       */
+      isArchived: boolean;
+      /**
+       * Runtime connection status.
+       */
+      status: string;
+      /**
+       * Latest turn state, when available.
+       */
+      turnState?: string | null;
+      /**
+       * Selected repository, when present.
+       */
+      repoUrl?: string | null;
+      type: 'agentSession';
     }
   | {
       /**
@@ -3783,6 +3835,12 @@ export type EntityItem =
         [k: string]: unknown;
       };
       type: 'foreignEntity';
+    }
+  | {
+      type: 'aiChat';
+      id: string;
+      name: string;
+      tags?: AppliedTag[];
     };
 /**
  * The caller's level on a form: view responds, edit changes questions and
@@ -3794,21 +3852,21 @@ export type FormAccess = 'view' | 'edit' | 'owner';
  */
 export type NotificationState = 'unseen' | 'seen' | 'done';
 /**
- * User-facing notification categories used for list filtering.
+ * Notification categories available to agents.
  */
-export type NotificationCategory =
+export type ToolNotificationCategory =
   | 'email'
   | 'message'
   | 'channel'
   | 'document'
   | 'project'
-  | 'chat'
   | 'call'
   | 'task'
   | 'github'
   | 'reminder'
   | 'calendar'
-  | 'agent';
+  | 'agent'
+  | 'chat';
 /**
  * Canonical entity types accepted by the notification-listing tool.
  *
@@ -3816,8 +3874,8 @@ export type NotificationCategory =
  * depend on `schemars`, while AI tool inputs require [`JsonSchema`].
  */
 export type NotificationEntityType =
+  | 'agent_session'
   | 'user'
-  | 'chat'
   | 'channel'
   | 'channel_message'
   | 'document'
@@ -3832,7 +3890,43 @@ export type NotificationEntityType =
   | 'crm_contact'
   | 'reminder'
   | 'skill'
-  | 'scheduled_action';
+  | 'scheduled_action'
+  | 'chat';
+/**
+ * Session lifecycle actions available to agents. Human approvals are deliberately absent.
+ */
+export type SessionAction =
+  | {
+      /**
+       * New display name.
+       */
+      name: string;
+      type: 'rename';
+    }
+  | {
+      /**
+       * Whether the session should be archived.
+       */
+      archived: boolean;
+      type: 'archive';
+    }
+  | {
+      type: 'delete';
+    }
+  | {
+      /**
+       * Self-contained message to the agent.
+       */
+      prompt: string;
+      type: 'prompt';
+    }
+  | {
+      type: 'stop';
+    };
+/**
+ * Delivery state of an accepted control.
+ */
+export type SessionControlStatus = 'sent' | 'queued';
 /**
  * Channel-access change to apply to a bot.
  */
@@ -3844,11 +3938,11 @@ export type ParticipantAction = 'add' | 'remove';
 /**
  * The kind of entity to move.
  */
-export type MoveableEntityType = 'document' | 'chat' | 'email' | 'project';
+export type MoveableEntityType = 'document' | 'email' | 'project' | 'chat';
 /**
  * The kind of item to move to the trash.
  */
-export type TrashableEntityType = 'document' | 'chat' | 'project';
+export type TrashableEntityType = 'document' | 'project' | 'chat';
 /**
  * What to do with an item's notifications.
  */
@@ -4111,6 +4205,18 @@ export type ToolActivityAction =
       type: 'unknown';
     };
 /**
+ * The two sides of a session conversation.
+ */
+export type SessionMessageRole = 'user' | 'agent';
+/**
+ * Who an item's share link admits.
+ */
+export type SessionLinkScope = 'off' | 'public' | 'team';
+/**
+ * Ordered from least to most access top -> bottom
+ */
+export type AccessLevel = 'view' | 'comment' | 'edit' | 'owner';
+/**
  * Position of a channel message.
  */
 export type ToolMessageKind = 'topLevelMessage' | 'threadReply';
@@ -4369,13 +4475,9 @@ export type DocumentContentLocation =
   | 'converted_pdf'
   | 'unknown';
 /**
- * Ordered from least to most access top -> bottom
- */
-export type AccessLevel = 'view' | 'comment' | 'edit' | 'owner';
-/**
  * The kind of an item inside a project.
  */
-export type ProjectItemType = 'document' | 'chat' | 'project';
+export type ProjectItemType = 'document' | 'project' | 'chat';
 /**
  * The kind of item to rename.
  */
@@ -4481,25 +4583,25 @@ export type ToolEntityType =
   | 'task'
   | 'initiative'
   | 'project'
-  | 'chat'
   | 'thread'
   | 'channel'
   | 'call'
   | 'user'
   | 'company'
-  | 'contact';
+  | 'contact'
+  | 'chat';
 /**
  * The kinds of item a user can favorite.
  */
 export type FavoritableEntityType =
   | 'document'
   | 'project'
-  | 'chat'
   | 'channel'
   | 'email'
   | 'call'
   | 'crm_company'
-  | 'crm_contact';
+  | 'crm_contact'
+  | 'chat';
 /**
  * An explicit channel grant delta; omitted channels stay unchanged.
  */
@@ -4536,13 +4638,13 @@ export type ToolSenderPolicy = 'signal' | 'noise' | 'block';
 export type ChannelShareEntityType =
   | 'calendar_event'
   | 'document'
-  | 'chat'
   | 'project'
   | 'database'
   | 'form'
   | 'call'
   | 'thread'
-  | 'agent_session';
+  | 'agent_session'
+  | 'chat';
 /**
  * Content of a text editor code execution response - either a result or an error
  */
@@ -4559,6 +4661,10 @@ export type TextEditorCodeExecutionContent =
   | (TextEditorCodeExecutionToolError & {
       type: 'text_editor_code_execution_tool_result_error';
     });
+/**
+ * A share can be disabled or grant a non-owner permission.
+ */
+export type SessionShareAccess = 'off' | 'view' | 'comment' | 'edit';
 /**
  * How much of a recurring series an update applies to.
  */
@@ -4601,7 +4707,7 @@ export type RoutineChange =
 /**
  * The kind of item whose sharing changes.
  */
-export type SharingEntityType = 'document' | 'chat' | 'project';
+export type SharingEntityType = 'document' | 'project' | 'chat';
 /**
  * Who an item's share link admits.
  */
@@ -5674,18 +5780,18 @@ export interface ConfigureBotResponse {
   summary: string;
 }
 /**
- * Search items by their content: document body text; email subject/body/sender/recipient/cc/bcc and the display names on those addresses; chat messages; call transcripts. This is keyword search, not semantic search: queries only match literal words/tokens, prefixes, or exact quoted terms that appear in the indexed content. Use this for targeted keyword/content lookup, not for activity-summary questions like "what happened today", "what's going on", "catch me up", or "what happened in standup today"; those should start with ListEntities using time/type/channel filters. Whitespace-separated terms are ANDed. For documents and emails, every term must match somewhere in the document — different terms can appear in different chunks/pages or different fields. For documents and emails specifically, each single-word term is matched as a prefix (so `scri` matches `script`); for emails the prefix expansion also runs against the local-part of address fields. For chats, channels, and call transcripts the whole query is matched as a single adjacent phrase prefix — so pass 1-3 targeted keywords drawn from words that would literally appear in the content, not the user's natural-language description; long phrases will not match. Matching defaults to prefix; set matchType to 'exact' to match whole tokens/phrases with no prefix expansion (e.g. an exact word, identifier, or full email address). Wrap a multi-word phrase in double quotes to keep it together as one adjacent phrase. If the user's request combines a person with a topic, run separate searches rather than one combined query. Leave entityTypes empty by default; only filter when the user explicitly scopes to a type. Results for documents, emails, AI chats, projects, and call records include the tags visible to the user as {label, scope} pairs; to restrict a search to tagged items, pass the tag labels in the tags argument (ListTags shows which tags exist).
+ * Search items by their content: document body text; email subject/body/sender/recipient/cc/bcc and the display names on those addresses; agent session messages; call transcripts. This is keyword search, not semantic search: queries only match literal words/tokens, prefixes, or exact quoted terms that appear in the indexed content. Use this for targeted keyword/content lookup, not for activity-summary questions like "what happened today", "what's going on", "catch me up", or "what happened in standup today"; those should start with ListEntities using time/type/channel filters. Whitespace-separated terms are ANDed. For documents and emails, every term must match somewhere in the document — different terms can appear in different chunks/pages or different fields. For documents and emails specifically, each single-word term is matched as a prefix (so `scri` matches `script`); for emails the prefix expansion also runs against the local-part of address fields. For agent sessions, channels, and call transcripts the whole query is matched as a single adjacent phrase prefix — so pass 1-3 targeted keywords drawn from words that would literally appear in the content, not the user's natural-language description; long phrases will not match. Matching defaults to prefix; set matchType to 'exact' to match whole tokens/phrases with no prefix expansion (e.g. an exact word, identifier, or full email address). Wrap a multi-word phrase in double quotes to keep it together as one adjacent phrase. If the user's request combines a person with a topic, run separate searches rather than one combined query. Leave entityTypes empty by default; only filter when the user explicitly scopes to a type. Results for documents, emails, projects, and call records include the tags visible to the user as {label, scope} pairs; to restrict a search to tagged items, pass the tag labels in the tags argument (ListTags shows which tags exist).
  */
 export interface ContentSearch {
   /**
-   * The text to search. Pass 1-3 keywords drawn from words that would literally appear in the content, not the user's natural-language description. Whitespace-separated terms are ANDed. For documents, every term must appear somewhere in the document (different chunks/pages are fine). For emails each term is matched across subject/body/sender/recipient. For chats/channels/calls the whole query is matched as a single adjacent phrase prefix, so long phrases will not match. Wrap a multi-word phrase in double quotes to match it as one phrase. Use matchType 'exact' for whole-token (or full email address) matching instead of prefix.
+   * The text to search. Pass 1-3 keywords drawn from words that would literally appear in the content, not the user's natural-language description. Whitespace-separated terms are ANDed. For documents, every term must appear somewhere in the document (different chunks/pages are fine). For emails each term is matched across subject/body/sender/recipient. For sessions/channels/calls the whole query is matched as a single adjacent phrase prefix, so long phrases will not match. Wrap a multi-word phrase in double quotes to match it as one phrase. Use matchType 'exact' for whole-token (or full email address) matching instead of prefix.
    */
   query: string;
   matchType?: SearchMatchType & string;
   /**
    * Which types of items to search. Leave empty (the default) to search all types — this is almost always what you want. Only set this when the user's request clearly targets one or more specific types. Examples: ['documents'], ['emails', 'documents'], ['channels'], ['call_records']. Projects and calendar events carry no indexed content, so they never match here — search those by name with NameSearch instead.
    */
-  entityTypes?: UnifiedSearchIndex[];
+  entityTypes?: SearchEntityType[];
   /**
    * Search only the transcripts of these agent sessions, by id, and nothing else. Use it with your own session id to find the exact words of something said earlier in your conversation, including parts that were summarized to keep it within your context. Omit to search every type.
    */
@@ -5695,7 +5801,7 @@ export interface ContentSearch {
    */
   inbox?: string | null;
   /**
-   * Restrict results to items carrying the given tags — any of them by default, every one of them with tagsMatch="all". Each entry names a tag by its label, matched case-insensitively against the user's own tags; only set scope ("personal" or "team") when the user distinguishes between their personal and team tags. An unknown label fails with the list of available tags — call ListTags first when unsure what tags exist. Only taggable items (documents, emails, AI chats, projects, call records) can match, so channels are dropped while a tag filter is active.
+   * Restrict results to items carrying the given tags — any of them by default, every one of them with tagsMatch="all". Each entry names a tag by its label, matched case-insensitively against the user's own tags; only set scope ("personal" or "team") when the user distinguishes between their personal and team tags. An unknown label fails with the list of available tags — call ListTags first when unsure what tags exist. Only taggable items (documents, emails, projects, call records) can match, so channels are dropped while a tag filter is active.
    */
   tags?: TagFilter[] | null;
   tagsMatch?: TagMatch;
@@ -5714,7 +5820,7 @@ export interface TagFilter {
   scope?: TagScope | null;
 }
 export interface SearchToolResponse {
-  results: TaggedSearchResult[];
+  results: TaggedSessionAwareSearchResult[];
 }
 /**
  * A tag applied to an item, resolved to its human-readable label.
@@ -5826,68 +5932,6 @@ export interface SearchHighlight {
    * The highlight match on the bcc (email only)
    */
   bcc?: string[];
-}
-/**
- * ChatSearchResponse object with channel metadata we fetch from macrodb. we don't store these
- * timestamps in opensearch as they would require us to update each chat message record for the chat
- * every time the chat updates (specifically for updated_at and viewed_at)
- */
-export interface ChatSearchResponseItemWithMetadata {
-  /**
-   * Metadata from the database. None if the chat doesn't exist in the database.
-   */
-  metadata?: ChatMetadata | null;
-  /**
-   * Standardized fields that all item types will share.
-   * These field names are being aligned across all item types
-   * for consistency in our data model.
-   */
-  id: string;
-  name: string;
-  owner_id: string;
-  /**
-   * The id of the chat
-   */
-  chat_id: string;
-  /**
-   * The id of the creator of the chat
-   */
-  user_id: string;
-  /**
-   * The search results for the chat
-   * This may be empty if the search result match was on the chat title only
-   */
-  chat_search_results: ChatMessageSearchResult[];
-}
-/**
- * Metadata for a chat fetched from the database
- */
-export interface ChatMetadata {
-  created_at: string;
-  updated_at: string;
-  viewed_at?: string | null;
-  project_id?: string | null;
-  deleted_at?: string | null;
-}
-/**
- * A chat match for a given message id
- */
-export interface ChatMessageSearchResult {
-  /**
-   * The chat message id for the chat
-   * This is only present if the search match was on the chat message content
-   */
-  chat_message_id?: string | null;
-  /**
-   * The role of the chat message
-   * This is only present if the search match was on the chat message content
-   */
-  role?: string | null;
-  highlight: SearchHighlight;
-  /**
-   * The score of the result
-   */
-  score?: number | null;
 }
 /**
  * EmailSearchResponseItem object with email metadata we fetch from email service. we don't store these
@@ -6378,6 +6422,36 @@ export interface SearchGotoAgentSession {
    */
   message_turn: number;
   author: AgentSessionAuthor;
+}
+/**
+ * Start a new session with a coding or chat agent from ListAgents. Provide the agent botId and a self-contained initial prompt. The new session does not inherit this conversation. Returns its session ID after the first prompt is accepted, not completed work. Use ManageAgentSession to continue an existing session. Create once; do not automatically retry after an uncertain failure.
+ */
+export interface CreateAgentSession {
+  /**
+   * Agent persona botId from ListAgents.
+   */
+  agentId: string;
+  /**
+   * Complete initial task and relevant context.
+   */
+  prompt: string;
+}
+/**
+ * A newly opened session whose first prompt has been accepted.
+ */
+export interface DispatchedCodingAgent {
+  /**
+   * Session to show in a magic chip.
+   */
+  agent_session_id: string;
+  /**
+   * Persona that owns the session's identity.
+   */
+  agent_id: string;
+  /**
+   * Persona display name.
+   */
+  agent_name: string;
 }
 /**
  * Create a reusable booking page, not a calendar meeting. First use ListBookingLinks to discover a suitable existing link or reuse availability. Supply a full draft with all seven weekdays (Sunday=0), IANA time zone, and real host IDs; personal links use the authenticated user and individual mode. For a team use a real team ID and collective or roundRobin mode. Set enabled only when the user wants to accept bookings. No invitations are sent by creating a link. Repeating an identical draft with the same slug reuses the saved link; a different draft at that slug conflicts. Create or edit booking links only after conversational confirmation, with no review card or interactive form. First explain all proposed details clearly in your reply: personal or team ownership, named hosts and who attends, meeting name, description, duration, location, Macro call, or Google Meet, time zone, weekly hours and date exceptions, link name, buffers, minimum notice, booking window, slot interval, daily limit, guest questions and whether bookings are enabled. Ask whether to proceed and stop. Only in a later turn after the user approves that specific proposal, call this tool with their approving reply quoted verbatim in userConfirmation. The original request is not confirmation; never invent or paraphrase approval. Never ask the user for teamId, host IDs, schedule IDs, revisions or JSON: discover IDs with ListBookingLinks and ListTeamMembers. Default to personal ownership unless a team is requested, and clarify ambiguous choices by name. After execution, share the saved URL with an <m-booking-link-mention> chip (profileId/slug/url from the result), not a bare URL. Returns actual saved IDs, revision, full draft and shareable URL. Manual approval must be false; guest booking requires a connected, synced writable calendar. For video, set macroCall (preferred) or googleMeet, never both. Booking a macroCall link creates the call and attaches its join link to the invitation.
@@ -7157,10 +7231,67 @@ export interface BookingTarget {
   profileId: BookingProfileId;
   eventTypeId: BookingEventTypeId;
 }
-export interface MessageWithAttachments {
-  content: string;
-  date: string;
-  attachmentIds: string[];
+/**
+ * ChatSearchResponse object with channel metadata we fetch from macrodb. we don't store these
+ * timestamps in opensearch as they would require us to update each chat message record for the chat
+ * every time the chat updates (specifically for updated_at and viewed_at)
+ */
+export interface ChatSearchResponseItemWithMetadata {
+  /**
+   * Metadata from the database. None if the chat doesn't exist in the database.
+   */
+  metadata?: ChatMetadata | null;
+  /**
+   * Standardized fields that all item types will share.
+   * These field names are being aligned across all item types
+   * for consistency in our data model.
+   */
+  id: string;
+  name: string;
+  owner_id: string;
+  /**
+   * The id of the chat
+   */
+  chat_id: string;
+  /**
+   * The id of the creator of the chat
+   */
+  user_id: string;
+  /**
+   * The search results for the chat
+   * This may be empty if the search result match was on the chat title only
+   */
+  chat_search_results: ChatMessageSearchResult[];
+}
+/**
+ * Metadata for a chat fetched from the database
+ */
+export interface ChatMetadata {
+  created_at: string;
+  updated_at: string;
+  viewed_at?: string | null;
+  project_id?: string | null;
+  deleted_at?: string | null;
+}
+/**
+ * A chat match for a given message id
+ */
+export interface ChatMessageSearchResult {
+  /**
+   * The chat message id for the chat
+   * This is only present if the search match was on the chat message content
+   */
+  chat_message_id?: string | null;
+  /**
+   * The role of the chat message
+   * This is only present if the search match was on the chat message content
+   */
+  role?: string | null;
+  highlight: SearchHighlight;
+  /**
+   * The score of the result
+   */
+  score?: number | null;
 }
 /**
  * Every mutation reports its result; no execution history is retained.
@@ -7680,7 +7811,7 @@ export interface ToolField {
   readOnly: boolean;
 }
 /**
- * Create a project — shown as a folder in the app UI. Documents, AI chats, email threads, and other projects can be placed inside it.
+ * Create a project — shown as a folder in the app UI. Documents, email threads, and other projects can be placed inside it.
  */
 export interface CreateProject {
   /**
@@ -7786,7 +7917,7 @@ export interface CreateSkillResponse {
   documentId: string;
 }
 /**
- * Create a new tag — a colored label the user can apply to documents, emails, tasks, AI chats, and projects — in the user's personal set or their team's shared set. The set is provisioned automatically the first time a tag is created. Tags are matched by label, so call ListTags first and avoid creating one whose label duplicates an existing tag in the same set. Returns the new tag's id and its set's propertyDefinitionId, which you can pass straight to SetEntityProperty (add_option_ids) to apply the tag to an item. Use this only to create a brand-new tag; to apply an existing tag to an item, use ListTags then SetEntityProperty instead.
+ * Create a new tag — a colored label the user can apply to documents, emails, tasks, and projects — in the user's personal set or their team's shared set. The set is provisioned automatically the first time a tag is created. Tags are matched by label, so call ListTags first and avoid creating one whose label duplicates an existing tag in the same set. Returns the new tag's id and its set's propertyDefinitionId, which you can pass straight to SetEntityProperty (add_option_ids) to apply the tag to an item. Use this only to create a brand-new tag; to apply an existing tag to an item, use ListTags then SetEntityProperty instead.
  */
 export interface CreateTag {
   /**
@@ -8319,23 +8450,6 @@ export interface DispatchCodingAgent {
   prompt: string;
 }
 /**
- * A newly opened session whose first prompt has been accepted.
- */
-export interface DispatchedCodingAgent {
-  /**
-   * Session to show in a magic chip.
-   */
-  agent_session_id: string;
-  /**
-   * Persona that owns the session's identity.
-   */
-  agent_id: string;
-  /**
-   * Persona display name.
-   */
-  agent_name: string;
-}
-/**
  * Present results to the user as a rich view. The `view` argument is a dynamic-UI view object (a title plus an ordered list of widgets) following the dynamic-UI schema provided to you. The view is rendered immediately in the chat; this tool returns as soon as it is dispatched.
  */
 export interface DisplayResults {
@@ -8350,7 +8464,7 @@ export interface DisplayResultsResponse {
   message: string;
 }
 /**
- * Make a copy of a document (including a task) or an AI chat, owned by the user, as the Duplicate action in the app does. Requires view access to the original. Returns the copy's id.
+ * Make a copy of a document (including a task), owned by the user, as the Duplicate action in the app does. Requires view access to the original. Returns the copy's id.
  */
 export interface DuplicateItem {
   entityType: DuplicableEntityType;
@@ -8359,7 +8473,7 @@ export interface DuplicateItem {
    */
   entityId: string;
   /**
-   * Name for the copy of a document. Omit to use "<original name> copy". AI chat copies always keep the original name.
+   * Name for the copy of a document. Omit to use "<original name> copy".
    */
   name?: string | null;
 }
@@ -10993,7 +11107,7 @@ export interface ToolTableSummary {
   sqlName: string;
 }
 /**
- * Browse the user's Macro workspace to see recent items they have access to. Returns Macro documents, AI conversations, projects, emails, chat channels, call records, and foreign entities. Use this to get an overview of what the user has been working on or to find items by type. Start here for activity-summary questions such as "what happened today", "what's going on", "catch me up", or "what happened in standup today"; apply precise time, type, channel, or mailbox filters when the user gives that scope. For Macro task requests such as "list my tasks", "tasks assigned to me", or "tasks I completed yesterday", prefer this tool over external task trackers such as Linear unless the user explicitly asks for Linear. Macro tasks are document items with df subtype {"l":{"dst":"task"}} and includeTypes ["document"]. Filter task Status and Assignees through propf using entity_type TASK: Status property 00000001-0000-0000-0000-000000000002, Completed option 00000001-0000-0000-0002-000000000004, Assignees property 00000001-0000-0000-0000-000000000001. The current user's assignee entity id is their Macro user id, usually macro|<their email address from context>. For "completed yesterday", combine status Completed, assigned-to-me, and a df updatedAt yesterday window with ua gte/lt ISO timestamps. Returned documents, AI chats, projects, emails, and call records include the tags visible to the user as {label, scope} pairs. To filter by tag (e.g. "my items tagged bug-report"), pass the tag labels in the tags argument — ListTags shows which tags exist. For finding specific items by name or content, use the search tool instead.
+ * Browse the user's Macro workspace to see recent items they have access to. Returns Macro documents, agent sessions, projects, emails, chat channels, call records, and foreign entities. Use this to get an overview of what the user has been working on or to find items by type. Start here for activity-summary questions such as "what happened today", "what's going on", "catch me up", or "what happened in standup today"; apply precise time, type, channel, or mailbox filters when the user gives that scope. For Macro task requests such as "list my tasks", "tasks assigned to me", or "tasks I completed yesterday", prefer this tool over external task trackers such as Linear unless the user explicitly asks for Linear. Macro tasks are document items with df subtype {"l":{"dst":"task"}} and includeTypes ["document"]. Filter task Status and Assignees through propf using entity_type TASK: Status property 00000001-0000-0000-0000-000000000002, Completed option 00000001-0000-0000-0002-000000000004, Assignees property 00000001-0000-0000-0000-000000000001. The current user's assignee entity id is their Macro user id, usually macro|<their email address from context>. For "completed yesterday", combine status Completed, assigned-to-me, and a df updatedAt yesterday window with ua gte/lt ISO timestamps. Returned documents, projects, emails, and call records include the tags visible to the user as {label, scope} pairs. To filter by tag (e.g. "my items tagged bug-report"), pass the tag labels in the tags argument — ListTags shows which tags exist. For finding specific items by name or content, use the search tool instead.
  */
 export interface ListEntities {
   /**
@@ -11018,9 +11132,9 @@ export interface ListEntities {
     [k: string]: unknown;
   };
   /**
-   * Full soup AST AI chat filter (cf).
+   * Agent-session filter (asf): use {"l":{"id":"<session UUID>"}} for a session, or {"l":{"o":"macro|email@example.com"}} for an owner.
    */
-  cf?: {
+  asf?: {
     [k: string]: unknown;
   };
   /**
@@ -11074,7 +11188,7 @@ export interface ListEntities {
    */
   inbox?: string | null;
   /**
-   * Filter results to items carrying the given tags — any of them by default, every one of them with tagsMatch="all". Each entry names a tag by its label, matched case-insensitively against the user's own tags; only set scope ("personal" or "team") when the user distinguishes between their personal and team tags. An unknown label fails with the list of available tags — call ListTags first when unsure what tags exist. Only taggable items (documents, tasks, projects, emails, AI chats, call records) can match a tag filter. Prefer this over hand-building a propf filter for tags.
+   * Filter results to items carrying the given tags — any of them by default, every one of them with tagsMatch="all". Each entry names a tag by its label, matched case-insensitively against the user's own tags; only set scope ("personal" or "team") when the user distinguishes between their personal and team tags. An unknown label fails with the list of available tags — call ListTags first when unsure what tags exist. Only taggable items (documents, tasks, projects, emails, call records) can match a tag filter. Prefer this over hand-building a propf filter for tags.
    */
   tags?: TagFilter[] | null;
   tagsMatch?: TagMatch;
@@ -11391,7 +11505,7 @@ export interface ListNotifications {
   /**
    * Filter to specific notification item types. If omitted, returns all types. Example: ["email", "message"] returns only email and message notifications.
    */
-  includeTypes?: NotificationCategory[] | null;
+  includeTypes?: ToolNotificationCategory[] | null;
   /**
    * Filter to notifications for specific entities. Pair each id with its canonical entityType to avoid ambiguity. Example: [{"entityType":"email_thread","id":"..."}] returns notifications for one email thread.
    */
@@ -11662,6 +11776,37 @@ export interface ToolMatch {
   description: string;
 }
 /**
+ * Rename, archive/unarchive, delete, prompt, or stop an agent session. Use ListEntities or NameSearch to find sessions and ReadAgentSession to inspect them. Rename, archive, and delete require ownership; prompting and stopping require edit access. Delete releases the runtime and permanently removes the session; use only when the user asks to delete it. Prompt returns sent/queued acceptance, not completed work. After an uncertain error, read the session before retrying; never automatically resend a prompt. This tool cannot answer permission or approval requests.
+ */
+export interface ManageAgentSession {
+  /**
+   * Session UUID from a mention, listing, or search result.
+   */
+  sessionId: string;
+  action: SessionAction;
+}
+/**
+ * A safely attributable action result.
+ */
+export interface SessionActionResult {
+  /**
+   * Session acted on.
+   */
+  sessionId: string;
+  /**
+   * Human-readable outcome.
+   */
+  message: string;
+  /**
+   * Accepted prompt or stop id, when applicable.
+   */
+  actionId?: string | null;
+  /**
+   * Whether a control was sent or queued.
+   */
+  status?: SessionControlStatus | null;
+}
+/**
  * Grant or revoke a manageable bot's access to one channel. Granting requires the current user to be a channel member. Both actions require the user to own the bot or belong to its owning team; revoking still works after the manager leaves the channel. Granting access creates that channel's webhook URL; revoking access disables posting to that channel. Use only after the user asks to change bot access.
  */
 export interface ManageBotChannelAccess {
@@ -11761,7 +11906,7 @@ export interface MarkNotificationsSeen {
   notificationIds: string[];
 }
 /**
- * Move a document, AI chat, email thread, or project into another project (projects are shown as folders in the app UI), or move it out to the top level. Requires edit access to the destination project. Moving a document or email thread requires edit access to it; moving an AI chat or a project requires owning it.
+ * Move a document, email thread, or project into another project (projects are shown as folders in the app UI), or move it out to the top level. Requires edit access to the destination project. Moving a document or email thread requires edit access to it; moving a project requires owning it.
  */
 export interface MoveToProject {
   entityType: MoveableEntityType;
@@ -11788,7 +11933,7 @@ export interface MoveToProjectResponse {
   message: string;
 }
 /**
- * Delete a document (including a task), an AI chat, or a project (folder) by moving it to the trash, as the Delete action in the app does. Trashing a project also trashes everything inside it. Only the item's owner can trash it. Use only when the user explicitly asks to delete an item. Channels, email threads, and calendar events are not deleted with this tool.
+ * Delete a document (including a task), or a project (folder) by moving it to the trash, as the Delete action in the app does. Trashing a project also trashes everything inside it. Only the item's owner can trash it. Use only when the user explicitly asks to delete an item. Channels, email threads, and calendar events are not deleted with this tool.
  */
 export interface MoveToTrash {
   entityType: TrashableEntityType;
@@ -11841,7 +11986,7 @@ export interface MuteNotificationsResponse {
   snoozeUntil?: string | null;
 }
 /**
- * Search items by their name or title: document name, email subject, chat title, channel name, project name, or call-record name. This is keyword search, not semantic search: queries only match literal words/tokens, prefixes, or exact quoted terms that appear in the indexed title/name. Use this for targeted name/title lookup, not for activity-summary questions like "what happened today", "what's going on", "catch me up", or "what happened in standup today"; those should start with ListEntities using time/type/channel filters. For emails, whitespace-separated terms are ANDed and each is a prefix match against the subject. For all other types the whole query is matched as a single adjacent phrase prefix — so pass 1-3 targeted keywords drawn from words that would literally appear in the title, not the user's natural-language description; long phrases will not match. Matching defaults to prefix; set matchType to 'exact' to match whole tokens/phrases with no prefix expansion. Wrap a multi-word phrase in double quotes to keep it together as one adjacent phrase. If the user's request combines a person with a topic, run separate searches (NameSearch for the person, ContentSearch for the topic) rather than one combined query. Leave entityTypes empty by default; only filter when the user explicitly scopes to a type. Results for documents, emails, AI chats, projects, and call records include the tags visible to the user as {label, scope} pairs; to restrict a search to tagged items, pass the tag labels in the tags argument (ListTags shows which tags exist).
+ * Search items by their name or title: document name, email subject, agent session title, channel name, project name, or call-record name. This is keyword search, not semantic search: queries only match literal words/tokens, prefixes, or exact quoted terms that appear in the indexed title/name. Use this for targeted name/title lookup, not for activity-summary questions like "what happened today", "what's going on", "catch me up", or "what happened in standup today"; those should start with ListEntities using time/type/channel filters. For emails, whitespace-separated terms are ANDed and each is a prefix match against the subject. For all other types the whole query is matched as a single adjacent phrase prefix — so pass 1-3 targeted keywords drawn from words that would literally appear in the title, not the user's natural-language description; long phrases will not match. Matching defaults to prefix; set matchType to 'exact' to match whole tokens/phrases with no prefix expansion. Wrap a multi-word phrase in double quotes to keep it together as one adjacent phrase. If the user's request combines a person with a topic, run separate searches (NameSearch for the person, ContentSearch for the topic) rather than one combined query. Leave entityTypes empty by default; only filter when the user explicitly scopes to a type. Results for documents, emails, projects, and call records include the tags visible to the user as {label, scope} pairs; to restrict a search to tagged items, pass the tag labels in the tags argument (ListTags shows which tags exist).
  */
 export interface NameSearch {
   /**
@@ -11852,13 +11997,13 @@ export interface NameSearch {
   /**
    * Which types of items to search. Leave empty (the default) to search all types — this is almost always what you want. Only set this when the user's request clearly targets one or more specific types. Examples: ['documents'], ['emails', 'documents'], ['channels'], ['call_records'].
    */
-  entityTypes?: UnifiedSearchIndex[];
+  entityTypes?: SearchEntityType[];
   /**
    * Restrict email results to a single connected inbox, given as that inbox's email address (from ListInboxes). Omit to search every inbox the user can access. Only set this when the user scopes the request to a specific mailbox. Only affects email results.
    */
   inbox?: string | null;
   /**
-   * Restrict results to items carrying the given tags — any of them by default, every one of them with tagsMatch="all". Each entry names a tag by its label, matched case-insensitively against the user's own tags; only set scope ("personal" or "team") when the user distinguishes between their personal and team tags. An unknown label fails with the list of available tags — call ListTags first when unsure what tags exist. Only taggable items (documents, emails, AI chats, projects, call records, calendar events) can match, so channels are dropped while a tag filter is active.
+   * Restrict results to items carrying the given tags — any of them by default, every one of them with tagsMatch="all". Each entry names a tag by its label, matched case-insensitively against the user's own tags; only set scope ("personal" or "team") when the user distinguishes between their personal and team tags. An unknown label fails with the list of available tags — call ListTags first when unsure what tags exist. Only taggable items (documents, emails, projects, call records, calendar events) can match, so channels are dropped while a tag filter is active.
    */
   tags?: TagFilter[] | null;
   tagsMatch?: TagMatch;
@@ -12022,6 +12167,10 @@ export interface QueryDatabaseResponse {
  */
 export interface ResultSet {
   /**
+   * Table whose rows the result identities refer to; absent for aggregates.
+   */
+  sourceTable?: string | null;
+  /**
    * The columns, in select-list order.
    */
   columns: ResultColumn[];
@@ -12159,6 +12308,131 @@ export interface ToolActivityEvent {
    * When the action occurred.
    */
   occurredAt: string;
+}
+/**
+ * Read an agent session by its ID from an agent-session mention or search result. Returns the latest 20 messages in chronological order, including prompts, replies, tool activity and errors. Optionally select a turn number to inspect earlier history. Each message is capped at 4000 characters; truncated flags identify omitted history or text. Requires view access to the session.
+ */
+export interface ReadAgentSession {
+  /**
+   * The agent session UUID from its mention or search result.
+   */
+  sessionId: string;
+  /**
+   * Read only this turn number, as returned in messages; omit for recent history.
+   */
+  turn?: number | null;
+}
+/**
+ * A readable session conversation, including tool activity and failures.
+ */
+export interface SessionConversation {
+  /**
+   * Session identity.
+   */
+  sessionId: string;
+  /**
+   * User-facing session name.
+   */
+  name: string;
+  /**
+   * Owner's principal id.
+   */
+  ownerId: string;
+  /**
+   * Agent persona id.
+   */
+  botId: string;
+  /**
+   * Whether the session is archived and read-only.
+   */
+  isArchived: boolean;
+  /**
+   * Configured runtime.
+   */
+  harness: string;
+  /**
+   * Selected model.
+   */
+  model: string;
+  /**
+   * Last runtime status.
+   */
+  status: string;
+  /**
+   * Messages in the requested turn, or the latest messages, oldest first.
+   */
+  messages: SessionConversationMessage[];
+  /**
+   * Number of messages matching the requested turn before bounding.
+   */
+  totalMessages: number;
+  /**
+   * Whether older messages or text were omitted.
+   */
+  truncated: boolean;
+}
+/**
+ * One folded prompt or reply.
+ */
+export interface SessionConversationMessage {
+  /**
+   * Turn number; pass it back to read that turn specifically.
+   */
+  turn: number;
+  role: SessionMessageRole;
+  /**
+   * Readable prose, tool activity, outputs, and errors.
+   */
+  content: string;
+  /**
+   * Terminal runtime error, retained separately even when earlier text is truncated.
+   */
+  failure?: string | null;
+  /**
+   * Whether this message's text exceeded the character budget.
+   */
+  truncated: boolean;
+}
+/**
+ * Read an agent session's current owner, link sharing, team access, and channel grants. Requires view access. Use UpdateAgentSessionSharing to change grants as the owner.
+ */
+export interface ReadAgentSessionSharing {
+  /**
+   * Session UUID.
+   */
+  sessionId: string;
+}
+/**
+ * Authoritative sharing settings after a read or mutation.
+ */
+export interface SessionSharingResponse {
+  /**
+   * Session owner's principal.
+   */
+  owner: string;
+  linkScope: SessionLinkScope;
+  /**
+   * Access through the enabled link.
+   */
+  linkAccess?: AccessLevel | null;
+  /**
+   * Explicit access for the owner's team.
+   */
+  teamAccess?: AccessLevel | null;
+  /**
+   * Explicit channel grants.
+   */
+  channels: SessionChannelGrant[];
+}
+/**
+ * A channel's existing session access.
+ */
+export interface SessionChannelGrant {
+  /**
+   * Channel identity.
+   */
+  channelId: string;
+  access: AccessLevel;
 }
 /**
  * Read the full personal or team Booking Links configuration: booking-page name and introduction, reusable schedules, default availability, and all link settings with IDs and revision. Omit teamId for personal. Discover team IDs using ListBookingLinks. This read does not create a profile. Use the returned profile with UpdateBookingSettings to change shared availability or page settings.
@@ -12847,49 +13121,6 @@ export interface ReadChannelThreadInfo {
   latestReplyAt?: string | null;
 }
 /**
- * Retrieve a chat thread's message history by its ID. Returns the conversation title and messages with their roles, content, and attachment references.
- */
-export interface ReadChat {
-  /**
-   * The id of the chat thread to read.
-   */
-  chatId: string;
-}
-/**
- * Response for [`ReadChat`].
- */
-export interface ReadChatResponse {
-  /**
-   * The chat id.
-   */
-  chatId: string;
-  /**
-   * The chat title.
-   */
-  title: string;
-  /**
-   * The messages in the chat.
-   */
-  messages: ChatMessagePreview[];
-}
-/**
- * A single message in the tool response.
- */
-export interface ChatMessagePreview {
-  /**
-   * The role of the message author (user, assistant, or system).
-   */
-  role: string;
-  /**
-   * The text content of the message.
-   */
-  content: string;
-  /**
-   * IDs of attachments referenced by this message.
-   */
-  attachmentIds: string[];
-}
-/**
  * Retrieve a document's content and its comment threads, including inline comments with the text they are on, Discussion comments, replies and resolved state.
  */
 export interface ReadContent {
@@ -13364,7 +13595,7 @@ export interface ReadPresentationResponse {
   content: string;
 }
 /**
- * List the direct contents of a project (shown as a folder in the app UI): its documents, AI chats, and nested projects. Requires view access to the project. Email threads filed into the project are not included.
+ * List the direct contents of a project (shown as a folder in the app UI): its documents and nested projects. Requires view access to the project. Email threads filed into the project are not included.
  */
 export interface ReadProject {
   /**
@@ -13597,7 +13828,7 @@ export interface RenameDocumentResponse {
   message: string;
 }
 /**
- * Rename a project (shown as a folder in the app) or an AI chat. Renaming a project requires edit access; renaming an AI chat requires owning it. Use RenameDocument for documents and tasks, and RenameChannel for channels.
+ * Rename a project (shown as a folder in the app). Renaming a project requires edit access. Use RenameDocument for documents and tasks, and RenameChannel for channels.
  */
 export interface RenameItem {
   entityType: RenameableEntityType;
@@ -14280,7 +14511,7 @@ export interface SetSenderPolicyResponse {
   summary: string;
 }
 /**
- * Share an item with the current members of a channel by writing a channel entity-access grant. Call it only after the user agrees to share that item, or when they already asked you to share it. entityType is the stored type: calendar_event for a calendar chip, document, chat, project, database, form, call, thread, or agent_session. entityId is that item's id. A calendar event can be shared only by someone who holds it on their own calendar, and private or confidential events are refused. Sharing again is safe when a grant already exists.
+ * Share an item with the current members of a channel by writing a channel entity-access grant. Call it only after the user agrees to share that item, or when they already asked you to share it. entityType is the stored type: calendar_event for a calendar chip, document, project, database, form, call, thread, or agent_session. entityId is that item's id. A calendar event can be shared only by someone who holds it on their own calendar, and private or confidential events are refused. Sharing again is safe when a grant already exists.
  */
 export interface ShareWithChannel {
   /**
@@ -14394,6 +14625,41 @@ export interface TextEditorCodeExecutionResult {
  */
 export interface TextEditorCodeExecutionToolError {
   error_code: CodeExecutionErrorCode;
+}
+/**
+ * Change an agent session's link, team, or channel sharing as its owner. Omitted settings remain unchanged; off revokes that grant. Requires an explicit user request to change sharing. Private persona conversations cannot be shared. Returns the resulting settings.
+ */
+export interface UpdateAgentSessionSharing {
+  /**
+   * Session UUID.
+   */
+  sessionId: string;
+  /**
+   * Who the item's share link admits: public (anyone with the link), team (the owner's team members with the link), or off to disable link sharing.
+   */
+  linkScope?: SessionLinkScope | null;
+  /**
+   * Permission granted by an enabled share link. Off resets it to the default level.
+   */
+  linkAccess?: SessionShareAccess | null;
+  /**
+   * Access for everyone on the owner's team; off removes it.
+   */
+  teamAccess?: SessionShareAccess | null;
+  /**
+   * Individual channel grants to set or remove; other channel grants stay unchanged.
+   */
+  channels?: SessionSharingChannel[] | null;
+}
+/**
+ * One channel's grant to set or remove.
+ */
+export interface SessionSharingChannel {
+  /**
+   * Channel id to share with or revoke.
+   */
+  channelId: string;
+  access: SessionShareAccess;
 }
 /**
  * Update Booking Links settings after reading ReadBookingSettings. Pass the full profile with its current revision, preserving fields the user did not request changing. Supports booking-page name and introduction; adding, editing and deleting reusable schedules and date overrides; changing defaultScheduleId; reassigning link schedules; duplicating, deleting, enabling or pausing links. Generate new UUIDs for new schedules, links and questions; preserve existing IDs. Changing a shared schedule affects every link referencing it and personal default hours affect team hosting. Deleting a link does not cancel existing bookings. Explain affected links before changing shared hours or deleting. A stale revision fails: re-read and reconcile rather than overwriting. Use CreateBookingLink or EditBookingLink for ordinary single-link authoring and their conversational confirmation contract. Any team member can edit team settings. Before saving, explain the proposed changes and their personal/team scope, ask whether to proceed, and wait for the user's approving reply in a later turn. Quote that reply verbatim in userConfirmation. Do not use the original request as confirmation.
@@ -14652,7 +14918,7 @@ export interface UpdateRoutine {
   change: RoutineChange;
 }
 /**
- * Change who can access a document (including a task), an AI chat, or a project (folder), as the Share menu in the app does: link sharing, team access, and per-channel access. Each omitted field stays unchanged; off disables that share. Requires edit access to a document, or owning an AI chat or project; only the owner can change team access. Use ShareWithChannel to post an item into a channel, and UpdateInitiativeSharing for Tasks projects (initiatives).
+ * Change who can access a document (including a task), or a project (folder), as the Share menu in the app does: link sharing, team access, and per-channel access. Each omitted field stays unchanged; off disables that share. Requires edit access to a document, or owning a project; only the owner can change team access. Use ShareWithChannel to post an item into a channel, and UpdateInitiativeSharing for Tasks projects (initiatives).
  */
 export interface UpdateSharing {
   entityType: SharingEntityType;
@@ -14967,6 +15233,49 @@ export interface ExecutionReceipt {
   error?: string | null;
 }
 /**
+ * Retrieve a chat thread's message history by its ID. Returns the conversation title and messages with their roles, content, and attachment references.
+ */
+export interface ReadChat {
+  /**
+   * The id of the chat thread to read.
+   */
+  chatId: string;
+}
+/**
+ * Response for [`ReadChat`].
+ */
+export interface ReadChatResponse {
+  /**
+   * The chat id.
+   */
+  chatId: string;
+  /**
+   * The chat title.
+   */
+  title: string;
+  /**
+   * The messages in the chat.
+   */
+  messages: ChatMessagePreview[];
+}
+/**
+ * A single message in the tool response.
+ */
+export interface ChatMessagePreview {
+  /**
+   * The role of the message author (user, assistant, or system).
+   */
+  role: string;
+  /**
+   * The text content of the message.
+   */
+  content: string;
+  /**
+   * IDs of attachments referenced by this message.
+   */
+  attachmentIds: string[];
+}
+/**
  * Read threaded content by ID(s). Supports reading channels, chats, and projects by their respective IDs. Use this tool when you need to retrieve the full content of a specific item(s). For documents, use ReadContent or ReadMetadata instead.
  *     Channel transcripts only include the latest 150 messages. Use 'messages_since' to see messages in a different time window.
  */
@@ -14988,4 +15297,9 @@ export interface ConversationRecord {
   chat_id: string;
   title: string;
   messages: MessageWithAttachments[];
+}
+export interface MessageWithAttachments {
+  content: string;
+  date: string;
+  attachmentIds: string[];
 }

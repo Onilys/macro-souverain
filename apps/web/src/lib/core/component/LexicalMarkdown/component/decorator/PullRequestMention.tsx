@@ -554,6 +554,8 @@ export function PullRequestMention(props: PullRequestMentionDecoratorProps) {
 
   const githubLinkQuery = useGithubLinkStatusQuery({
     enabled: () => !lexicalWrapper?.skipPreviewFetch,
+    // Virtualized rows remount while scrolling; they should not retry failures.
+    retryOnMount: false,
   });
 
   const isSelectedAsNode = () => {
@@ -571,10 +573,12 @@ export function PullRequestMention(props: PullRequestMentionDecoratorProps) {
   // When GitHub is not linked, render as a plain link instead of the fancy mention UI
   const shouldRenderAsPlainLink = () => {
     if (lexicalWrapper?.skipPreviewFetch) return false;
-    // A failed query is still "fetched" while its next mount retries it.
-    // Reading its pending data would suspend the surrounding composer/message.
+    // An initial failure has no resource value and reading it during a retry
+    // suspends the surrounding surface. Refetch errors retain confirmed data;
+    // Solid Query exposes that value without suspending.
     return !!(
       props.url &&
+      !githubLinkQuery.isLoadingError &&
       queryReadyGate(githubLinkQuery) &&
       githubLinkQuery.data.status !== 'linked'
     );

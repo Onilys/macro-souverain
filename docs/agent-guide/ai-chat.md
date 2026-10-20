@@ -811,11 +811,10 @@ For Macro's in-process agent, the backend evaluates the session owner's
 `ai-code-mode` flag once per conversational turn. Enabled users get a smaller
 direct toolset: SDK-supported searches, reads, listing, and data operations run
 through the SDK. Document editing keeps the direct `EditDocument` tool, and
-`DisplayResults` remains available for rendering results. Workspace feeds use
-`macro.workspace.page` or the lazy `macro.workspace.list` iterator with type,
-time, tag, property, and mailbox filters. Direct `ListEntities` is absent even
-from lazy discovery; `ContentSearch` remains for query scopes not supported by
-SDK search, such as session history. Methods
+`DisplayResults` remains available for rendering results. Workspace feeds and
+mixed-entity name searches keep the direct `ListEntities` and `NameSearch` tools,
+including agent sessions. `ContentSearch` supports session history. The legacy
+chat and workspace SDK namespaces are excluded from agent documentation. Methods
 routed through the SDK are absent from direct schemas, `SearchTools`, and `LoadTools`;
 they remain discoverable through `DescribeCodeTools`. User-review
 tools, `AskUser`, connector discovery, tool loading for connected apps, subagents,
@@ -834,10 +833,9 @@ automatic retry through a direct tool.
 Ask the agent to discover SDK entities and write a JavaScript module exporting
 `async function main({macro, session, execution})`. These are actual public SDK
 handles; for example, `macro.documents.search(...)` is an async iterator and
-`await document.content()` fetches a document. `macro.workspace.list(...)` browses
-workspace entities with type, time, task, tag, mailbox, and sorting filters;
-`macro.workspace.page(...)` exposes an explicit page and continuation cursor.
-The direct `ListEntities` tool is absent for code-mode users. Return plain JSON
+`await document.content()` fetches a document. Use the direct `ListEntities` tool
+for workspace feeds with type, time, task, tag, mailbox, and sorting filters.
+Return plain JSON
 in `{data}`. The optional `reviews` array contains saved review references and
 defaults to `[]` when omitted. Loops, early breaks and bounded parallel
 promises are supported. Preserve the user's source filters, source IDs, errors,
@@ -1966,3 +1964,31 @@ New conversations confirm selected model and effort settings before sending the
 first message. If startup reports a rejected setting or timeout, the first prompt
 has not been sent. See [effort capabilities](../architecture/agent-effort.md) for the harness
 contracts and test coverage.
+
+### Read another agent session
+
+An agent-session mention or search result supplies the ID for `ReadAgentSession`.
+The tool requires the viewer's normal session access and returns the latest 20
+folded messages, including prompts, replies, tool activity, and failures. Pass a
+returned turn number to read that turn instead. Messages are capped at 4000
+characters; response and message truncation flags identify omissions. Terminal
+failures are returned separately so long replies cannot hide them. The tool
+row expands to show the returned conversation, runtime status, and archive state
+on desktop and mobile. Legacy chat tools are absent from agent context; saved
+legacy tool calls still render in historical conversations.
+
+Use `ListEntities` with `includeTypes: ["agent_session"]`, `NameSearch`, or
+`ContentSearch` to find sessions. `ListAgents` identifies available agents and
+`CreateAgentSession` starts a conversation with the chosen agent. Use
+`ManageAgentSession` to rename, archive/unarchive, delete, prompt, or stop one.
+Rename, archive, and delete require ownership; prompt and stop require edit
+access. Prompt acceptance reports sent or queued, not completion. An uncertain
+result must be checked by reading the session before retrying.
+
+`ReadAgentSessionSharing` shows link, team, and channel grants;
+`UpdateAgentSessionSharing` changes grants as the owner. Private persona
+conversations retain their existing sharing restrictions. `ShareWithChannel`
+can share a session into a channel. These tools cannot approve permission
+requests on a user's behalf.
+
+![Expanded session read with a terminal failure visible after truncated text](media/ai-chat/read-agent-session.png)

@@ -6,7 +6,11 @@ import {
 } from '@app/features/calendar-view/calendar-url';
 import { CALENDAR_VIEW_ID } from '@app/features/calendar-view/types';
 import { channelsSearch } from '@app/features/channels-view/channels-route';
-import { legacyCrmPipelineId } from '@app/features/crm/crm-route';
+import {
+  crmPeopleSearch,
+  crmRecordSearch,
+  legacyCrmPipelineId,
+} from '@app/features/crm/crm-route';
 import {
   driveDocumentFromContent,
   drivePath,
@@ -28,6 +32,7 @@ import { URL_PARAMS as CALL_URL_PARAMS } from '@block-call/constants';
 import { URL_PARAMS as CHANNEL_URL_PARAMS } from '@block-channel/constants';
 import { URL_PARAMS as MD_URL_PARAMS } from '@block-md/constants';
 import { URL_PARAMS as PDF_URL_PARAMS } from '@block-pdf/constants';
+import { COMMENT_LINK_PARAM } from '@core/messages/comment-link';
 import { match } from 'ts-pattern';
 import { decodeLegacyPair } from './legacy-route';
 
@@ -77,6 +82,14 @@ function redirectLegacyRoutes(
     }
   }
 
+  // Touch shows records on their own pages, as the Customers lists open them.
+  if (rootId === 'view-companies' && isTouch) {
+    const { recordType, recordId } = routeParams(route);
+    if (typeof recordType === 'string' && typeof recordId === 'string') {
+      return redirect(`/${recordType}/${encodeURIComponent(recordId)}`);
+    }
+  }
+
   if (rootId === 'call-detail') {
     const { callId } = routeParams(route);
     if (typeof callId === 'string') {
@@ -119,6 +132,19 @@ function redirectLegacyRoutes(
       ({ id }) => `/channels/${encodeURIComponent(id)}`
     )
     .with({ type: 'task' }, ({ id }) => `/tasks/${encodeURIComponent(id)}`)
+    .with(
+      { type: 'company' },
+      ({ id }) => `/companies/company/${encodeURIComponent(id)}`
+    )
+    // A contact opens from People, whose list its breadcrumb returns to.
+    .with({ type: 'contact' }, ({ id }) => {
+      const query = new URLSearchParams();
+      // An explicit query replaces the entry's search, so keep what it carries.
+      replacePaneSearchParams(query, [
+        { ...to.location.search, ...crmPeopleSearch },
+      ]);
+      return `/companies/contact/${encodeURIComponent(id)}?${query}`;
+    })
     // Like a task, a project opens in Tasks, under its Projects tab.
     .with({ type: 'initiative' }, ({ id }) => {
       const query = new URLSearchParams();
@@ -199,6 +225,10 @@ function migrateLegacySearch({
       (id) => id === 'home-document' || id === 'home-preview',
       () => homeDocumentMapping
     )
+    .with('companies-record', () => ({
+      namespace: crmRecordSearch.namespace,
+      fields: [[COMMENT_LINK_PARAM, 'commentId']] as const,
+    }))
     .with(CALENDAR_ROUTE_ID, () => ({
       namespace: CALENDAR_SEARCH_NAMESPACE,
       fields: [['eventId', 'eventId']] as const,

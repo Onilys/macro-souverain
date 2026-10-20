@@ -15,6 +15,7 @@ import {
 } from 'solid-js';
 import { afterEach, expect, it, vi } from 'vitest';
 import { useCrmContext } from '../context/crm-context';
+import type { CrmCommentTarget } from '../context/workspace-context';
 import type { CrmContact } from '../core/contact';
 import type {
   CrmRecordRef,
@@ -92,38 +93,52 @@ vi.mock('./use-crm', () => ({
   }),
   useIsTeamAdmin: () => () => false,
 }));
-vi.mock('./company-detail', () => ({
-  Company: (props: {
-    companyId: string;
-    onOpenContact(contact: CrmContact): void;
-  }) => {
-    onCleanup(
-      useCrmContext().registerTaskComposerRecord(() => ({
-        type: 'company',
-        id: props.companyId,
-      }))
-    );
-    return (
-      <button
-        onClick={() =>
-          props.onOpenContact({
-            id: 'contact-1',
-            companyId: 'company-1',
-            name: 'Maya',
-            email: 'maya@company.com',
-            hidden: false,
-            firstInteraction: '',
-            lastInteraction: '',
-            createdAt: '',
-            updatedAt: '',
-          })
-        }
-      >
-        Open Maya
-      </button>
-    );
-  },
-}));
+vi.mock('@solidjs/router', () => ({ useSearchParams: () => [{}] }));
+vi.mock('./company-detail', async () => {
+  const { useParamNavigationCount, useUrlParams } = await import(
+    '@core/component/ParamsProvider'
+  );
+  return {
+    // Reads its linked message the way the Discussion does.
+    Company: (props: {
+      companyId: string;
+      onOpenContact(contact: CrmContact): void;
+    }) => {
+      onCleanup(
+        useCrmContext().registerTaskComposerRecord(() => ({
+          type: 'company',
+          id: props.companyId,
+        }))
+      );
+      const params = useUrlParams({ commentId: 'comment_id' });
+      const navigations = useParamNavigationCount('comment_id');
+      return (
+        <>
+          <p data-testid="linked-message">
+            {`${params.commentId() ?? '-'}:${navigations()}`}
+          </p>
+          <button
+            onClick={() =>
+              props.onOpenContact({
+                id: 'contact-1',
+                companyId: 'company-1',
+                name: 'Maya',
+                email: 'maya@company.com',
+                hidden: false,
+                firstInteraction: '',
+                lastInteraction: '',
+                createdAt: '',
+                updatedAt: '',
+              })
+            }
+          >
+            Open Maya
+          </button>
+        </>
+      );
+    },
+  };
+});
 vi.mock('./contact-detail', () => ({
   Contact: (props: {
     contactId: string;
@@ -193,6 +208,7 @@ afterEach(() => {
 function renderDetail(record: CrmRecordRef, viewName: string) {
   const [records, setRecords] = createSignal<readonly CrmRecordRef[]>([record]);
   const [section, setSection] = createSignal<CrmRecordSection>();
+  const [commentTarget, setCommentTarget] = createSignal<CrmCommentTarget>();
   const open = (trail: readonly CrmRecordRef[]) =>
     setRecords(trail.map((entry) => ({ ...entry })));
   const close = vi.fn(() => setRecords([]));
@@ -210,6 +226,7 @@ function renderDetail(record: CrmRecordRef, viewName: string) {
         <CrmRecordDetail
           records={records()}
           section={section()}
+          commentTarget={commentTarget()}
           viewName={viewName}
           onOpen={open}
           onSectionChange={(next) => {
@@ -222,7 +239,7 @@ function renderDetail(record: CrmRecordRef, viewName: string) {
       </Show>
     </ErrorBoundary>
   ));
-  return { close, records, failed };
+  return { close, records, failed, setCommentTarget };
 }
 
 const crumbs = () =>
@@ -343,4 +360,21 @@ it('keeps the shown record mounted while the route only changes its tab', () => 
   fireEvent.click(screen.getByRole('button', { name: 'Show emails' }));
   expect(screen.getByText('Contact content: contact-1')).toBe(content);
   expect(crumbs()).toEqual(['People', 'Maya']);
+});
+
+it('hands the Discussion each request for a linked message', () => {
+  const { setCommentTarget } = renderDetail(
+    { type: 'company', id: 'company-1', name: 'Northstar' },
+    'Companies'
+  );
+  const linked = () => screen.getByTestId('linked-message').textContent;
+  expect(linked()).toBe('-:0');
+  setCommentTarget({ commentId: 'message-1', seek: 'first' });
+  expect(linked()).toBe('message-1:1');
+  // The same message asked for again scrolls again.
+  setCommentTarget({ commentId: 'message-1', seek: 'second' });
+  expect(linked()).toBe('message-1:2');
+  // Leaving the target, as another tab of the record does, forgets it.
+  setCommentTarget(undefined);
+  expect(linked()).toBe('-:2');
 });

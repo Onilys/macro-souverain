@@ -286,6 +286,7 @@ function setup(
   const record = {
     records,
     section: () => undefined,
+    commentTarget: () => undefined,
     open: vi.fn(setRecords),
     setSection: vi.fn(),
     close: vi.fn(() => setRecords([])),

@@ -78,6 +78,8 @@ without changing the active route. Backend registration still verifies account
 ownership. Cancel, logout, and the ten-minute timeout retire pending callbacks.
 
 ### General
+- Label the notification permission toast **Enable Desktop Notifications** in
+  the desktop app and keep its Enable action on the native notification provider.
 - Keep signed-out Drive document routes on the shared detail viewer without
   mounting private list/sidebar sources; let document access checks decide visibility.
 - Gate account-only queries, comment readers, and account WebSockets on confirmed
@@ -98,7 +100,9 @@ ownership. Cancel, logout, and the ten-minute timeout retire pending callbacks.
 - Preserve focused chrome editors during deferred split insertion/removal autofocus; explicit return-focus commands may still focus the pane.
 - Reconcile global focus when focused DOM subtrees are removed; iOS can omit blur events, otherwise floating creation actions stay hidden after search or editor teardown.
 - Mount the floating mobile AI composer only on the Agents view; other views keep their New action or their own reply/comment composer.
+- Passive PR mentions must not retry initial GitHub status failures on remount; preserve confirmed status through refetch errors and keep pending data reads out of their parent Suspense boundary.
 - Keep native booking exit navigation in the route shell, outside page loading boundaries, and use the router so the native hash route stays intact.
+- Diagnose native full reloads with `native_webview_started` and native launch/termination/update counters; termination coverage is iOS/macOS only, and a pageview alone also includes SPA navigation. See `tauri/src-tauri/README.md`.
 - All API/network calls live in service-clients.
 - Route explicit call exits using the server's `callEnded` result: ended calls
   open their record; ongoing channel and scheduled calls return to the channel
@@ -163,6 +167,17 @@ Follow [`docs/ios-releases.md`](docs/ios-releases.md) for App Store signing and
 provisioning, including both extensions. The release script temporarily selects
 manual export when a distribution certificate path is supplied.
 
+## macOS notification activation
+
+Carry the notification ID through native delivery and the buffered `navigate`
+bridge, so clicks survive app restarts and wait for the split layout to be ready.
+Install and retain the UserNotifications delegate before the native event loop
+starts. Clicking restores and focuses the main window; receipt and dismissal do
+not navigate. Preserve iOS and Android `createPushApi` tap navigation when changing
+desktop delivery, including buffered launch taps before device registration.
+This requires a native macOS release; see the
+[notification walkthrough](../../docs/agent-guide/notifications.md).
+
 ## Desktop file drops
 
 Keep `app.windows[].dragDropEnabled` false in `tauri/src-tauri/tauri.macos.conf.json`.
@@ -184,6 +199,14 @@ and keep Pro checkout disabled while eligibility is unknown. Refresh the offer
 on focus/reconnect; route existing subscriptions to billing management. Keep
 known management access through refetch failures, but hide unconfirmed trials.
 Reset rejected checkout offers before refetching eligibility.
+
+## Desktop release builds: generated WASM
+
+Keep `nix/tauri-desktop.nix` in sync with generated WASM dependencies: desktop
+releases run Vite directly and do not call `just build-tauri` or `build-wasm`.
+Build and copy the agent-fold JavaScript glue and WASM before Vite runs, and
+check that both appear in the output. Without them, Vite leaves the worker's
+relative imports unchanged and Tauri can serve HTML for the missing module.
 
 ## macOS desktop gotcha: third-party iframes
 WKWebView asks the desktop navigation plugin about iframe loads as well as page loads, and the plugin cannot tell them apart. A third-party iframe is classified as external: its load is cancelled and the page opens in the browser, leaving an empty frame in the app. List a third-party page the app frames in `EMBEDDED_DOCUMENTS` in `tauri/src-tauri/src/lib.rs`.

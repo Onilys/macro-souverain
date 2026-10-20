@@ -42,6 +42,10 @@ DMs, and the shared message store other domains discuss things on.
   `src/outbound/connection_gateway_realtime.rs`.
 - Add a channel-message AI tool: `src/inbound/toolset.rs` (feature `ai_tools`).
 
+## Tool contracts
+
+- `ShareWithChannel` exposes agent sessions and omits legacy chat targets; the domain retains historical entity support.
+
 ## Checks
 
 - `cargo test -p channels` (`SQLX_OFFLINE` unset).

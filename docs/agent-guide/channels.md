@@ -608,11 +608,16 @@ On a cold channel open, verify that delayed bot/agent mention requests leave the
 messages and composer visible. Expand a thread while its replies are still
 loading: existing preview replies should remain visible until the full list
 arrives. Repeat after reopening the channel to cover both cold and cached data.
-For PR mentions, also fail a GitHub connection-status request, then paste a
+For PR mentions, also fail a GitHub connection-status request, scroll through
+virtualized rows repeatedly, and verify remounts make no new status requests.
+An explicit retry or completed OAuth must still refresh the status, even if all
+mentions have unmounted or only disabled preview observers remain. Then paste a
 mention while the retry is held pending. The composer must stay visible and
 focused, and messages containing PR mentions must render immediately. Resolve
 the retry as linked, unlinked, or failed: none should hide the surrounding UI;
 only a confirmed unlinked/reauthentication status changes the chip to a link.
+After a confirmed unlinked status, fail a refetch and remount the mention: it
+must remain a plain GitHub link without hiding the surrounding UI.
 Scrolling a collapsed thread into view must keep its timeline preview unchanged,
 without fetching or revealing the full reply list. Cached replies from a previous
 expansion must not enlarge that preview either. Explicit expansion, replying,
@@ -894,12 +899,15 @@ query, then scrolls the results to the selected channel when present or to the
 start. Closing search restores the active tab and applies the same scroll
 behavior to its lists. An empty result uses the standard search empty state
 artwork and wraps long queries. Desktop channel name search combines local fuzzy
-matches and service results,
-deduplicated by channel ID, across channels and DMs. An empty query shows the
-ordinary list. Scrolling search results loads the next search page; clearing the
-query restores ordinary list pagination. Check a matching query, a query with no
-matches, and a clear/reopen cycle. Mobile dock search uses the independent Search
-route described below.
+matches and service results, deduplicated by channel ID, across channels and
+DMs. The local matches cover every conversation the viewer is in (the complete
+channel list, not only the loaded page), so a channel outside the newest hundred
+appears from the first keystroke; a loaded row keeps its unread and preview
+metadata when it matches. An empty query shows the ordinary list. Scrolling
+search results loads the next search page; clearing the query restores ordinary
+list pagination. Check a matching query, a query for a conversation absent from
+the ordinary list, a query with no matches, and a clear/reopen cycle. Mobile dock
+search uses the independent Search route described below.
 Recent search includes both channels and DMs, including service hits without
 message previews. It does not require message metadata or an importance filter.
 Loaded conversation metadata is preserved when a service hit has the same ID.

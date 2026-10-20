@@ -16,7 +16,12 @@ import { fireAndForget } from '@core/util/fireAndForget';
 import type { CrmRoute } from './context/workspace-context';
 import { pipelineIdOfTab, pipelineTab } from './core/navigation';
 import type { CrmRecordRef, CrmRecordSection } from './core/record';
-import { type CrmRecordParams, crmSearch, crmSearchCodec } from './crm-route';
+import {
+  type CrmRecordParams,
+  crmRecordSearch,
+  crmSearch,
+  crmSearchCodec,
+} from './crm-route';
 
 type CrmBranchParams = Partial<CrmRecordParams> & { pipelineId?: string };
 
@@ -35,6 +40,7 @@ function listTab(entry: Entry): string | undefined {
 /** The Customers location held by the pane's route. */
 export function createCrmRoute(): CrmRoute {
   const [search] = createSearchParams(crmSearch);
+  const [recordSearch] = createSearchParams(crmRecordSearch);
   const params = useParams<CrmBranchParams>();
   const routeTrail = useRouteState(companiesRoute);
   const navigate = useNavigate();
@@ -70,7 +76,12 @@ export function createCrmRoute(): CrmRoute {
       recordId: record.id,
       section: section === 'overview' ? undefined : section,
     };
-    const options = { allowDuplicate: true, state: [...trail] };
+    // A message target belongs to the record it was asked for.
+    const options = {
+      allowDuplicate: true,
+      state: [...trail],
+      search: { [crmRecordSearch.namespace]: undefined },
+    };
     const pipelineId = params.pipelineId;
     fireAndForget(
       pipelineId
@@ -95,6 +106,7 @@ export function createCrmRoute(): CrmRoute {
         [crmSearch.namespace]: pipelineId
           ? undefined
           : crmSearchCodec.serialize({ tab: next }),
+        [crmRecordSearch.namespace]: undefined,
       },
     };
     fireAndForget(
@@ -130,6 +142,10 @@ export function createCrmRoute(): CrmRoute {
     setTab: (next, options) => showList(next, options?.replace),
     records,
     section: () => params.section,
+    commentTarget: () =>
+      shown() && recordSearch.commentId
+        ? { commentId: recordSearch.commentId, seek: recordSearch.seek }
+        : undefined,
     open: (trail) => showRecord(trail, undefined),
     setSection: (section) => showRecord(records(), section),
     close,

@@ -1461,3 +1461,5 @@ async fn macrod_rejects_an_unsupported_base_before_dispatch() {
     assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
     assert!(requests.requested.lock().unwrap().is_empty());
 }
+
+mod tool_actions;

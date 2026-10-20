@@ -463,6 +463,7 @@ use utoipa::OpenApi;
         initiative::inbound::axum_router::update::update_initiative_handler,
         initiative::inbound::axum_router::delete::delete_initiative_handler,
         // databases
+        databases_sql::inbound::axum_router::query_databases_handler,
         databases::inbound::axum_router::list_databases_handler,
         databases::inbound::starter_router::ensure_starter_handler,
         databases::inbound::axum_router::create_database_handler,

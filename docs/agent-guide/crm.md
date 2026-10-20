@@ -103,8 +103,14 @@ with the same filters and list scroll position, and Forward reopens the record.
 The top breadcrumb reads `<Companies, People, list or pipeline> > <record>`;
 click the first segment to return the same way. Selecting another sidebar entry
 shows that list in place of the details; selecting the record's own list returns
-to it. Shift-click still opens the record in a separate split. Direct company and
-contact links use the standalone pages.
+to it. Shift-click still opens the record in a separate split, also inside
+Customers. On desktop, every other way to a company or contact opens it inside
+Customers too: `/app/company/<uuid>` and `/app/contact/<uuid>` links (which
+**Copy link** still copies), `@` mentions, search and Command-K results,
+favorites, and CRM discussion notifications. A contact opens under People, so its
+breadcrumb returns to People. A split already showing that record is brought
+forward instead. Touch devices keep the standalone pages, and a
+Customers record URL opened on touch redirects to its standalone page.
 Each record opened from the details appends a breadcrumb and a history entry: a
 contact from a company's Team tab gives `Companies > <company> > <contact>`, and
 a person's Company link gives `People > <contact> > <company>`. Opening a record
@@ -197,9 +203,12 @@ drops out.
 Company and contact pages have a **Discussion** section built from the same
 message conversation as a document's Discussion: threaded replies, reactions,
 attachments, and edit/delete from the message menu. `@` suggests the team's
-members and agents. A message's copied link is the standalone record URL
-with `comment_id`; opening it, or a CRM discussion notification, scrolls to and
-highlights that message. Deleting a thread's first comment deletes the thread.
+members and agents. A message's copied link is the record URL
+`/app/company/<uuid>?comment_id=<message>` (or `/app/contact/…`); opening it, or
+a CRM discussion notification, scrolls to and highlights that message. On
+desktop the record opens in Customers with the message in the pane search
+`sN.crm-record.commentId`, which the next record or list you open drops.
+Deleting a thread's first comment deletes the thread.
 
 Company selection actions **Set owner** and **Set revenue** remain available
 while team deal-stage definitions are loading. **Set stage** waits for the active

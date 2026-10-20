@@ -471,6 +471,7 @@ export function CrmWorkspaceView(props: {
           <CrmRecordDetail
             records={records()}
             section={view.host.record.section()}
+            commentTarget={view.host.record.commentTarget()}
             viewName={activePipeline()?.name ?? title()}
             onOpen={view.host.record.open}
             onSectionChange={view.host.record.setSection}
