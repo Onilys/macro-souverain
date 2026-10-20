@@ -1,5 +1,8 @@
 //! Provider download and file-storage adapters for authorized attachment reads.
 use super::email_api::GmailApi;
+use crate::util::upload_attachment::{
+    email_attachment_source_is_gone, set_email_attachment_properties,
+};
 use email::domain::{
     attachment_access::*,
     draft_attachments::AttachmentError,
@@ -99,6 +102,33 @@ impl MailAttachmentFiles {
             record.attachment.filename.as_deref().unwrap_or_default()
         )
     }
+    async fn document_upload_args(
+        &self,
+        record: &AttachmentReadRecord,
+    ) -> Result<AttachmentUploadArgs, AttachmentError> {
+        let attachment_metadata =
+            email_db_client::attachments::provider::upload::fetch_attachment_upload_metadata_by_id(
+                &self.db,
+                record.attachment.db_id,
+            )
+            .await
+            .map_err(failed)?
+            .ok_or(AttachmentError::NotFound)?;
+        let recipients =
+            email_db_client::contacts::get::fetch_db_recipients(&self.db, record.message_id)
+                .await
+                .map_err(failed)?;
+        Ok(AttachmentUploadArgs {
+            attachment_metadata,
+            recipient_emails: recipients
+                .into_iter()
+                .filter(|(_, kind)| *kind == EmailRecipientType::To)
+                .filter_map(|(contact, _)| contact.email_address)
+                .collect(),
+            backfill: false,
+            upload_destination: AttachmentUploadDestination::Dss,
+        })
+    }
     fn url(&self, key: &str) -> Result<String, AttachmentError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -150,28 +180,7 @@ impl AttachmentFiles for MailAttachmentFiles {
         record: &AttachmentReadRecord,
         bytes: Vec<u8>,
     ) -> Result<String, AttachmentError> {
-        let attachment_metadata =
-            email_db_client::attachments::provider::upload::fetch_attachment_upload_metadata_by_id(
-                &self.db,
-                record.attachment.db_id,
-            )
-            .await
-            .map_err(failed)?
-            .ok_or(AttachmentError::NotFound)?;
-        let recipients =
-            email_db_client::contacts::get::fetch_db_recipients(&self.db, record.message_id)
-                .await
-                .map_err(failed)?;
-        let args = AttachmentUploadArgs {
-            attachment_metadata,
-            recipient_emails: recipients
-                .into_iter()
-                .filter(|(_, kind)| *kind == EmailRecipientType::To)
-                .filter_map(|(contact, _)| contact.email_address)
-                .collect(),
-            backfill: false,
-            upload_destination: AttachmentUploadDestination::Dss,
-        };
+        let args = self.document_upload_args(record).await?;
         crate::util::upload_attachment::store_attachment(
             crate::util::upload_attachment::AttachmentStorageContext {
                 db: &self.db,
@@ -185,5 +194,21 @@ impl AttachmentFiles for MailAttachmentFiles {
         )
         .await
         .map_err(failed)
+    }
+    async fn refresh_document_source(
+        &self,
+        record: &AttachmentReadRecord,
+        document_id: &str,
+    ) -> Result<(), AttachmentError> {
+        if !email_attachment_source_is_gone(&self.db, &self.properties, document_id)
+            .await
+            .map_err(failed)?
+        {
+            return Ok(());
+        }
+        let args = self.document_upload_args(record).await?;
+        set_email_attachment_properties(&self.db, &self.properties, document_id, &args)
+            .await
+            .map_err(failed)
     }
 }

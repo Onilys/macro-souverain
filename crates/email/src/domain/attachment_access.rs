@@ -66,6 +66,13 @@ pub trait AttachmentFiles: Send + Sync + 'static {
         record: &AttachmentReadRecord,
         bytes: Vec<u8>,
     ) -> impl Future<Output = Result<String, AttachmentError>> + Send;
+    /// Point a document already linked to this attachment at the attachment's
+    /// email when the email the document names as its source no longer exists.
+    fn refresh_document_source(
+        &self,
+        record: &AttachmentReadRecord,
+        document_id: &str,
+    ) -> impl Future<Output = Result<(), AttachmentError>> + Send;
 }
 pub struct AttachmentReadService<R, P, S, A> {
     pub repository: R,
@@ -136,8 +143,16 @@ impl<R: AttachmentReadRepository, P: AttachmentBytes, S: AttachmentFiles, A: Ent
         }
         // Authorization precedes even the cache hit: a document ID is not proof
         // that this caller can read the attachment's source thread.
-        if let Some(id) = self.repository.existing_attachment_document(id).await? {
-            return Ok(id);
+        if let Some(document_id) = self.repository.existing_attachment_document(id).await? {
+            // The document stays readable without its source properties.
+            if let Err(error) = self
+                .files
+                .refresh_document_source(&record, &document_id)
+                .await
+            {
+                tracing::warn!(?error, "attachment document source refresh failed");
+            }
+            return Ok(document_id);
         }
         let bytes = self.provider.bytes(&record).await?;
         self.files.store_document(&record, bytes).await

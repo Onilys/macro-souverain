@@ -198,7 +198,8 @@ async fn upload_document_attachment(
         .clone();
 
     // 6. Set properties for attachment
-    set_email_attachment_properties(ctx.system_properties_service, &document_id, args).await?;
+    set_email_attachment_properties(ctx.db, ctx.system_properties_service, &document_id, args)
+        .await?;
 
     Ok(document_id)
 }
@@ -358,9 +359,34 @@ async fn upload_data_to_presigned_url(
     Ok(())
 }
 
-/// Sets email attachment properties for the uploaded document.
-#[tracing::instrument(skip(system_properties_service, p))]
-async fn set_email_attachment_properties(
+/// Whether the document's Source names an email thread that no longer exists.
+pub(crate) async fn email_attachment_source_is_gone(
+    db: &sqlx::PgPool,
+    system_properties_service: &Arc<SystemPropertiesServiceImpl<PgSystemPropertiesRepository>>,
+    document_id: &str,
+) -> Result<bool, UploadAttachmentError> {
+    let Some(thread_id) = system_properties_service
+        .email_attachment_source_thread(document_id)
+        .await
+        .map_err(|e| UploadAttachmentError::DatabaseError(e.to_string()))?
+    else {
+        return Ok(false);
+    };
+    let Ok(thread_id) = Uuid::parse_str(&thread_id) else {
+        return Ok(true);
+    };
+    let owner = email_db_client::threads::get::get_macro_id_from_thread_id(db, thread_id)
+        .await
+        .map_err(|e| UploadAttachmentError::DatabaseError(e.to_string()))?;
+    Ok(owner.is_none())
+}
+
+/// Sets email attachment properties for the uploaded document. A document reused across
+/// emails keeps the first email's values while that email's thread exists; once the
+/// thread is deleted, this email's values replace them.
+#[tracing::instrument(skip(db, system_properties_service, p))]
+pub(crate) async fn set_email_attachment_properties(
+    db: &sqlx::PgPool,
     system_properties_service: &Arc<SystemPropertiesServiceImpl<PgSystemPropertiesRepository>>,
     document_id: &str,
     p: &AttachmentUploadArgs,
@@ -396,24 +422,30 @@ async fn set_email_attachment_properties(
 
     let recipients: Vec<_> = recipients?.into_iter().map(|id| id.lowercase()).collect();
 
-    system_properties_service
-        .set_email_attachment_properties(vec![EmailAttachmentInput {
-            entity_id: document_id.to_string(),
-            properties: EmailAttachmentProperty {
-                source: Some(SourceEntity {
-                    entity_type: models_properties::EntityType::Thread,
-                    entity_id: p.attachment_metadata.thread_db_id.to_string(),
-                    specific_message_id: Some(p.attachment_metadata.message_db_id),
-                }),
-                // TODO: companies support
-                companies: None,
-                sender: Some(sender),
-                recipients: Some(recipients),
-                subject: p.attachment_metadata.subject.clone(),
-            },
-        }])
-        .await
-        .map_err(|e| UploadAttachmentError::SystemPropertiesSetFailed(e.to_string()))?;
-
-    Ok(())
+    let items = vec![EmailAttachmentInput {
+        entity_id: document_id.to_string(),
+        properties: EmailAttachmentProperty {
+            source: Some(SourceEntity {
+                entity_type: models_properties::EntityType::Thread,
+                entity_id: p.attachment_metadata.thread_db_id.to_string(),
+                specific_message_id: Some(p.attachment_metadata.message_db_id),
+            }),
+            // TODO: companies support
+            companies: None,
+            sender: Some(sender),
+            recipients: Some(recipients),
+            subject: p.attachment_metadata.subject.clone(),
+        },
+    }];
+    let written =
+        if email_attachment_source_is_gone(db, system_properties_service, document_id).await? {
+            system_properties_service
+                .replace_email_attachment_properties(items)
+                .await
+        } else {
+            system_properties_service
+                .set_email_attachment_properties(items)
+                .await
+        };
+    written.map_err(|e| UploadAttachmentError::SystemPropertiesSetFailed(e.to_string()))
 }

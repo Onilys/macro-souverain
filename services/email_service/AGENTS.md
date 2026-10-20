@@ -52,6 +52,10 @@ the gateway `/email` prefix.
   (#7039) — don't reintroduce a path that notifies on our own sends.
 - Long attachment names are truncated to the DSS limit before upload (#7893);
   don't remove that truncation when touching `util/upload_attachment.rs`.
+- Attachment documents are reused by content SHA and keep the first email's
+  Source, Sender, Recipients, and Subject while that email's thread exists.
+  Once the thread is deleted, the next email that imports or opens the
+  attachment replaces them, so Source never stays on a deleted thread.
 - Scheduled Gmail sends recheck forwarded source inbox access before resolving
   attachment bytes through the provider-aware reader.
 - Preserve the calendar domain's `team_ooo_changed` hint when forwarding a

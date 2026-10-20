@@ -13,6 +13,8 @@ struct Probe {
     document_reads: Arc<AtomicUsize>,
     provider_reads: Arc<AtomicUsize>,
     file_reads: Arc<AtomicUsize>,
+    refreshed_documents: Arc<std::sync::Mutex<Vec<(Uuid, String)>>>,
+    refresh_fails: bool,
 }
 impl EmailUserRepo for Probe {
     async fn user_sender_filters(&self, _: Uuid) -> Result<Vec<EmailFilter>, EmailErr> {
@@ -92,6 +94,21 @@ impl AttachmentFiles for Probe {
     ) -> Result<String, AttachmentError> {
         panic!("existing document")
     }
+    async fn refresh_document_source(
+        &self,
+        record: &AttachmentReadRecord,
+        document_id: &str,
+    ) -> Result<(), AttachmentError> {
+        self.refreshed_documents
+            .lock()
+            .unwrap()
+            .push((record.attachment.db_id, document_id.to_string()));
+        if self.refresh_fails {
+            Err(AttachmentError::Infrastructure)
+        } else {
+            Ok(())
+        }
+    }
 }
 fn probe(accessible: bool) -> Probe {
     let now = chrono::Utc::now();
@@ -139,6 +156,8 @@ fn probe(accessible: bool) -> Probe {
         document_reads: Arc::new(AtomicUsize::new(0)),
         provider_reads: Arc::new(AtomicUsize::new(0)),
         file_reads: Arc::new(AtomicUsize::new(0)),
+        refreshed_documents: Arc::default(),
+        refresh_fails: false,
     }
 }
 
@@ -164,6 +183,7 @@ async fn unauthorized_reader_cannot_use_either_attachment_cache() {
     assert_eq!(probe.document_reads.load(Ordering::Relaxed), 0);
     assert_eq!(probe.file_reads.load(Ordering::Relaxed), 0);
     assert_eq!(probe.provider_reads.load(Ordering::Relaxed), 0);
+    assert!(probe.refreshed_documents.lock().unwrap().is_empty());
 }
 #[tokio::test]
 async fn authorized_delegate_uses_cache_without_provider_credentials() {
@@ -191,6 +211,48 @@ async fn authorized_delegate_uses_cache_without_provider_credentials() {
     assert_eq!(probe.document_reads.load(Ordering::Relaxed), 1);
     assert_eq!(probe.file_reads.load(Ordering::Relaxed), 1);
     assert_eq!(probe.provider_reads.load(Ordering::Relaxed), 0);
+}
+
+#[tokio::test]
+async fn opening_a_linked_attachment_refreshes_its_document_source() {
+    let probe = probe(true);
+    let service = AttachmentReadService {
+        repository: probe.clone(),
+        provider: probe.clone(),
+        files: probe.clone(),
+        access: NoOpEntityAccessService,
+    };
+    let actor = MacroUserIdStr::try_from_email("owner@example.com").unwrap();
+    let id = probe.record.attachment.db_id;
+
+    assert_eq!(
+        service.document(&actor, id).await.unwrap(),
+        "existing-document"
+    );
+    assert_eq!(
+        *probe.refreshed_documents.lock().unwrap(),
+        [(id, "existing-document".to_string())]
+    );
+}
+
+#[tokio::test]
+async fn a_failed_source_refresh_still_opens_the_document() {
+    let mut probe = probe(true);
+    probe.refresh_fails = true;
+    let service = AttachmentReadService {
+        repository: probe.clone(),
+        provider: probe.clone(),
+        files: probe.clone(),
+        access: NoOpEntityAccessService,
+    };
+    let actor = MacroUserIdStr::try_from_email("owner@example.com").unwrap();
+    let id = probe.record.attachment.db_id;
+
+    assert_eq!(
+        service.document(&actor, id).await.unwrap(),
+        "existing-document"
+    );
+    assert_eq!(probe.refreshed_documents.lock().unwrap().len(), 1);
 }
 
 #[tokio::test]
