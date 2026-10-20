@@ -14,6 +14,10 @@ per-entity-type search plus a unified search across them — mounted into
   `agent_session.rs`), plus `unified.rs` for cross-type search.
 - `src/api/search/simple/`: a second, simpler request/response shape per type
   used by AI tools — kept in sync with the full one by hand.
+- Name mode sources: chats (`simple/simple_chat.rs`) and channels
+  (`simple/simple_channel.rs`) name-search in Postgres through `name_search`;
+  every other type name-searches in OpenSearch. `simple_unified.rs` merges
+  them and keeps one cursor slot per source.
 - `src/api/context.rs`: `SearchHandlerState`, the shared handler state.
 - `src/outbound.rs` + `src/outbound/agent_session.rs`: the OpenSearch query
   builders.

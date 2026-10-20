@@ -1,7 +1,7 @@
 use crate::api::search::simple::filter::FilterVariantToSearchArgs;
 
 use crate::api::search::crm_company;
-use crate::api::search::simple::simple_chat;
+use crate::api::search::simple::{simple_channel, simple_chat};
 use crate::api::{
     context::{SearchAuthorizationService, SearchHandlerState},
     search::{SearchPaginationParams, simple::SearchError},
@@ -16,7 +16,7 @@ use macro_authorization::{MacroAuthorizationExtractor, UserOrInternal};
 use macro_user_id::user_id::MacroUserId;
 use model::{response::ErrorResponse, user::UserContext};
 use models_search::unified::SearchEntityFilters;
-use models_search::{SearchOn, SimpleSearchResponse, unified::UnifiedSearchRequest};
+use models_search::{MatchType, SearchOn, SimpleSearchResponse, unified::UnifiedSearchRequest};
 use models_search_cursor::{SearchCursor, SearchCursorOption, SearchMethodCursor};
 use opensearch_client::search::agent_sessions::{AgentSessionSearchArgs, AgentSessionSearchMode};
 use opensearch_client::search::call_records::CallRecordSearchMode;
@@ -38,6 +38,7 @@ fn calendar_events_searchable(requested: bool, flag_enabled: bool) -> bool {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SearchSource {
     ChatName,
+    ChannelName,
     Content,
     CrmCompany,
 }
@@ -291,6 +292,10 @@ pub(in crate::api::search) async fn perform_unified_search(
     // emails, call records, calendar events — stays included and applies the
     // filter itself.
     let should_include_channels = search_filters.should_include_channels && !tags_active;
+    // Channel names are searched in Postgres below; only a content search
+    // needs the viewer's channel ids for the OpenSearch messages index.
+    let should_search_channel_messages =
+        should_include_channels && !matches!(search_on, SearchOn::Name);
     let should_include_chats = search_filters.should_include_chats;
     let should_include_projects = search_filters.should_include_projects;
     let should_include_emails = search_filters.should_include_emails;
@@ -321,7 +326,7 @@ pub(in crate::api::search) async fn perform_unified_search(
             ctx,
             user_id.as_ref(),
             user_organization_id,
-            should_include_channels,
+            should_search_channel_messages,
         ),
         chat_filters.filter_to_search_args(
             ctx,
@@ -422,10 +427,16 @@ pub(in crate::api::search) async fn perform_unified_search(
         .map(|c| c.crm_company_cursor.clone())
         .unwrap_or_default();
 
+    let channel_name_cursor = cursor
+        .as_ref()
+        .map(|c| c.channel_name_cursor.clone())
+        .unwrap_or_default();
+
     // Clone cursors for passing to search functions (originals needed for cursor regeneration)
     let chat_cursor_for_search = chat_cursor.clone();
     let content_cursor_for_search = content_cursor.clone();
     let crm_cursor_for_search = crm_cursor.clone();
+    let channel_name_cursor_for_search = channel_name_cursor.clone();
 
     let unified_search_args = UnifiedSearchArgs {
         agent_session_search_args: AgentSessionSearchArgs {
@@ -465,7 +476,7 @@ pub(in crate::api::search) async fn perform_unified_search(
             if should_include_emails {
                 indices.insert(models_opensearch::OpenSearchEntityType::Emails);
             }
-            if should_include_channels && !filter_channel_response.channel_ids.is_empty() {
+            if should_search_channel_messages && !filter_channel_response.channel_ids.is_empty() {
                 indices.insert(models_opensearch::OpenSearchEntityType::Channels);
             }
             if should_include_call_records && !filter_call_record_response.call_ids.is_empty() {
@@ -498,7 +509,7 @@ pub(in crate::api::search) async fn perform_unified_search(
 
     // Call search functions in parallel for included entity types
     // search_names handles Done cursors internally by returning early
-    let (chat_results, content_results, crm_results) = tokio::join!(
+    let (chat_results, channel_results, content_results, crm_results) = tokio::join!(
         async {
             if should_include_chats {
                 match search_on {
@@ -525,14 +536,33 @@ pub(in crate::api::search) async fn perform_unified_search(
             }
         },
         async {
+            // Channel names depend on the viewer (a DM is named after the
+            // other participant), so they are matched in Postgres rather than
+            // the message-level channels index.
+            match search_on {
+                SearchOn::Name | SearchOn::NameContent if should_include_channels => {
+                    simple_channel::search_names(
+                        &ctx.db,
+                        &user_id,
+                        &channel_filters,
+                        name_search_term.clone(),
+                        match_type == MatchType::Exact,
+                        page_size,
+                        channel_name_cursor_for_search,
+                    )
+                    .await
+                }
+                _ => Ok((vec![], SearchCursorOption::Done)),
+            }
+        },
+        async {
             // Documents, email subjects, project names, call names, and
             // calendar event titles are name-searched in OpenSearch. In Name
-            // mode keep only those indices: chats still name-search in
-            // Postgres above, and channels have no name concept. Documents
-            // match `document_name`, emails their subject, projects their
-            // `name`, calls their `name`, calendar events their `title`.
-            // Projects and calendar events have no content, so a content-only
-            // search drops them.
+            // mode keep only those indices: chats and channels name-search in
+            // Postgres above. Documents match `document_name`, emails their
+            // subject, projects their `name`, calls their `name`, calendar
+            // events their `title`. Projects and calendar events have no
+            // content, so a content-only search drops them.
             let mut args = unified_search_args;
             match search_on {
                 SearchOn::Name => {
@@ -590,11 +620,13 @@ pub(in crate::api::search) async fn perform_unified_search(
 
     // Extract results and next cursors
     let (chat_hits, chat_next_cursor) = chat_results?;
+    let (channel_hits, channel_next_cursor) = channel_results?;
     let (content_hits, content_next_cursor) = content_results?;
     let (crm_hits, crm_next_cursor) = crm_results?;
 
     // Track original counts before combining
     let chat_name_count = chat_hits.len();
+    let channel_name_count = channel_hits.len();
     // Content hits are chunk-level (many per document), so the page budget counts
     // distinct documents. Name/crm sub-searches return one row per entity, so
     // their hit count already equals their entity count.
@@ -607,6 +639,10 @@ pub(in crate::api::search) async fn perform_unified_search(
         combined.extend(chat_hits.into_iter().map(|hit| TaggedSearchHit {
             hit,
             source: SearchSource::ChatName,
+        }));
+        combined.extend(channel_hits.into_iter().map(|hit| TaggedSearchHit {
+            hit,
+            source: SearchSource::ChannelName,
         }));
         combined.extend(content_hits.into_iter().map(|hit| TaggedSearchHit {
             hit,
@@ -639,6 +675,10 @@ pub(in crate::api::search) async fn perform_unified_search(
             .iter()
             .filter(|h| h.source == SearchSource::ChatName)
             .count();
+        let included_channel_names = final_tagged
+            .iter()
+            .filter(|h| h.source == SearchSource::ChannelName)
+            .count();
         let included_content = distinct_entity_count(
             final_tagged
                 .iter()
@@ -659,6 +699,14 @@ pub(in crate::api::search) async fn perform_unified_search(
             &chat_cursor,
         );
 
+        let new_channel_cursor = compute_next_cursor(
+            &channel_next_cursor,
+            included_channel_names,
+            channel_name_count,
+            find_last_of_source(&final_tagged, SearchSource::ChannelName),
+            &channel_name_cursor,
+        );
+
         let new_content_cursor = compute_next_cursor(
             &content_next_cursor,
             included_content,
@@ -677,6 +725,7 @@ pub(in crate::api::search) async fn perform_unified_search(
 
         // Build next cursor if any source has more results
         let has_more = new_chat_cursor.has_more()
+            || new_channel_cursor.has_more()
             || new_content_cursor.has_more()
             || new_crm_cursor.has_more();
 
@@ -688,6 +737,7 @@ pub(in crate::api::search) async fn perform_unified_search(
                 // stays only so older cursors still decode.
                 project_name_cursor: SearchCursorOption::Done,
                 crm_company_cursor: new_crm_cursor,
+                channel_name_cursor: new_channel_cursor,
             };
             cursor.encode()
         } else {
