@@ -15,11 +15,13 @@ import type {
   PropertyApiValues,
   PropertyOption,
 } from '@property/types';
+import { toPropertyDefinitionDomain } from '@property/utils/transforms';
 import { useListPropertiesQuery } from '@queries/properties/definitions';
 import { fetchEntityProperties } from '@queries/properties/entity';
 import { useTagsQuery } from '@queries/properties/tags';
 import type { PropertyDefinition } from '@service-properties/generated/schemas/propertyDefinition';
 import type { PropertyDefinitionDetailResponse } from '@service-properties/generated/schemas/propertyDefinitionDetailResponse';
+import type { PropertyDefinitionWithOptions } from '@service-properties/generated/schemas/propertyDefinitionWithOptions';
 import { createSignal } from 'solid-js';
 import { createStore, reconcile, type Store, unwrap } from 'solid-js/store';
 
@@ -269,16 +271,34 @@ export function createTaskComposerProperties(args: {
     forEntityType: args.allDefinitions ? 'TASK' : undefined,
   }));
   const tagsQuery = useTagsQuery();
+  const [createdProperties, setCreatedProperties] = createSignal<
+    PropertyDefinitionWithOptions[]
+  >([]);
+  const propertyDefinitions = () => {
+    const fetched = systemPropertiesQuery.isSuccess
+      ? systemPropertiesQuery.data
+      : [];
+    return [
+      ...fetched,
+      ...createdProperties().filter(
+        (created) =>
+          !fetched.some(
+            (item) =>
+              ('definition' in item ? item.definition.id : item.id) ===
+              created.definition.id
+          )
+      ),
+    ];
+  };
 
   const availableDefinitions = () => {
-    if (!systemPropertiesQuery.isSuccess) return [];
     const tagSetIds = new Set(
       (tagsQuery.isSuccess ? tagsQuery.data : []).flatMap((tagSet) =>
         tagSet.definition ? [tagSet.definition.id] : []
       )
     );
     return taskComposerWritableDefinitions(
-      systemPropertiesQuery.data.map((item) =>
+      propertyDefinitions().map((item) =>
         'definition' in item ? item.definition : item
       ),
       tagSetIds
@@ -303,8 +323,7 @@ export function createTaskComposerProperties(args: {
   };
 
   const options = () => {
-    if (!systemPropertiesQuery.isSuccess) return new Map();
-    const data = systemPropertiesQuery.data;
+    const data = propertyDefinitions();
     return new Map(
       data.map((p) => {
         const definition = 'definition' in p ? p.definition : p;
@@ -328,11 +347,29 @@ export function createTaskComposerProperties(args: {
         !visibleIds().includes(definition.id) &&
         (definition.id !== SYSTEM_PROPERTY_IDS.PROJECT || projects().enabled)
     );
-  const addProperty = (id: string) => {
+  const addProperty = async (
+    id: string,
+    created?: PropertyDefinitionWithOptions
+  ) => {
+    if (created) {
+      setCreatedProperties((current) => [
+        ...current.filter((property) => property.definition.id !== id),
+        created,
+      ]);
+    }
     if (!addableDefinitions().some((definition) => definition.id === id))
       return;
     setVisiblePropertyIds((current) => [...current, id]);
   };
+  const availableProperties = () =>
+    availableDefinitions()
+      .filter(
+        (definition) =>
+          definition.id !== SYSTEM_PROPERTY_IDS.PROJECT || projects().enabled
+      )
+      .map((definition) =>
+        toPropertyDefinitionDomain(definition, options().get(definition.id))
+      );
 
   const properties = (): Property[] => {
     return filterMap(visibleIds(), (id) => {
@@ -399,7 +436,7 @@ export function createTaskComposerProperties(args: {
     properties,
     visiblePropertyIds,
     setVisiblePropertyIds,
-    addableDefinitions,
+    availableProperties,
     addProperty,
     saveHandler,
     composerTags,

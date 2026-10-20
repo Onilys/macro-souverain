@@ -532,11 +532,14 @@ Customers supplies its preset when PostHog `enable-crm-activity` is enabled:
 starts as Not Started on the saved task. Record-level task creation prefills the
 company or contact, including the contact's company when already loaded. With the
 CRM flag off or loading, CRM supplies no preset; record-level creation still
-associates the task with its record. **Add property** searches other supported
-task properties and adds a pill without changing existing values. Tag selection
-continues through its separate Tags picker. CRM drafts are isolated from the
-ordinary task draft and from other CRM records; reopening restores added
-properties as well as their values. **Clear Draft** restores that view's preset.
+associates the task with its record. **Add property** opens the same property
+editor as the document/task side panel: search by name or type, select a property
+and enter its value, or create a property from an unmatched search. Assignments
+and values stay in the task draft until creation; opening or closing the editor
+preserves other draft values. Tag selection continues through its separate Tags
+picker. CRM drafts are isolated from the ordinary task draft and from other CRM
+records; reopening restores added properties as well as their values. **Clear Draft**
+restores that view's preset.
 Later flag, focus or record changes leave the open draft and associations intact,
 even between launch and mount. The next opening uses the current context.
 

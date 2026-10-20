@@ -89,7 +89,7 @@ import {
 } from '../util/taskComposerStorage';
 import { EditorSystemMessage } from './EditorSystemMessage';
 import { InlinePropertyValue } from './InlinePropertyValue';
-import { TaskComposerPropertyPicker } from './TaskComposerPropertyPicker';
+import { TaskComposerPropertyEditor } from './TaskComposerPropertyEditor';
 import { SimilarTasksSection } from './TaskDuplicateList';
 
 type ComposerTagLayoutMode = 'bottom' | 'title';
@@ -511,7 +511,7 @@ export function ComposeTask(props: ComposeTaskProps) {
     properties,
     visiblePropertyIds,
     setVisiblePropertyIds,
-    addableDefinitions,
+    availableProperties,
     addProperty,
     saveHandler,
     composerTags,
@@ -1124,9 +1124,12 @@ export function ComposeTask(props: ComposeTaskProps) {
               <Show when={tagLayoutMode() === 'bottom'}>
                 <InlineTagsPill docTags={composerTags} showPlaceholder />
               </Show>
-              <TaskComposerPropertyPicker
-                definitions={addableDefinitions()}
+              <TaskComposerPropertyEditor
+                name={title()}
+                definitions={availableProperties()}
+                properties={properties()}
                 onAdd={addProperty}
+                onSave={(id, value) => setPropertyValues(id, value)}
               />
             </EntityComposer.Properties>
             <Modals />

@@ -1,10 +1,15 @@
 import { SYSTEM_PROPERTY_IDS } from '@property/constants';
+import { usePropertySelection } from '@property/hooks/usePropertySelection';
+import { toPropertyDefinitionDomain } from '@property/utils/transforms';
+import { createRoot, createSignal } from 'solid-js';
 import { afterEach, expect, it, vi } from 'vitest';
 
 const mock = vi.hoisted(() => ({
   create: vi.fn(),
   properties: vi.fn(),
   failure: vi.fn(),
+  listProperties: vi.fn(),
+  refetch: vi.fn(),
 }));
 vi.mock('@core/util/create', () => ({
   createTaskWithInitialSnapshot: mock.create,
@@ -19,10 +24,15 @@ vi.mock('@app/lib/analytics/posthog', () => ({
   useFeatureFlag: () => () => ({ enabled: true }),
 }));
 vi.mock('@property/tags', () => ({ useLocalDocTags: vi.fn() }));
-vi.mock('@queries/properties/definitions', () => ({}));
-vi.mock('@queries/properties/tags', () => ({}));
+vi.mock('@queries/properties/definitions', () => ({
+  useListPropertiesQuery: mock.listProperties,
+}));
+vi.mock('@queries/properties/tags', () => ({
+  useTagsQuery: () => ({ isSuccess: true, data: [] }),
+}));
 
 import {
+  createTaskComposerProperties,
   createTaskWithProperties,
   taskComposerProjectValue,
 } from './taskComposerProperties';
@@ -186,6 +196,30 @@ it('clears tag sets without clearing arbitrary single-select values', () => {
   expect(values.tag.values).toEqual(['red']);
 });
 
+it('lets a draft add Project when its preset omits it without changing entity panels', () => {
+  createRoot((dispose) => {
+    const project = toPropertyDefinitionDomain(
+      definition(SYSTEM_PROPERTY_IDS.PROJECT)
+    );
+    const [existingIds, setExistingIds] = createSignal<string[]>([]);
+    const draft = usePropertySelection(
+      existingIds,
+      () => [project],
+      undefined,
+      () => true
+    );
+    const panel = usePropertySelection(
+      () => [],
+      () => [project]
+    );
+    expect(draft.filteredProperties()).toEqual([project]);
+    expect(panel.filteredProperties()).toEqual([]);
+    setExistingIds([project.id]);
+    expect(draft.filteredProperties()).toEqual([]);
+    dispose();
+  });
+});
+
 it('converts an arbitrary added single-select property with its definition', async () => {
   mock.create.mockResolvedValue({ documentId: 'task' });
   await createTaskWithProperties(
@@ -205,4 +239,72 @@ it('converts an arbitrary added single-select property with its definition', asy
       ],
     })
   );
+});
+
+it('retains a created single-select definition when the definition query fails', async () => {
+  mock.create.mockResolvedValue({ documentId: 'task' });
+  mock.refetch.mockResolvedValue({
+    isError: true,
+    error: new Error('Definition refresh failed'),
+  });
+  mock.listProperties.mockReturnValue({
+    isSuccess: false,
+    data: [],
+    refetch: mock.refetch,
+  });
+  const created = {
+    definition: definition('created-select', { data_type: 'SELECT_STRING' }),
+    property_options: [
+      {
+        id: 'chosen',
+        property_definition_id: 'created-select',
+        value: { type: 'string' as const, value: 'Chosen' },
+        display_order: 0,
+        color: null,
+        created_at: '',
+        updated_at: '',
+      },
+    ],
+  };
+  const { composer, dispose } = createRoot((dispose) => ({
+    composer: createTaskComposerProperties({
+      initialValues: {},
+      initialVisiblePropertyIds: [],
+      allDefinitions: true,
+    }),
+    dispose,
+  }));
+
+  try {
+    await composer.addProperty(created.definition.id, created);
+    composer.setPropertyValues(created.definition.id, {
+      valueType: 'SELECT_STRING',
+      values: ['chosen'],
+    });
+    expect(composer.properties()[0]).toMatchObject({
+      propertyDefinitionId: 'created-select',
+      value: ['chosen'],
+      isMultiSelect: false,
+    });
+    await createTaskWithProperties(
+      'Task',
+      '',
+      Object.entries(composer.propertyValues),
+      composer.createDefinitions(),
+      vi.fn()
+    );
+    expect(mock.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        propertyValues: [
+          {
+            propertyId: 'created-select',
+            value: { type: 'select_option', option_id: 'chosen' },
+          },
+        ],
+      })
+    );
+    expect(mock.refetch).not.toHaveBeenCalled();
+  } finally {
+    dispose();
+  }
 });
