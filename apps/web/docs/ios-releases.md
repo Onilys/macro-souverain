@@ -27,7 +27,14 @@ icon and app-name branding are Android-only.
    - the iOS release numbers to be bumped relative to `main`, and
    - that exact version + build to be **live on the App Store**.
 
-   Until both hold, the check fails and the PR cannot merge.
+   Until both hold, the check fails and the PR cannot merge. On same-repo
+   PRs, the gate maintains one status comment with the version/build, current
+   App Store state, next steps, and a workflow link. Infrastructure failures,
+   including an unavailable native-tree hash, are reported as an inability
+   to verify the release without instructions to release again, separately from a
+   confirmed release requirement. Each gate run refreshes the comment; a
+   successful watcher-triggered recheck marks the release verified. Fork PRs
+   retain the check logs because their token cannot write PR comments.
 2. You bump the numbers locally and commit the result:
 
    ```bash

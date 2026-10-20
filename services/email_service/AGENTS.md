@@ -46,6 +46,9 @@ the gateway `/email` prefix.
 
 ## Gotchas
 
+- The Gmail delivery adapter freezes approved upload/provider-file IDs before
+  loading bytes through the authorized reader; Outlook uses its own coordinator.
+
 - Forwarded attachments use the source inbox's provider credentials; the email
   domain rechecks the scheduled actor's access before cross-inbox downloads.
 - Macro's own digest emails are filtered out of Signal/email notifications

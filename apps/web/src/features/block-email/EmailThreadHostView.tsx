@@ -15,6 +15,7 @@ import { fireAndForget } from '@core/util/fireAndForget';
 import { buildMentionMarkdownString } from '@macro-inc/lexical-core';
 import type { Accessor, JSX } from 'solid-js';
 import { Show } from 'solid-js';
+import { QueuedSendStatus } from '../email-compose/queued-send-status';
 import { EmailTaskButton } from './component/EmailTaskButton';
 import { EmailSidePanelSections } from './component/sidepanel/EmailSidePanelSections';
 
@@ -70,6 +71,7 @@ export function EmailThreadHostView(props: EmailThreadHostViewProps) {
       frame={(content) => (
         <>
           {props.chrome?.({ createTask })}
+          <QueuedSendStatus threadId={props.threadId()} />
           <SidePanel.Layout
             floating
             defaultOpen={false}

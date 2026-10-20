@@ -66,6 +66,7 @@ The floating Ask AI input appears only on the AI/Agents view.
 On touch devices, an email thread's floating action bar has Previous email and
 Next email arrows beside the larger Mark done checkmark. The arrows follow the
 source list's filtered order, skip non-email items, and disable at its ends.
+They keep working from the thread's former neighbours after it leaves the list.
 `J` / `ArrowRight` and `K` / `ArrowLeft` use that same order in the Email view.
 Arrow keys in a reply editor or other text input keep their normal editing behavior. They do not wrap; a thread
 opened without a source list has disabled arrows.

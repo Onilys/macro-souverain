@@ -18,6 +18,9 @@ export interface EmailInbox extends SenderInbox {
 
 /** Identity returned by a successful save or send. Transport envelopes stay in adapters. */
 export interface PersistedEmailIdentity {
+  /** Present when durable send admission owns this message. */
+  sendAttemptId?: string;
+  persistence?: 'committed' | 'queued';
   draftId?: string;
   threadId?: string;
   inboxId: string;
@@ -82,8 +85,15 @@ export interface DeleteEmailDraft {
   completingThread?: boolean;
 }
 export interface SendEmailDraft {
-  clientHandles?: DraftClientHandles;
   message: EmailDraft;
+  clientHandles?: DraftClientHandles;
+  /** The exact working-copy version persisted for this submission. */
+  expectedLocalVersion?: Pick<LocalDraft, 'generation' | 'revision'>;
+  attachmentIds?: string[];
+  forwardedAttachmentIds?: string[];
+  restoreBodyHtml?: string | null;
+  restoreBodyText?: string | null;
+  restoreBodyMacro?: string | null;
   inboxId?: string;
   completingThread?: boolean;
 }
@@ -111,6 +121,10 @@ export interface EmailDraftStorage {
     | 'recovering'
     | 'unavailable'
     | 'recovery-required';
+  /** Explicit restoration may replace editor content; ordinary cache updates never do. */
+  watchRestorations?(
+    changed: (restoration: EmailDraftRestoration) => void
+  ): () => void;
   /** Reload canonical provider content after an explicit conflict resolution. */
   reloadDraft?(
     draftId: string,
@@ -169,6 +183,15 @@ export interface EmailDraftStorage {
   }): Promise<void>;
 }
 
+export interface EmailDraftRestoration {
+  draftId: string;
+  originalDraftId: string;
+  threadId: string;
+  inboxId?: string;
+  replyingToId?: string | null;
+  includeSignature?: boolean | null;
+}
+
 export interface EmailAttachmentStorage {
   completeAttachment(input: EmailAttachmentChange): Promise<void>;
   uploadAttachments(input: UploadEmailAttachments): Promise<void>;
@@ -182,6 +205,10 @@ export interface EmailAttachmentStorage {
 }
 
 export interface EmailDelivery {
+  /** Whether sends can be persisted and replayed without connectivity. */
+  queueActive?: (inboxId?: string) => boolean;
+  /** Persisted locks, scoped to the composing surface's owner. */
+  sendLocked?: (draftId: string | undefined) => boolean;
   sendMessage(input: SendEmailDraft): Promise<PersistedEmailIdentity>;
   unschedule(input: {
     draftId: string;
@@ -202,10 +229,11 @@ export interface EmailDelivery {
     inboxId?: string
   ): Promise<void>;
   undoSend(input: {
+    sendAttemptId?: string;
     threadId?: string;
     draftId: string;
     inboxId: string | undefined;
-    onUndone: () => Promise<void> | void;
+    onUndone: (result?: { draftRestored: boolean }) => Promise<void> | void;
   }): Promise<void>;
 }
 
@@ -223,6 +251,7 @@ export type EmailDraftLifecycleState =
       threadId: string;
       inboxId: string;
       sendTime: string;
+      deliveryStatus?: 'pending' | 'sending' | 'failed' | 'unconfirmed';
       observedAt: number;
     }
   | {
@@ -273,6 +302,12 @@ export interface EmailComposeFeedback {
   };
   /** A modal notice with a single acknowledgement; resolves when dismissed. */
   blockingNotice(input: { title: string; body: string }): Promise<void>;
+  /** A modal choice; resolves true only when the user confirms. */
+  confirm(input: {
+    title: string;
+    body: string;
+    confirmLabel: string;
+  }): Promise<boolean>;
   reportError(error: unknown): void;
 }
 
@@ -299,9 +334,18 @@ export interface EmailComposePresentation {
   signaturesEnabled: Accessor<boolean>;
 }
 
+/** A file stored as a Macro document, as a body link names it. */
+export interface UploadedDocument {
+  documentId: string;
+  name: string;
+  blockName: string;
+}
+
 export interface EmailEditorFiles {
   readDroppedFiles: import('./editor-capabilities').ComposeBodyActions['readDroppedFiles'];
   makePublic(id: string): void;
+  /** Stores files as documents; resolves with the ones that succeeded after reporting the rest. */
+  uploadDocuments(files: File[]): Promise<UploadedDocument[]>;
   uploadEditorFiles(input: {
     editor: LexicalEditor | undefined;
     sourceId?: string;

@@ -42,6 +42,9 @@ MCP app, a custom server, or a GitHub installation token) on each request.
 
 - `cargo test -p agent_egress` (`SQLX_OFFLINE` unset).
 
+Code-mode minting attaches the session agent to a short-lived owner token;
+ordinary MCP owner tokens omit agent attribution.
+
 ## Gotchas
 
 - Never let the sandbox see an upstream credential directly; every egress

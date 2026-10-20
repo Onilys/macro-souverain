@@ -361,6 +361,7 @@ fn checkpoint(lease: &DraftLease, stage: DraftStage) -> DraftCheckpoint {
     DraftCheckpoint {
         revision:lease.revision,actor_id:lease.actor_id.clone(),stage,stage_started_at:chrono::Utc::now(),
         prepared:PreparedDraft {reply_to:None,request:SendRequest {
+            message_id: None,
             message:serde_json::from_value(serde_json::json!({"db_id":lease.message_id,"link_id":lease.mailbox.link_id,"subject":"Local subject"})).unwrap(),
             from:models_email::service::address::ContactInfo {email:"outlook-test@example.com".into(),name:None,photo_url:None},parent_message_id:None,references:None,
         },files:Vec::new(),removals:Vec::new()},

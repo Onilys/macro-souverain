@@ -4069,6 +4069,17 @@
             "type": ["string", "null"],
             "format": "uuid"
           },
+          "scheduled_send_status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ScheduledSendStatus",
+                "description": "Delivery state, including failures and unresolved provider outcomes."
+              }
+            ]
+          },
           "scheduled_send_time": {
             "type": ["string", "null"],
             "format": "date-time"
@@ -6522,6 +6533,11 @@
             "description": "Opaque ID of the backfill job or provider sync stream driving the resync.\nthe one already in progress."
           }
         }
+      },
+      "ScheduledSendStatus": {
+        "type": "string",
+        "description": "The user-visible delivery state of an unsent scheduled message.",
+        "enum": ["pending", "sending", "failed", "unconfirmed"]
       },
       "SendMessageRequest": {
         "type": "object",

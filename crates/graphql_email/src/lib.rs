@@ -4,6 +4,10 @@
 
 mod loaders;
 mod mutation;
+mod send;
+pub use send::{
+    EmailSendAttemptInput, EmailSendAttemptPayload, GraphqlEmailSendMutation, load_send_attempt,
+};
 mod objects;
 mod operation;
 mod user_objects;
@@ -21,7 +25,7 @@ pub use mutation::{
     DeleteEmailDraftInput, DeleteEmailDraftPayload, EmailMutationService,
     EmailThreadMutationLoadFuture, EmailThreadMutationOutput, GraphqlEmailMutation,
     MarkEmailThreadSeenInput, MarkEmailThreadUnreadInput, SaveEmailDraftContactInput,
-    SaveEmailDraftInput, SaveEmailDraftPayload, UpdateEmailThreadLabelInput,
+    SaveEmailDraftInput, SaveEmailDraftPayload, UpdateEmailThreadLabelInput, draft_mutation_error,
 };
 pub use objects::{
     GraphqlMailDraftState, GraphqlMailPreviewMessage, GraphqlSoupEmailMessage,

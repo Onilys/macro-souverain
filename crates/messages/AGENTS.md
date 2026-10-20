@@ -51,6 +51,10 @@ they need.
 
 - `cargo test -p messages --all-features` (`SQLX_OFFLINE` unset).
 
+New posts use the message sender receipt to retain signed code-mode agent
+attribution. All other operations use the caller receipt so attribution cannot
+grant users another agent invocation's edit, deletion, or reaction authority.
+
 ## Gotchas
 
 - Most modules are feature-gated (`annotations`, `broker`, `delivery`,

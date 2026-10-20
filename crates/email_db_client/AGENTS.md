@@ -43,6 +43,9 @@ cleanup, and backfill.
 
 ## Gotchas
 
+- Scheduled delivery and durable Send share `email_draft_provider_attachment_ids`
+  for native/forwarded identities, honoring removals and copied-upload deduplication.
+
 - Forwarded-attachment delivery reads preserve `source_link_id` from the original
   message; the destination draft inbox is only the query access scope.
 - Quote and alias camelCase columns to Rust field names; check

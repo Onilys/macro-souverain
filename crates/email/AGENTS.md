@@ -49,6 +49,8 @@ tools — hexagonal, heavily feature-gated.
 
 ## Gotchas
 
+- Durable send attempts are Gmail-only; Outlook uses its provider draft coordinator.
+
 - Forwarded attachments register through `domain/draft_attachments.rs` and resolve
   bytes through `domain/attachment_access.rs`; scheduled delivery also rechecks
   source inbox access in `domain/forwarded_attachments.rs`, including legacy jobs.

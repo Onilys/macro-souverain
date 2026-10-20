@@ -61,7 +61,7 @@ import {
 
 function NavigationToggle(props: {
   onExpand: () => void;
-  children: (close: () => void) => JSX.Element;
+  children: JSX.Element;
 }) {
   const shell = useViewShell();
   const [open, setOpen] = createSignal(false);
@@ -109,7 +109,7 @@ function NavigationToggle(props: {
                     setOpen(false);
                 }}
               >
-                {props.children(() => setOpen(false))}
+                {props.children}
               </div>
             </Dropdown.Content>
           </Dropdown>
@@ -369,7 +369,7 @@ export function CrmWorkspaceView(props: {
   onMount(() => {
     if (!listsEnabled() && active().startsWith('list:')) navigate('active');
   });
-  const sidebar = (onCollapse: () => void = () => setCollapsed(true)) => (
+  const sidebar = (onCollapse?: () => void) => (
     <CrmSidebar
       pipelines={
         <Show when={pipelinesEnabled()}>
@@ -419,7 +419,7 @@ export function CrmWorkspaceView(props: {
         <Suspense
           fallback={<div class="p-4 text-sm text-ink-muted">Loading CRM…</div>}
         >
-          {sidebar()}
+          {sidebar(() => setCollapsed(true))}
         </Suspense>
       </ViewShell.Aside>
       <ViewShell.Main>
@@ -458,7 +458,7 @@ export function CrmWorkspaceView(props: {
               onOpenPipeline={selectPipeline}
               navigation={
                 <NavigationToggle onExpand={() => setCollapsed(false)}>
-                  {(close) => <Suspense>{sidebar(close)}</Suspense>}
+                  <Suspense>{sidebar()}</Suspense>
                 </NavigationToggle>
               }
             />
@@ -488,7 +488,7 @@ export function CrmWorkspaceView(props: {
                   navigation={
                     <Show when={!isTouchDevice()}>
                       <NavigationToggle onExpand={() => setCollapsed(false)}>
-                        {(close) => <Suspense>{sidebar(close)}</Suspense>}
+                        <Suspense>{sidebar()}</Suspense>
                       </NavigationToggle>
                     </Show>
                   }
@@ -516,7 +516,7 @@ export function CrmWorkspaceView(props: {
             <Show when={!isTouchDevice()}>
               <div class="flex h-12 shrink-0 items-center gap-3 px-4">
                 <NavigationToggle onExpand={() => setCollapsed(false)}>
-                  {(close) => <Suspense>{sidebar(close)}</Suspense>}
+                  <Suspense>{sidebar()}</Suspense>
                 </NavigationToggle>
                 <h1
                   class="flex h-7 min-w-0 flex-1 items-center px-1 text-sm font-semibold tracking-[-0.03em]"

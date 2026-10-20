@@ -57,6 +57,7 @@ type ReplyInputViewProps = Omit<
   | 'notices'
   | 'accounts'
   | 'connectivity'
+  | 'editorFiles'
   | 'viewerEmail'
   | 'hasPaidAccess'
   | 'recordMention'
@@ -127,6 +128,7 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
       notices: composeContext.notices,
       accounts: composeContext.accounts,
       connectivity: composeContext.connectivity,
+      editorFiles: composeContext.editorFiles,
       viewerEmail: composeContext.viewerEmail,
       hasPaidAccess: composeContext.hasPaidAccess,
       recordMention: composeContext.recordMention,
@@ -185,6 +187,7 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
     scheduleActionLabel,
     scheduleOperation,
     cancelSchedule,
+    checkScheduleStatus,
     schedulePickerDisabled,
     editingDisabled,
     sendUnavailableReason,
@@ -498,6 +501,7 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
                 operation={scheduleOperation()}
                 onSelectTime={handleSendTimeChange}
                 onCancelSchedule={cancelSchedule}
+                onCheckStatus={checkScheduleStatus}
               />
             }
             scheduleControl={
@@ -783,6 +787,7 @@ function LoadedReplyInputView(props: ReplyInputViewProps) {
           operation={scheduleOperation()}
           onSelectTime={handleSendTimeChange}
           onCancelSchedule={cancelSchedule}
+          onCheckStatus={checkScheduleStatus}
           class="-mx-4 -mb-4 mt-3 rounded-b-[26.25px] border-t border-edge-muted px-4 py-2 touch:rounded-b-lg mobile:rounded-none"
         />
       </Show>
