@@ -1251,6 +1251,14 @@ export type NotificationTypeName = string;
 
 export type PushNotificationData = {
     /**
+     * Channel containing the target message, when provided by the producer.
+     */
+    channelId?: string | null;
+    /**
+     * Message to reveal and highlight.
+     */
+    messageId?: string | null;
+    /**
      * The id of the notification record (UserNotification.id)
      */
     notificationId: string;
@@ -1259,6 +1267,10 @@ export type PushNotificationData = {
      * to download and attach as a rich notification image.
      */
     senderProfilePictureUrl?: string | null;
+    /**
+     * Root message of the thread when the target is a reply.
+     */
+    threadId?: string | null;
 };
 
 /**
