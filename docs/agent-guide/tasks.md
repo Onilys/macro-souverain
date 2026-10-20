@@ -532,6 +532,9 @@ matching considers up to 28 recently updated projects with edit/owner access fro
 the first loaded project page, and runs only while Projects is enabled. Tied or low-confidence
 results leave a field unset or clear an earlier suggestion. Failures leave the
 draft editable and do not prevent creation.
+Project questions compare the task topic to the supplied project names: a direct
+name mention or clear semantic match is sufficient, with a specific topic preferred
+over a broader related one. Explicit exclusions and unrelated tasks should not match.
 
 Priority questions distinguish importance from urgency: `(important)` means High
 without requiring a deadline; `(urgent)` means Urgent, while negated importance
@@ -542,6 +545,9 @@ The live-provider regression is `tests/e2e/local-task-predictions.spec.ts` in th
 web app. Opt in with `LOCAL_JEV_E2E=true` against an authenticated local stack
 with `TYPESAFE_API_KEY` configured; it makes real provider calls. It checks editing
 `kill all ui` to add `(important)`, then changing to `(urgent)` and `(not important)`.
+Give that test account editable projects named `Desktop` and `UI` for the project
+regression: `desktop app broken` selects Desktop, `fix the UI button spacing`
+selects UI, and `buy groceries` clears the earlier project suggestion.
 
 Editing the text can replace an earlier AI suggestion. Choosing or clearing a
 property yourself protects that field from subsequent predictions, including

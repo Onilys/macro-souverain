@@ -42,3 +42,39 @@ test('title edits distinguish importance, urgency, and negation', async ({
     composer.getByRole('button', { name: 'Low', exact: true })
   ).toBeVisible({ timeout: 40_000 });
 });
+
+test('matches short tasks to Desktop and UI projects and clears unrelated suggestions', async ({
+  page,
+}) => {
+  // The local test account must have editable projects named Desktop and UI.
+  test.setTimeout(120_000);
+  await page.addInitScript(() =>
+    localStorage.removeItem('task-composer-draft')
+  );
+  await page.goto('/app/component/task-compose');
+  const composer = page
+    .locator('.portal-scope')
+    .filter({ has: page.getByRole('button', { name: /^Create Task/ }) })
+    .last();
+  const title = composer.locator('[contenteditable="true"]').first();
+  await title.fill('desktop app broken');
+  await expect(
+    composer.getByRole('button', { name: 'Desktop', exact: true })
+  ).toBeVisible({ timeout: 40_000 });
+  await title.fill('fix the UI button spacing');
+  await expect(
+    composer.getByRole('button', { name: 'UI', exact: true })
+  ).toBeVisible({ timeout: 40_000 });
+  await title.fill('fix desktop notification permissions');
+  await expect(
+    composer.getByRole('button', { name: 'Desktop', exact: true })
+  ).toBeVisible({ timeout: 40_000 });
+  await title.fill('buy groceries');
+  await expect(
+    composer.getByRole('button', { name: 'Project', exact: true })
+  ).toBeVisible({ timeout: 40_000 });
+  await title.fill('UI project, not Desktop: fix the menu');
+  await expect(
+    composer.getByRole('button', { name: 'UI', exact: true })
+  ).toBeVisible({ timeout: 40_000 });
+});

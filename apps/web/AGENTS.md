@@ -98,6 +98,8 @@ ownership. Cancel, logout, and the ten-minute timeout retire pending callbacks.
 - Task-composer predictions use Jev's existing `/decisions` API; preserve manual
   selections (including clears), draft prediction ownership, and stale-result
   guards in `features/block-md/{primitives,queries}/task-predictions.ts`.
+  Match project names as task topics, and verify short-task, unrelated-task, and
+  explicit-exclusion cases against Jev when changing the project question.
   Flash the existing pill background with the theme accent in `TaskPredictionHighlight`;
   preserve its shape, border, text, and focus, and respect reduced motion.
 - Keep desktop Gmail and Outlook inbox consent in the system browser with a

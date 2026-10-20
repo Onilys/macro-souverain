@@ -48,7 +48,7 @@ it('bounds requests and selects only supplied project and priority IDs', () => {
     title: '\u0000'.repeat(1000),
     description: '\u0000'.repeat(10000),
     projects: Array.from({ length: 100 }, (_, i) => ({
-      id: `project-${i}`,
+      id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
       name: '\u0000'.repeat(1000),
     })),
     predictPriority: true,
@@ -56,6 +56,9 @@ it('bounds requests and selects only supplied project and priority IDs', () => {
   };
   const request = taskPredictionRequest(input);
   expect(Object.keys(request.questions)).toHaveLength(32);
+  expect(
+    Object.values(request.questions).every((question) => question.length <= 500)
+  ).toBe(true);
   expect(
     new TextEncoder().encode(JSON.stringify(request)).byteLength
   ).toBeLessThan(65536);
@@ -66,7 +69,7 @@ it('bounds requests and selects only supplied project and priority IDs', () => {
   probabilities[PROPERTY_OPTION_IDS.PRIORITY.HIGH] = 0.95;
   probabilities.arbitrary_project = 1;
   expect(decodeTaskPredictions(input, probabilities)).toEqual({
-    project: 'project-2',
+    project: '00000000-0000-4000-8000-000000000002',
     priority: PROPERTY_OPTION_IDS.PRIORITY.HIGH,
   });
 });

@@ -39,7 +39,7 @@ export function taskPredictionRequest(
       ...Object.fromEntries(
         projects.map((_, index) => [
           `project_${index}`,
-          `Does the task clearly belong to the project with key project_${index} in the supplied projects, based on its title and description? Answer no if the relationship is unclear.`,
+          `Does this task concern the subject named by project_${index}? Use the ordinary meaning of each project name, including synonyms. An explicit name match is sufficient even for a short task. Ignore missing project details. Prefer the most specific named subject; exclude unrelated or explicitly ruled-out projects.`,
         ])
       ),
     },
