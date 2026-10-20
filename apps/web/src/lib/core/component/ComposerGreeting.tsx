@@ -10,7 +10,7 @@ export function ComposerGreeting(props: {
   return (
     <Dynamic
       component={props.as ?? 'h2'}
-      class="m-0 flex items-center justify-center gap-3 font-[Roboto_Slab_Variable] text-[28px] font-[315] leading-[1.2] tracking-[-0.025em] text-ink"
+      class="m-0 flex items-center justify-center gap-3 font-[Roboto_Slab_Variable] text-[28px] font-[315] light-mode:font-[360] leading-[1.2] tracking-[-0.025em] text-ink"
     >
       <MacroIcon class="size-9 shrink-0" aria-hidden="true" />
       <span class="min-w-0 text-balance">{props.children}</span>
