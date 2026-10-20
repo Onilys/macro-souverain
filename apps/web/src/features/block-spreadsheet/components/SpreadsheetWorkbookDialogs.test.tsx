@@ -77,12 +77,14 @@ describe('workbook dialogs', () => {
   it('returns focus to the editor when Find closes and leaves IME Enter alone', async () => {
     const [open, setOpen] = createSignal(false);
     const find = vi.fn();
+    const restoreFocus = vi.fn();
     const view = render(() => (
       <>
         <div role="grid" aria-label="Spreadsheet" tabIndex={0} />
         <SpreadsheetFindDialog
           open={open()}
           onClose={() => setOpen(false)}
+          onRestoreFocus={restoreFocus}
           query="Budget"
           onQuery={() => {}}
           replacement=""
@@ -108,8 +110,8 @@ describe('workbook dialogs', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(find).toHaveBeenCalledWith(false);
     fireEvent.keyDown(input, { key: 'Escape' });
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    await waitFor(() => expect(document.activeElement).toBe(grid));
+    await waitFor(() => expect(screen.queryByRole('search')).toBeNull());
+    expect(restoreFocus).toHaveBeenCalled();
   });
 
   it('focuses and selects the sheet name on opening and reopening, and Escape closes', async () => {
