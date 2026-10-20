@@ -80,6 +80,24 @@ vi.mock('@core/mobile/isTouchDevice', () => ({ isTouchDevice: () => true }));
 vi.mock('@components/app/split-layout/layoutUtils', () => ({
   useSplitPanel: () => undefined,
 }));
+vi.mock('@app/features/agents-view/core/route', () => ({
+  agentsRouteId: (route: {
+    mode: string;
+    conversation: { type: string; id: string };
+  }) => `agents-session~agents~${route.conversation.id}`,
+}));
+vi.mock('@app/features/block-agent/context/pending-session', () => ({
+  startPendingSession: () => 'mock-session-id',
+}));
+vi.mock('@app/signal/splitLayout', () => ({
+  globalSplitManager: () => ({
+    replaceAllSplits: vi.fn(),
+    openWithSplit: vi.fn(),
+  }),
+}));
+vi.mock('@core/mobile/isNativeMobilePlatform', () => ({
+  isNativeMobilePlatform: () => false,
+}));
 vi.mock('@app/features/chat/SoupChatInput', () => ({
   SoupChatInput: () => {
     mocks.mountComposer();
@@ -349,7 +367,16 @@ describe('Mobile page action row', () => {
       within(menu)
         .getAllByRole('button')
         .map((item) => item.textContent)
-    ).toEqual(['Email', 'Message', 'Document', 'Event', 'Task', 'More', 'New']);
+    ).toEqual([
+      'Ask AI',
+      'Email',
+      'Message',
+      'Document',
+      'Event',
+      'Task',
+      'More',
+      'New',
+    ]);
     fireEvent.click(
       within(menu).getByRole('button', { name: 'Close create menu' })
     );
@@ -357,7 +384,7 @@ describe('Mobile page action row', () => {
     await waitFor(() => expect(document.activeElement).toBe(trigger));
     expect(mocks.createItem).not.toHaveBeenCalled();
   });
-  it.each(['Email', 'Message', 'Document', 'Event', 'Task', 'More'])(
+  it.each(['Ask AI', 'Email', 'Message', 'Document', 'Event', 'Task', 'More'])(
     'hands off Home’s %s action after closing the quick menu',
     async (label) => {
       mocks.view = 'home';
@@ -371,7 +398,9 @@ describe('Mobile page action row', () => {
           expect(mocks.createMenu).toHaveBeenCalledWith(true);
         else if (label === 'Event')
           expect(mocks.openEvent).toHaveBeenCalledOnce();
-        else expect(mocks.createItem).toHaveBeenCalledWith(label);
+        else if (label === 'Ask AI') {
+          // Ask AI opens an agent session; no createItem call
+        } else expect(mocks.createItem).toHaveBeenCalledWith(label);
       });
       expect(mocks.send).not.toHaveBeenCalled();
     }
