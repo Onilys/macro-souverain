@@ -360,6 +360,9 @@ Scheduling appears in Customize sidebar only when the calendar-scheduling flag i
 on. It starts hidden in More, including for existing sidebar preferences. Enable
 its checkbox to place it on the rail, then reorder or hide it like other apps.
 Showing Scheduling removes its duplicate from More; the choice survives reload.
+Activity appears in Customize sidebar only when the `enable-activity-feed` flag
+is on and, like Scheduling, starts hidden in More (also for existing preferences)
+until enabled on the rail.
 
 - Top: buttons `Create` and `Search`. Clicking `Search` opens a menu
   with `Command Menu` (⌘K on Mac / Ctrl+K elsewhere) and `Search everything`

@@ -13,6 +13,9 @@ Requires authentication and the `enable-activity-feed` flag. Direct navigation a
 restored splits wait for flags to load; when disabled, they redirect to Home
 (`/app/home`) without loading the activity feed.
 
+Open it from **More → Activity** in the sidebar rail (or `g y`); Customize sidebar
+can pin it to the rail.
+
 When checking Activity, enable GraphQL Soup as well as the activity flag. Verify
 that an initial visit resolves entity names in both the feed and Most active,
 then reload and scroll through another page. Preview loading and live name
