@@ -231,6 +231,7 @@ reminders = { path = "../../crates/reminders", features = [
 ] }
 reqwest = { workspace = true }
 rootcause = { workspace = true }
+sha2 = { workspace = true }
 s3_key = { path = "../../crates/s3_key" }
 saved_views = { path = "../../crates/saved_views" }
 scheduled_action = { path = "../scheduled_action" }

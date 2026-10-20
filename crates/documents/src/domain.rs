@@ -9,6 +9,7 @@ pub mod branch_name;
 #[cfg(feature = "ai_tools")]
 pub mod comments;
 pub mod content;
+pub mod docx_export;
 /// Unified entity-mutation capability impls.
 #[cfg(feature = "service")]
 pub mod entity_mutation;

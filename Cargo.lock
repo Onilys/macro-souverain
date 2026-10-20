@@ -6589,6 +6589,7 @@ dependencies = [
  "secretsmanager_client",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "slack_integration",
  "soup",
  "soup_realtime",
