@@ -58,6 +58,7 @@ const STATUS_ICON_CLASS: Record<string, string> = {
   open: 'text-success',
   merged: 'text-note',
   closed: 'text-failure',
+  draft: 'text-ink-muted',
 };
 
 function metadataRecord(metadata: unknown): Record<string, unknown> {
@@ -117,7 +118,11 @@ function pullRequestStatus(entity: ForeignEntity | undefined): string {
   if (!entity || entity.foreignEntitySource !== GITHUB_PULL_REQUEST_SOURCE) {
     return 'open';
   }
-  return optionalString(metadataRecord(entity.metadata).status) ?? 'open';
+  const metadata = metadataRecord(entity.metadata);
+  const status = optionalString(metadata.status) ?? 'open';
+  const isDraft = metadata.draft === true;
+  if (isDraft && status === 'open') return 'draft';
+  return status;
 }
 
 interface PullRequestParts {
@@ -187,6 +192,7 @@ const STATUS_PILL_CLASS: Record<string, string> = {
   open: 'bg-success/15 text-success',
   merged: 'bg-note/15 text-note',
   closed: 'bg-failure/15 text-failure',
+  draft: 'bg-ink-muted/15 text-ink-muted',
 };
 
 interface ChecksSummary {
@@ -252,11 +258,15 @@ function pullRequestPreview(
     ? (metadata.checks as GithubPullRequestCheckRun[])
     : undefined;
 
+  const rawStatus = optionalString(metadata.status) ?? 'open';
+  const isDraft = metadata.draft === true;
+  const status = isDraft && rawStatus === 'open' ? 'draft' : rawStatus;
+
   return {
     title: title ?? displayName ?? ref ?? fallbackLabel(label),
     ref,
     url: optionalString(metadata.url),
-    status: optionalString(metadata.status) ?? 'open',
+    status,
     additions: optionalNumber(metadata.additions),
     deletions: optionalNumber(metadata.deletions),
     commentCount: comments?.length || undefined,

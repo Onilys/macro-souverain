@@ -296,10 +296,12 @@ function ActionBubble(props: { tag: NotificationTag }) {
   );
 }
 
-function GithubStatusIcon(props: { status?: string }) {
+function GithubStatusIcon(props: { status?: string; draft?: boolean }) {
+  const isDraft = () => props.draft === true && props.status === 'open';
   const statusClass = () => {
     if (props.status === 'merged') return 'text-note';
     if (props.status === 'closed') return 'text-failure';
+    if (isDraft()) return 'text-ink-muted';
     if (props.status === 'open') return 'text-success';
     return undefined;
   };
@@ -1304,6 +1306,11 @@ export function GithubCardLayout(props: InboxCardLayoutProps) {
     return props.item.entity.metadata.status;
   });
 
+  const isDraft = createMemo(() => {
+    if (!isGithubPrEntity(props.item.entity)) return false;
+    return props.item.entity.metadata.draft === true;
+  });
+
   const text = createMemo(() => {
     const entity = props.item.entity;
 
@@ -1360,7 +1367,7 @@ export function GithubCardLayout(props: InboxCardLayoutProps) {
             />
           }
         >
-          <GithubStatusIcon status={status()} />
+          <GithubStatusIcon status={status()} draft={isDraft()} />
         </Show>
       }
       title={text().title}
