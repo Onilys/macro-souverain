@@ -45,6 +45,8 @@ each run.
 - Change dispatch behavior: `src/outbound/pg_polling_dispatcher.rs` /
   `src/outbound/tokio_dispatcher.rs` → `src/domain/execution.rs`.
 
+- `src/domain/lambda.rs` runs internal tracked cron closures with cancellation and startup catch-up; job owners persist their own leases.
+
 ## Checks
 
 - `cargo test -p scheduled_action` (`SQLX_OFFLINE` unset).

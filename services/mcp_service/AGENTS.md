@@ -52,6 +52,8 @@ FusionAuth.
 
 - Agent sessions use the shared session toolset; legacy chat tools are not advertised or callable.
 
+- ReadMemory and UpdateMemory use the authenticated caller; GetUserActivity delegates current-team authorization to the memory domain.
+
 ## Checks
 
 - `cargo test -p mcp_service` (`SQLX_OFFLINE` unset).

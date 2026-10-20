@@ -132,6 +132,8 @@ ownership. Cancel, logout, and the ten-minute timeout retire pending callbacks.
 - When adding or changing a feature flag, follow the `feature-flags` skill.
 - When adding or changing a view's feature tour, follow the `add-tour` skill.
 
+- Memory tool results use expandable rows on desktop and mobile; explicit preferences and activity reports remain inspectable after each tool call.
+
 ## Rules
 
 Conventions for this app live in `.agents/rules/web/` and load when you touch

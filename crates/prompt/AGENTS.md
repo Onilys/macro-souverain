@@ -38,6 +38,8 @@ AI system prompts: one module per prompt section, each exporting a
 
 - Direct session-aware search/listing stays available in code mode; do not route conversation work to legacy chat tools or SDK namespaces.
 
+- `src/privacy.rs` supplies generation/judge privacy policy; `compose` joins runtime memory sections without static lifetimes.
+
 ## Checks
 
 - `cargo test -p prompt` (`SQLX_OFFLINE` unset).

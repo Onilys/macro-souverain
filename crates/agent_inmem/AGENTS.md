@@ -40,6 +40,8 @@ milliseconds instead of waiting on container provisioning.
 - Add a new tool gate or admission check: `src/domain/tool_gate.rs` /
   `src/domain/admission.rs` → `src/outbound/approval_gate.rs`.
 
+- Owner memory is composed by the memory domain on each read; daily generation is hosted by cognition, not agent turns.
+
 ## Checks
 
 - `cargo test -p agent_inmem` (`SQLX_OFFLINE` unset).

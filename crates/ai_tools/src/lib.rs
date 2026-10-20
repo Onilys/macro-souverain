@@ -18,6 +18,7 @@ mod display_results;
 pub mod email_attachments;
 mod import_channels;
 mod mcp_app_catalog;
+pub mod memory;
 mod schemas;
 pub mod search;
 mod search_tools;
@@ -272,6 +273,7 @@ pub fn code_mode_tools() -> Arc<AiToolSet> {
 
 fn tools_for_inner(host: AiHost, code_mode_direct: bool) -> ToolSetWithPrompt {
     let toolset = subagent_toolset()
+        .add_subtoolset::<memory::ToolMemoryContext>(::memory::inbound::toolset::memory_toolset())
         .add_subtoolset::<ToolBookingManagementToolContext>(booking_management_toolset())
         .add_subtoolset::<ToolNotificationToolContext>(notification_toolset())
         .add_subtoolset::<ToolItemNotificationPreferenceToolContext>(

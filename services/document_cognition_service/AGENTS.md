@@ -44,6 +44,8 @@ completion, citations, and chat/attachment management.
 - Debug a running stream: `just debug` (sets `RUST_LOG` for `document_cognition_service,ai,ai_tools,anthropic`),
   `just log <since>`.
 
+- Hosts the tracked composed-memory refresh closure outside local mode; shutdown cancels and drains it before returning.
+
 ## Checks
 
 - `cargo test -p document_cognition_service` (`SQLX_OFFLINE` unset; needs

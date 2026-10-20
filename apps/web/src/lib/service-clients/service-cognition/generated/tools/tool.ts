@@ -224,6 +224,10 @@ type ToolParserMap = {
     response: types.TeamAvailability;
   };
   GetThread: { call: types.GetThread; response: types.GetThreadResponse };
+  GetUserActivity: {
+    call: types.GetUserActivity;
+    response: types.ActivityReports;
+  };
   ImportCompaniesCsv: {
     call: types.ImportCompaniesCsv;
     response: types.ImportCompaniesCsvResponse;
@@ -388,6 +392,7 @@ type ToolParserMap = {
     call: types.ReadInitiativeActivity;
     response: types.ProjectActivityResult;
   };
+  ReadMemory: { call: types.ReadMemory; response: types.ExplicitMemory };
   ReadMetadata: {
     call: types.ReadMetadata;
     response: types.ReadMetadataResponse;
@@ -502,6 +507,7 @@ type ToolParserMap = {
     call: types.UpdateInitiativeSharing;
     response: types.ProjectDetails;
   };
+  UpdateMemory: { call: types.UpdateMemory; response: types.ExplicitMemory };
   UpdatePipelineEntries: {
     call: types.UpdatePipelineEntries;
     response: types.UpdatePipelineEntriesResponse;
@@ -748,6 +754,10 @@ const toolParserMap = {
     response: schemas.TeamAvailability,
   },
   GetThread: { call: schemas.GetThread, response: schemas.GetThreadResponse },
+  GetUserActivity: {
+    call: schemas.GetUserActivity,
+    response: schemas.ActivityReports,
+  },
   ImportCompaniesCsv: {
     call: schemas.ImportCompaniesCsv,
     response: schemas.ImportCompaniesCsvResponse,
@@ -939,6 +949,7 @@ const toolParserMap = {
     call: schemas.ReadInitiativeActivity,
     response: schemas.ProjectActivityResult,
   },
+  ReadMemory: { call: schemas.ReadMemory, response: schemas.ExplicitMemory },
   ReadMetadata: {
     call: schemas.ReadMetadata,
     response: schemas.ReadMetadataResponse,
@@ -1067,6 +1078,10 @@ const toolParserMap = {
   UpdateInitiativeSharing: {
     call: schemas.UpdateInitiativeSharing,
     response: schemas.ProjectDetails,
+  },
+  UpdateMemory: {
+    call: schemas.UpdateMemory,
+    response: schemas.ExplicitMemory,
   },
   UpdatePipelineEntries: {
     call: schemas.UpdatePipelineEntries,
@@ -1313,6 +1328,10 @@ type ToolDataMap = {
     response: types.TeamAvailability;
   };
   GetThread: { call: types.GetThread; response: types.GetThreadResponse };
+  GetUserActivity: {
+    call: types.GetUserActivity;
+    response: types.ActivityReports;
+  };
   ImportCompaniesCsv: {
     call: types.ImportCompaniesCsv;
     response: types.ImportCompaniesCsvResponse;
@@ -1477,6 +1496,7 @@ type ToolDataMap = {
     call: types.ReadInitiativeActivity;
     response: types.ProjectActivityResult;
   };
+  ReadMemory: { call: types.ReadMemory; response: types.ExplicitMemory };
   ReadMetadata: {
     call: types.ReadMetadata;
     response: types.ReadMetadataResponse;
@@ -1591,6 +1611,7 @@ type ToolDataMap = {
     call: types.UpdateInitiativeSharing;
     response: types.ProjectDetails;
   };
+  UpdateMemory: { call: types.UpdateMemory; response: types.ExplicitMemory };
   UpdatePipelineEntries: {
     call: types.UpdatePipelineEntries;
     response: types.UpdatePipelineEntriesResponse;

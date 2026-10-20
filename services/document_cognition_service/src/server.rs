@@ -753,6 +753,10 @@ pub async fn run() -> anyhow::Result<()> {
     );
 
     let tool_service_context = ai_tools::ToolServiceContext {
+        memory_tool_context: ai_tools::memory::build_memory_tool_context(
+            db.clone(),
+            recorder.clone(),
+        ),
         cognition_tool_context: ai_tools::build_cognition_tool_context()?,
         connector_tool_context: ai_tools::build_connector_tool_context(db.clone(), None),
         search_service_client: search_service_client.clone(),
@@ -843,11 +847,9 @@ pub async fn run() -> anyhow::Result<()> {
         Arc::new(all_tools.prompt.to_string());
 
     // Build memory service
-    let memory_repo = memory::outbound::pg_memory_repo::PgMemoryRepo::new(db.clone());
-    let memory_service = Arc::new(memory::domain::service::MemoryServiceImpl::new(
-        memory_repo,
+    let memory_service = Arc::new(ai_tools::memory::build_memory_service(
+        db.clone(),
         tool_service_context.clone(),
-        all_tools,
     ));
 
     tracing::info!("initialized memory service");
@@ -983,6 +985,16 @@ pub async fn run() -> anyhow::Result<()> {
     )
     .with_auth_completed_hook(pipedream_auth_hook);
 
+    let memory_jobs = TaskTracker::new();
+    let stop_memory_jobs = tokio_util::sync::CancellationToken::new();
+    if !matches!(config.environment, Environment::Local) {
+        memory::schedule::start(
+            memory_service.clone(),
+            &memory_jobs,
+            stop_memory_jobs.clone(),
+        )?;
+    }
+
     let api_result = api::setup_and_serve(ApiContext {
         db: db.clone(),
         email_service_client_external,
@@ -1029,6 +1041,9 @@ pub async fn run() -> anyhow::Result<()> {
     .await
     .context("failed to setup and serve api");
 
+    stop_memory_jobs.cancel();
+    memory_jobs.close();
+    memory_jobs.wait().await;
     ai_projection_worker_task.abort();
     match ai_projection_worker_task.await {
         Err(error) if error.is_cancelled() => {

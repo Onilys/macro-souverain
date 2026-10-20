@@ -535,6 +535,10 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
     );
 
     let tool_context = ToolServiceContext {
+        memory_tool_context: ai_tools::memory::build_memory_tool_context(
+            db.clone(),
+            recorder.clone(),
+        ),
         cognition_tool_context: ai_tools::build_cognition_tool_context()?,
         connector_tool_context: ai_tools::build_connector_tool_context(db.clone(), None),
         email_service_client: Arc::new(EmailServiceClientExternal::new(

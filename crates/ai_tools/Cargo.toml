@@ -8,6 +8,8 @@ version = "0.1.0"
 test-support = []
 
 [dependencies]
+macro_entrypoint = { path = "../macro_entrypoint" }
+memory = { path = "../memory" }
 clap = { workspace = true, features = ["derive"] }
 favorites = { path = "../favorites", features = ["ai_tools", "postgres"] }
 forms = { path = "../forms", features = ["ai_tools", "gateway", "postgres", "scheduling"] }
