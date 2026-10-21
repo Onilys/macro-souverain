@@ -39,13 +39,6 @@ export type AppEvents = {
    * signupCompletion.ts.
    */
   sign_up: Record<string, unknown>;
-  /**
-   * Browser companion to the server `sign_up`, fired once per new account
-   * with the first-touch source as `first_touch_utm_*`, `first_touch_referrer`
-   * and `first_touch_landing_page` (also set once on the person). See
-   * firstTouch.ts.
-   */
-  sign_up_attribution: Record<string, string>;
   /** Signup intent: user clicked a sign-up CTA (pre-redirect, may not convert). */
   sign_up_click: { method?: string } & Record<string, unknown>;
   login: Record<string, unknown>; // payload - include link status
