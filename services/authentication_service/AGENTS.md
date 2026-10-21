@@ -88,6 +88,11 @@ inputs cannot select an agent, and ordinary user credentials remain unattributed
   when present; see `README.md` before changing signup behavior.
 - Denial responses and policy errors must never disclose configured allowlist
   addresses; never paste operational addresses into code, logs, or docs.
+- When the FusionAuth JWT populate lambda fails (its `fetch` to
+  `/webhooks/user/jwt` times out after 2 s or gets a non-200), FusionAuth still
+  issues the access token, just without the Macro claims. `/jwt/refresh`
+  refreshes such tokens instead of rejecting them, and warns when FusionAuth
+  returns one.
 
 ## Related
 

@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 use crate::api::{
     context::TokenContext,
     utils::{create_access_token_cookie, create_refresh_token_cookie},
@@ -9,7 +12,13 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use fusionauth::{FusionAuthClient, error::FusionAuthClientError};
-use macro_auth::{error::MacroAuthError, middleware::decode_jwt::JwtValidationArgs};
+use macro_auth::{
+    error::MacroAuthError,
+    middleware::decode_jwt::{
+        JwtValidationArgs, validate_fusionauth_access_token_allow_expired,
+        validate_macro_access_token,
+    },
+};
 use model::response::UserTokensResponse;
 use std::sync::Arc;
 use tower_cookies::Cookies;
@@ -65,10 +74,7 @@ pub async fn handler(
     token_context: Extension<TokenContext>,
     cookies: Cookies,
 ) -> Result<Json<UserTokensResponse>, RefreshError> {
-    match macro_auth::middleware::decode_jwt::validate_macro_access_token(
-        &token_context.access_token,
-        &jwt,
-    ) {
+    match validate_macro_access_token(&token_context.access_token, &jwt) {
         Ok(_) => {
             // jwt is valid, return back original tokens
             tracing::trace!("jwt still valid");
@@ -77,14 +83,22 @@ pub async fn handler(
                 refresh_token: token_context.refresh_token.clone(),
             }));
         }
-        Err(e) => match e {
-            // We only want to refresh the token if it's expired
-            MacroAuthError::JwtExpired => {}
-            _ => {
-                tracing::error!(error=?e, "unable to decode jwt");
-                return Err(RefreshError::Unauthorized);
-            }
-        },
+        Err(MacroAuthError::JwtExpired) => {}
+        // FusionAuth issues the token without the Macro claims when the JWT populate lambda
+        // fails; refreshing runs the lambda again.
+        Err(e)
+            if validate_fusionauth_access_token_allow_expired(
+                &token_context.access_token,
+                &jwt,
+            )
+            .is_ok() =>
+        {
+            tracing::info!(error=?e, "refreshing access token without macro claims");
+        }
+        Err(e) => {
+            tracing::error!(error=?e, "unable to decode jwt");
+            return Err(RefreshError::Unauthorized);
+        }
     }
 
     // NOTE: Disabled until we fix FE auth setup.
@@ -126,6 +140,12 @@ pub async fn handler(
         })?;
 
     tracing::info!(time_taken=?start_time.elapsed(), "refresh token time");
+
+    validate_macro_access_token(&access_token, &jwt)
+        .inspect_err(|e| {
+            tracing::warn!(error=?e, "fusionauth issued an access token that fails validation");
+        })
+        .ok();
 
     // Add in cookies to response
     cookies.add(create_access_token_cookie(&access_token));

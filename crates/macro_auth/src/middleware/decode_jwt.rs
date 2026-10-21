@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod agent_test;
+#[cfg(test)]
+mod fusionauth_access_token_test;
 
 use std::sync::OnceLock;
 
@@ -164,6 +166,30 @@ pub fn decode_macro_access_token_allow_expired(
         .into_owned();
 
     Ok(macro_user_id)
+}
+
+/// Checks that a token was issued by FusionAuth for this application (signature, audience and
+/// issuer) without checking expiry or the Macro claims. FusionAuth still issues an access token
+/// when the JWT populate lambda fails, just without those claims.
+pub fn validate_fusionauth_access_token_allow_expired(
+    access_token: &str,
+    args: &JwtValidationArgs,
+) -> Result<(), MacroAuthError> {
+    let mut validation = Validation::new(Algorithm::HS256);
+    validation.set_audience(&[args.audience.as_ref()]);
+    validation.set_issuer(&[args.issuer.as_ref()]);
+    validation.set_required_spec_claims(&["exp", "aud", "iss"]);
+    validation.validate_exp = false;
+
+    decode::<serde::de::IgnoredAny>(
+        access_token,
+        &DecodingKey::from_secret(args.jwt_secret.as_ref().as_bytes()),
+        &validation,
+    )
+    .map(|_| ())
+    .map_err(|e| MacroAuthError::JwtValidationFailed {
+        details: e.to_string(),
+    })
 }
 
 fn validate_macro_access_token_inner(
