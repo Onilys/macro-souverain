@@ -845,6 +845,12 @@ teammate with no DM or CRM record in both categories, including with CRM disable
 then verify that loading their DM produces one row and that Files/Channels do not
 show that person.
 
+Browser examples: [desktop](media/command/teammate-desktop.png) and
+[mobile](media/command/teammate-mobile.png), using a known-user fixture with no DM
+or CRM record and an intercepted DM request. These captures used a bundle-only
+guard for the unrelated disabled grouped-Soup startup crash in
+`create-grouped-soup-live-query.ts`; unmodified app startup remains unverified.
+
 With CRM enabled, Cmd+K **People** and a typed **All** query also find CRM contacts, using the same
 accessible-team search, hidden-record exclusions, and full-email collapsing as
 mentions. Cached contacts appear at once; the server search starts about 250 ms
