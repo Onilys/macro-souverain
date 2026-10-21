@@ -3258,10 +3258,11 @@ async fn invite_users_to_team_blocked_for_member_when_non_admin_invites_disabled
 #[tokio::test]
 async fn invite_users_to_team_caps_new_invites_per_day() {
     let team_id = uuid::Uuid::from_u128(6140);
+    let invite_id = uuid::Uuid::from_u128(6141);
     let invited_by = MacroUserIdStr::parse_from_str("macro|owner@example.com").unwrap();
     let mark_sent_calls = Arc::new(Mutex::new(Vec::new()));
     let mut team_repo = MockTeamRepository::new(
-        vec![make_invite("new@example.com", uuid::Uuid::from_u128(6141), team_id)],
+        vec![make_invite("new@example.com", invite_id, team_id)],
         "Busy Team",
         mark_sent_calls.clone(),
     );
@@ -3270,7 +3271,7 @@ async fn invite_users_to_team_caps_new_invites_per_day() {
         email: format!("invitee{n}@example.com"),
         team_id,
         team_role: TeamRole::Member,
-        invited_by: invited_by.as_ref().to_string(),
+        invited_by: "macro|owner@example.com".to_string(),
         created_at,
         last_sent_at: created_at,
     };
