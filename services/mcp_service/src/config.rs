@@ -26,6 +26,10 @@ maybe_env_vars! {
     /// when unset. Loopback `http` redirect URIs are always allowed and do not
     /// need to be listed.
     pub struct McpAllowedRedirectHosts;
+    /// OpenAI domain verification token for ChatGPT Apps Directory submission.
+    /// Served at /.well-known/openai-apps-challenge. Optional; uses placeholder
+    /// when unset.
+    pub struct OpenaiDomainVerificationToken;
 }
 
 /// Hosts trusted to receive an MCP authorization code when
