@@ -2130,6 +2130,7 @@ dependencies = [
  "utoipa",
  "utoipa-swagger-ui",
  "uuid",
+ "wiremock",
  "workspace-hack",
  "zeroize",
 ]

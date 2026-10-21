@@ -83,6 +83,9 @@ inputs cannot select an agent, and ordinary user credentials remain unattributed
   reauthentication, while infrastructure failures remain server errors.
   Deploy grant-refresh support before releasing clients that omit the pre-OAuth
   disconnect; older callbacks leave an existing grant unchanged.
+- FusionAuth reports a link owner that was deleted as `UserDoesNotExist`. That
+  user has no links or grants left, so answer the route's "not linked" outcome
+  (404 no grant, 200 for an idempotent removal), not a 500.
 - The signup allowlist has a temporary Develop-only bypass
   (`DEVELOPMENT_BYPASS_SIGNUP_ALLOWLIST`) that overrides the allowlist even
   when present; see `README.md` before changing signup behavior.
