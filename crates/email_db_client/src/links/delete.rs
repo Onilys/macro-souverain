@@ -1,14 +1,17 @@
 use sqlx::types::Uuid;
 use sqlx::{PgPool, Postgres, Transaction};
 use std::num::NonZeroU32;
+use std::time::Duration;
 
 #[cfg(test)]
 mod test;
 
-/// How many rows each [`purge_link`] transaction removes. Every batch commits on its own,
-/// so no single transaction holds locks, WAL or the xmin horizon for a whole mailbox.
+/// How fast [`purge_link`] removes a link's data. Every batch commits on its own, so no
+/// single transaction holds locks, WAL or the xmin horizon for a whole mailbox, and the
+/// pause between batches caps how much write I/O one purge generates, so several purges
+/// running at once can't saturate the database.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PurgeBatchSizes {
+pub struct PurgePacing {
     /// Messages per transaction, deleted together with their labels, recipients,
     /// attachments and scheduled sends, and with the threads the batch finishes. Message
     /// bodies are most of a mailbox's bytes (TOAST), so this is the knob that bounds a
@@ -18,14 +21,17 @@ pub struct PurgeBatchSizes {
     pub threads: NonZeroU32,
     /// Contacts per transaction.
     pub contacts: NonZeroU32,
+    /// Wait after a full batch before the next one starts.
+    pub pause: Duration,
 }
 
-impl Default for PurgeBatchSizes {
+impl Default for PurgePacing {
     fn default() -> Self {
         Self {
-            messages: NonZeroU32::new(1_000).expect("non-zero"),
+            messages: NonZeroU32::new(500).expect("non-zero"),
             threads: NonZeroU32::new(2_000).expect("non-zero"),
             contacts: NonZeroU32::new(5_000).expect("non-zero"),
+            pause: Duration::from_secs(2),
         }
     }
 }
@@ -69,8 +75,8 @@ pub async fn mark_link_deleting(pool: &PgPool, link_id: Uuid) -> anyhow::Result<
 
 /// Deletes a link and all of its email data incrementally: messages (deepest children
 /// first) with the threads they belong to, then any remaining threads, then contacts,
-/// each in bounded short transactions, and finally the `email_links` row, whose cascade
-/// only has small per-link tables left to clear.
+/// each in bounded short transactions paced by `pacing`, and finally the `email_links`
+/// row, whose cascade only has small per-link tables left to clear.
 ///
 /// Marks the link via [`mark_link_deleting`] first, so it can be called on its own. Safe to
 /// rerun after a crash (it resumes from whatever is left) and to run concurrently for the
@@ -79,7 +85,7 @@ pub async fn mark_link_deleting(pool: &PgPool, link_id: Uuid) -> anyhow::Result<
 pub async fn purge_link(
     pool: &PgPool,
     link_id: Uuid,
-    batch_sizes: PurgeBatchSizes,
+    pacing: PurgePacing,
 ) -> anyhow::Result<PurgeSummary> {
     mark_link_deleting(pool, link_id).await?;
 
@@ -87,32 +93,34 @@ pub async fn purge_link(
 
     let mut thread_cursor = Uuid::nil();
     loop {
-        let batch = purge_message_batch(pool, link_id, thread_cursor, batch_sizes.messages).await?;
+        let batch = purge_message_batch(pool, link_id, thread_cursor, pacing.messages).await?;
         summary.messages += batch.messages;
         summary.threads += batch.threads;
         let Some(next_cursor) = batch.next_cursor else {
             break;
         };
         thread_cursor = next_cursor;
+        tokio::time::sleep(pacing.pause).await;
     }
 
     loop {
-        let batch = purge_thread_batch(pool, link_id, batch_sizes.threads).await?;
+        let batch = purge_thread_batch(pool, link_id, pacing.threads).await?;
         summary.threads += batch.deleted;
         if !batch.full {
             break;
         }
+        tokio::time::sleep(pacing.pause).await;
     }
 
     let mut contact_cursor = String::new();
     loop {
-        let batch =
-            purge_contact_batch(pool, link_id, &contact_cursor, batch_sizes.contacts).await?;
+        let batch = purge_contact_batch(pool, link_id, &contact_cursor, pacing.contacts).await?;
         summary.contacts += batch.deleted;
         let Some(next_cursor) = batch.next_cursor else {
             break;
         };
         contact_cursor = next_cursor;
+        tokio::time::sleep(pacing.pause).await;
     }
 
     summary.link_deleted = delete_marked_link(pool, link_id).await?;

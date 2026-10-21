@@ -122,16 +122,17 @@ async fn deletion_state(pool: &Pool<Postgres>, link_id: Uuid) -> anyhow::Result<
     .await?)
 }
 
-fn batch_sizes(messages: u32, threads: u32, contacts: u32) -> PurgeBatchSizes {
-    PurgeBatchSizes {
+fn batch_sizes(messages: u32, threads: u32, contacts: u32) -> PurgePacing {
+    PurgePacing {
         messages: NonZeroU32::new(messages).expect("non-zero"),
         threads: NonZeroU32::new(threads).expect("non-zero"),
         contacts: NonZeroU32::new(contacts).expect("non-zero"),
+        pause: Duration::ZERO,
     }
 }
 
 /// Small enough that every phase of the fixture takes several batches, with a partial last one.
-fn tiny_batches() -> PurgeBatchSizes {
+fn tiny_batches() -> PurgePacing {
     batch_sizes(4, 3, 3)
 }
 
@@ -173,6 +174,34 @@ async fn purge_removes_all_link_data_in_batches(pool: Pool<Postgres>) -> anyhow:
     assert_eq!(link_rows(&pool, KEPT).await?, LinkRows::FULL);
     // The purged link's stored files are handed to the SFS cleanup instead of leaking.
     assert_eq!(detached_sfs_rows(&pool).await?, 10);
+
+    Ok(())
+}
+
+#[sqlx::test(
+    migrator = "MACRO_DB_MIGRATIONS",
+    fixtures(path = "../../../fixtures", scripts("purge_link"))
+)]
+async fn purge_pauses_between_batches(pool: Pool<Postgres>) -> anyhow::Result<()> {
+    // 30 messages in batches of 20 take one full batch and one partial one; threads and
+    // contacts each fit in a single partial batch. So the purge pauses exactly once.
+    let pause = Duration::from_secs(1);
+    let started = std::time::Instant::now();
+
+    let summary = purge_link(
+        &pool,
+        PURGED,
+        PurgePacing {
+            pause,
+            ..batch_sizes(20, 100, 100)
+        },
+    )
+    .await?;
+
+    assert!(started.elapsed() >= pause);
+    assert!(summary.link_deleted);
+    assert_eq!(link_rows(&pool, PURGED).await?, LinkRows::EMPTY);
+    assert_eq!(link_rows(&pool, KEPT).await?, LinkRows::FULL);
 
     Ok(())
 }
@@ -299,7 +328,7 @@ async fn sync_does_not_resume_on_a_link_being_deleted(pool: Pool<Postgres>) -> a
     assert_eq!(state.deleting_at, Some(deleting_at));
 
     assert!(
-        purge_link(&pool, link.id, PurgeBatchSizes::default())
+        purge_link(&pool, link.id, PurgePacing::default())
             .await?
             .link_deleted
     );
@@ -320,7 +349,7 @@ async fn purge_of_a_missing_link_is_a_no_op(pool: Pool<Postgres>) -> anyhow::Res
 
     mark_link_deleting(&pool, missing).await?;
     assert_eq!(
-        purge_link(&pool, missing, PurgeBatchSizes::default()).await?,
+        purge_link(&pool, missing, PurgePacing::default()).await?,
         PurgeSummary::default()
     );
 
