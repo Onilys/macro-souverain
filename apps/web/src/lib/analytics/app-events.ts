@@ -215,6 +215,21 @@ export type AppEvents = {
   plan_changed: { plan: 'premium' | 'max'; from?: string };
 
   email_message_sent: Record<string, unknown>;
+  /**
+   * How the inbox-link OAuth callback ended. `connected` covers re-linking an
+   * inbox that was already connected; the client cannot tell them apart.
+   */
+  email_link_callback_result: {
+    outcome:
+      | 'connected'
+      | 'already_initialized'
+      | 'shared_inbox_conflict'
+      | 'payment_required'
+      | 'no_gmail_grant'
+      | 'failed'
+      | 'exception'
+      | 'missing_link_id';
+  };
 
   channel_message_sent: Record<string, unknown>;
   channel_messages_load: {
