@@ -87,9 +87,9 @@ function DesktopAgentPicker(props: AgentPickerProps) {
     <Dropdown
       open={open()}
       onOpenChange={setOpen}
-      placement="bottom-start"
-      gutter={8}
-      getAnchorRect={composerMenuAnchorRect}
+      placement={macro() ? 'bottom-start' : 'top-end'}
+      gutter={macro() ? 8 : 4}
+      getAnchorRect={macro() ? composerMenuAnchorRect : undefined}
     >
       <Dropdown.Trigger
         variant="ghost"
@@ -132,7 +132,10 @@ function DesktopAgentPicker(props: AgentPickerProps) {
       </Dropdown.Trigger>
       <Dropdown.Content
         class={cn(
-          'w-[min(42rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border-0'
+          macro()
+            ? 'w-[min(42rem,calc(100vw-2rem))]'
+            : 'w-70 max-w-[calc(100vw-1rem)]',
+          'overflow-hidden rounded-2xl border-0'
         )}
         onCloseAutoFocus={props.onCloseAutoFocus}
         onPointerDown={(event: PointerEvent) => event.stopPropagation()}
@@ -195,9 +198,11 @@ function DesktopAgentPicker(props: AgentPickerProps) {
             class="order-1 min-h-0 min-w-0 space-y-1 overflow-y-auto overscroll-contain px-2 pb-2 pt-3"
             classList={{ 'sm:col-span-2': !macro() }}
           >
-            <div class="px-3 pb-1 text-xs font-medium text-ink-extra-muted">
-              Agents
-            </div>
+            <Show when={macro()}>
+              <div class="px-3 pb-1 text-xs font-medium text-ink-extra-muted">
+                Agents
+              </div>
+            </Show>
             <For each={groups()}>
               {(group) => (
                 <Dropdown.Group class="bg-transparent py-0">
