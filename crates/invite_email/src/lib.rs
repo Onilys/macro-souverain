@@ -328,10 +328,12 @@ impl NotificationExtEmail for InviteToTeamMetadata {
         }
     }
 
+    /// One bucket per invite (one invite per recipient per team), so inviting
+    /// several teammates at once emails each of them. Resends reuse the invite.
     fn rate_limit_key(&self) -> RateLimitKey {
         RateLimitKey::builder(&Self::TYPE_NAME)
             .append(&self.team_id)
-            .append(&self.invited_by.as_ref())
+            .append(&self.team_invite_id)
             .finish()
     }
 }
