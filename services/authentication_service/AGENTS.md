@@ -83,6 +83,9 @@ inputs cannot select an agent, and ordinary user credentials remain unattributed
   reauthentication, while infrastructure failures remain server errors.
   Deploy grant-refresh support before releasing clients that omit the pre-OAuth
   disconnect; older callbacks leave an existing grant unchanged.
+- `/internal/google_access_token` returns 404 for a missing grant, including a
+  deleted FusionAuth user, and 403 for a revoked one. Email and calendar mark
+  the link for reauthentication on either; a 500 is retried as transient.
 - The signup allowlist has a temporary Develop-only bypass
   (`DEVELOPMENT_BYPASS_SIGNUP_ALLOWLIST`) that overrides the allowlist even
   when present; see `README.md` before changing signup behavior.

@@ -13,6 +13,9 @@ use std::sync::Arc;
 
 use crate::api::context::AuthorizationService;
 
+#[cfg(test)]
+mod test;
+
 #[derive(serde::Deserialize, Debug)]
 pub struct GoogleAccessTokenParams {
     fusionauth_user_id: String,
@@ -54,14 +57,7 @@ async fn get_access_token(
             // a 500 would surface as a hard login failure.
             if matches!(e, FusionAuthClientError::NoIdentityProviderFound) {
                 tracing::debug!(error=?e, "no {} identity provider configured", identity_provider_name);
-                return (
-                    StatusCode::NOT_FOUND,
-                    Json(ErrorResponse {
-                        message: format!("No {} link found for this user", identity_provider_name)
-                            .into(),
-                    }),
-                )
-                    .into_response();
+                return no_link_response(identity_provider_name);
             }
             tracing::error!(error=?e, "unable to find idp id for {}", identity_provider_name);
             (
@@ -78,14 +74,7 @@ async fn get_access_token(
         .get_links(fusionauth_user_id, Some(idp_id.clone()))
         .await
         .map_err(|e| {
-            tracing::error!(error=?e, "error fetching links for userid {} and idp id {}", fusionauth_user_id, idp_id.as_str());
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    message: "unable to fetch links".into(),
-                }),
-            )
-                .into_response()
+            links_error_response(e, fusionauth_user_id, &idp_id, identity_provider_name)
         })?;
 
     // a fusionauth user can have multiple links to the same identity provider with different email
@@ -101,14 +90,7 @@ async fn get_access_token(
                 fusionauth_user_id,
                 idp_id.as_str()
             );
-            (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse {
-                    message: format!("No {} link found for this user", identity_provider_name)
-                        .into(),
-                }),
-            )
-                .into_response()
+            no_link_response(identity_provider_name)
         })?;
 
     // get access token using refresh token
@@ -139,4 +121,37 @@ async fn get_access_token(
         }),
     )
         .into_response())
+}
+
+/// Callers treat a 404 as a missing grant and ask the user to reconnect.
+fn no_link_response(identity_provider_name: &str) -> Response {
+    (
+        StatusCode::NOT_FOUND,
+        Json(ErrorResponse {
+            message: format!("No {} link found for this user", identity_provider_name).into(),
+        }),
+    )
+        .into_response()
+}
+
+fn links_error_response(
+    e: FusionAuthClientError,
+    fusionauth_user_id: &str,
+    idp_id: &str,
+    identity_provider_name: &str,
+) -> Response {
+    // A deleted FusionAuth user can't hold a grant, so it is a missing link
+    // rather than a server fault.
+    if matches!(e, FusionAuthClientError::UserDoesNotExist) {
+        tracing::debug!("fusionauth user {} no longer exists", fusionauth_user_id);
+        return no_link_response(identity_provider_name);
+    }
+    tracing::error!(error=?e, "error fetching links for userid {} and idp id {}", fusionauth_user_id, idp_id);
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(ErrorResponse {
+            message: "unable to fetch links".into(),
+        }),
+    )
+        .into_response()
 }
