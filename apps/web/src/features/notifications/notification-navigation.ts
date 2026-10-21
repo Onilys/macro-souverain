@@ -1,6 +1,7 @@
 import { openCalendarView } from '@app/features/calendar-view/calendar-navigation';
 import { createCalendarRange } from '@app/features/calendar-view/calendar-range';
 import { crmRecordContent } from '@app/features/crm/crm-hosted-content';
+import { analytics } from '@app/lib/analytics';
 import {
   getChannelParams,
   navigateToChannelMessage,
@@ -581,6 +582,12 @@ function getSupportedHandler(
 }
 
 /**
+ * Where a notification was opened from: the app's own lists, a browser
+ * notification, or a native (iOS, Android, macOS) notification.
+ */
+export type NotificationOpenSource = 'in_app' | 'browser_push' | 'native_push';
+
+/**
  * Opens the notification given the layout manager.
  * Some notifications are not supported and will return an error.
  */
@@ -594,7 +601,7 @@ export function openNotification(
    * clicked).
    */
   sourceHandle?: SplitHandle,
-  options: { onApplied?: VoidFunction } = {}
+  options: { onApplied?: VoidFunction; source?: NotificationOpenSource } = {}
 ): ResultAsync<void, NotSupportedError> {
   const handler = getSupportedHandler(
     notification,
@@ -608,6 +615,11 @@ export function openNotification(
       notificationType: notification.notification_metadata.tag,
     });
   }
+  analytics.track('notification_opened', {
+    source: options.source ?? 'in_app',
+    notificationType: notification.notification_metadata.tag,
+    entityType: notification.entity_type,
+  });
   return ResultAsync.fromSafePromise(handler(layoutManager, newSplit));
 }
 
@@ -630,6 +642,7 @@ export function openSingleStackNotification(
   return true;
 }
 
+/** Opens a notification a native notification tap named by id. */
 export function openNotificationFromId(
   notificationId: string,
   layoutManager: SplitManager,
@@ -649,7 +662,7 @@ export function openNotificationFromId(
       false,
       undefined,
       undefined,
-      { onApplied: options.onApplied }
+      { onApplied: options.onApplied, source: 'native_push' }
     );
   };
 

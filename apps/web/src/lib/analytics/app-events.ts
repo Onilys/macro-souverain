@@ -308,6 +308,18 @@ export type AppEvents = {
     response: 'accepted' | 'declined' | 'tentative';
     scope: 'all' | 'this_event';
   };
+
+  // --- Notifications -------------------------------------------------------
+  /**
+   * A notification was opened: from the app's lists and stacks (`in_app`), a
+   * browser notification, or a native iOS, Android or macOS notification tap
+   * (`native_push`; `macro_device` tells the platforms apart).
+   */
+  notification_opened: {
+    source: 'in_app' | 'browser_push' | 'native_push';
+    notificationType: string;
+    entityType: string;
+  };
 };
 
 export type AppEventNames = keyof AppEvents;
