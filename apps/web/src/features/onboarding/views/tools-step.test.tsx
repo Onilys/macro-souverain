@@ -1,9 +1,16 @@
 import { cleanup, fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  readPendingConnectors,
+  savePendingConnectors,
+} from '../primitives/flow-storage';
 import { renderWithFakeOnboarding } from '../tests/render';
 import { ToolsStep } from './tools-step';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  sessionStorage.clear();
+});
 
 describe('onboarding tools', () => {
   it('keeps Drive and Sheets available, hides excluded Google apps, and reuses native connections', async () => {
@@ -139,4 +146,25 @@ it('tracks a connector once its connection lands, not ones already connected', a
       data: { connector: 'notion' },
     },
   ]);
+});
+it('reports a GitHub connect that lands after the OAuth reload', async () => {
+  // Web GitHub OAuth reloads the page, so the step remounts with the link.
+  savePendingConnectors(new Set(['github']));
+  const { fake } = renderWithFakeOnboarding(
+    () => <ToolsStep onContinue={vi.fn()} />,
+    { githubLinkStatus: 'linked' }
+  );
+  await waitFor(() =>
+    expect(
+      fake
+        .events()
+        .filter((item) => item.event === 'onboarding_v4_connector_connected')
+    ).toEqual([
+      {
+        event: 'onboarding_v4_connector_connected',
+        data: { connector: 'github' },
+      },
+    ])
+  );
+  expect(readPendingConnectors().size).toBe(0);
 });

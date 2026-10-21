@@ -5,6 +5,10 @@ import { createEffect, createSignal, For, Show } from 'solid-js';
 import { ContinueButton } from '../components/controls';
 import { ToolTile } from '../components/tool-tile';
 import { type Tool, useOnboardingContext } from '../context/onboarding-context';
+import {
+  readPendingConnectors,
+  savePendingConnectors,
+} from '../primitives/flow-storage';
 import { orderOnboardingTools } from '../primitives/tools';
 
 /** Uses the same searchable, paginated catalog and hosted connection flow as Settings. */
@@ -15,8 +19,10 @@ export function ToolsStep(props: { onContinue: () => void }) {
   const entries = () => orderOnboardingTools(catalog.entries());
   const [busy, setBusy] = createSignal<string>();
   // Hosted OAuth finishes out of band, so a connection counts once polling
-  // reports a tool this step started connecting.
-  const [pending, setPending] = createSignal<ReadonlySet<string>>(new Set());
+  // reports a tool this step started connecting. Kept in session storage
+  // because GitHub's web OAuth reloads the page before its link lands.
+  const [pending, setPending] = createSignal(readPendingConnectors());
+  createEffect(() => savePendingConnectors(pending()));
   createEffect(() => {
     const landed = [...pending()].filter((slug) =>
       ['connected', 'account-linked'].includes(connected.state(slug))
