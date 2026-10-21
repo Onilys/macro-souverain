@@ -112,3 +112,31 @@ it('distinguishes a linked GitHub account from repository setup', () => {
   );
   expect(fake.calls()).toContain('configureGithubRepositories');
 });
+it('tracks a connector once its connection lands, not ones already connected', async () => {
+  const { fake } = renderWithFakeOnboarding(
+    () => <ToolsStep onContinue={vi.fn()} />,
+    {
+      catalog: [
+        { slug: 'linear', name: 'Linear', iconUrl: null },
+        { slug: 'notion', name: 'Notion', iconUrl: null },
+      ],
+      connectedTools: ['linear'],
+    }
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Connect Notion' }));
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', { name: 'Connected to Notion' })
+    ).toBeTruthy()
+  );
+  expect(
+    fake
+      .events()
+      .filter((item) => item.event === 'onboarding_v4_connector_connected')
+  ).toEqual([
+    {
+      event: 'onboarding_v4_connector_connected',
+      data: { connector: 'notion' },
+    },
+  ]);
+});
