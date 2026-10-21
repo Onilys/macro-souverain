@@ -41,6 +41,8 @@ type ModelCatalogPickerProps = {
   placeholder?: string;
   searchPlaceholder?: string;
   ariaLabel?: string;
+  getAnchorRect?: (anchor?: HTMLElement) => DOMRect | undefined;
+  gutter?: number;
   placement?: 'top-start' | 'top-end' | 'bottom-start' | 'bottom-end';
 };
 
@@ -208,6 +210,8 @@ export function ModelCatalogPicker(props: ModelCatalogPickerProps) {
       open={open()}
       onOpenChange={setOpen}
       placement={props.placement ?? 'top-start'}
+      getAnchorRect={props.getAnchorRect}
+      gutter={props.gutter ?? 4}
     >
       <Dropdown.Trigger
         variant="ghost"

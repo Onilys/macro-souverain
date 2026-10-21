@@ -408,7 +408,8 @@ the shimmer.
   does not reorder the sections. Search matches names, IDs, and provider names. The compact borderless search
   field receives focus when the model selector opens directly to the catalog.
   The desktop picker uses a wide, height-limited layout with agents on the left
-  and models on the right; each column scrolls independently. Phones retain
+  and models on the right; each column scrolls independently. It shares the Plus
+  menu’s width and below-composer anchor. Phones retain
   their single-column sheet.
   The separate speedometer controls effort. The catalog's opaque header
   meets the top of the scroll area so rows cannot show through above it.

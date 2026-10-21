@@ -94,6 +94,7 @@ function AddDropdown(props: {
   return (
     <Dropdown placement={props.placement ?? 'top-start'} gutter={8}>
       <Dropdown.Trigger
+        data-composer-menu-anchor
         variant="ghost"
         size="icon-composer"
         class={cn('touch:size-6', props.class)}

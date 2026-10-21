@@ -339,6 +339,26 @@ describe('agent-led new conversation', () => {
     motionStyles.remove();
     vi.unstubAllGlobals();
   });
+  it.each([390, 1024])(
+    'keeps the touch picker as a single sheet at %ipx',
+    async (width) => {
+      vi.stubGlobal('innerWidth', width);
+      mocks.touch = true;
+      page();
+      fireEvent.click(screen.getByRole('button', { name: 'Agent' }));
+      const sheet = await screen.findByRole('dialog');
+      expect(
+        within(sheet).getByRole('textbox', { name: 'Search agents and models' })
+      ).toBeTruthy();
+      expect(screen.queryByRole('menu')).toBeNull();
+      expect(screen.queryByRole('group', { name: 'Agents' })).toBeNull();
+      expect(screen.queryByRole('group', { name: 'Models' })).toBeNull();
+      fireEvent.click(
+        within(sheet).getByRole('button', { name: 'Sonnet 5.5' })
+      );
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    }
+  );
   it('selects a coding model from the phone sheet without hover and preserves the draft', async () => {
     mocks.touch = true;
     const send = page(true, [], false, [], 'code');

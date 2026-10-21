@@ -2,6 +2,7 @@ import { ModelCatalogMenu } from '@core/component/AI/component/input/ModelCatalo
 import { ModelIcon } from '@core/component/AI/component/ProviderIcon';
 import { modelLabel } from '@core/component/AI/constant/model-label';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
+import { composerMenuAnchorRect } from '@core/util/composerMenuAnchor';
 import CaretDownIcon from '@phosphor/caret-down.svg';
 import CaretRightIcon from '@phosphor/caret-right.svg';
 import PlusIcon from '@phosphor/plus.svg';
@@ -83,7 +84,13 @@ function DesktopAgentPicker(props: AgentPickerProps) {
     setOpen(false);
   };
   return (
-    <Dropdown open={open()} onOpenChange={setOpen} placement="top-end">
+    <Dropdown
+      open={open()}
+      onOpenChange={setOpen}
+      placement="bottom-start"
+      gutter={8}
+      getAnchorRect={composerMenuAnchorRect}
+    >
       <Dropdown.Trigger
         variant="ghost"
         aria-label="Agent"
@@ -125,8 +132,7 @@ function DesktopAgentPicker(props: AgentPickerProps) {
       </Dropdown.Trigger>
       <Dropdown.Content
         class={cn(
-          macro() ? 'w-[40rem]' : 'w-80',
-          'max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border-0'
+          'w-[min(42rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border-0'
         )}
         onCloseAutoFocus={props.onCloseAutoFocus}
         onPointerDown={(event: PointerEvent) => event.stopPropagation()}
