@@ -28,6 +28,7 @@ use macro_event_broker::MacroEventBroker;
 use models_properties::service::property_option::PropertyOptionValue;
 use models_properties::service::property_value::PropertyValue;
 use models_properties::shared::DataType;
+use tracing::Level;
 use uuid::Uuid;
 
 use crate::domain::catalog::{self, TableEntry, takes_options};
@@ -703,7 +704,7 @@ where
             .collect())
     }
 
-    #[tracing::instrument(skip(self, receipt), err)]
+    #[tracing::instrument(skip(self, receipt), err(level = Level::INFO))]
     async fn get_database(
         &self,
         receipt: EntityAccessReceipt<ViewAccessLevel>,
