@@ -8,5 +8,6 @@
 | [`design/`](design/) | Proposals, plans, and audits; check each doc's status. |
 | [`runbooks/`](runbooks/) | Rollouts, migrations, imports, and demos with operational steps. |
 | [`agent-guide/`](agent-guide/) | How browser agents operate the app, not how to develop it. |
+| [`souverain/`](souverain/) | Onilys fork: single-server, sovereign deployment plan and status (French). |
 
 Docs that belong to one app, service, or crate live next to its code.
