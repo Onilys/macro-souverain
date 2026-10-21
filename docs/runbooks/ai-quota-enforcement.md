@@ -112,10 +112,13 @@ automatic reload changes, credit purchases, and the sweep. Enable them
 together. Settlement without `ENABLE_AI_USAGE_ENFORCEMENT` finds nothing to
 settle, because only counted rows are chargeable.
 
-A requesting host other than document cognition presents the authentication
-service's own internal key, `AUTHENTICATION_SERVICE_SECRET_KEY` (document
-cognition already holds it). The key is optional in those hosts' configuration
-while `ENABLE_AI_USAGE_BILLING` is false and mandatory once it is true: a host
+A requesting host presents the authentication service's own internal key,
+configured as `AUTHENTICATION_SERVICE_SECRET_KEY`. In dev and prod that value is
+the Secrets Manager secret name `authentication-service-internal-api-key-<env>`,
+which the host resolves at startup, so its task role needs read access to that
+secret; locally it is the key itself. The key is mandatory for document
+cognition. It is optional in the other hosts' configuration while
+`ENABLE_AI_USAGE_BILLING` is false and mandatory once it is true: a host
 enabling billing without the key fails startup rather than quietly recording
 chargeable usage that only the sweep settles. Hosts without the recorder
 (document storage, the standalone trigger service, memory) are covered by the
@@ -378,10 +381,11 @@ procedure. Operators must approve and record each release gate.
    and `AI_USAGE_OVERAGE_MARKUP_PERCENT` are mandatory for these same hosts
    whatever the flags say; see [Settlement](#settlement-enable_ai_usage_billing).
    Before `ENABLE_AI_USAGE_BILLING` is turned on for the agent harness, MCP, or
-   scheduled action service, register `AUTHENTICATION_SERVICE_SECRET_KEY` (the
-   authentication service's internal key, as document cognition already has it)
-   in that service's Doppler config; those hosts refuse to start with billing on
-   and the key absent.
+   scheduled action service, register `AUTHENTICATION_SERVICE_SECRET_KEY` as the
+   secret name `authentication-service-internal-api-key-<env>` (see
+   [Settlement](#settlement-enable_ai_usage_billing)) in that service's Doppler
+   config and confirm its task role can read that secret; those hosts refuse to
+   start with billing on and the key absent, or with a name they cannot read.
    Verify the effective startup value for every replica/worker. Registration and
    hosted access require operator approval; code defaults are not proof of it.
 4. **Validate locally, then in an approved staging environment.** Use the checklist

@@ -10,6 +10,7 @@ use database_env_vars::DatabaseUrl;
 pub use macro_auth::InternalApiKey;
 pub use macro_env::Environment;
 use macro_env_var::{env_vars, maybe_env_vars};
+use secretsmanager_client::OptionalLocalOrRemoteSecret;
 
 #[cfg(test)]
 mod test;
@@ -17,10 +18,6 @@ mod test;
 maybe_env_vars! {
     /// Browser-reachable FusionAuth origin used for OAuth authorization redirects.
     pub struct FusionauthPublicUrl;
-    /// The authentication service's own internal key, which settlement
-    /// requests for counted usage present. Required while
-    /// `ENABLE_AI_USAGE_BILLING` is true; otherwise unused.
-    pub struct AuthenticationServiceSecretKey;
     /// Comma-separated hosts allowed as `https` OAuth redirect URI destinations
     /// for MCP clients. Falls back to [`DEFAULT_MCP_ALLOWED_REDIRECT_HOSTS`]
     /// when unset. Loopback `http` redirect URIs are always allowed and do not
@@ -85,6 +82,10 @@ env_vars! {
     pub struct KafkaBrokers;
     /// Secrets Manager secret name for the shared MCP credential encryption key.
     pub struct McpCredentialsKeySecretName;
+    /// The authentication service's own internal key, which settlement
+    /// requests for counted usage present. Required while
+    /// `ENABLE_AI_USAGE_BILLING` is true; otherwise unused.
+    pub struct AuthenticationServiceSecretKey;
 }
 
 /// The configuration parameters for the MCP server.
@@ -99,8 +100,9 @@ pub struct Config {
     /// service's own policy decides whether it does.
     #[macro_config_default(ai_billing::AiUsageBilling::Disabled)]
     pub enable_ai_usage_billing: ai_billing::AiUsageBilling,
-    /// Key settlement requests present to the authentication service.
-    pub authentication_service_secret_key: AuthenticationServiceSecretKey,
+    /// Key settlement requests present to the authentication service (secret
+    /// name or value).
+    pub authentication_service_secret_key: OptionalLocalOrRemoteSecret<AuthenticationServiceSecretKey>,
     /// The free plan's hard monthly AI cap, in cents at provider cost.
     /// Mandatory; set in Doppler.
     pub ai_usage_free_included_allowance_cents: ai_billing::IncludedAllowanceCents,
@@ -172,7 +174,7 @@ impl Config {
     pub fn settlement_route(&self) -> anyhow::Result<ai_billing::composition::SettlementRoute> {
         let client = self
             .authentication_service_secret_key
-            .value()
+            .as_str()
             .filter(|key| !key.trim().is_empty())
             .map(|key| {
                 anyhow::Ok(std::sync::Arc::new(

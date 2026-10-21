@@ -31,7 +31,13 @@ const EVENT_BROKER_DRAIN_TIMEOUT: Duration = Duration::from_secs(10);
 async fn main() -> anyhow::Result<()> {
     MacroEntrypoint::default().init();
 
-    let config = Config::from_env()?;
+    let secretsmanager_client = secretsmanager_client::SecretsManager::new(
+        aws_sdk_secretsmanager::Client::new(&macro_aws_config::get_macro_aws_config().await),
+    );
+    let config = Config::from_env()?
+        .resolve_remote_secrets(config::Environment::new_or_prod(), &secretsmanager_client)
+        .await
+        .context("failed to resolve mcp server secrets")?;
 
     // Base URL of the Macro web app, used to build links to Macro items in MCP
     // responses.
@@ -40,7 +46,12 @@ async fn main() -> anyhow::Result<()> {
         url::Url::parse(macro_service_urls::StaticFileServiceUrl::new()?.as_ref())?;
 
     let event_broker_tracker = TaskTracker::new();
-    let context = build_context(&config, event_broker_tracker.clone()).await?;
+    let context = build_context(
+        &config,
+        &secretsmanager_client,
+        event_broker_tracker.clone(),
+    )
+    .await?;
 
     // Create the MCP service with authenticated tool handler
     let mcp_service = StreamableHttpService::new(

@@ -66,6 +66,13 @@ async fn main() -> Result<()> {
 
     let config = Config::from_env()?;
     let environment = config.environment;
+    let secretsmanager_client = secretsmanager_client::SecretsManager::new(
+        aws_sdk_secretsmanager::Client::new(&macro_aws_config::get_macro_aws_config().await),
+    );
+    let config = config
+        .resolve_remote_secrets(environment, &secretsmanager_client)
+        .await
+        .context("failed to resolve scheduled action service secrets")?;
 
     let db = PgPoolOptions::new()
         .min_connections(3)
@@ -76,9 +83,6 @@ async fn main() -> Result<()> {
 
     let lifecycle = ServiceLifecycle::default();
 
-    let secretsmanager_client = secretsmanager_client::SecretsManager::new(
-        aws_sdk_secretsmanager::Client::new(&macro_aws_config::get_macro_aws_config().await),
-    );
     let conn_gateway_client = Arc::new(ConnectionGatewayClient::new(
         config.internal_api_key.to_string(),
         ConnectionGatewayUrl::new()?.to_string(),

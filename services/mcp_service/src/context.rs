@@ -82,6 +82,7 @@ struct ToolContextBuildArgs<'a> {
 
 pub async fn build_context(
     config: &Config,
+    secretsmanager_client: &secretsmanager_client::SecretsManager,
     event_task_tracker: TaskTracker,
 ) -> anyhow::Result<McpContext> {
     let db = PgPoolOptions::new()
@@ -102,17 +103,13 @@ pub async fn build_context(
         .email_scheduled_queue(email_scheduled_queue.as_ref())
         .gmail_ops_queue(gmail_ops_queue.as_ref());
 
-    let secretsmanager_client = secretsmanager_client::SecretsManager::new(
-        aws_sdk_secretsmanager::Client::new(&aws_config),
-    );
-
-    let jwt_args = JwtValidationArgs::new_with_secret_manager(macro_env, &secretsmanager_client)
+    let jwt_args = JwtValidationArgs::new_with_secret_manager(macro_env, secretsmanager_client)
         .await
         .context("failed to initialize JWT validation args")?;
 
     let sync_service_auth_key = LocalOrRemoteSecret::new_from_secret_manager(
         config.sync_service_auth_key.as_ref().to_owned(),
-        &secretsmanager_client,
+        secretsmanager_client,
     )
     .await
     .context("failed to load sync service auth key")?;
@@ -120,7 +117,7 @@ pub async fn build_context(
     let tool_context = build_tool_context(ToolContextBuildArgs {
         config,
         db: &db,
-        secretsmanager_client: &secretsmanager_client,
+        secretsmanager_client,
         sqs_client,
         queue_aws_client,
         document_storage_service_auth_key: config
@@ -132,7 +129,7 @@ pub async fn build_context(
     })
     .await?;
 
-    let auth_proxy = build_auth_proxy(config, &secretsmanager_client).await?;
+    let auth_proxy = build_auth_proxy(config, secretsmanager_client).await?;
 
     let mcp_public_host = http::Uri::try_from(config.mcp_public_url.as_ref())
         .context("MCP_PUBLIC_URL is not a valid URI")?
