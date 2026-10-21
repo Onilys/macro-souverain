@@ -6,6 +6,7 @@ import {
   AnalyticsContextProvider,
   useAnalytics,
 } from '@app/lib/analytics/analytics-context';
+import { recordFirstTouch } from '@app/lib/analytics/firstTouch';
 import { PosthogProvider, usePosthog } from '@app/lib/analytics/posthog';
 import { trackSignupCompletion } from '@app/lib/analytics/signupCompletion';
 import { setHotkeyRoot } from '@app/signal/hotkeyRoot';
@@ -59,6 +60,8 @@ import { AppRouterView } from './app-router-view';
 import { useSyncLoginCookie } from './use-sync-login-cookie';
 
 const rootPreload: RoutePreloadFunc = async (args) => {
+  // Before any await: the landing URL and referrer belong to this page load.
+  recordFirstTouch();
   await prefetchUserInfo();
 
   // even though we are using the transformUrl prop, we may still need to replace the url in the history

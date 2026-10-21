@@ -15,7 +15,8 @@
  * browser-only Meta fire undercounts badly — and Meta's delivery algorithm
  * starves when spend scales past the trickle it can see.
  *
- * What remains here is the browser half: the GA sign_up event and Google Ads
+ * What remains here is the browser half: the PostHog `sign_up_attribution`
+ * event with the first-touch source (firstTouch.ts), the GA sign_up event and Google Ads
  * conversion (browser-only), plus a duplicate Meta CompleteRegistration that
  * exists to contribute the click-id cookies (_fbc/_fbp) only the browser
  * holds — Meta dedupes it against the server fire via the shared
@@ -24,6 +25,7 @@
  * them, regardless of which page or device started the flow.
  */
 import type { AnalyticsInterface } from './analytics';
+import { firstTouchProperties } from './firstTouch';
 import {
   SIGNUP_LEAD_VALUE_BY_TIER,
   SIGNUP_LEAD_VALUE_DEFAULT,
@@ -106,6 +108,14 @@ export function trackSignupCompletion(
 
   // GA4 recommended-event name; browser GA has the client id for attribution.
   analytics.track('sign_up', {}, ['ga']);
+
+  // The server's PostHog `sign_up` fires before the browser identifies, so it
+  // has no source. This carries the first touch, on the event and set once on
+  // the person.
+  const firstTouch = firstTouchProperties();
+  analytics.track('sign_up_attribution', firstTouch, ['posthog'], {
+    posthog: { $set_once: firstTouch },
+  });
 
   // Paid signups return from Stripe with a `type` param; plain signups have
   // no tier yet and count at the free-signup lead value. Purchase value is
