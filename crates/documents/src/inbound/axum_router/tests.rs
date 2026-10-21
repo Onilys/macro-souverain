@@ -133,8 +133,19 @@ enum TeamSlugResult {
     NotFound(String),
 }
 
+/// What the fake answers a conversion with.
+#[derive(Clone, Copy, Debug, Default)]
+enum ConvertOutcome {
+    #[default]
+    Converted,
+    AlreadyAnotherKind,
+    NotMarkdown,
+}
+
 #[derive(Default)]
 struct FakeDocumentService {
+    convert_outcome: Mutex<ConvertOutcome>,
+    convert_calls: Mutex<Vec<(String, CreationPrincipal)>>,
     create_calls: Mutex<Vec<CreateDocumentCall>>,
     import_calls: Mutex<Vec<ImportEmailAttachmentCall>>,
     upload_snapshot_calls: Mutex<Vec<UploadSnapshotCall>>,
@@ -413,11 +424,26 @@ impl DocumentService for FakeDocumentService {
 
     async fn convert_to_task(
         &self,
-        _entity_access_receipt: EntityAccessReceipt<entity_access::domain::models::EditAccessLevel>,
+        entity_access_receipt: EntityAccessReceipt<entity_access::domain::models::EditAccessLevel>,
         _document_context: model::document::DocumentBasic,
-        _principal: &model_owner::CreationPrincipal,
+        principal: &model_owner::CreationPrincipal,
     ) -> Result<crate::domain::models::ConvertToTaskResponse, DocumentError> {
-        panic!("unexpected convert_to_task call")
+        self.convert_calls.lock().unwrap().push((
+            entity_access_receipt.entity().entity_id.clone(),
+            principal.clone(),
+        ));
+        match *self.convert_outcome.lock().unwrap() {
+            ConvertOutcome::Converted => Ok(crate::domain::models::ConvertToTaskResponse {
+                team_id: Some(TEAM_ID),
+                team_task_id: Some(7),
+            }),
+            ConvertOutcome::AlreadyAnotherKind => Err(DocumentError::Conflict(
+                "document is already a snippet".to_string(),
+            )),
+            ConvertOutcome::NotMarkdown => Err(DocumentError::BadRequest(
+                "only markdown documents can become tasks".to_string(),
+            )),
+        }
     }
 
     async fn update_task_status(
@@ -1736,4 +1762,48 @@ async fn document_text_content_route_coexists_with_legacy_extracted_text_route()
         send(&merged, current_request).await,
         (StatusCode::OK, json!({"text":"Extracted PDF text"}))
     );
+}
+
+#[tokio::test]
+async fn convert_to_task_answers_with_the_team_number_and_maps_refusals() {
+    for (outcome, expected) in [
+        (
+            ConvertOutcome::Converted,
+            (
+                StatusCode::OK,
+                json!({ "teamId": TEAM_ID, "teamTaskId": 7 }),
+            ),
+        ),
+        (
+            ConvertOutcome::AlreadyAnotherKind,
+            (
+                StatusCode::CONFLICT,
+                json!({ "message": "document is already a snippet" }),
+            ),
+        ),
+        (
+            ConvertOutcome::NotMarkdown,
+            (
+                StatusCode::BAD_REQUEST,
+                json!({ "message": "only markdown documents can become tasks" }),
+            ),
+        ),
+    ] {
+        let (router, document_service, _access_service, _authorization_service) = test_router();
+        *document_service.convert_outcome.lock().unwrap() = outcome;
+        let request = with_jwt(Request::post("/doc-1/convert_to_task"))
+            .body(Body::empty())
+            .expect("request should build");
+
+        let (status, body) = send(&router, request).await;
+
+        assert_eq!((status, body), expected, "{outcome:?}");
+        assert_eq!(
+            document_service.convert_calls.lock().unwrap().as_slice(),
+            [(
+                "doc-1".to_string(),
+                CreationPrincipal::User(user(JWT_USER_ID))
+            )]
+        );
+    }
 }

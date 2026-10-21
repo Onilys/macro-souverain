@@ -3391,3 +3391,74 @@ async fn test_get_github_pull_request_task_links_returns_requested_keys_oldest_f
         ]
     );
 }
+
+#[sqlx::test(
+    migrator = "MACRO_DB_MIGRATIONS",
+    fixtures(path = "../../../fixtures", scripts("documents_test_data"))
+)]
+async fn converting_a_document_numbers_it_once_as_a_team_task(pool: Pool<Postgres>) {
+    let repo = test_repo(pool.clone());
+    let existing = create_task_for_team(&repo, "macro|user@user.com", TEST_TEAM_ID).await;
+    let document = repo
+        .create_document(
+            create_document_args("macro|user@user.com", false, None),
+            md_share_permission(),
+        )
+        .await
+        .unwrap();
+    let document_id = uuid::Uuid::parse_str(&document.document_id).unwrap();
+
+    repo.convert_document_to_task(&document_id, Some(TEST_TEAM_ID))
+        .await
+        .unwrap();
+    // A retry finds the task and allocates no second number.
+    repo.convert_document_to_task(&document_id, Some(TEST_TEAM_ID))
+        .await
+        .unwrap();
+
+    let basic = repo.get_basic_document(&document.document_id).await.unwrap();
+    assert_eq!(
+        basic.sub_type,
+        Some(document_sub_type::DocumentSubType::Task)
+    );
+    assert_eq!(team_task_numbers(&pool, TEST_TEAM_ID).await, vec![1, 2]);
+    assert_eq!(
+        repo.get_document_id_by_team_task_number(&TEST_TEAM_ID, 2)
+            .await
+            .unwrap(),
+        Some(document.document_id)
+    );
+    assert_ne!(existing.document_id, document_id.to_string());
+}
+
+#[sqlx::test(
+    migrator = "MACRO_DB_MIGRATIONS",
+    fixtures(path = "../../../fixtures", scripts("documents_test_data"))
+)]
+async fn converting_a_document_of_another_subtype_is_a_conflict(pool: Pool<Postgres>) {
+    let repo = test_repo(pool.clone());
+    let mut args = create_document_args("macro|user@user.com", false, None);
+    args.document.sub_type = Some(document_sub_type::DocumentSubType::Snippet);
+    let snippet = repo
+        .create_document(args, md_share_permission())
+        .await
+        .unwrap();
+    let snippet_id = uuid::Uuid::parse_str(&snippet.document_id).unwrap();
+
+    let result = repo
+        .convert_document_to_task(&snippet_id, Some(TEST_TEAM_ID))
+        .await;
+
+    assert!(matches!(
+        result,
+        Err(crate::domain::models::DocumentError::Conflict(_))
+    ));
+    assert_eq!(
+        repo.get_basic_document(&snippet.document_id)
+            .await
+            .unwrap()
+            .sub_type,
+        Some(document_sub_type::DocumentSubType::Snippet)
+    );
+    assert!(team_task_numbers(&pool, TEST_TEAM_ID).await.is_empty());
+}
