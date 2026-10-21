@@ -23,7 +23,7 @@ use std::time::{Duration, Instant};
 use ai_toolset::RequestContext;
 use ai_usage::{UsageContext, UsageRecorder};
 use futures::StreamExt;
-use macro_env_var::env_var;
+use macro_env_var::{env_var, maybe_env_vars};
 use rig_agent::agent::{Agent, AgentBuilder, MultiTurnStreamItem};
 use rig_agent::streaming::StreamingPrompt;
 use rig_agent::tool::server::ToolServerHandle;
@@ -59,6 +59,25 @@ env_var! {
         GoogleGenerativeAiApiKey
     }
 }
+
+maybe_env_vars! {
+    /// OpenAI-compatible base URL of a self-hosted model server (vLLM,
+    /// Ollama, …), including `/v1`. When set, every model id is served by it.
+    struct LocalLlmBaseUrl;
+    /// Bearer key for the self-hosted server, if it requires one.
+    struct LocalLlmApiKey;
+    /// Self-hosted model serving fast-tier ids; defaults to `LOCAL_LLM_MODEL`.
+    struct LocalLlmFastModel;
+}
+
+env_var! {
+    /// Self-hosted model serving every id that is not fast-tier. Required
+    /// when `LOCAL_LLM_BASE_URL` is set.
+    struct LocalLlmModel;
+}
+
+/// Provider segment the self-hosted model server is registered under.
+const SELF_HOSTED_PROVIDER: &str = "local";
 
 /// Provider segment for native Anthropic.
 const ANTHROPIC_PROVIDER: &str = "anthropic";
@@ -373,6 +392,49 @@ pub struct ModelRouter<H = ReqwestClient> {
     openai: Arc<openai::Client<H>>,
     gemini: Option<Arc<gemini::Client<H>>>,
     openai_compatible: HashMap<String, Arc<openai::CompletionsClient<H>>>,
+    self_hosted: Option<SelfHosted<H>>,
+}
+
+/// A self-hosted OpenAI-compatible server that serves every model id, so no
+/// model request leaves the deployment.
+#[derive(Clone)]
+struct SelfHosted<H> {
+    client: Arc<openai::CompletionsClient<H>>,
+    model: String,
+    fast_model: String,
+}
+
+impl<H: HttpClientExt + Clone + Default + std::fmt::Debug + 'static> SelfHosted<H> {
+    /// Serve `requested` from the self-hosted server. `local/<model>` ids keep
+    /// their model; any other id maps to the fast or the default model by tier.
+    fn route<'a>(&self, requested: &Model<'_>) -> RoutedModel<'a, H> {
+        let name = if requested.provider() == SELF_HOSTED_PROVIDER {
+            requested.name().to_owned()
+        } else if is_fast_tier(requested) {
+            self.fast_model.clone()
+        } else {
+            self.model.clone()
+        };
+        RoutedModel::OpenAiChatCompletions(OpenAiChatCompletionsModel::new(
+            Model {
+                provider: std::borrow::Cow::Borrowed(SELF_HOSTED_PROVIDER),
+                name: std::borrow::Cow::Owned(name),
+            },
+            Arc::clone(&self.client),
+        ))
+    }
+}
+
+/// Name segments that mark the providers' small, low-latency models.
+const FAST_TIER_SEGMENTS: [&str; 5] = ["haiku", "mini", "nano", "flash", "lite"];
+
+/// Whether `model` is one of the providers' small, low-latency models.
+fn is_fast_tier(model: &Model<'_>) -> bool {
+    model.provider() == CEREBRAS_PROVIDER
+        || model
+            .name()
+            .split(['-', '.', '_', '/'])
+            .any(|segment| FAST_TIER_SEGMENTS.contains(&segment))
 }
 
 impl<H: HttpClientExt + Clone + 'static> ModelRouter<H> {
@@ -388,6 +450,7 @@ impl<H: HttpClientExt + Clone + 'static> ModelRouter<H> {
             openai: Arc::new(openai),
             gemini: None,
             openai_compatible: HashMap::new(),
+            self_hosted: None,
         }
     }
 }
@@ -436,14 +499,18 @@ impl ModelRouter {
                 WireProtocol::Gemini,
             ))
             .build()?;
-        ModelRouter::new(anthropic, openai)
+        let router = ModelRouter::new(anthropic, openai)
             .with_gemini_client(gemini)
             .with_openai_provider(CEREBRAS_PROVIDER, CEREBRAS_BASE_URL, &env.cerebras_api_key)?
             .with_openai_provider(
                 FIREWORKS_PROVIDER,
                 FIREWORKS_BASE_URL,
                 &env.firework_api_key,
-            )
+            )?;
+        match LocalLlmBaseUrl::new() {
+            Some(base_url) => router.with_self_hosted(base_url.as_ref()),
+            None => Ok(router),
+        }
     }
 
     /// The process-wide full router, built from the environment on first use.
@@ -480,6 +547,28 @@ impl<H: HttpClientExt + Clone + 'static> ModelRouter<H> {
             .insert(provider.into(), Arc::new(client));
         self
     }
+
+    /// Serve every model id from one self-hosted server, so no model request
+    /// leaves the deployment.
+    ///
+    /// Fast-tier ids go to `fast_model`, every other id to `model`, and
+    /// `local/<model>` ids to that model as-is.
+    pub fn with_self_hosted_client(
+        mut self,
+        client: openai::CompletionsClient<H>,
+        model: String,
+        fast_model: String,
+    ) -> Self {
+        let client = Arc::new(client);
+        self.openai_compatible
+            .insert(SELF_HOSTED_PROVIDER.to_owned(), Arc::clone(&client));
+        self.self_hosted = Some(SelfHosted {
+            client,
+            model,
+            fast_model,
+        });
+        self
+    }
 }
 
 impl ModelRouter<MeteredHttpClient> {
@@ -498,22 +587,44 @@ impl ModelRouter<MeteredHttpClient> {
         api_key: &str,
     ) -> Result<Self, AgentError> {
         let provider = provider.into();
-        let http = ReqwestClient::builder()
-            .retry(reqwest::retry::never())
-            .redirect(reqwest::redirect::Policy::none())
-            .build()
-            .map_err(|error| rig_core::http_client::Error::Instance(Box::new(error)))?;
-        let client = openai::CompletionsClient::builder()
-            .api_key(api_key)
-            .base_url(base_url)
-            .http_client(MeteredHttpClient::new(
-                http,
-                provider.clone(),
-                WireProtocol::ChatCompletions,
-            ))
-            .build()?;
+        let client = metered_completions_client(&provider, base_url, api_key)?;
         Ok(self.with_openai_client(provider, client))
     }
+
+    /// Serve every model id from the self-hosted server at `base_url`, with
+    /// the models named by `LOCAL_LLM_MODEL` and `LOCAL_LLM_FAST_MODEL`.
+    pub fn with_self_hosted(self, base_url: &str) -> Result<Self, AgentError> {
+        let model = LocalLlmModel::new()?.as_ref().to_owned();
+        let fast_model = LocalLlmFastModel::new()
+            .map_or_else(|| model.clone(), |fast| fast.as_ref().to_owned());
+        let api_key = LocalLlmApiKey::new();
+        let api_key = api_key.as_ref().map_or("none", |key| key.as_ref());
+        let client = metered_completions_client(SELF_HOSTED_PROVIDER, base_url, api_key)?;
+        Ok(self.with_self_hosted_client(client, model, fast_model))
+    }
+}
+
+/// An OpenAI-compatible Chat Completions client for `provider`, metered at
+/// the financial HTTP boundary.
+fn metered_completions_client(
+    provider: &str,
+    base_url: &str,
+    api_key: &str,
+) -> Result<openai::CompletionsClient<MeteredHttpClient>, AgentError> {
+    let http = ReqwestClient::builder()
+        .retry(reqwest::retry::never())
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|error| rig_core::http_client::Error::Instance(Box::new(error)))?;
+    Ok(openai::CompletionsClient::builder()
+        .api_key(api_key)
+        .base_url(base_url)
+        .http_client(MeteredHttpClient::new(
+            http,
+            provider.to_owned(),
+            WireProtocol::ChatCompletions,
+        ))
+        .build()?)
 }
 
 impl<H: HttpClientExt + Clone + Default + std::fmt::Debug + 'static> ModelRouter<H> {
@@ -524,6 +635,9 @@ impl<H: HttpClientExt + Clone + Default + std::fmt::Debug + 'static> ModelRouter
     pub(crate) fn route<'a>(&self, model: &'a str) -> Result<RoutedModel<'a, H>, AgentError> {
         let parsed = Model::try_from(model)?;
 
+        if let Some(self_hosted) = &self.self_hosted {
+            return Ok(self_hosted.route(&parsed));
+        }
         if parsed.provider() == ANTHROPIC_PROVIDER {
             return Ok(RoutedModel::Anthropic(AnthropicModel::new(
                 parsed,
@@ -565,6 +679,9 @@ impl<H: HttpClientExt + Clone + Default + std::fmt::Debug + 'static> ModelRouter
     /// bare api id — `PredefinedModel`'s `Display` is the provider-qualified
     /// routing id, which the Anthropic API rejects as a model name.
     fn default_model(&self) -> RoutedModel<'static, H> {
+        if let Some(self_hosted) = &self.self_hosted {
+            return self_hosted.route(&PredefinedModel::Smart.into());
+        }
         RoutedModel::Anthropic(AnthropicModel::new(
             PredefinedModel::Smart.into(),
             self.anthropic.clone(),

@@ -198,3 +198,52 @@ fn native_effort_profiles_preserve_defaults_and_provider_boundaries() {
         }
     }
 }
+
+fn self_hosted_router() -> ModelRouter {
+    let self_hosted = openai::CompletionsClient::builder()
+        .api_key("none")
+        .base_url("http://llm:8000/v1")
+        .build()
+        .unwrap();
+
+    test_router().with_self_hosted_client(
+        self_hosted,
+        "Qwen/Qwen3-32B".to_owned(),
+        "Qwen/Qwen3-8B".to_owned(),
+    )
+}
+
+fn self_hosted_wire_id(router: &ModelRouter, id: &str) -> String {
+    let RoutedModel::OpenAiChatCompletions(model) = router.route_or_default(id) else {
+        panic!("`{id}` should be served by the self-hosted server");
+    };
+    assert_eq!(model.model().provider(), "local");
+    model.completion().model
+}
+
+#[test]
+fn self_hosted_server_serves_every_provider_by_tier() {
+    let router = self_hosted_router();
+
+    assert_eq!(self_hosted_wire_id(&router, "anthropic/claude-opus-4-8"), "Qwen/Qwen3-32B");
+    assert_eq!(self_hosted_wire_id(&router, "openai/gpt-5.5"), "Qwen/Qwen3-32B");
+    assert_eq!(self_hosted_wire_id(&router, "google/gemini-3-pro"), "Qwen/Qwen3-32B");
+    assert_eq!(self_hosted_wire_id(&router, "openai/gpt-5-mini"), "Qwen/Qwen3-8B");
+    assert_eq!(self_hosted_wire_id(&router, "anthropic/claude-haiku-4-5"), "Qwen/Qwen3-8B");
+    assert_eq!(self_hosted_wire_id(&router, "google/gemini-3.8-flash"), "Qwen/Qwen3-8B");
+    assert_eq!(self_hosted_wire_id(&router, "cerebras/zai-glm-4.7"), "Qwen/Qwen3-8B");
+}
+
+#[test]
+fn self_hosted_server_keeps_explicit_local_models() {
+    let router = self_hosted_router();
+
+    assert_eq!(self_hosted_wire_id(&router, "local/mistral-small-3.2"), "mistral-small-3.2");
+}
+
+#[test]
+fn self_hosted_server_is_the_fallback_for_unroutable_ids() {
+    let router = self_hosted_router();
+
+    assert_eq!(self_hosted_wire_id(&router, "smart"), "Qwen/Qwen3-32B");
+}
