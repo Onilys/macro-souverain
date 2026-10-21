@@ -56,6 +56,9 @@ the gateway `/email` prefix.
   attachment bytes through the provider-aware reader.
 - Preserve the calendar domain's `team_ooo_changed` hint when forwarding a
   calendar refresh so unrelated invitation updates retain teammates' OOO rows.
+- Header addresses that Gmail accepts can fail `MacroUserIdStr::try_from_email`.
+  Skip the bad address with a WARN that omits it (the parse error echoes it)
+  instead of failing the step; see `pubsub::util::build_contact_connections`.
 
 ## Related
 
