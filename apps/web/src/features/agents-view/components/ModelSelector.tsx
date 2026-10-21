@@ -51,7 +51,7 @@ export function ModelSelector(props: {
       triggerLabel={props.label}
       placeholder={modelLabel(props.model)}
       triggerClass="h-9 min-w-0 max-w-full gap-1 rounded-full border-0 bg-transparent hover:bg-ink/5 data-expanded:bg-ink/5 px-2 text-base font-normal text-ink [&_svg]:size-4"
-      contentClass="w-70 rounded-2xl border-0 after:hidden shadow-[0_0_0_1px_var(--color-drop-shadow),0_2px_8px_0_var(--color-drop-shadow),0_4px_80px_8px_var(--color-drop-shadow)]"
+      contentClass="w-70 rounded-2xl border-0"
       menu={(catalog) => (
         <ModelEffortMenu
           model={props.model}

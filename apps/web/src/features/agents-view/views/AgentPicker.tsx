@@ -133,7 +133,7 @@ function DesktopAgentPicker(props: AgentPickerProps) {
         <CaretDownIcon class="size-4 shrink-0 text-ink-muted" />
       </Dropdown.Trigger>
       <Dropdown.Content
-        class="w-70 max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border-0 after:hidden shadow-[0_0_0_1px_var(--color-drop-shadow),0_2px_8px_0_var(--color-drop-shadow),0_4px_80px_8px_var(--color-drop-shadow)]"
+        class="w-70 max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border-0"
         onCloseAutoFocus={props.onCloseAutoFocus}
         onPointerDown={(event: PointerEvent) => event.stopPropagation()}
         onMouseDown={(event: MouseEvent) => event.stopPropagation()}
