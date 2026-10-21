@@ -6,16 +6,20 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 vi.mock('@core/context/user', () => ({ useIsAuthenticated: () => () => true }));
 
+let nested = true;
 vi.mock('@core/block', () => ({
   createBlockSignal<T>() {
     const signal = createSignal<T>();
     return Object.assign(signal, { get: signal[0], set: signal[1] });
   },
-  useIsNestedBlock: () => true,
+  useIsNestedBlock: () => nested,
 }));
+const analytics = vi.hoisted(() => ({ track: vi.fn(), pageView: vi.fn() }));
 vi.mock('@app/lib/analytics/analytics-context', () => ({
-  useAnalytics: () => ({}),
+  useAnalytics: () => analytics,
 }));
+const trackBlockOpened = vi.hoisted(() => vi.fn());
+vi.mock('./trackBlockOpened', () => ({ track: trackBlockOpened }));
 vi.mock('@queries/client', () => ({ useQueryClient: () => ({}) }));
 vi.mock('@service-storage/client', () => ({
   blockNameToItemType: () => 'document',
@@ -49,6 +53,10 @@ import { BlockLoader, blockDataSignal } from './BlockLoader';
 
 afterEach(cleanup);
 beforeEach(() => {
+  nested = true;
+  analytics.track.mockClear();
+  analytics.pageView.mockClear();
+  trackBlockOpened.mockClear();
   blockDataSignal.set(undefined);
   blockErrorSignal.set(undefined);
   blockLoadRetrySignal.set(undefined);
@@ -348,4 +356,30 @@ it('drops a revoked open document, cleans its source, and loads fresh credential
   await vi.waitFor(() => expect(blockUserAccessSignal.get()).toBe('edit'));
   expect(blockErrorSignal.get()).toBeNull();
   expect(blockLoadRetrySignal.get()).toBe(1);
+});
+
+it('reports an open for a block that opts out of open history', async () => {
+  nested = false;
+  render(() => (
+    <BlockLoader
+      id="01a1460f-3198-7650-9b32-a43b49108e47"
+      source={{ type: 'dss', id: '01a1460f-3198-7650-9b32-a43b49108e47' }}
+      definition={{
+        name: 'database',
+        description: 'Database',
+        accepted: {},
+        component: () => null,
+        openTrackingEnabled: false,
+        load: async () => ok({ id: 'database' }),
+      }}
+    />
+  ));
+  await vi.waitFor(() =>
+    expect(analytics.track).toHaveBeenCalledWith('open_entity', {
+      entityType: 'database',
+      entityId: '01a1460f-3198-7650-9b32-a43b49108e47',
+    })
+  );
+  expect(analytics.pageView).not.toHaveBeenCalled();
+  expect(trackBlockOpened).not.toHaveBeenCalled();
 });

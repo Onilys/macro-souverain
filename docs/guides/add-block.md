@@ -72,8 +72,9 @@ and none of the file-type steps. Sections 4 and 5 are one or the other.
 - Options: `accepted` (extension → MIME; `{}` for entities),
   `liveTrackingEnabled` (presence indicators), `editPermissionEnabled` (the
   share menu inside the block offers Edit only when set), `openTrackingEnabled`
-  (defaults on and writes a history row; turn it off when there is nothing to
-  record, as `block-database` does), `defaultFilename`, `aliases`.
+  (defaults on and writes a history row and page view; turn it off when there
+  is nothing to record, as `block-database` does; `open_entity` analytics fire
+  either way), `defaultFilename`, `aliases`.
 - Gate the block with a flag in `apps/web/src/lib/core/constant/featureFlags.ts`
   via the [feature-flags skill](../../.agents/skills/feature-flags/SKILL.md).
   `isFeatureEnabled` answers `false` until PostHog has loaded, so on a cold deep

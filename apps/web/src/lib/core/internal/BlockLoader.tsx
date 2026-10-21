@@ -198,8 +198,8 @@ Check that the load function does not return a preload source when the intent is
     const data = result.value;
     setError(null);
 
-    if (!isNested && data && props.definition.openTrackingEnabled !== false) {
-      const trackOpened = () => {
+    if (!isNested && data) {
+      if (props.definition.openTrackingEnabled !== false) {
         // we need to pass in a client accessor since the mutation is dynamically imported outside a query context provider
         import('./trackBlockOpened')
           .then(({ track }) => {
@@ -218,13 +218,14 @@ Check that the load function does not return a preload source when the intent is
           );
 
         analytics.pageView(data.__block);
-        analytics.track('open_entity', {
-          entityType: data.__block,
-          entityId: props.id,
-        });
-      };
+      }
 
-      trackOpened();
+      // Product analytics count every open, including blocks that opt out of
+      // the history row (database, calendar).
+      analytics.track('open_entity', {
+        entityType: data.__block,
+        entityId: props.id,
+      });
     }
 
     setData(() => data);

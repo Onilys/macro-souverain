@@ -393,7 +393,10 @@ export type BlockDefinition<
   /** flag to indicate wether this block should enable collaborative features. */
   liveTrackingEnabled?: boolean;
 
-  /** Whether mounting this block records entity-open analytics and history. */
+  /**
+   * Whether mounting this block records an entity-open history row and page
+   * view. `open_entity` analytics fires either way.
+   */
   openTrackingEnabled?: boolean;
 
   accepted: Record<string, string>;

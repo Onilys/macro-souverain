@@ -2,6 +2,7 @@ import { toViewColumn } from '../../database/queries/column-detail';
 
 export { toViewColumn } from '../../database/queries/column-detail';
 
+import { analytics } from '@app/lib/analytics';
 import { databaseSqlSchema } from '@core/database-sql/catalog';
 import type { DatabaseOp } from '@core/database-sql/generated/types';
 import type { DatabaseSqlReadReason } from '@core/database-sql/trace';
@@ -29,6 +30,7 @@ import type { DatabaseDetail } from '@service-storage/generated/schemas/database
 import type { DatabaseView } from '@service-storage/generated/schemas/databaseView';
 import type { OpResult } from '@service-storage/generated/schemas/opResult';
 import type { TableDetail } from '@service-storage/generated/schemas/tableDetail';
+import { debounce } from '@solid-primitives/scheduled';
 import { useQueryClient } from '@tanstack/solid-query';
 import {
   err,
@@ -38,7 +40,14 @@ import {
   type Result,
   ResultAsync,
 } from 'neverthrow';
-import { type Accessor, createMemo, createSignal, untrack } from 'solid-js';
+import {
+  type Accessor,
+  createEffect,
+  createMemo,
+  createSignal,
+  on,
+  untrack,
+} from 'solid-js';
 import type {
   DatabaseRowsSource,
   DatabaseWriteResult,
@@ -90,6 +99,41 @@ function sameIds(left: readonly string[], right: readonly string[]) {
   return (
     left.length === right.length &&
     left.every((id, index) => id === right[index])
+  );
+}
+
+/** A filter or sort edit counts once it has been left alone this long. */
+const QUERY_SETTLE_MS = 1000;
+
+/**
+ * Reports a view's query once when it opens and once per settled filter or
+ * sort change. Refreshes, cache reruns and layout edits reread the same query
+ * and are not counted.
+ */
+function trackQueryRuns(
+  databaseId: string,
+  tableId: string,
+  view: Accessor<DatabaseView>
+) {
+  const track = (trigger: 'open' | 'query_change') => {
+    const { filter, sort } = untrack(view).query;
+    analytics.track('database_query_run', {
+      databaseId,
+      tableId,
+      trigger,
+      filterConditions: filter?.conditions.length ?? 0,
+      sortKeys: sort?.length ?? 0,
+    });
+  };
+  const trackChange = debounce(() => track('query_change'), QUERY_SETTLE_MS);
+  createEffect(
+    on(
+      () => JSON.stringify(view().query),
+      (_query, previous) => {
+        if (previous === undefined) track('open');
+        else trackChange();
+      }
+    )
   );
 }
 
@@ -192,6 +236,7 @@ export function createDatabaseRowsSource(props: {
     );
   const viewStatement = tableStatement(() => ({ view: props.view() }));
   const rowsQuery = createDatabaseSqlQuery(viewStatement, props.read);
+  trackQueryRuns(props.databaseId, tableId, props.view);
   // A type change gives a column a new definition. Until the read of it
   // lands, the column keeps the definition its shown cells were read with.
   const shownDetails = createMemo<ColumnDetail[]>((held) => {

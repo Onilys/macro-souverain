@@ -161,7 +161,8 @@ export type AppEvents = {
    * successful load; nested blocks and preview-panel peeks are excluded.
    * Route-owned detail views fire it themselves: documents from
    * FileDetailLoadGate, channels from ChannelDetail, calls and PRs from their
-   * detail views.
+   * detail views. Blocks without an open history row (database, calendar)
+   * still fire it.
    */
   open_entity: EntityEventPayload;
   /**
@@ -272,6 +273,28 @@ export type AppEvents = {
 
   block_pdf_definition_open: Record<string, unknown>;
   block_pdf_section_open: Record<string, unknown>;
+
+  // --- Databases -----------------------------------------------------------
+  /** A committed ops batch wrote rows of a database (grid, board, forms). */
+  database_rows_edited: {
+    databaseId: string;
+    insertedRows: number;
+    updatedRows: number;
+    deletedRows: number;
+  };
+  /**
+   * A database grid read its view: once when the view opens and once per
+   * filter or sort change that settles for a second. Refreshes, live updates
+   * and layout edits are not counted.
+   */
+  database_query_run: {
+    databaseId: string;
+    tableId: string;
+    trigger: 'open' | 'query_change';
+    /** Top-level filter conditions; 0 when unfiltered. */
+    filterConditions: number;
+    sortKeys: number;
+  };
 };
 
 export type AppEventNames = keyof AppEvents;
