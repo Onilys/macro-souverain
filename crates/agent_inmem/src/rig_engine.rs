@@ -38,7 +38,7 @@ use sqlx::PgPool;
 use tokio::sync::mpsc;
 use tracing::Instrument as _;
 
-use crate::domain::auto_model::{AutoModelSelector, DefaultAutoModel};
+use crate::domain::auto_model::{AutoModelSelector, DefaultAutoModel, JevAutoModel};
 use crate::domain::engine::{AgentIdentity, TurnEngine, TurnRequest};
 use crate::domain::tool_gate::{NativeToolGate, NativeToolVerdict, UngatedNativeTools};
 use crate::domain::tool_mode::{StandardTools, ToolMode, ToolModeSelector};
@@ -99,7 +99,10 @@ impl RigTurnEngine {
                 true,
             )),
             tool_mode: Arc::new(StandardTools),
-            auto_model: Arc::new(DefaultAutoModel),
+            auto_model: match &tool_context.cognition_tool_context.service {
+                Some(cognition) => Arc::new(JevAutoModel::new(Arc::clone(cognition))),
+                None => Arc::new(DefaultAutoModel),
+            },
             tool_context,
             gate: Arc::new(UngatedNativeTools),
         }
@@ -116,13 +119,6 @@ impl RigTurnEngine {
     #[must_use]
     pub fn with_tool_mode(mut self, selector: Arc<dyn ToolModeSelector>) -> Self {
         self.tool_mode = selector;
-        self
-    }
-
-    /// Pick the model each Auto turn runs on from its prompt.
-    #[must_use]
-    pub fn with_auto_model(mut self, selector: Arc<dyn AutoModelSelector>) -> Self {
-        self.auto_model = selector;
         self
     }
 }

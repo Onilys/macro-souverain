@@ -672,15 +672,6 @@ async fn run() -> anyhow::Result<()> {
             agent_inmem::domain::tool_mode::FlaggedToolMode::new(flags),
         ));
     }
-    if let Some(key) = config.typesafe_api_key.value() {
-        let classifier = jev::domain::JevClassifier::new(
-            jev::outbound::TypesafeJev::new(key).context("failed to configure Jev")?,
-            recorder.clone(),
-        );
-        inmem_engine = inmem_engine.with_auto_model(Arc::new(
-            agent_inmem::domain::auto_model::JevAutoModel::new(classifier),
-        ));
-    }
     let inmem_model_engine: Arc<dyn TurnEngine> = Arc::new(inmem_engine);
     // Normalize uploaded images before any provider sees them. In addition to
     // making local URLs reachable, this supplies the MIME type Gemini requires

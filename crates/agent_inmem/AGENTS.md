@@ -47,7 +47,7 @@ milliseconds instead of waiting on container provisioning.
 ## Gotchas
 
 - `auto` is a picker entry, not a routable id: `RigTurnEngine` asks its
-  `AutoModelSelector` (Jev when `TYPESAFE_API_KEY` is set) per turn and runs
+  `AutoModelSelector` (Jev through cognition's named decisions, 1 s budget) per turn and runs
   Opus 5.5 (hard), GPT-6.1 Sol (mid) or Gemini 3.8 Flash (simple, and
   whenever Jev is unavailable). Capability lookups go through
   `models::resolve`.

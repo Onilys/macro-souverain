@@ -1,9 +1,8 @@
 //! Which model an Auto turn runs on.
 
-use std::{future::Future, pin::Pin};
+use std::{collections::BTreeMap, future::Future, pin::Pin, sync::Arc, time::Duration};
 
-use ai_usage::{AiFeature, UsageContext};
-use jev::domain::{YesNoClassifier, YesNoQuestion};
+use cognition::domain::{Cognition, DecisionRequest};
 use macro_user_id::user_id::MacroUserIdStr;
 use tracing::Instrument as _;
 
@@ -19,14 +18,18 @@ pub const HIGH_MODEL: &str = "anthropic/claude-opus-5-5";
 pub const MID_MODEL: &str = "openai/gpt-6.1-sol";
 
 /// Asked first: a yes runs the turn on [`HIGH_MODEL`].
-const HIGH_QUESTION: &str = "Does answering this request require high intelligence: deep \
-     reasoning, complex multi-step work, difficult code, or careful analysis?";
+const HIGH_QUESTION: &str = "Does this request require higher intelligence?";
 
 /// Asked alongside: a yes, without a yes to [`HIGH_QUESTION`], keeps the turn
 /// on Auto's default model; a no runs it on [`MID_MODEL`].
-const LOW_QUESTION: &str = "Is this request simple enough for a small, fast model: a greeting, \
-     small talk, a quick factual lookup, or a single small action like renaming, tagging, or \
-     moving one item?";
+const LOW_QUESTION: &str = "Is this request simple enough for a smaller, faster model?";
+
+/// Decision keys for [`HIGH_QUESTION`] and [`LOW_QUESTION`].
+const HIGH_KEY: &str = "high";
+const LOW_KEY: &str = "simple";
+
+/// How long a turn waits on Jev before running on Auto's default model.
+const DECISION_TIMEOUT: Duration = Duration::from_secs(1);
 
 /// Jev's probability at or above which a question counts as yes.
 const YES_THRESHOLD: f32 = 0.5;
@@ -55,20 +58,21 @@ impl AutoModelSelector for DefaultAutoModel {
     }
 }
 
-/// Asks Jev how much intelligence the prompt needs: [`HIGH_MODEL`] for hard
-/// prompts, Auto's default for simple ones, [`MID_MODEL`] otherwise.
-pub struct JevAutoModel<Classifier> {
-    classifier: Classifier,
+/// Asks Jev, through cognition's named decisions, how much intelligence the
+/// prompt needs: [`HIGH_MODEL`] for hard prompts, Auto's default for simple
+/// ones, [`MID_MODEL`] otherwise.
+pub struct JevAutoModel {
+    cognition: Arc<dyn Cognition>,
 }
 
-impl<Classifier: YesNoClassifier> JevAutoModel<Classifier> {
-    /// Compose with a metered classifier.
-    pub fn new(classifier: Classifier) -> Self {
-        Self { classifier }
+impl JevAutoModel {
+    /// Compose with the host's cognition client, which meters each decision.
+    pub fn new(cognition: Arc<dyn Cognition>) -> Self {
+        Self { cognition }
     }
 }
 
-impl<Classifier: YesNoClassifier> AutoModelSelector for JevAutoModel<Classifier> {
+impl AutoModelSelector for JevAutoModel {
     fn select<'a>(
         &'a self,
         owner: &'a MacroUserIdStr<'static>,
@@ -82,37 +86,48 @@ impl<Classifier: YesNoClassifier> AutoModelSelector for JevAutoModel<Classifier>
                 agent.auto_model.selected = tracing::field::Empty,
                 agent.auto_model.outcome = tracing::field::Empty,
             );
-            let questions = [HIGH_QUESTION, LOW_QUESTION].map(|question| {
-                YesNoQuestion::try_from(question).expect("the questions are valid")
-            });
-            let answer = self
-                .classifier
-                .classify(
-                    UsageContext::new(AiFeature::AgentSession, owner.clone()),
-                    &serde_json::json!({ "request": prompt }),
-                    &questions,
-                )
-                .instrument(span.clone())
-                .await;
-            let selected = match answer.as_deref() {
-                Ok([high, low]) => {
-                    span.record("agent.auto_model.high", high.get());
-                    span.record("agent.auto_model.low", low.get());
+            let request = DecisionRequest {
+                input: serde_json::json!({ "request": prompt }),
+                questions: BTreeMap::from([
+                    (HIGH_KEY.to_owned(), HIGH_QUESTION.to_owned()),
+                    (LOW_KEY.to_owned(), LOW_QUESTION.to_owned()),
+                ]),
+            };
+            let answer =
+                tokio::time::timeout(DECISION_TIMEOUT, self.cognition.decide(owner, request))
+                    .instrument(span.clone())
+                    .await;
+            let probabilities = match &answer {
+                Ok(Ok(response)) => response
+                    .probabilities
+                    .get(HIGH_KEY)
+                    .zip(response.probabilities.get(LOW_KEY)),
+                _ => None,
+            };
+            let selected = match probabilities {
+                Some((&high, &low)) => {
+                    span.record("agent.auto_model.high", high);
+                    span.record("agent.auto_model.low", low);
                     span.record("agent.auto_model.outcome", "classified");
-                    if high.get() >= YES_THRESHOLD {
+                    if high >= YES_THRESHOLD {
                         HIGH_MODEL
-                    } else if low.get() >= YES_THRESHOLD {
+                    } else if low >= YES_THRESHOLD {
                         resolve(super::models::AUTO_MODEL)
                     } else {
                         MID_MODEL
                     }
                 }
-                Ok(_) | Err(_) => {
-                    span.record("agent.auto_model.outcome", "unavailable");
-                    let error = answer.as_ref().err();
+                None => {
+                    let outcome = match &answer {
+                        Err(_) => "timeout",
+                        Ok(Err(_)) => "provider_error",
+                        Ok(Ok(_)) => "invalid_response",
+                    };
+                    span.record("agent.auto_model.outcome", outcome);
                     span.in_scope(|| {
                         tracing::warn!(
-                            ?error,
+                            outcome,
+                            error = ?answer.as_ref().ok().and_then(|result| result.as_ref().err()),
                             "Auto model classification failed; using the default"
                         );
                     });
