@@ -50,6 +50,10 @@ Outlook (Microsoft Graph) outbound adapters.
 - The service is generic over `<R, T, L>` (repository, token source, rate
   limiter) — add a new dependency as a port + generic bound, not a concrete
   field.
+- Link-based reads go through `read_with_token`, which retries once with a
+  fresh token when the provider answers `AuthRequired`; a cached token can
+  outlive a revoked grant, and only the fresh fetch lets the token source mark
+  the link for reauthorization. Writes use `prepare` and do not retry.
 - Graph answers a bodyless POST or PATCH without `Content-Length: 0` with 411
   Length Required. `transport.rs` adds the header, so new Graph calls must go
   through `request`/`conditional_request` rather than the raw client.
