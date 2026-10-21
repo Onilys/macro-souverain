@@ -132,11 +132,13 @@ impl secretsmanager_client::SecretManager for SecretsByName {
 #[tokio::test]
 async fn deployed_hosts_present_the_authentication_key_not_its_secret_name() {
     let mut values = config_values();
+    values["ENVIRONMENT"] = json!("dev");
     values["AUTHENTICATION_SERVICE_SECRET_KEY"] =
         json!("authentication-service-internal-api-key-dev");
     let config: Config = serde_json::from_value(values).unwrap();
+    let environment = config.environment;
     let config = config
-        .resolve_remote_secrets(Environment::Develop, &SecretsByName)
+        .resolve_remote_secrets(environment, &SecretsByName)
         .await
         .unwrap();
     assert_eq!(
@@ -145,9 +147,12 @@ async fn deployed_hosts_present_the_authentication_key_not_its_secret_name() {
     );
 
     // Unset stays unset, without a lookup.
-    let config: Config = serde_json::from_value(config_values()).unwrap();
+    let mut values = config_values();
+    values["ENVIRONMENT"] = json!("dev");
+    let config: Config = serde_json::from_value(values).unwrap();
+    let environment = config.environment;
     let config = config
-        .resolve_remote_secrets(Environment::Develop, &SecretsByName)
+        .resolve_remote_secrets(environment, &SecretsByName)
         .await
         .unwrap();
     assert_eq!(config.authentication_service_secret_key.as_str(), None);
