@@ -25,7 +25,7 @@ A Macro call record (an archived or still active call).
 | <a id="property-recordingpreviewurl"></a> `recordingPreviewUrl` | `readonly` | () => `Promise`\<`string` \| `undefined`\> | `...` | URL of the recording preview (thumbnail), once available. | - | - |
 | <a id="property-recordingstartedat"></a> `recordingStartedAt` | `readonly` | () => `Promise`\<`string` \| `undefined`\> | `...` | When the recording started, if it was recorded. | - | - |
 | <a id="property-recordingurl"></a> `recordingUrl` | `readonly` | () => `Promise`\<`string` \| `undefined`\> | `...` | URL of the call recording, once available. | - | - |
-| <a id="property-roomname"></a> `roomName` | `readonly` | () => `Promise`\<`string`\> | `...` | The realtime room the call runs in. | - | - |
+| <a id="property-roomname"></a> `roomName` | `readonly` | () => `Promise`\<`string` \| `undefined`\> | `...` | The realtime room the call runs in. | - | - |
 | <a id="property-sharewithteam"></a> `shareWithTeam` | `readonly` | () => `Promise`\<`boolean`\> | `...` | Whether the call is shared with the creator's team: the pending toggle while the call is live, the canonical grant once it is archived. | - | - |
 | <a id="property-startedat"></a> `startedAt` | `readonly` | () => `Promise`\<`string`\> | `...` | When the call started. | - | - |
 | <a id="property-status"></a> `status` | `readonly` | () => `Promise`\<`NonNullable`\<CallStatus \| null \| undefined\> \| `undefined`\> | `...` | The call's status (undefined until set). | - | - |

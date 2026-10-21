@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, spyOn, test } from 'bun:test';
 import type {
   Bot,
   Message,
@@ -126,7 +126,7 @@ describe('shared message API contracts', () => {
         mentions: [],
       },
     });
-    if (event.target.type !== 'call') throw new Error(event.target.type);
+    if (event?.target.type !== 'call') throw new Error(event?.target.type);
     expect(requests).toHaveLength(0);
     expect(event.target.call.id).toBe(callId);
     expect(event.target.threadId).toBe(callId);
@@ -162,6 +162,19 @@ describe('shared message API contracts', () => {
       ...body,
       thread_id: callId,
     });
+  });
+
+  test('a message event type from a newer server is skipped instead of throwing', () => {
+    const warn = spyOn(console, 'warn').mockImplementation(() => {});
+    const fromNewerServer = JSON.parse(
+      '{"event_type":"message.pinned","metadata":{}}',
+    );
+
+    expect(
+      hydrateMessageEvent(macro()._client, fromNewerServer),
+    ).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
   });
 
   test('channel posts, lazy reads, edits, reactions, and deletes use message routes', async () => {

@@ -20,6 +20,7 @@ import { convertContactInfoToEmailRecipient } from '../email-compose/core/recipi
 import { createEmailAttachmentOpener } from '../email-message/attachment-action-adapter';
 import type { CalendarInvitation } from '../email-message/core/calendar-invitation';
 import type { EmailMessage } from '../email-message/core/email-message';
+import { operationSettled } from '../email-message/core/message-operation';
 import { EmailMessageOperation } from '../email-message/email-message-operation';
 import { createEmailRenderingContext } from '../email-message/rendering-adapter';
 import { EmailSenderIcon } from '../email-message/sender-icon-adapter';
@@ -98,7 +99,7 @@ export function EmailThread(props: EmailThreadProps) {
         />
       ),
       renderOperation: (message: EmailMessage) =>
-        message.operation ? (
+        message.operation && !operationSettled(message.operation) ? (
           <EmailMessageOperation message={message} />
         ) : undefined,
       renderTags: () => (

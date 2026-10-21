@@ -92,6 +92,10 @@ check *ARGS:
         (\cd apps/web && bunx --yes oxlint@1.73.0 --no-error-on-unmatched-pattern "${ox_other_paths[@]}") || fail=1
       fi
     fi
+    if grep -qx 'static_assets/schema.graphql' <<<"$changed"; then
+      echo "── GraphQL schema compatibility (docs/guides/add-graphql-field.md step 8)"
+      cargo x graphql-schema-compat --base "${base:-origin/main}" || fail=1
+    fi
     if [ -n "$sg" ]; then
       echo "── ast-grep code rules (rule ids map to docs/development/style-guide.md)"
       bunx --yes @ast-grep/cli@0.44.1 scan --report-style=short $sg || fail=1

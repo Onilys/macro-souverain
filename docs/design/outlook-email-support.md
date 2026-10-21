@@ -162,9 +162,8 @@ Outlook. Where Microsoft APIs cannot reproduce a behavior, investigate an
 equivalent implementation and bring any material limitation back for a product
 decision. Capability errors must be explicit, including missing consent.
 
-Uncertain sends may show a confirming/unknown outcome while reconciliation runs;
-an unresolved outcome requires deliberate user resend rather than automatic
-duplication. The user can supply test accounts at the live-validation stage.
+Confirmation runs silently, as Gmail sends do; an unresolved outcome shows as
+unknown and requires deliberate user resend rather than automatic duplication. The user can supply test accounts at the live-validation stage.
 Contract and implementation work can start beforehand; account-dependent gates
 remain unverified until the appropriate personal and organizational accounts exist.
 

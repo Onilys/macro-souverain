@@ -198,6 +198,37 @@ describe('mapGraphqlEmailThreadPage', () => {
     expect(mapped.access_level).toBe('view');
   });
 
+  it('preserves a thread when a newer server returns an unknown delivery state', () => {
+    const fromNewerServer = JSON.parse('"AWAITING_PROVIDER_RECEIPT"');
+    const mapped = mapGraphqlEmailThreadPage(
+      thread({
+        messages: [{ ...message, scheduledSendStatus: fromNewerServer }],
+      })
+    );
+
+    expect(mapped.messages).toHaveLength(1);
+    expect(mapped.messages[0]).toMatchObject({
+      db_id: 'message-1',
+      body_macro: 'Macro',
+      scheduled_send_time: '2026-08-07T12:00:00Z',
+      scheduled_send_status: 'unconfirmed',
+    });
+  });
+
+  it('defaults an access level from a newer server to view-only', () => {
+    const fromNewerServer = JSON.parse('"SUPER_OWNER"');
+    const mapped = mapGraphqlEmailThreadPage(
+      thread({
+        viewerPermission: {
+          __typename: 'GraphqlAccessLevelPermission',
+          accessLevel: fromNewerServer,
+        },
+      })
+    );
+
+    expect(mapped.access_level).toBe('view');
+  });
+
   it('uses message metadata when a canonical label is unavailable', () => {
     const mapped = mapGraphqlEmailThreadPage(thread({ labels: [] }));
 

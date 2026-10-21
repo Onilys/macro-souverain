@@ -1742,9 +1742,11 @@ function EntityPropertyEditor(props: {
   });
 
   const selectEntity = (entity: CombinedEntity) => {
+    const entityType = getEntityType(entity);
+    if (!entityType) return;
     const entityRef: EntityReference = {
       entity_id: entity.id,
-      entity_type: getEntityType(entity),
+      entity_type: entityType,
     };
     props.onSubmit(entityRef);
   };
@@ -1832,6 +1834,8 @@ function EntityPropertyEditor(props: {
       return;
     }
 
+    const entityType = getEntityType(entity);
+    if (!entityType) return;
     const selectedIds = localSelectedIds();
     setOpenOrderFrozen(true);
     const nextRefs = selectedIds.has(entity.id)
@@ -1840,7 +1844,7 @@ function EntityPropertyEditor(props: {
           ...localSelectedRefs(),
           {
             entity_id: entity.id,
-            entity_type: getEntityType(entity),
+            entity_type: entityType,
           },
         ];
 

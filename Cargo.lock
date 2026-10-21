@@ -6361,6 +6361,7 @@ dependencies = [
  "frecency",
  "futures",
  "github_pull_requests",
+ "granola_sync",
  "http 1.4.0",
  "http-body-util",
  "import",
@@ -8862,6 +8863,36 @@ dependencies = [
  "email_utils",
  "redis",
  "tracing",
+ "workspace-hack",
+]
+
+[[package]]
+name = "granola_sync"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm 0.10.3",
+ "anyhow",
+ "async-trait",
+ "axum",
+ "base64 0.22.1",
+ "call",
+ "chrono",
+ "hmac 0.12.1",
+ "macro_db_migrator",
+ "macro_user_id",
+ "macro_uuid",
+ "pipedream_mcp",
+ "rootcause",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "sqlx",
+ "thiserror 2.0.18",
+ "tokio",
+ "tower 0.5.3",
+ "tracing",
+ "url",
+ "uuid",
  "workspace-hack",
 ]
 
@@ -14931,6 +14962,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "axum",
+ "base64 0.22.1",
  "futures",
  "macro_authorization",
  "macro_user_id",
@@ -22433,6 +22465,16 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "guppy",
+ "xtask_paths",
+]
+
+[[package]]
+name = "xtask_graphql_schema_compat"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "apollo-compiler",
+ "chrono",
  "xtask_paths",
 ]
 

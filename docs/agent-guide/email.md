@@ -41,9 +41,12 @@ sharing an inbox or thread inside Macro remains available.
 
 For Outlook writes, distinguish acceptance from provider confirmation. Thread
 organization notices and inbox settings show pending or failed changes; the
-mark-as-read from opening a thread is announced only if it fails. A saved
-draft can show a conflict or an uncertain delivery: use its recovery actions and
-check the provider copy before choosing an explicit resend. Switching the sender
+mark-as-read from opening a thread is announced only if it fails. Draft sync and
+delivery progress is silent, as on Gmail: a composer or sent message shows a
+notice only for a conflict, uncertain or rejected delivery, revoked access,
+unsavable content, or an inbox move. Use its recovery actions and check the
+provider copy before choosing an explicit resend; a resend in flight shows as
+the send button's pending state. Switching the sender
 inbox copies the draft and attachments into the destination; wait for completion
 before sending. If the copy is interrupted, use retry or keep the original.
 
@@ -78,6 +81,11 @@ archive state, so search within the tab keeps only archived hits on the client.
 Rows offer **Unarchive email**;
 unarchiving removes the row at once. The tab persists across reloads. An empty
 list shows `No archived email`.
+
+A thread carrying a sent file shows a muted paperclip immediately before its
+date, in every list layout. Inline images (an image with a Content-ID, such as
+a signature logo) and calendar invites do not count; invites keep their own row
+icon. Search-service results carry no attachments, so they never show it.
 
 On desktop, a favorited email keeps a filled, muted star just before its
 timestamp. Other rows reserve only that small star slot. Hovering reveals

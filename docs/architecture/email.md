@@ -533,6 +533,8 @@ job in one Postgres transaction. The existing recovery scanner and Gmail/Outlook
 provider reconciliation continue delivery after browser closure. Attempt IDs
 provide idempotent admission, not a promise of exactly-once provider delivery:
 unknown provider outcomes remain locked and reconcile before any resend.
+Unrecognized GraphQL scheduled-delivery states map to `unconfirmed`, preserving
+the thread and its delivery lock when the server is newer than the client.
 Gmail submission checkpoints and Outlook coordinator revisions retain their
 provider-specific submission boundaries.
 

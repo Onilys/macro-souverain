@@ -27,6 +27,8 @@ import {
   Show,
 } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
+import { GranolaPromoChip } from '../../granola-connect/components/GranolaPromoChip';
+import { createGranolaConnection } from '../../granola-connect/primitives/create-granola-connection';
 import {
   CALL_AUDIENCES,
   type CallAudienceId,
@@ -113,6 +115,7 @@ export function CallsSidebar(props: { onNavigate: () => void }) {
     );
 
   const activeTab = () => view.activeTab() ?? VIEW_TAB_PRESETS.calls.default;
+  const granola = createGranolaConnection();
 
   const selectAudience = (id: CallAudienceId) => {
     props.onNavigate();
@@ -230,6 +233,20 @@ export function CallsSidebar(props: { onNavigate: () => void }) {
           onOpenChange={(open) => setOpen('tags', open)}
         />
       </ViewSidebar.Content>
+
+      {/* Hidden while loading so a connected user never sees it flash. */}
+      <Show
+        when={
+          granola.status() === 'available' || granola.status() === 'disabled'
+        }
+      >
+        <ViewSidebar.Footer class="border-0">
+          <GranolaPromoChip
+            onConnect={() => fireAndForget(granola.connect(), 'calls-view')}
+            connecting={granola.connecting()}
+          />
+        </ViewSidebar.Footer>
+      </Show>
     </ViewSidebar.Root>
   );
 }

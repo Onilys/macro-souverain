@@ -48,6 +48,7 @@ import type {
 import type {
   GithubPullRequest,
   SoupApiItem,
+  SoupAttachment,
   SoupCalendarEventTime,
   SoupPage,
   SoupProperty,
@@ -688,6 +689,13 @@ function normalizeSentinelTs(
   return Date.parse(ts) > 0 ? ts : undefined;
 }
 
+function isCalendarAttachment(attachment: SoupAttachment): boolean {
+  return (
+    attachment.mimeType === 'text/calendar' ||
+    attachment.filename?.toLowerCase().endsWith('.ics') === true
+  );
+}
+
 function withRawNotifications<T extends SoupEntity>(
   entity: T,
   item: DisplayableSoupItem
@@ -774,10 +782,14 @@ export const mapApiSoupItemToEntity = (
         name: p.name ?? '',
       }));
 
-      const hasIcsAttachment = item.data.attachments?.some(
+      const hasIcsAttachment =
+        item.data.attachments?.some(isCalendarAttachment);
+
+      // Inline images (signature logos, pasted screenshots) carry a Content-ID.
+      const hasFileAttachment = item.data.attachments?.some(
         (a) =>
-          a.mimeType === 'text/calendar' ||
-          a.filename?.toLowerCase().endsWith('.ics')
+          !isCalendarAttachment(a) &&
+          !(a.contentId && a.mimeType?.startsWith('image/'))
       );
 
       const attachments = item.data.attachments?.map((a) => ({
@@ -809,6 +821,7 @@ export const mapApiSoupItemToEntity = (
         linkId,
         participants,
         hasIcsAttachment,
+        hasFileAttachment,
         attachments,
       } satisfies EmailEntity;
     })
@@ -1021,7 +1034,12 @@ export const mapApiSoupItemToEntity = (
         frecencyScore: item.frecency_score,
       } satisfies CalendarEventEntity;
     })
-    .exhaustive();
+    .exhaustive(() => ({
+      type: 'document' as const,
+      id: 'id' in item.data ? item.data.id : '',
+      name: '',
+      ownerId: '',
+    }));
 
   // Attached once for every tag: only touched_by_me pages carry the field,
   // and the Recent feed's client sort reads it off the entity. Resolved

@@ -33,7 +33,7 @@ function mapAccessLevel(
     .with('COMMENT', () => 'comment')
     .with('EDIT', () => 'edit')
     .with('OWNER', () => 'owner')
-    .exhaustive();
+    .exhaustive(() => 'view');
 }
 
 function mapContact(
@@ -144,7 +144,8 @@ export function mapGraphqlEmailMessage(
             .with('SENDING', () => 'sending' as const)
             .with('FAILED', () => 'failed' as const)
             .with('UNCONFIRMED', () => 'unconfirmed' as const)
-            .exhaustive(),
+            // An unfamiliar delivery state cannot prove the draft is editable.
+            .exhaustive(() => 'unconfirmed' as const),
     sent_at: message.sentAt,
     snippet: message.snippet,
     subject: message.subject,

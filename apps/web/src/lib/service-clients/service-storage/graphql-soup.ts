@@ -877,7 +877,7 @@ function mapGraphqlPropertyValue(
       type: 'Link' as const,
       value: urls,
     }))
-    .exhaustive();
+    .exhaustive(() => null);
 }
 
 /** Maps GraphQL property fragments to the shared Soup property shape. */
@@ -918,7 +918,7 @@ function mapDocumentSubType(subType: GraphqlSoupDocument['subType']) {
     .with({ __typename: 'GraphqlInitiativeDescriptionSubType' }, () => ({
       type: 'initiative_description' as const,
     }))
-    .exhaustive();
+    .exhaustive(() => undefined);
 }
 
 function mapChannelMessage(
@@ -1154,7 +1154,7 @@ function mapGraphqlNotificationMetadata(
               .with('REPLY', () => 'reply' as const)
               .with('ASSIGNEE', () => 'assignee' as const)
               .with('OWNER', () => 'owner' as const)
-              .exhaustive(),
+              .exhaustive(() => 'mention' as const),
             messageId: metadata.initiativeDiscussionMessageId,
             threadId: metadata.initiativeDiscussionThreadId,
             text: metadata.initiativeDiscussionText,
@@ -1175,7 +1175,7 @@ function mapGraphqlNotificationMetadata(
               .with('MENTION', () => 'mention' as const)
               .with('REPLY', () => 'reply' as const)
               .with('OWNER', () => 'owner' as const)
-              .exhaustive(),
+              .exhaustive(() => 'mention' as const),
             messageId: metadata.crmDiscussionMessageId,
             threadId: metadata.crmDiscussionThreadId,
             text: metadata.crmDiscussionText,
@@ -1578,7 +1578,13 @@ function mapGraphqlNotificationMetadata(
           },
         }) satisfies NotifEventMember<'agent_session_mentioned'>
     )
-    .exhaustive();
+    .exhaustive(
+      () =>
+        ({
+          tag: 'reminder',
+          content: { description: '', reminderId: '' },
+        }) satisfies NotifEventMember<'reminder'>
+    );
 }
 
 /**
@@ -1656,6 +1662,8 @@ export function mapGraphqlSoupItem(
 ): SoupApiItem | null {
   // Rows are read by the database SQL engine, never listed as Soup items.
   if (item.__typename === 'GraphqlSoupDatabaseRow') return null;
+  // Kept in the schema for older clients; the server never returns one.
+  if (item.__typename === 'GraphqlSoupReminder') return null;
 
   const frecency = item.frecencyScore ?? 0;
 
@@ -2050,7 +2058,7 @@ export function mapGraphqlSoupItem(
           > & { notifications: ReturnType<typeof mapGraphqlNotifications> },
         }) as unknown as SoupApiItem
     )
-    .exhaustive();
+    .exhaustive(() => null);
 }
 
 export type FetchGraphqlSoupOptions = {
