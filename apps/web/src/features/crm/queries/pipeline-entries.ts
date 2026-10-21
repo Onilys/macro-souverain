@@ -20,6 +20,7 @@ import type {
   PipelineEntryRecord,
 } from '../core/pipeline-entry';
 import type { CrmRecordDependencies } from './dependencies';
+import { trackPipelineEntryWrites } from './pipeline-data';
 
 /** What the record's pipeline cards read and write through. */
 export type PipelineEntriesDependencies = {
@@ -183,7 +184,11 @@ export function savePipelineEntryCell(
       applyOps: (batch) =>
         storage
           .applyCrmPipelineOps(entry.pipeline.id, batch)
-          .mapErr(([error]) => error),
+          .mapErr(([error]) => error)
+          .map((applied) => {
+            trackPipelineEntryWrites(entry.pipeline, 'record', batch.ops);
+            return applied;
+          }),
     },
     { kind: 'cell', rowId: entry.rowId, columnId: cell.column.id, value },
     createOptions

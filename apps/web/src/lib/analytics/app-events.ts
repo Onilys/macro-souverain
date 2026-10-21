@@ -334,6 +334,23 @@ export type AppEvents = {
     /** First page only: '0' | '1-9' | '10-49' | '50+'. */
     resultCount: string;
   };
+
+  // --- CRM -----------------------------------------------------------------
+  crm_company_created: { companyId: string };
+  crm_contact_created: { companyId: string };
+  /**
+   * A committed pipeline write: inserted rows are entries added, updated
+   * rows include stage moves and other cell edits.
+   */
+  crm_pipeline_entries_edited: {
+    pipelineId: string;
+    recordType?: 'company' | 'contact';
+    /** The pipeline editor or the record page's pipeline cards. */
+    surface: 'pipeline' | 'record';
+    insertedRows: number;
+    updatedRows: number;
+    deletedRows: number;
+  };
 };
 
 export type AppEventNames = keyof AppEvents;
