@@ -57,6 +57,9 @@ use crate::domain::{
     team_repo::{TeamMembersService, TeamRepository, TeamService},
 };
 
+/// Most new invites a non-enterprise team may create in a rolling day.
+const MAX_TEAM_INVITES_PER_DAY: usize = 50;
+
 /// The roles a member of a paying or enterprise team holds: the team
 /// subscriber role plus the tier role of their seat's plan.
 fn team_member_roles_to_add(plan: SeatPlan) -> Vec<RoleId> {
@@ -1308,6 +1311,22 @@ where
             .team_repository
             .get_new_invites(&team_id, invites.clone())
             .await?;
+
+        // Every new invite sends an email, so a team cannot be used to mail
+        // strangers in bulk. Enterprise teams onboard many people at once.
+        if !enterprise && !new_invites.is_empty() {
+            let day_ago = chrono::Utc::now() - chrono::Duration::days(1);
+            let invited_today = self
+                .team_repository
+                .get_team_invites(&team_id)
+                .await?
+                .iter()
+                .filter(|invite| invite.created_at > day_ago)
+                .count();
+            if invited_today + new_invites.len() > MAX_TEAM_INVITES_PER_DAY {
+                return Err(InviteUsersToTeamError::TooManyEmails);
+            }
+        }
 
         let new_invite_emails: HashSet<String> = new_invites
             .iter()

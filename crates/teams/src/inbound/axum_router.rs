@@ -262,7 +262,7 @@ impl IntoResponse for InviteUsersToTeamError {
             InviteUsersToTeamError::TooManyEmails => (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse {
-                    message: "too many emails".into(),
+                    message: "too many invites today; try again tomorrow".into(),
                 }),
             ),
             InviteUsersToTeamError::NonAdminInvitesDisabled => (

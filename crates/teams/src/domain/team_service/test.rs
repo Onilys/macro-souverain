@@ -115,6 +115,7 @@ struct MockTeamRepository {
     fail_invite_users_to_team: bool,
     invite_users_to_team_calls: Arc<Mutex<usize>>,
     new_invite_emails: Option<Vec<String>>,
+    pending_team_invites: Vec<TeamInviteDetails>,
     invite_by_id: Option<TeamInvite<'static>>,
     delete_invite_calls: Arc<Mutex<Vec<(uuid::Uuid, uuid::Uuid)>>>,
     fail_delete_invite: bool,
@@ -194,6 +195,7 @@ impl MockTeamRepository {
             fail_invite_users_to_team: false,
             invite_users_to_team_calls: Arc::new(Mutex::new(0)),
             new_invite_emails: None,
+            pending_team_invites: Vec::new(),
             invite_by_id: None,
             delete_invite_calls: Arc::new(Mutex::new(Vec::new())),
             fail_delete_invite: false,
@@ -677,7 +679,8 @@ impl TeamRepository for MockTeamRepository {
         &self,
         _: &uuid::Uuid,
     ) -> impl Future<Output = Result<Vec<TeamInviteDetails>, TeamError>> + Send {
-        async { unimplemented!() }
+        let invites = self.pending_team_invites.clone();
+        async move { Ok(invites) }
     }
 
     fn get_team_name(
@@ -3248,6 +3251,61 @@ async fn invite_users_to_team_blocked_for_member_when_non_admin_invites_disabled
         error,
         InviteUsersToTeamError::NonAdminInvitesDisabled
     ));
+    assert_eq!(*invitation_persistence_calls.lock().unwrap(), 0);
+    assert!(mark_sent_calls.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn invite_users_to_team_caps_new_invites_per_day() {
+    let team_id = uuid::Uuid::from_u128(6140);
+    let invited_by = MacroUserIdStr::parse_from_str("macro|owner@example.com").unwrap();
+    let mark_sent_calls = Arc::new(Mutex::new(Vec::new()));
+    let mut team_repo = MockTeamRepository::new(
+        vec![make_invite("new@example.com", uuid::Uuid::from_u128(6141), team_id)],
+        "Busy Team",
+        mark_sent_calls.clone(),
+    );
+    let recent = |n: u128, created_at| TeamInviteDetails {
+        id: uuid::Uuid::from_u128(7000 + n),
+        email: format!("invitee{n}@example.com"),
+        team_id,
+        team_role: TeamRole::Member,
+        invited_by: invited_by.as_ref().to_string(),
+        created_at,
+        last_sent_at: created_at,
+    };
+    let now = chrono::Utc::now();
+    // A day-old invite no longer counts toward today's limit.
+    team_repo.pending_team_invites = (0..MAX_TEAM_INVITES_PER_DAY as u128)
+        .map(|n| recent(n, now))
+        .chain([recent(999, now - chrono::Duration::days(2))])
+        .collect();
+    let invitation_persistence_calls = team_repo.invite_users_to_team_calls.clone();
+
+    let service = TeamServiceImpl::new(
+        team_repo,
+        MockCustomerRepository::default(),
+        RecordingChannelService::default(),
+        MockUserRolesAndPermissionsService::default(),
+        Arc::new(MockNotificationIngress::new(HashSet::new())),
+        NoOpCrmEnqueuer,
+        NoOpTeamCrmSettingsRepository,
+    );
+
+    let invite_emails = vec![
+        Email::parse_from_str("new@example.com")
+            .unwrap()
+            .lowercase(),
+    ];
+    let error = service
+        .invite_users_to_team(
+            test_team_receipt::<MemberTeamRole>(team_id, &invited_by),
+            non_empty::NonEmpty::new(invite_emails.as_slice()).unwrap(),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(matches!(error, InviteUsersToTeamError::TooManyEmails));
     assert_eq!(*invitation_persistence_calls.lock().unwrap(), 0);
     assert!(mark_sent_calls.lock().unwrap().is_empty());
 }

@@ -653,8 +653,8 @@ pub enum CreateTeamError {
 /// Errors for inviting users to team
 #[derive(Debug, thiserror::Error)]
 pub enum InviteUsersToTeamError {
-    /// Too many emails were provided
-    #[error("Too many emails were provided")]
+    /// The team has hit its daily limit on new invites
+    #[error("the team has sent too many invites today")]
     TooManyEmails,
     /// The team only allows admins to invite and the caller is not an admin
     #[error("only team admins may invite users to this team")]
