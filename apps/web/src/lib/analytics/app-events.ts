@@ -295,6 +295,19 @@ export type AppEvents = {
     filterConditions: number;
     sortKeys: number;
   };
+
+  // --- Calendar ------------------------------------------------------------
+  calendar_event_created: {
+    eventId: string;
+    attendees: number;
+    recurring: boolean;
+    macroCall: boolean;
+    conference: boolean;
+  };
+  calendar_event_rsvp: {
+    response: 'accepted' | 'declined' | 'tentative';
+    scope: 'all' | 'this_event';
+  };
 };
 
 export type AppEventNames = keyof AppEvents;

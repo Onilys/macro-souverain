@@ -1,3 +1,4 @@
+import { analytics } from '@app/lib/analytics';
 import { fireAndForget } from '@core/util/fireAndForget';
 import { throwOnErr } from '@core/util/result';
 import { queryClient } from '@queries/client';
@@ -323,6 +324,12 @@ export function useRsvpCalendarEventMutation(callbacks?: RsvpCallbacks) {
             },
           };
         },
+        onSuccess: (_data, args) => {
+          analytics.track('calendar_event_rsvp', {
+            response: args.response,
+            scope: args.scope ?? (args.recurrenceId ? 'this_event' : 'all'),
+          });
+        },
         onError: (_error, _args, context) => context?.rollback(),
         onSettled: (_data, _error, args, context) => {
           context?.release();
@@ -632,6 +639,15 @@ export function useCreateCalendarEventMutation(callbacks?: CreateCallbacks) {
     },
     ...withCallbacks<CalendarEventEntity, Error, CreateCalendarEventRequest>(
       {
+        onSuccess: (event, args) => {
+          analytics.track('calendar_event_created', {
+            eventId: event.id,
+            attendees: args.attendees?.length ?? 0,
+            recurring: (args.recurrenceLines?.length ?? 0) > 0,
+            macroCall: args.macroCall === true,
+            conference: args.conference != null,
+          });
+        },
         onSettled: () => invalidateCalendarOccurrences(),
       },
       callbacks
