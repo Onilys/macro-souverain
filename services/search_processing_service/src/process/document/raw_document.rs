@@ -218,11 +218,12 @@ async fn read_design_text(file_type: FileType, content: Vec<u8>) -> anyhow::Resu
         .unwrap_or_else(|e| Err(anyhow::anyhow!("the design engine failed: {e}")))
 }
 
-/// Indexes a design the engines cannot read (an old or damaged file, or one
-/// too large to decode here) by name only, dropping the text an earlier
-/// version left, so it stays findable. Reading it again would fail the same
-/// way, so this is not an error to retry.
-async fn update_search_with_unreadable_design(
+/// Indexes a file its parser cannot read (a password-protected or damaged
+/// PDF, or a design that is old, damaged, or too large to decode here) by
+/// name only, dropping the text an earlier version left, so it stays
+/// findable. Reading it again would fail the same way, so this is not an
+/// error to retry.
+async fn update_search_with_unreadable_file(
     opensearch_client: &OpensearchClient,
     db: &sqlx::Pool<sqlx::Postgres>,
     search_extractor_message: &SearchExtractorMessage,
@@ -364,7 +365,16 @@ pub async fn update_search_with_raw_document(
         FileType::Pdf | FileType::Docx => {
             #[cfg(feature = "pdf")]
             {
-                let pages_content = parse_pdf_pages(content).context("unable to parse pdf")?;
+                let Some(pages_content) =
+                    parse_pdf_pages(content).context("unable to parse pdf")?
+                else {
+                    return update_search_with_unreadable_file(
+                        opensearch_client,
+                        db,
+                        search_extractor_message,
+                    )
+                    .await;
+                };
                 pages_content
                     .iter()
                     .enumerate()
@@ -430,7 +440,7 @@ pub async fn update_search_with_raw_document(
                     if let Err(error) = &read {
                         tracing::warn!(error = ?error, "indexing an unreadable design by name only");
                     }
-                    return update_search_with_unreadable_design(
+                    return update_search_with_unreadable_file(
                         opensearch_client,
                         db,
                         search_extractor_message,
