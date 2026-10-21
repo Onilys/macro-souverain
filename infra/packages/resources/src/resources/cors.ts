@@ -1,3 +1,5 @@
+import { stack } from '../../../shared';
+
 const PROD_LOCAL_ORIGINS = [
   'http://localhost:3000',
   'http://localhost:3001',
@@ -49,10 +51,8 @@ const SHARED_ORIGINS = [
   'tauri://localhost',
 ];
 
-/** Browser origins allowed by S3 bucket CORS rules on the given Pulumi stack. */
-export function allowedOrigins(stack: string): string[] {
-  return [
-    ...(stack === 'prod' ? PROD_LOCAL_ORIGINS : NON_PROD_LOCAL_ORIGINS),
-    ...SHARED_ORIGINS,
-  ];
-}
+/** Browser origins allowed by S3 bucket CORS rules on the current Pulumi stack. */
+export const ALLOWED_ORIGINS = [
+  ...(stack === 'prod' ? PROD_LOCAL_ORIGINS : NON_PROD_LOCAL_ORIGINS),
+  ...SHARED_ORIGINS,
+];

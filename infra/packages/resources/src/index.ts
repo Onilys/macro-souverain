@@ -1,6 +1,6 @@
 export { createBucket, createBucketV2 } from './resources/bucket';
 export { create_cluster } from './resources/cluster';
-export { allowedOrigins } from './resources/cors';
+export { ALLOWED_ORIGINS } from './resources/cors';
 export {
   DATADOG_API_KEY,
   DATADOG_API_KEY_SECRET_ARN,
