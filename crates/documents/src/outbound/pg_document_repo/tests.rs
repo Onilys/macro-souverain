@@ -3416,7 +3416,10 @@ async fn converting_a_document_numbers_it_once_as_a_team_task(pool: Pool<Postgre
         .await
         .unwrap();
 
-    let basic = repo.get_basic_document(&document.document_id).await.unwrap();
+    let basic = repo
+        .get_basic_document(&document.document_id)
+        .await
+        .unwrap();
     assert_eq!(
         basic.sub_type,
         Some(document_sub_type::DocumentSubType::Task)

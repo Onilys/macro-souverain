@@ -1778,14 +1778,14 @@ async fn convert_to_task_answers_with_the_team_number_and_maps_refusals() {
             ConvertOutcome::AlreadyAnotherKind,
             (
                 StatusCode::CONFLICT,
-                json!({ "message": "document is already a snippet" }),
+                json!({ "message": "conflict: document is already a snippet" }),
             ),
         ),
         (
             ConvertOutcome::NotMarkdown,
             (
                 StatusCode::BAD_REQUEST,
-                json!({ "message": "only markdown documents can become tasks" }),
+                json!({ "message": "bad request: only markdown documents can become tasks" }),
             ),
         ),
     ] {
