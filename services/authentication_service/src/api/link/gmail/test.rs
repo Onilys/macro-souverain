@@ -80,7 +80,6 @@ fn authorization_url_requests_incremental_calendar_access() {
         "https://auth.example.com/oauth2/callback",
         &scopes,
         "state",
-        AccountChoice::Known,
     )
     .unwrap();
     let params = url
@@ -109,30 +108,4 @@ fn authorization_url_requests_incremental_calendar_access() {
                 .any(|scope| scope == calendar_scope)
         );
     }
-}
-
-fn prompt_for(reconnect_link_id: Option<uuid::Uuid>) -> String {
-    let url = google_authorization_url(
-        "client-id",
-        "https://auth.example.com/oauth2/callback",
-        GMAIL_SCOPES,
-        "state",
-        AccountChoice::for_reconnect(reconnect_link_id),
-    )
-    .unwrap();
-    url.query_pairs()
-        .find(|(key, _)| key == "prompt")
-        .map(|(_, value)| value.into_owned())
-        .unwrap()
-}
-
-#[test]
-fn a_new_inbox_asks_google_which_account_to_connect() {
-    assert_eq!(prompt_for(None), "select_account consent");
-}
-
-#[test]
-fn a_reconnect_goes_straight_to_consent_for_the_known_inbox() {
-    let reconnect_link_id = uuid::Uuid::parse_str("694d20f7-ff85-46fd-b17d-5f68ff2d3707").unwrap();
-    assert_eq!(prompt_for(Some(reconnect_link_id)), "consent");
 }
