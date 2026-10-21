@@ -320,6 +320,20 @@ export type AppEvents = {
     notificationType: string;
     entityType: string;
   };
+
+  // --- Search --------------------------------------------------------------
+  /**
+   * One service search per settled query: a query whose results stay
+   * unreplaced for 1.5s, or the last one when the surface closes. Refetches
+   * and later pages of the same query are not counted; no query text is sent.
+   */
+  search_performed: {
+    /** View id ('search', 'email', 'tasks', ...), 'home', or 'mobile_search'. */
+    surface: string;
+    matchType: 'exact' | 'partial';
+    /** First page only: '0' | '1-9' | '10-49' | '50+'. */
+    resultCount: string;
+  };
 };
 
 export type AppEventNames = keyof AppEvents;
