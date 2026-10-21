@@ -173,7 +173,9 @@ To release:
    release never starts there. The **`Release Label Check`** workflow
    (`.github/workflows/release-label-check.yml`, a `pull_request_target`
    workflow, which GitHub does run) then comments and removes the label;
-   resolve the conflicts and re-add it.
+   resolve the conflicts and re-add it. On a mergeable PR that workflow
+   instead comments that the release started, with the version in flight
+   and a link to the run.
 3. Wait for Google. The **`Android Release Watch`** workflow (every 30
    minutes) notices the version code being published on production, re-runs
    the PR's failed `Android Native Check` job, and comments; the PR merges if

@@ -74,7 +74,9 @@ icon and app-name branding are Android-only.
    release never starts there. The **`Release Label Check`** workflow
    (`.github/workflows/release-label-check.yml`, a `pull_request_target`
    workflow, which GitHub does run) then comments and removes the label;
-   resolve the conflicts and re-add it.
+   resolve the conflicts and re-add it. On a mergeable PR that workflow
+   instead comments that the release started, with the version in flight
+   and a link to the run.
 4. Wait for Apple to approve. The version releases automatically, and the
    **`iOS Release Watch`** workflow (`.github/workflows/ios-release-watch.yml`,
    every 30 minutes) notices: for each open PR labeled `ios-update` it asks
