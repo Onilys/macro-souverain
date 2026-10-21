@@ -39,6 +39,15 @@ const googleClientSecretArn: pulumi.Output<string> = aws.secretsmanager
   .getSecretVersionOutput({ secretId: GOOGLE_CLIENT_SECRET })
   .apply((secret) => secret.arn);
 
+// AUTHENTICATION_SERVICE_SECRET_KEY names this secret; settlement requests
+// present its value to the authentication service.
+const authenticationServiceInternalApiKeyArn: pulumi.Output<string> =
+  aws.secretsmanager
+    .getSecretVersionOutput({
+      secretId: `authentication-service-internal-api-key-${stack}`,
+    })
+    .apply((secret) => secret.arn);
+
 const MACRO_API_TOKENS = getMacroApiToken();
 
 // ── AI tools infra ───────────────────────────────────────────────────────────
@@ -76,6 +85,7 @@ const mcpServer = new McpServer(`mcp-server-${stack}`, {
     fusionauthClientSecretArn,
     fusionauthApiKeyArn,
     googleClientSecretArn,
+    authenticationServiceInternalApiKeyArn,
     MACRO_API_TOKENS.macroApiTokenPublicKeyArn,
     ...aiTools.secretArns,
   ],

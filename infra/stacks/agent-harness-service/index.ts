@@ -45,6 +45,14 @@ const macroApiTokenPrivateKeyArn = aws.secretsmanager
   })
   .apply((secret) => secret.arn);
 
+// AUTHENTICATION_SERVICE_SECRET_KEY names this secret; settlement requests
+// present its value to the authentication service.
+const authenticationServiceInternalApiKeyArn = aws.secretsmanager
+  .getSecretVersionOutput({
+    secretId: `authentication-service-internal-api-key-${stack}`,
+  })
+  .apply((secret) => secret.arn);
+
 const MACRO_API_TOKENS = getMacroApiToken();
 
 // ── Session changes bucket ───────────────────────────────────────────────────
@@ -122,6 +130,7 @@ const service = new AgentHarnessService(`agent-harness-service-${stack}`, {
     MACRO_API_TOKENS.macroApiTokenPublicKeyArn,
     macroApiTokenPrivateKeyArn,
     githubSyncAppPemArn,
+    authenticationServiceInternalApiKeyArn,
     ...aiTools.secretArns,
   ],
   queueArns: [...aiTools.queueArns],
