@@ -23,6 +23,10 @@ completion, citations, and chat/attachment management.
   admission live in `jev::domain::decisions`, not the HTTP handler.
 - `src/service/structured_completion.rs`: bounded tool-free completions that
   retain metering when an HTTP caller disconnects.
+- `src/service/integration_analytics.rs`: PostHog `integration_connected` /
+  `integration_disconnected` for agent connections (native MCP servers and
+  Pipedream apps), fired from the router hooks wired in `src/server.rs`.
+  Disabled when `POSTHOG_API_KEY` is unset.
 - `README.md`: Doppler-based local setup (forking `document_cognition_service`
   project configs, `just init_local_db`, `just debug`).
 

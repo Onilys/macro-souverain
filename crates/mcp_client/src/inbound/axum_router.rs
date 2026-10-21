@@ -27,6 +27,10 @@ pub type McpAuthCompletedHook = Arc<
     dyn Fn(McpServerRecord) -> std::pin::Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync,
 >;
 
+/// Hook invoked after a user removes a server they had added, with the record
+/// as it was before removal. Implementations must be quick or spawn.
+pub type McpServerRemovedHook = McpAuthCompletedHook;
+
 /// Shared state for the MCP router.
 pub struct McpRouterState<S, O, Auth> {
     store: Arc<S>,
@@ -34,6 +38,7 @@ pub struct McpRouterState<S, O, Auth> {
     authorization_state: MacroAuthorizationState<Auth>,
     client_metadata: OAuthClientMetadata,
     on_auth_completed: Option<McpAuthCompletedHook>,
+    on_server_removed: Option<McpServerRemovedHook>,
 }
 
 impl<S, O, Auth> Clone for McpRouterState<S, O, Auth> {
@@ -44,6 +49,7 @@ impl<S, O, Auth> Clone for McpRouterState<S, O, Auth> {
             authorization_state: self.authorization_state.clone(),
             client_metadata: self.client_metadata.clone(),
             on_auth_completed: self.on_auth_completed.clone(),
+            on_server_removed: self.on_server_removed.clone(),
         }
     }
 }
@@ -74,6 +80,7 @@ where
             authorization_state,
             client_metadata,
             on_auth_completed: None,
+            on_server_removed: None,
         }
     }
 
@@ -81,6 +88,13 @@ where
     /// [`McpAuthCompletedHook`]).
     pub fn with_auth_completed_hook(mut self, hook: McpAuthCompletedHook) -> Self {
         self.on_auth_completed = Some(hook);
+        self
+    }
+
+    /// Invoke `hook` whenever a user removes a server (see
+    /// [`McpServerRemovedHook`]).
+    pub fn with_server_removed_hook(mut self, hook: McpServerRemovedHook) -> Self {
+        self.on_server_removed = Some(hook);
         self
     }
 
@@ -419,11 +433,22 @@ where
     anyhow::Error: From<S::Err>,
 {
     let user = &authorization.authorization.user;
+    // Read first so the removal hook only fires for a server that existed;
+    // deleting an unknown URL stays a quiet no-op.
+    let removed = state
+        .store
+        .load(&user.macro_user_id, &params.url)
+        .await
+        .map_err(anyhow::Error::from)?;
     state
         .store
         .delete(&user.macro_user_id, &params.url)
         .await
         .map_err(anyhow::Error::from)?;
+
+    if let (Some(record), Some(hook)) = (removed, &state.on_server_removed) {
+        hook(record).await;
+    }
 
     Ok(StatusCode::NO_CONTENT)
 }
