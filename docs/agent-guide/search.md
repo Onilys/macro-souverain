@@ -15,6 +15,10 @@ own Search history entry, including while another entry is in front. Projects re
 Categories filter entities directly,
 independently of view tabs, mailbox selections, and saved facets. Commands and
 creation shortcuts are excluded. Empty queries show recent entities.
+Typed **All** and **People** name searches also find known teammates before their
+first DM, with or without CRM. Existing one-to-one DMs replace person rows while
+preserving name/email matches; selecting a person opens their DM. Verify both
+categories with a teammate who has no conversation or CRM record.
 On phones, name-result icons and avatars are scaled to 150% (16px artwork
 becomes 24px), preserving row height and text alignment.
 

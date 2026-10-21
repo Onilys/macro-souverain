@@ -37,7 +37,8 @@ vi.mock('@app/constants/hotkeys', () => ({
 vi.mock('@core/context/quickAccess', () => ({
   exclude: () => ['note', 'channel'],
   useQuickAccess: () => ({
-    useList: (options: QuickAccessListOptions) => {
+    useList: (options: Bucket | QuickAccessListOptions) => {
+      if (typeof options === 'string') return { items: () => [] };
       mocks.requestedBuckets = [...options.buckets];
       if (!mocks.list) throw new Error('Missing test list');
       return mocks.list;

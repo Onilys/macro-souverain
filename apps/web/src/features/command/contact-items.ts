@@ -8,6 +8,7 @@ import {
   toCrmContactItem,
 } from '@core/context/quickAccess/crm-contacts';
 import type { CrmContactEntity } from '@entity';
+import type { CommandMenuItem } from './useCommandItems';
 
 function directMessagesByUser(
   directMessages: readonly QuickAccessItem[],
@@ -25,6 +26,38 @@ function directMessagesByUser(
   return byUser;
 }
 
+/** Resolve person matches to one conversation row, retaining names and emails. */
+export function mergeCommandPeople<T extends CommandMenuItem>(
+  items: readonly T[],
+  directMessages: readonly QuickAccessItem[],
+  viewerId: string | undefined
+): (T | EntityItem)[] {
+  const conversations = directMessagesByUser(directMessages, viewerId);
+  const merged = new Map<string, T | EntityItem>();
+  for (const item of items) {
+    if (item.kind === 'user' && item.id === viewerId) continue;
+    const conversation =
+      item.kind === 'user' ? conversations.get(item.id) : undefined;
+    const resolved = conversation
+      ? {
+          ...conversation,
+          searchText: `${conversation.searchText} | ${item.searchText}`,
+        }
+      : item;
+    const previous = merged.get(resolved.id);
+    merged.set(
+      resolved.id,
+      previous
+        ? {
+            ...resolved,
+            searchText: `${previous.searchText} | ${resolved.searchText}`,
+          }
+        : resolved
+    );
+  }
+  return [...merged.values()];
+}
+
 /**
  * One People row per discovered contact email. A contact who is a Macro user
  * becomes that person's direct message: the existing conversation when the
@@ -37,19 +70,15 @@ export function contactCommandItems(options: {
   directMessages: readonly QuickAccessItem[];
   viewerId: string | undefined;
 }): (EntityItem | UserItem)[] {
-  const conversations = directMessagesByUser(
-    options.directMessages,
-    options.viewerId
-  );
-  return resolveContactPeople(
+  const matches = resolveContactPeople(
     options.contacts.map(toCrmContactItem),
     options.users
   ).map(({ contact, user }) => {
     if (!user) return contact;
-    const conversation = conversations.get(user.id) ?? user;
     return {
-      ...conversation,
-      searchText: `${conversation.searchText} | ${contact.searchText}`,
+      ...user,
+      searchText: `${user.searchText} | ${contact.searchText}`,
     };
   });
+  return mergeCommandPeople(matches, options.directMessages, options.viewerId);
 }
