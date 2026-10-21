@@ -361,6 +361,21 @@ export type AppEvents = {
     updatedRows: number;
     deletedRows: number;
   };
+
+  // --- Routines ------------------------------------------------------------
+  // Client-side until the scheduled_action service reports to PostHog;
+  // scheduled and event-triggered runs are not counted yet.
+  routine_created: {
+    routineId?: string;
+    triggerType: string;
+    targetKind?: 'agent' | 'model';
+  };
+  /** A manual Run now the server accepted, not the run's outcome. */
+  routine_run: {
+    routineId: string;
+    trigger: 'manual';
+    targetKind?: 'agent' | 'model';
+  };
 };
 
 export type AppEventNames = keyof AppEvents;

@@ -1,3 +1,4 @@
+import { analytics } from '@app/lib/analytics';
 import { throwOnErr } from '@core/util/result';
 import { queryClient } from '@queries/client';
 import { type MutationCallbacks, withCallbacks } from '@queries/utils';
@@ -16,6 +17,7 @@ import {
 } from '@tanstack/solid-query';
 import type { Accessor } from 'solid-js';
 import { scheduledActionKeys } from './keys';
+import { routineTargetKind } from './routine-draft';
 
 const QUERY_REFETCH_BEHAVIOR = {
   refetchOnMount: 'always' as const,
@@ -138,6 +140,12 @@ export function useCreateScheduleMutation(
     ...withCallbacks(
       {
         onSuccess: async (schedule) => {
+          // Client-side until scheduled_action reports to PostHog itself.
+          analytics.track('routine_created', {
+            routineId: schedule.id ?? undefined,
+            triggerType: schedule.trigger.type,
+            targetKind: routineTargetKind(schedule),
+          });
           upsertSchedule(schedule);
           await invalidateSchedules();
         },
@@ -277,6 +285,22 @@ export function useRunScheduleNowMutation(
       throwOnErr(
         async () => await scheduledActionClient.runNow({ scheduleId })
       ),
-    ...withCallbacks({}, callbacks),
+    ...withCallbacks(
+      {
+        // A run the server accepted, not its outcome; scheduled and event
+        // runs never pass through the client.
+        onSuccess: (_execution, { scheduleId }) => {
+          const schedule = queryClient.getQueryData<ScheduledAction>(
+            scheduledActionKeys.detail({ scheduleId }).queryKey
+          );
+          analytics.track('routine_run', {
+            routineId: scheduleId,
+            trigger: 'manual',
+            targetKind: schedule && routineTargetKind(schedule),
+          });
+        },
+      },
+      callbacks
+    ),
   }));
 }
