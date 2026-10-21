@@ -1,3 +1,4 @@
+import { recordNativeDiagnostic } from '@app/observability/native-diagnostics';
 import type { Span } from '@macro-inc/observability';
 
 type Attempt = { span: Span; phase: Span };
@@ -68,6 +69,10 @@ export function createSessionWebsocketTelemetry(
     },
 
     opened() {
+      recordNativeDiagnostic({
+        kind: 'socket_opened',
+        service: name === 'storage' ? 'storage' : 'connection_gateway',
+      });
       if (!session) return;
       finishAttempt(session, 'connected');
       session.retries = 0;
@@ -78,6 +83,12 @@ export function createSessionWebsocketTelemetry(
     },
 
     closed(event: { code: number; wasClean: boolean }) {
+      recordNativeDiagnostic({
+        kind: 'socket_closed',
+        service: name === 'storage' ? 'storage' : 'connection_gateway',
+        code: event.code,
+        clean: event.wasClean,
+      });
       if (!session) return;
       finishAttempt(session, 'closed-before-open', true);
       const closing = session.root.span('auth.session_socket.close');

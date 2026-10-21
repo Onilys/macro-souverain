@@ -7,6 +7,7 @@ import {
   initializeGoogleAnalytics,
   initializeMetaPixel,
 } from '@app/lib/analytics/providers';
+import { frontendInstanceId } from '@app/observability/frontend-instance';
 import { DEV_MODE_ENV, PROD_MODE_ENV } from '@core/constant/featureFlags';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { getPlatform, isTauri } from '@core/util/platform';
@@ -150,6 +151,7 @@ const initializePosthog = (instance: PostHog) => {
       if (isPrivateCallPage()) return null;
       if (cr) {
         cr.properties = redactCallLinkProperties(cr.properties);
+        cr.properties.frontend_instance_id = frontendInstanceId;
         if (cr.$set) cr.$set = redactCallLinkProperties(cr.$set);
         if (cr.$set_once) {
           cr.$set_once = redactCallLinkProperties(cr.$set_once);

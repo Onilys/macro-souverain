@@ -11,6 +11,8 @@ import {
   desktopResourceAttributes,
   readDesktopDiagnostics,
 } from './desktop';
+import { frontendInstanceId } from './frontend-instance';
+import { startNativeDiagnostics } from './native-diagnostics';
 import { recordNativeWebviewStart } from './native-lifecycle';
 import { initializeUiOperationTelemetry } from './ui-operation';
 
@@ -56,6 +58,8 @@ async function browserTelemetryEnabled(hasExporter: boolean): Promise<boolean> {
 export async function initializeBrowserObservability(): Promise<void> {
   let browserEnabled = false;
   const desktop = await readDesktopDiagnostics();
+  const disposeNativeDiagnostics = startNativeDiagnostics(desktop);
+  import.meta.hot?.dispose(disposeNativeDiagnostics);
   const recording = desktop?.identity.recordingId
     ? createDesktopMemoryRecording(desktop)
     : undefined;
@@ -77,12 +81,17 @@ export async function initializeBrowserObservability(): Promise<void> {
     contextManager: new ZoneContextManager(),
     resourceAttributes: {
       'service.version': import.meta.env.__APP_VERSION__,
+      frontend_instance_id: frontendInstanceId,
       'app.runtime': isTauri() ? 'tauri' : 'browser',
       'app.platform': getPlatform(),
       ...(desktop && desktopResourceAttributes(desktop)),
     },
     recording: Boolean(recording),
-    spanAttributes: recording?.attributes,
+    spanAttributes: () => ({
+      ...recording?.attributes(),
+      frontend_instance_id: frontendInstanceId,
+      native_instance_id: desktop?.identity.instanceId,
+    }),
     enabled: async () => {
       browserEnabled = recording
         ? true

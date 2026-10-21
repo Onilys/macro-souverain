@@ -55,6 +55,64 @@ the native evidence before reloading. It does not establish why WebKit terminate
 are needed for that distinction. Native counters require a full app release,
 while the frontend remains compatible with older binaries.
 
+`frontend_instance_id` is generated once per document and attached to every
+PostHog event (including automatic exceptions/pageviews) and OTel resource.
+`native_instance_id` joins both systems to the host launch. A new frontend ID
+with the same native ID establishes a document replacement; SPA navigation
+keeps both. OTel export still obeys the existing browser telemetry gate.
+
+Frontend reloads go through `reloadApp(reason)`: automatic cache replacement,
+accepted update, failed-load recovery, user recovery, or logout. It saves a
+one-shot session-storage marker and asks native to record the request before
+reloading, waiting at most 250ms for user-requested reloads. Automatic idle
+reloads keep their synchronous timing and send native evidence best effort.
+The next native startup reports
+`requested_reload_*`; stale markers older than 30 minutes are discarded. Native
+bundle reload dispatches have their own `native_bundle_reload_last_id` and
+`native_bundle_reload_last_dispatch_ms`. These are evidence of intent/dispatch,
+not proof of the cause of a termination.
+
+New binaries retain 128 diagnostic events, up to 32 current channel/agent
+contexts, and a separate latest frontend heartbeat in native memory. Events
+cover native foreground/background, WebContent termination, iOS memory warnings,
+frontend visibility/connectivity, channel surface open/close, agent typing phase
+and live prose state, and connection-gateway/storage socket open/close. Channel
+and session IDs are UUIDs; the schema accepts no message text, URLs, or socket
+reason strings. Context describes mounted surfaces, not proof of keyboard focus.
+Heartbeats run every five seconds while visible and at visibility transitions,
+with ages of the last scroll/interaction; background throttling is expected.
+Heartbeats cannot evict history. Logout clears context and rejects late callbacks.
+Recovery also requires a session-storage lease matching the previous document;
+logout deletes it before awaiting native IPC. A missing/blocked lease suppresses
+replay, so even a failed native clear cannot export the previous account's context.
+
+After replacement, `native_diagnostic_recovered` PostHog events and
+`native.diagnostic.recovered` OTel samples report the buffered evidence.
+`source_frontend_instance_id` identifies the old document,
+`recovered_by_frontend_instance_id` the uploader, and
+`native_event_timestamp_ms` the original observation time. OTel samples use that
+original timestamp; PostHog captures recovery now and retains the observation
+timestamp as a property. Session storage avoids repeated exports; stable
+`native_event_id` values permit deduplication if storage is lost. Export is best
+effort, not a server-acknowledged delivery queue. The buffer survives WebContent
+replacement but not host termination, and a full ring reports dropped events.
+
+UIKit memory warnings support a memory-pressure hypothesis but are not a WebKit
+kill reason. No warning does not rule out memory-related termination. Native
+history and memory warnings require a rebuilt app; older binaries report
+unavailable coverage and receive no periodic diagnostic commands. These additions
+are optional and do not raise the minimum native build for OTA bundles.
+
+The new wire types are generated from Rust (Specta is a dev dependency). After
+editing the contract, run from the repository root with the development native
+environment configured:
+
+```sh
+UPDATE_NATIVE_DIAGNOSTIC_TYPES=1 cargo test --manifest-path apps/web/tauri/Cargo.toml --locked -p app -p macro_bundle_updater_plugin --lib --no-default-features diagnostic_wire_types
+```
+
+The same tests without that environment variable check for drift.
+
 ## Running in development
 
 ```sh

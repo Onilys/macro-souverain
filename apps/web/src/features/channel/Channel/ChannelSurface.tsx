@@ -1,3 +1,4 @@
+import { recordNativeDiagnostic } from '@app/observability/native-diagnostics';
 import { fireAndForget } from '@core/util/fireAndForget';
 import {
   fetchResolvedChannelMessage,
@@ -131,6 +132,25 @@ function resolveSync(
  * Hosts must remount the surface when `channelId` changes (key it).
  */
 export function ChannelSurface(props: ParentProps<ChannelSurfaceProps>) {
+  createEffect(
+    on(
+      () => props.channelId,
+      (channelId) => {
+        recordNativeDiagnostic({
+          kind: 'channel',
+          channel_id: channelId,
+          open: true,
+        });
+        onCleanup(() =>
+          recordNativeDiagnostic({
+            kind: 'channel',
+            channel_id: channelId,
+            open: false,
+          })
+        );
+      }
+    )
+  );
   const [resolvedTarget, setResolvedTarget] =
     createSignal<ChannelResolvedTarget>();
 

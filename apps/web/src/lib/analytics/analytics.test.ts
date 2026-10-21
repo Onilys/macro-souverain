@@ -142,6 +142,23 @@ describe('Meta pixel platform support', () => {
 });
 
 describe('PostHog exception frames', () => {
+  it('overwrites persisted document identity on automatic events, including after reset', async () => {
+    vi.stubEnv('VITE_POSTHOG_API_KEY', 'test-key');
+    const { analytics } = await import('./analytics');
+    const { frontendInstanceId } = await import(
+      '@app/observability/frontend-instance'
+    );
+    const beforeSend = mocks.init.mock.calls[0][1].before_send;
+    for (const event of ['$pageview', '$exception']) {
+      analytics.reset();
+      expect(
+        beforeSend({
+          event,
+          properties: { frontend_instance_id: 'old-document' },
+        }).properties.frontend_instance_id
+      ).toBe(frontendInstanceId);
+    }
+  });
   async function beforeSendException(value: string, filenames: string[]) {
     vi.stubEnv('VITE_POSTHOG_API_KEY', 'test-key');
     await import('./analytics');

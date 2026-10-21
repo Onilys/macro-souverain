@@ -339,6 +339,7 @@ pub fn run() {
             desktop_update::get_native_update_status,
             desktop_update::restart_native_update,
             diagnostics::read_desktop_diagnostics,
+            diagnostics::record_frontend_diagnostic,
             #[cfg(target_os = "linux")]
             linux_notification::send_linux_notification,
             #[cfg(target_os = "linux")]
@@ -445,6 +446,9 @@ pub fn run() {
             ..
         } => {
             tracing::debug!(window_label = %label, "mobile window resumed");
+            if let Some(state) = app_handle.try_state::<diagnostics::Diagnostics>() {
+                state.record_native_event(diagnostics::events::NativeEvent::Foreground);
+            }
             let app = app_handle.clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(e) = retry_waiting_for_wifi(&app).await {
@@ -472,6 +476,15 @@ pub fn run() {
                         }
                     }
                 });
+            }
+        }
+        #[cfg(mobile)]
+        RunEvent::WindowEvent {
+            event: tauri::WindowEvent::Suspended,
+            ..
+        } => {
+            if let Some(state) = app_handle.try_state::<diagnostics::Diagnostics>() {
+                state.record_native_event(diagnostics::events::NativeEvent::Background);
             }
         }
         #[cfg(desktop)]

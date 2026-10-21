@@ -1,5 +1,7 @@
 import { clearMcpAuthAttempts } from '@app/features/settings/mcp-auth-attempt';
 import { useAnalytics } from '@app/lib/analytics/analytics-context';
+import { clearNativeDiagnostics } from '@app/observability/native-diagnostics';
+import { reloadApp } from '@app/observability/reload';
 import { SERVER_HOSTS } from '@core/constant/servers';
 import { clearPipedreamCallbacks } from '@core/pipedream/connect-callback';
 import { syncLoginStorage } from '@core/util/cookies';
@@ -46,6 +48,7 @@ const unauthenticatedUserInfo: UserInfoData = {
 };
 
 export async function clearLocalAuthSession() {
+  await clearNativeDiagnostics();
   clearPipedreamCallbacks();
   document.cookie =
     'login=false; expires=Thu, 01 Jan 1970 00:00:00 UTC; max-age=0; path=/; SameSite=Lax';
@@ -137,7 +140,7 @@ export function useLogout() {
       navigate('/login');
       // Native login reuses this WebView. End the document lifetime so queued
       // editor callbacks can never adopt the next account's draft session.
-      window.location.reload();
+      reloadApp('logout');
     } else {
       window.location.href = SERVER_HOSTS['auth-logout'];
     }

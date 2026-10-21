@@ -1,5 +1,10 @@
 # iOS releases and breaking Tauri changes
 
+Native reload history and UIKit memory-warning diagnostics require an App Store
+binary update. Their IPC is optional: OTA-only clients retain frontend reload
+markers and instance IDs, with missing native coverage explicitly reported.
+See [reload diagnostics](../tauri/src-tauri/README.md#diagnosing-unexpected-webview-reloads).
+
 (The Android counterpart — `android-update`, `Android Native Check`, Google
 Play as the source of truth — is described in `docs/development/android.md`.)
 

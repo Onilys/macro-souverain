@@ -2,6 +2,7 @@ import { Telemetry } from '@macro-inc/observability';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { initializeBrowserObservability } from './browser';
 import { readDesktopDiagnostics } from './desktop';
+import { frontendInstanceId } from './frontend-instance';
 import { initializeUiOperationTelemetry } from './ui-operation';
 
 const startupSpan = vi.hoisted(() => ({
@@ -78,8 +79,13 @@ it('explicit native recording overrides the normal enablement gate and exporter 
   expect(config.logsUrl).toBe('http://localhost:4318/v1/logs');
   expect(config.resourceAttributes).toMatchObject({
     'app.runtime': 'tauri',
+    frontend_instance_id: frontendInstanceId,
     'service.instance.id': 'launch-1',
     'macro.recording.id': 'recording-1',
+  });
+  expect(config.spanAttributes?.()).toMatchObject({
+    frontend_instance_id: frontendInstanceId,
+    native_instance_id: 'launch-1',
   });
   expect(Telemetry.span).toHaveBeenCalledWith('native.webview.start');
   expect(startupSpan.setAttr).toHaveBeenCalledWith(

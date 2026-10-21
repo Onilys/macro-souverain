@@ -108,7 +108,7 @@ ownership. Cancel, logout, and the ten-minute timeout retire pending callbacks.
 - Mount the floating mobile AI composer only on the Agents view; other views keep their New action or their own reply/comment composer.
 - Passive PR mentions must not retry initial GitHub status failures on remount; preserve confirmed status through refetch errors and keep pending data reads out of their parent Suspense boundary.
 - Keep native booking exit navigation in the route shell, outside page loading boundaries, and use the router so the native hash route stays intact.
-- Diagnose native full reloads with `native_webview_started` and native launch/termination/update counters; termination coverage is iOS/macOS only, and a pageview alone also includes SPA navigation. See `tauri/src-tauri/README.md`.
+- Diagnose native full reloads with `native_webview_started`, `native_diagnostic_recovered`, and the shared `frontend_instance_id`; use `reloadApp(reason)` for frontend reloads and keep breadcrumbs content-free. See `tauri/src-tauri/README.md`.
 - All API/network calls live in service-clients.
 - Route explicit call exits using the server's `callEnded` result: ended calls
   open their record; ongoing channel and scheduled calls return to the channel
