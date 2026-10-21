@@ -104,6 +104,7 @@ members = [
   "crates/mcp_toolset",
   "crates/notification_state",
   "crates/pipedream_mcp",
+  "crates/granola_sync",
   "crates/onboarding",
   "crates/ai_engine",
   "crates/docx_engine",
@@ -196,8 +197,7 @@ agent-client-protocol = { git = "https://github.com/agentclientprotocol/rust-sdk
   "unstable_elicitation",
 ] }
 arboard = { version = "3.6.1", default-features = false, features = ["wayland-data-control"] }
-# Templates use default settings; omit config parsing and its unmaintained
-# basic-toml dependency.
+# Templates use built-in defaults; omit the unused config parser and basic-toml.
 askama = { version = "0.14", default-features = false, features = ["derive", "std", "urlencode"] }
 async-graphql = "7.2.1"
 async-lock = "3"

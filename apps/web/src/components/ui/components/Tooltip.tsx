@@ -1,4 +1,5 @@
 import type { HotkeyToken } from '@core/hotkey/tokens';
+import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import type { Placement } from '@floating-ui/dom';
 import { Tooltip as KobalteTooltip } from '@kobalte/core/tooltip';
 import type { ParentProps } from 'solid-js';
@@ -109,13 +110,15 @@ export function Tooltip(props: TooltipProps) {
   );
 
   onCleanup(() => setOpen(false));
-  const visible = () => isOpen() && !props.disabled && tooltipsEnabled();
+  const enabled = () =>
+    !isTouchDevice() && !props.disabled && tooltipsEnabled();
+  const visible = () => isOpen() && enabled();
 
   return (
     <KobalteTooltip
       open={visible()}
       onOpenChange={(isOpen) => {
-        setOpen(isOpen && !props.disabled && tooltipsEnabled());
+        setOpen(isOpen && enabled());
       }}
       placement={props.placement ?? 'bottom'}
       ignoreSafeArea={true}
@@ -125,7 +128,7 @@ export function Tooltip(props: TooltipProps) {
       closeDelay={0}
       flip={true}
       gutter={4}
-      disabled={props.disabled || !tooltipsEnabled()}
+      disabled={!enabled()}
     >
       <KobalteTooltip.Trigger
         ref={(ref) => {

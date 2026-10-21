@@ -4,6 +4,7 @@ import { createSignal, onCleanup } from 'solid-js';
 import type {
   MeetingCredentials,
   MeetingLocalTracks,
+  MeetingMediaDiagnostics,
   MeetingMediaPreferences,
   MeetingSessionCapabilities,
 } from '../context/meeting-session';
@@ -39,15 +40,21 @@ export function createMeetingSession(capabilities: MeetingSessionCapabilities) {
   /** Handed-off tracks go to `connect` or are stopped; they never leak. */
   async function join(
     displayName: string | undefined,
-    { localTracks, ...preferences }: MeetingMediaPreferences
+    { localTracks, ...preferences }: MeetingMediaPreferences,
+    mediaDiagnostics?: MeetingMediaDiagnostics
   ) {
     let unclaimed = localTracks;
     try {
-      await attemptJoin(displayName, preferences, () => {
-        const claimed = unclaimed;
-        unclaimed = undefined;
-        return claimed;
-      });
+      await attemptJoin(
+        displayName,
+        preferences,
+        () => {
+          const claimed = unclaimed;
+          unclaimed = undefined;
+          return claimed;
+        },
+        mediaDiagnostics
+      );
     } finally {
       unclaimed?.microphone?.stop();
       unclaimed?.camera?.stop();
@@ -57,7 +64,8 @@ export function createMeetingSession(capabilities: MeetingSessionCapabilities) {
   async function attemptJoin(
     displayName: string | undefined,
     preferences: Omit<MeetingMediaPreferences, 'localTracks'>,
-    claimLocalTracks: () => MeetingLocalTracks | undefined
+    claimLocalTracks: () => MeetingLocalTracks | undefined,
+    mediaDiagnostics?: MeetingMediaDiagnostics
   ) {
     if (joining() || disposed) return;
     if (issuedSession && capabilities.isInCall()) {
@@ -90,6 +98,14 @@ export function createMeetingSession(capabilities: MeetingSessionCapabilities) {
     joinTrace.setAttr('meeting.join.guest', displayName !== undefined);
     joinTrace.setAttr('meeting.join.microphone', preferences.microphoneEnabled);
     joinTrace.setAttr('meeting.join.camera', preferences.cameraEnabled);
+    if (mediaDiagnostics) {
+      joinTrace.setAttr('meeting.setup.id', mediaDiagnostics.setupId);
+      joinTrace.setAttr(
+        'meeting.join.microphone_access',
+        mediaDiagnostics.microphone
+      );
+      joinTrace.setAttr('meeting.join.camera_access', mediaDiagnostics.camera);
+    }
     joinTrace.setAttr('meeting.join.outcome', 'cancelled');
     try {
       await joinTrace.span('meeting.join.previous_session', async () => {
@@ -126,6 +142,14 @@ export function createMeetingSession(capabilities: MeetingSessionCapabilities) {
       setCredentials(issued.credentials);
       joinTrace.setAttr('call.id', issued.credentials.callId);
       const localTracks = claimLocalTracks();
+      joinTrace.setAttr(
+        'meeting.join.microphone_track',
+        Boolean(localTracks?.microphone)
+      );
+      joinTrace.setAttr(
+        'meeting.join.camera_track',
+        Boolean(localTracks?.camera)
+      );
       const credentials = issued.credentials;
       await joinTrace.span('meeting.join.connect', () =>
         capabilities.connect(

@@ -103,8 +103,12 @@ and **Created by** submenus alongside **Files** for Default, All files, and Emai
 attachments. Options within a group match any selected option; different groups
 combine to narrow the results. Created by is hidden while My Files
 is restricted to your own files. Recent offers only file-scope filtering.
-Hold Shift while selecting or deselecting Type options to keep the submenu open
-and combine several file types without reopening it. Desktop filter submenus allow a
+The desktop Filter trigger shows the number of active filters, matching the
+mobile drawer; clearing all filters removes the badge. Hold Shift while selecting
+or deselecting Type options to keep the submenu open and combine several file
+types without reopening it. A normal selection closes the menu. Verify the badge
+tracks consecutive selections (1 → 2 → 1), including when filter groups refresh
+while the menu is open. Desktop filter submenus allow a
 250 ms grace period when the mouse crosses the parent menu's padding; entering
 the submenu cancels the pending close. While the mouse heads toward an open
 submenu, including one that opens to the left, the categories it crosses on the

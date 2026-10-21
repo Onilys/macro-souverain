@@ -1657,6 +1657,39 @@ impl<B: BotFacts + 'static> AgentSessionLogRepo for PgAgentSessionRepo<B> {
             .collect::<anyhow::Result<Vec<_>>>()?)
     }
 
+    async fn list_action_history(
+        &self,
+        agent_session_id: AgentSessionId,
+        action: agent_runtime_protocol::domain::action::AgentActionId,
+    ) -> Result<Vec<StoredAgentSessionLog>> {
+        let rows = sqlx::query_as!(
+            AgentSessionLogRow,
+            r#"
+            SELECT id, agent_session_id, user_id AS "user_id: MacroUserIdStr",
+                   direction, content, created_at
+            FROM agent_session_log
+            WHERE agent_session_id = $1
+              AND EXISTS (
+                  SELECT 1 FROM agent_session_log AS prompt
+                  WHERE prompt.agent_session_id = $1
+                    AND prompt.direction = 'to_runtime'
+                    AND prompt.content->>'method' = 'session/prompt'
+                    AND prompt.content->>'id' = $2
+              )
+            ORDER BY created_at, id
+            "#,
+            agent_session_id.as_uuid(),
+            action.to_string(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .context("failed to read durable action history")?;
+        Ok(rows
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<anyhow::Result<Vec<_>>>()?)
+    }
+
     async fn participants(
         &self,
         agent_session_id: AgentSessionId,

@@ -75,7 +75,6 @@ import { FloatRegion } from './mobile/float-regions/FloatRegion';
 import { FloatRegionHost } from './mobile/float-regions/FloatRegionHost';
 import { installGlassPress } from './mobile/glassPress';
 import { MobileDockRow } from './mobile/MobileDockRow';
-import { MobileViewsRow } from './mobile/MobileViewsRow';
 import { SwipeDownDismissKeyboard } from './mobile/SwipeDownDismissKeyboard';
 import { SessionExpiredRedirect } from './SessionExpiredRedirect';
 import { useAppSquishHandlers } from './useAppSquishHandlers';
@@ -327,7 +326,12 @@ export function AppChrome(props: ParentProps) {
               <MobileSettings />
             </Suspense>
           </Show>
-          <MobileViewsRow />
+          {/* Search owns its filters at the top; suppress background composers. */}
+          <FloatRegion
+            region="accessory"
+            priority={100}
+            active={SearchState.isOpen}
+          />
           <FloatRegion
             region="dock"
             active={() => !virtualKeyboardVisible() || SearchState.isOpen()}

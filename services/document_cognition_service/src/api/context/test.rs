@@ -443,7 +443,6 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
         macro_event_broker.clone(),
         entity_access_service.clone(),
         document_tool_context.service.clone(),
-        chat_tool_context.service.clone(),
         user_email_service.clone(),
     );
 
@@ -553,6 +552,10 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
             entity_access_service.clone(),
             "http://localhost:8086".to_string(),
             None,
+        ),
+        read_agent_session_context: ai_tools::build_read_agent_session_context(
+            pool.clone(),
+            entity_access_service.clone(),
         ),
         coding_agent_tool_context: ai_tools::build_coding_agent_tool_context(
             macro_service_urls::ServiceUrl::owned("http://localhost:0").into(),
@@ -792,6 +795,7 @@ pub async fn test_api_context(pool: sqlx::Pool<sqlx::Postgres>) -> std::sync::Ar
         ai_stream_registry: crate::service::ai_stream_registry::AiStreamRegistry::new(Arc::new(
             redis::Client::open("redis://127.0.0.1:6379/").expect("valid redis url"),
         )),
+        granola_sync: None,
         pipedream_state: pipedream_mcp::inbound::PipedreamRouterState::new(
             pipedream_mcp::outbound::pg_connection_repo::PgConnectionRepo::new(pool.clone()),
             None,

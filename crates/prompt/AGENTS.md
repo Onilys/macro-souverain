@@ -34,6 +34,10 @@ AI system prompts: one module per prompt section, each exporting a
   is long) exporting a `pub static PROMPT: StaticPrompt` → `pub mod` it in
   `src/lib.rs` → compose it where the caller builds its prompt.
 
+## Tool contracts
+
+- Direct session-aware search/listing stays available in code mode; do not route conversation work to legacy chat tools or SDK namespaces.
+
 ## Checks
 
 - `cargo test -p prompt` (`SQLX_OFFLINE` unset).

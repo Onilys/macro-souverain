@@ -4,6 +4,7 @@ pub mod conversation_turns;
 /// Agent conversations in channels: who may prompt them, and their sessions.
 pub mod conversations;
 pub mod error;
+pub mod external_replies;
 pub mod model;
 /// Which lifecycle facts become notifications for people, and for whom.
 pub mod notifications;

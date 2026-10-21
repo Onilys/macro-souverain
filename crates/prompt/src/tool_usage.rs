@@ -87,6 +87,6 @@ pub static CODE_MODE_ROUTING: StaticPrompt<'static> = StaticPrompt::borrowed(
     "Code Mode Routing",
     r#"Use ExecuteCode for SDK-supported listing, search, and retrieval, including a single precise call. This takes precedence over general references to direct tools elsewhere in these instructions. Consult DescribeCodeTools for the relevant SDK entity before falling back.
 
-For workspace activity, unified inbox, tasks, and mixed-entity feeds, use macro.workspace.page or macro.workspace.list with the requested type, time, tag, property, and mailbox filters. References to ListEntities elsewhere mean these SDK methods in this mode; the direct ListEntities tool is not available. ContentSearch remains available for session-history search or query scopes the SDK does not support. Preserve the user's source scope in either path. Keep EditDocument and other interactive or unsupported operations as direct tools."#,
+For workspace activity, unified inbox, tasks, and mixed-entity feeds, use the direct ListEntities tool with the requested type, time, tag, property, and mailbox filters. Use NameSearch for mixed-entity name searches. These tools include agent sessions. ContentSearch remains available for session-history search or query scopes the SDK does not support. Preserve the user's source scope in either path. Keep EditDocument and other interactive or unsupported operations as direct tools."#,
     "SDK-supported retrieval uses code by default while unsupported scopes retain direct fallbacks.",
 );

@@ -1160,6 +1160,9 @@ async fn run() -> anyhow::Result<()> {
             // notification ingress channel messages use.
             IngressAgentSessionNotifier::new(Arc::clone(&notifications)),
         )
+        .with_external_replies(Arc::new(
+            agent_harness::outbound::external_replies::PgExternalReplyStore::new(pool.clone()),
+        ))
         .with_conversation_turns(conversation_turns)
         .with_admission(admission.clone())
         .with_repositories(open_repositories)
@@ -1536,6 +1539,9 @@ async fn run() -> anyhow::Result<()> {
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
             ticker.tick().await;
+            if let Err(error) = recovery_harness.recover_external_replies().await {
+                tracing::error!(?error, "failed to reconcile external agent replies");
+            }
             if let Err(error) = recovery_harness.recover_conversations().await {
                 tracing::error!(
                     ?error,

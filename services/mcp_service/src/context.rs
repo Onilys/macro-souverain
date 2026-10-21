@@ -408,7 +408,6 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
         macro_event_broker.clone(),
         entity_access_service.clone(),
         document_tool_context.service.clone(),
-        chat_tool_context.service.clone(),
         user_email_service.clone(),
     );
 
@@ -590,6 +589,10 @@ async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<To
             entity_access_service.clone(),
             dss_url,
             pipedream_client,
+        ),
+        read_agent_session_context: ai_tools::build_read_agent_session_context(
+            db.clone(),
+            entity_access_service.clone(),
         ),
         coding_agent_tool_context: ai_tools::build_coding_agent_tool_context(
             macro_service_urls::AgentHarnessServiceUrl::new()?,

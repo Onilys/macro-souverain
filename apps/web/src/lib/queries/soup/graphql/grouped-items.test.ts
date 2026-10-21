@@ -17,6 +17,7 @@ vi.mock('@queries/storage/instructions-md', () => ({
 }));
 vi.mock('@service-storage/graphql-soup', () => ({
   getGraphqlSoupClient: () => ({}),
+  getGraphqlSoupCacheHost: () => undefined,
   mapGraphqlGroupedSoupPage: vi.fn(),
 }));
 vi.mock('./grouped-projection', () => ({
@@ -72,7 +73,10 @@ function fixture(emailView: 'inbox' | 'drafts' | 'all' = 'drafts') {
     ) => {
       onResult = options().onResult;
       return {
-        data: options().select({ user: { id: 'viewer' }, data: network }),
+        data: options().select({
+          user: { id: 'viewer', groupSoup: { bins: [] } },
+          data: network,
+        }),
         error: undefined,
       };
     }
@@ -96,7 +100,7 @@ function fixture(emailView: 'inbox' | 'drafts' | 'all' = 'drafts') {
     setRevision,
     publish(persistence: Promise<string | undefined>) {
       onResult({
-        data: {},
+        data: { user: { id: 'viewer', groupSoup: { bins: [] } } },
         metadata: { source: 'live-network', persistence },
       } as unknown as OperationResult);
     },

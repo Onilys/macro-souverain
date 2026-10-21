@@ -353,6 +353,26 @@ export type AgentSessionChangesResponse = {
 };
 
 /**
+ * Response body for one session's folded log.
+ */
+export type AgentSessionFoldedLogResponse = {
+    /**
+     * The agent whose messages these are; it sent every agent message.
+     */
+    bot: SessionBot;
+    /**
+     * The conversation, oldest first: prompts, replies, tool calls and their
+     * results, plans, permission requests and how each turn ended. Each
+     * element is a `FoldedMessage` from the fold's TypeScript contract,
+     * which the SDK exports; the schema is opaque here because those types
+     * are described with specta rather than utoipa.
+     */
+    messages: Array<{
+        [key: string]: unknown;
+    }>;
+};
+
+/**
  * One entry of a session's protocol log.
  *
  * Serializes as `{"userId": ..., "direction": ..., "content": ...}` - the
@@ -2651,6 +2671,32 @@ export type GetAgentSessionLogResponses = {
 };
 
 export type GetAgentSessionLogResponse = GetAgentSessionLogResponses[keyof GetAgentSessionLogResponses];
+
+export type GetAgentSessionFoldedLogData = {
+    body?: never;
+    path: {
+        /**
+         * ID of the agent session
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/agent-sessions/{session_id}/log/folded';
+};
+
+export type GetAgentSessionFoldedLogErrors = {
+    401: string;
+    403: string;
+    500: string;
+};
+
+export type GetAgentSessionFoldedLogError = GetAgentSessionFoldedLogErrors[keyof GetAgentSessionFoldedLogErrors];
+
+export type GetAgentSessionFoldedLogResponses = {
+    200: AgentSessionFoldedLogResponse;
+};
+
+export type GetAgentSessionFoldedLogResponse = GetAgentSessionFoldedLogResponses[keyof GetAgentSessionFoldedLogResponses];
 
 export type RenameAgentSessionData = {
     body: RenameAgentSessionRequest;

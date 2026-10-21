@@ -553,6 +553,14 @@ the shimmer.
   session starts on the first prompt, before its first reply; a startup screen
   that temporarily hides the footer is retried during the turn. The menu does not list
   installed native skills or session-switching commands such as `/resume`.
+  For a paired runtime configured as a **Chat agent**, mentioning it posts a
+  pending reply in the channel thread. Once the turn completes, that same reply
+  shows the answer (or a stopped/failed result), even if the session view was
+  never opened. Follow-up messages get their own replies. This requires a macrod
+  build that sends source message IDs as control action IDs, together with the
+  backend external-reply journal; older daemons do not supply that correlation.
+  Replies older than 24 hours whose completion callback was lost are recovered
+  hourly, plus any recovery backlog. Normal completion handling remains immediate.
   The agent form retains sharing, name, `@tag`, runtime, default model, connections,
   channels, instructions, and permission policy.
   Runtime and short model lists use styled dropdown buttons: open the field and
@@ -615,7 +623,8 @@ draft or widening the pane restores the compact layout when the text fits
 beside its controls. Leaving the AI composer collapses a long draft to
 a single-line preview in the accessory row; tapping it expands the same editor
 with the full draft intact. Screens with an available composer or reply controls show those
-instead; opening mobile search shows category pills in their place. On Agents,
+instead; opening mobile search hides those controls, puts category pills above
+the results, and keeps the query input in the dock. On Agents,
 the AI composer returns with its draft intact when higher-priority controls close.
 Other views have no floating AI fallback. Type a
 prompt, optionally choose a model or
@@ -811,11 +820,10 @@ For Macro's in-process agent, the backend evaluates the session owner's
 `ai-code-mode` flag once per conversational turn. Enabled users get a smaller
 direct toolset: SDK-supported searches, reads, listing, and data operations run
 through the SDK. Document editing keeps the direct `EditDocument` tool, and
-`DisplayResults` remains available for rendering results. Workspace feeds use
-`macro.workspace.page` or the lazy `macro.workspace.list` iterator with type,
-time, tag, property, and mailbox filters. Direct `ListEntities` is absent even
-from lazy discovery; `ContentSearch` remains for query scopes not supported by
-SDK search, such as session history. Methods
+`DisplayResults` remains available for rendering results. Workspace feeds and
+mixed-entity name searches keep the direct `ListEntities` and `NameSearch` tools,
+including agent sessions. `ContentSearch` supports session history. The legacy
+chat and workspace SDK namespaces are excluded from agent documentation. Methods
 routed through the SDK are absent from direct schemas, `SearchTools`, and `LoadTools`;
 they remain discoverable through `DescribeCodeTools`. User-review
 tools, `AskUser`, connector discovery, tool loading for connected apps, subagents,
@@ -834,10 +842,9 @@ automatic retry through a direct tool.
 Ask the agent to discover SDK entities and write a JavaScript module exporting
 `async function main({macro, session, execution})`. These are actual public SDK
 handles; for example, `macro.documents.search(...)` is an async iterator and
-`await document.content()` fetches a document. `macro.workspace.list(...)` browses
-workspace entities with type, time, task, tag, mailbox, and sorting filters;
-`macro.workspace.page(...)` exposes an explicit page and continuation cursor.
-The direct `ListEntities` tool is absent for code-mode users. Return plain JSON
+`await document.content()` fetches a document. Use the direct `ListEntities` tool
+for workspace feeds with type, time, task, tag, mailbox, and sorting filters.
+Return plain JSON
 in `{data}`. The optional `reviews` array contains saved review references and
 defaults to `[]` when omitted. Loops, early breaks and bounded parallel
 promises are supported. Preserve the user's source filters, source IDs, errors,
@@ -1655,8 +1662,9 @@ must stay hidden; subsequent live messages must still appear.
   permission policy selector. The backend enforces these policies.
 
 Locally sent user messages in both AI implementations enter with a short upward
-slide and fade. History and remounted messages stay
-still; reduced-motion preferences disable the transition.
+slide and fade. On touch devices, messages lift into place with a gentle settle;
+the text reaches full opacity early and keeps its final size. History and
+remounted messages stay still; reduced-motion preferences disable the transition.
 
 On phones, the chat model control appears as a provider icon while the software
 keyboard is open. Its accessible name is `Choose model, <model name>`. It opens
@@ -1966,3 +1974,31 @@ New conversations confirm selected model and effort settings before sending the
 first message. If startup reports a rejected setting or timeout, the first prompt
 has not been sent. See [effort capabilities](../architecture/agent-effort.md) for the harness
 contracts and test coverage.
+
+### Read another agent session
+
+An agent-session mention or search result supplies the ID for `ReadAgentSession`.
+The tool requires the viewer's normal session access and returns the latest 20
+folded messages, including prompts, replies, tool activity, and failures. Pass a
+returned turn number to read that turn instead. Messages are capped at 4000
+characters; response and message truncation flags identify omissions. Terminal
+failures are returned separately so long replies cannot hide them. The tool
+row expands to show the returned conversation, runtime status, and archive state
+on desktop and mobile. Legacy chat tools are absent from agent context; saved
+legacy tool calls still render in historical conversations.
+
+Use `ListEntities` with `includeTypes: ["agent_session"]`, `NameSearch`, or
+`ContentSearch` to find sessions. `ListAgents` identifies available agents and
+`CreateAgentSession` starts a conversation with the chosen agent. Use
+`ManageAgentSession` to rename, archive/unarchive, delete, prompt, or stop one.
+Rename, archive, and delete require ownership; prompt and stop require edit
+access. Prompt acceptance reports sent or queued, not completion. An uncertain
+result must be checked by reading the session before retrying.
+
+`ReadAgentSessionSharing` shows link, team, and channel grants;
+`UpdateAgentSessionSharing` changes grants as the owner. Private persona
+conversations retain their existing sharing restrictions. `ShareWithChannel`
+can share a session into a channel. These tools cannot approve permission
+requests on a user's behalf.
+
+![Expanded session read with a terminal failure visible after truncated text](media/ai-chat/read-agent-session.png)

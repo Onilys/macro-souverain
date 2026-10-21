@@ -92,9 +92,6 @@ export default function HomepagePullRequest() {
                     onOpen={() => open('trace')}
                   />
                 </div>
-                <span class="homepage-agent-trace-hint">
-                  Open to explore the full agent trace
-                </span>
               </>
             ),
           },

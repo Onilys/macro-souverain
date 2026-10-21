@@ -1,4 +1,3 @@
-import { MobileDrawer } from '@components/app/mobile/MobileDrawer';
 import { SplitHeaderLeft } from '@components/app/split-layout/components/SplitHeader';
 import {
   SplitHeaderBadge,
@@ -10,6 +9,7 @@ import { fireAndForget } from '@core/util/fireAndForget';
 import { ComposerSurface } from '@ui';
 import { createResource, createSignal, Show } from 'solid-js';
 import { MessageOperationRecovery } from '../../email-message/views/message-operation-recovery';
+import { DraftBackMenu } from '../components/draft-back-menu';
 import { DraftSyncStatus } from '../components/draft-sync-status';
 import { EmailScheduleBar } from '../components/email-schedule-summary';
 import { SignaturePreview } from '../components/signature-preview';
@@ -303,46 +303,20 @@ function LoadedEmailComposeView(
         </div>
       </div>
       <Show when={composeContext.presentation.isMobile()}>
-        <MobileDrawer
-          side="bottom"
+        <DraftBackMenu
           open={draftBackMenuOpen()}
           onOpenChange={setDraftBackMenuOpen}
-          preventScroll={false}
-          preventScrollbarShift={false}
-        >
-          <MobileDrawer.Portal>
-            <MobileDrawer.Overlay />
-            <MobileDrawer.Content aria-label="Draft options">
-              <MobileDrawer.Handle />
-              <MobileDrawer.Section class="mb-3">
-                <button
-                  type="button"
-                  class="w-full bg-surface px-3 py-3.5 text-sm font-medium text-failure text-center not-last:mb-px"
-                  onClick={async () => {
-                    // Navigate only once the deletion landed; the mutation
-                    // toasts on failure and the composer stays put.
-                    try {
-                      if (!(await deleteDraftAndReset())) return;
-                    } catch {
-                      setDraftBackMenuOpen(false);
-                      return;
-                    }
-                    setDraftBackMenuOpen(false);
-                  }}
-                >
-                  Delete Draft
-                </button>
-                <button
-                  type="button"
-                  class="w-full bg-surface px-3 py-3.5 text-sm font-medium text-center"
-                  onClick={leaveCompose}
-                >
-                  Save Draft
-                </button>
-              </MobileDrawer.Section>
-            </MobileDrawer.Content>
-          </MobileDrawer.Portal>
-        </MobileDrawer>
+          onSave={leaveCompose}
+          onDelete={async () => {
+            try {
+              if (!(await deleteDraftAndReset())) return;
+            } catch {
+              setDraftBackMenuOpen(false);
+              return;
+            }
+            setDraftBackMenuOpen(false);
+          }}
+        />
       </Show>
     </ComposeProvider>
   );

@@ -62,10 +62,10 @@ use super::error::{AgentSessionError, Result};
 use super::lifecycle::session_identity;
 use super::model::{
     AgentSession, AgentSessionId, AgentSessionLog, AgentSessionPreview, AgentSessionRenamed,
-    AuthorKind, ClaimOutcome, CreateAgentSessionParams, LogAppended, MAX_AGENT_SESSION_NAME_CHARS,
-    MAX_PREVIEW_SESSION_IDS, Message, MessageId, ReplicaId, SandboxSize, SessionClaim, SessionLog,
-    SessionManagement, SessionPreviewCandidate, StoredAgentSessionLog, StoredQueuedAction,
-    ThreadSession, cursor_run_checkpoint,
+    AuthorKind, ClaimOutcome, CreateAgentSessionParams, FoldedSessionLog, LogAppended,
+    MAX_AGENT_SESSION_NAME_CHARS, MAX_PREVIEW_SESSION_IDS, Message, MessageId, ReplicaId,
+    SandboxSize, SessionClaim, SessionLog, SessionManagement, SessionPreviewCandidate,
+    StoredAgentSessionLog, StoredQueuedAction, ThreadSession, cursor_run_checkpoint,
 };
 use super::model::{SessionBot, TurnPrompter};
 use super::ports::{
@@ -345,11 +345,26 @@ pub trait AgentSessionService: Send + Sync + 'static {
     /// The effective ACP history of one session, oldest first, with the agent
     /// whose messages it derives.
     ///
-    /// Served unfolded because nothing here folds for a reader any more: the
-    /// web client runs the same fold compiled to WASM, so a streamed session
-    /// and a reloaded one are rendered by one implementation rather than two
-    /// that have to be kept agreeing. See [`SessionLog`].
+    /// Served unfolded for the web client, which runs the same fold compiled
+    /// to WASM so a streamed session and a reloaded one are rendered by one
+    /// implementation. See [`SessionLog`] and [`Self::folded_session_log`].
     fn session_log(&self, id: AgentSessionId) -> impl Future<Output = Result<SessionLog>> + Send;
+
+    /// Recover one action from a consistent durable snapshot, including history
+    /// replaced by session/load. No observer callback or live actor is required.
+    fn recorded_action(
+        &self,
+        id: AgentSessionId,
+        action: AgentActionId,
+    ) -> impl Future<Output = Result<Option<super::action_history::RecordedAction>>> + Send;
+
+    /// The same history as [`Self::session_log`], folded server-side into
+    /// renderable messages for readers that do not run the fold themselves,
+    /// such as SDK programs and agents reading other sessions.
+    fn folded_session_log(
+        &self,
+        id: AgentSessionId,
+    ) -> impl Future<Output = Result<FoldedSessionLog>> + Send;
 
     /// Push a session's changed queue - the whole queue, every time - to its
     /// viewers.
@@ -1165,6 +1180,25 @@ where
         Ok(SessionLog {
             bot: self.repo.session_bot(session.bot_id).await?,
             entries,
+        })
+    }
+
+    #[tracing::instrument(err, skip(self))]
+    async fn recorded_action(
+        &self,
+        id: AgentSessionId,
+        action: AgentActionId,
+    ) -> Result<Option<super::action_history::RecordedAction>> {
+        let entries = self.repo.list_action_history(id, action).await?;
+        Ok(super::action_history::recorded_action(entries, action))
+    }
+
+    #[tracing::instrument(err, skip(self))]
+    async fn folded_session_log(&self, id: AgentSessionId) -> Result<FoldedSessionLog> {
+        let session = self.repo.get(id).await?;
+        Ok(FoldedSessionLog {
+            bot: self.repo.session_bot(session.bot_id).await?,
+            messages: self.folds.messages(id).await?,
         })
     }
 

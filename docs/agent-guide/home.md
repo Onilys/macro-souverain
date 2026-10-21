@@ -77,7 +77,11 @@ overrides saved filters. Returning through split history resets navigation to Si
 
 Channel thread replies remain separate Home entries from their parent channel,
 using single-line rows and a reply arrow icon on desktop, labeled
-with the sender and channel (for example, **Peter in #battlefield**). Channel names
+with the sender and channel (for example, **Peter in #battlefield**). Replies and
+mentions name the latest notification's sender, including bots, even after the
+notification is read. To verify, mention yourself from a second account in a
+thread started by someone else: the row must name the mentioner and open their
+message. Channel names
 prefer the current channel cache, then a matching thread notification's name,
 then **Unknown channel** if neither source has a name. Selecting a
 thread opens that thread in the channel preview; Shift-click opens it in a split.
@@ -132,7 +136,9 @@ for tasks, skills, snippets, and other documents. Suggestion loading/errors
 are isolated from the input. If generation stalls for 45 seconds, the shimmer
 is replaced with a retry action; a late result still appears automatically.
 Generation status updates do not extend that deadline. Retry starts a fresh
-45-second wait. Shift+Enter adds a line. Selecting a Home row replaces
+45-second wait. Free users get suggestions from the free-tier model; if the
+plan refuses the request (403), the row says suggestions are unavailable and
+offers no retry. Shift+Enter adds a line. Selecting a Home row replaces
 the composer with its preview. Home uses the shared 256px sidebar and collapses
 navigation below 720px. The hamburger or `Cmd+.` opens the full feed as a
 slide-over. Activating a row or **New chat** closes that overlay to show content;

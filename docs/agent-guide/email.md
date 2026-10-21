@@ -40,9 +40,13 @@ providers. Shared/delegated Microsoft mailboxes are outside this account scope;
 sharing an inbox or thread inside Macro remains available.
 
 For Outlook writes, distinguish acceptance from provider confirmation. Thread
-organization notices and inbox settings show pending or failed changes. A saved
-draft can show a conflict or an uncertain delivery: use its recovery actions and
-check the provider copy before choosing an explicit resend. Switching the sender
+organization notices and inbox settings show pending or failed changes; the
+mark-as-read from opening a thread is announced only if it fails. Draft sync and
+delivery progress is silent, as on Gmail: a composer or sent message shows a
+notice only for a conflict, uncertain or rejected delivery, revoked access,
+unsavable content, or an inbox move. Use its recovery actions and check the
+provider copy before choosing an explicit resend; a resend in flight shows as
+the send button's pending state. Switching the sender
 inbox copies the draft and attachments into the destination; wait for completion
 before sending. If the copy is interrupted, use retry or keep the original.
 
@@ -77,6 +81,11 @@ archive state, so search within the tab keeps only archived hits on the client.
 Rows offer **Unarchive email**;
 unarchiving removes the row at once. The tab persists across reloads. An empty
 list shows `No archived email`.
+
+A thread carrying a sent file shows a muted paperclip immediately before its
+date, in every list layout. Inline images (an image with a Content-ID, such as
+a signature logo) and calendar invites do not count; invites keep their own row
+icon. Search-service results carry no attachments, so they never show it.
 
 On desktop, a favorited email keeps a filled, muted star just before its
 timestamp. Other rows reserve only that small star slot. Hovering reveals
@@ -357,7 +366,18 @@ separators and 16px side gutters; collapsed previews show one line. Desktop
 keeps rounded cards matching the chat composer: soft shadows in light mode,
 the same subtle 3D rim in dark mode, and a faint hover tint. Desktop selection
 does not add an accent-colored ring; keyboard focus has a neutral outline.
-Replies appear inline on desktop and in a composer drawer on touch devices.
+On touch, the floating Reply, Forward, previous/next email, and done controls
+use the mobile dock's chrome fill and icon color in both themes.
+Replies appear inline on desktop and in a full-screen composer on touch devices,
+including tablets. Reply, Reply all, and Forward use the same grouped header
+actions as new email: attach, schedule, and send. The schedule clock matches
+Attach's touch icon size. The Back control returns to the thread; when a reply
+has content, choose Save Draft or Delete Draft. Escape
+and Android Back follow the same close flow, including Escape with a header
+button focused. Closing an empty reply discards its local/server draft and
+removes its Draft preview from the thread. Saving must finish before leaving;
+a failed local save keeps the composer and draft options open. The message list
+stays mounted underneath so closing a reply preserves its scroll position.
 On touch, a saved reply shows as a **Draft** row with its opening words under the
 message it answers (which stays expanded); tapping it reopens the draft.
 On desktop, a saved reply that reappears with its thread (opening it, stepping
@@ -448,6 +468,10 @@ reloading. Repeat across background/resume on an iPhone. A transaction that has
 already started is never automatically replayed. Persistent failures still block
 server autosave; copy unsaved content before restarting. Storage failures and
 recovery report current page visibility and network state without draft content.
+Request errors settle only after the transaction's abort event, preserving the
+underlying IndexedDB error and waiting for rollback before recovery. To verify,
+force a request constraint failure: the prior draft must remain intact, the error
+must be `ConstraintError`, and a subsequent valid save must succeed.
 
 Repeated local-save failures show one persistent warning per composer; recovery
 or closing that composer dismisses it. A later failure shows a new warning.

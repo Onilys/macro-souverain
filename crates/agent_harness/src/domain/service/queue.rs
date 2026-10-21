@@ -500,8 +500,18 @@ where
                 stop,
                 last_text,
                 action_id: fold_action_id,
+                turn,
                 ..
             }) => {
+                if let Some(action) = fold_action_id {
+                    self.complete_external_reply(
+                        session_id,
+                        action,
+                        turn,
+                        ReplyOutcome::of_turn(&stop, last_text.clone()),
+                    )
+                    .await;
+                }
                 let mut ended = self.busy.turn(session_id);
                 if let (Some(turn), Some(action)) = (&ended, fold_action_id)
                     && turn.action_id != action
@@ -804,10 +814,10 @@ where
     /// An action whose id this session already holds is the same action
     /// arriving twice - a caller retrying a control request under the id it
     /// named. It reports what became of the first copy instead of queueing a
-    /// second, so a retry cannot double-prompt. Only what this replica still
-    /// holds is checked: an id whose action has already finished its turn is
-    /// no longer anywhere to be seen, and accepting it again is indistinguishable
-    /// from asking for the same thing twice on purpose.
+    /// second, so a retry cannot double-prompt. External sessions with a reply
+    /// store also check durable completion and original prompt history, so
+    /// finished actions remain deduplicated across reconnects and restarts.
+    /// Other sessions check only this replica's queued and in-flight actions.
     ///
     /// A channel follow-up (`announce` set) that lands on a running turn
     /// steers: it goes to the front of the queue, a stop cancels the current
@@ -820,6 +830,14 @@ where
     ) -> Result<CommandOutcome> {
         self.authorize_action(&command).await?;
         let action_id = command.id;
+        if let Some(store) = &self.external_replies
+            && store
+                .get(session_id, action_id)
+                .await?
+                .is_some_and(|reply| reply.completion.is_some())
+        {
+            return Ok(CommandOutcome::Completed);
+        }
         if self.queues.contains(session_id, action_id) {
             if command.announce.as_ref().is_some_and(|origin| {
                 origin.reply_placement == crate::domain::model::ReplyPlacement::Timeline
@@ -841,6 +859,18 @@ where
             return Ok(CommandOutcome::Completed);
         }
         let session = self.sessions.get_session(session_id).await?;
+        // A persisted prompt proves delivery even if this replica has not yet
+        // recovered its completion callback. Never execute its effects again.
+        if self.external_replies.is_some()
+            && AgentKind::for_session(session.bot_id, &session.harness) == AgentKind::External
+            && self
+                .sessions
+                .recorded_action(session_id, action_id)
+                .await?
+                .is_some()
+        {
+            return Ok(CommandOutcome::Completed);
+        }
         if let Err(error) = self.admit_session(&session).await {
             // Forwarding acknowledges bus acceptance before this worker runs.
             // Publish even an ingress refusal so the submitting replica hears it.

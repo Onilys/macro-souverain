@@ -237,6 +237,20 @@ pub struct FoldedMessage {
 }
 
 impl FoldedMessage {
+    /// The last prose part, trimmed; absent when the message has no prose.
+    #[must_use]
+    pub fn last_text(&self) -> Option<String> {
+        self.parts
+            .iter()
+            .rev()
+            .find_map(|part| match part {
+                MessagePart::Text { text } => Some(text.trim()),
+                _ => None,
+            })
+            .filter(|text| !text.is_empty())
+            .map(str::to_owned)
+    }
+
     /// This message's natural key within its session.
     #[must_use]
     pub fn id(&self) -> MessageId {

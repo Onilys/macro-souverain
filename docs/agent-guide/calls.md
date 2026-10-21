@@ -36,6 +36,20 @@ the breadcrumb return, browser Back/Forward, and clicking the same transcript
 search hit twice after playing elsewhere. On phones, recorded call headers omit
 **Call Again**.
 
+### Imported Granola meetings
+
+Adding Granola in **Settings → Agent connections** (Pipedream Connect, Granola
+Business or Enterprise API key) is the only setup; there are no sync controls.
+Within about 30 seconds the backend registers a Granola webhook at the widest
+scope the key allows, and removing or disabling the connection stops sync. Notes
+whose first summary is generated, edited, or shared after that are imported as
+private calls about a minute after Granola finishes the summary; history is not
+backfilled. Imported calls appear in `All` and `Attended`, never in a channel's
+`Calls` tab, and open in the normal call detail with title, summary, attendees
+(shown as guests), and transcript but no recording. Rename and delete do not
+apply to imported calls yet. Webhooks require a public HTTPS `MCP_PUBLIC_URL`;
+on a laptop stack, expose the webhook path with a tunnel such as Tailscale Funnel.
+
 A channel's `Calls` tab lists that channel's recordings with the same rows, filtered
 by the channel id. Its search field matches call names and transcripts in that
 channel.
@@ -162,6 +176,44 @@ by default). Its hover panel contains the same None, Light blur, Strong blur,
 and image-upload menu as the join screen; the caret pins this panel for keyboard
 and touch access. Click outside or press Escape to close the settings.
 The controls also work by keyboard and touch.
+
+### Browser call diagnostics
+
+Browser OpenTelemetry requires `enable-browser-otel` (or
+`VITE_ENABLE_BROWSER_OTEL=true`) and a configured exporter. PostHog deliberately
+drops events on private call-link routes; it is not a substitute for these traces.
+Existing `call_action`, audio-processing, and receiver-health analytics describe
+other parts of the call, not waiting-room permission outcomes.
+
+Find `meeting.join` by `call.id`, then use its `meeting.setup.id` to find that
+page's earlier `call.media.capture` spans, including guest attempts. The setup ID
+is random and scoped to the page owner; it is not derived from the share token.
+Each capture records the device, whether it was enabled, the trigger, outcome,
+and whether the captured stream was retained. Camera permission can succeed
+while its toggle remains off. A pending request cancelled by navigation ends
+with `cancelled`; a camera constraint fallback emits `call.media.constraints_retry`.
+Join records final `meeting.join.microphone_access` / `camera_access`, enabled
+flags, and whether each live preview track was handed to the call.
+
+Failures include an allowlisted `error.type`: `NotAllowedError` or `SecurityError`
+indicates blocked access (browser, OS, or policy), not proof the user explicitly
+clicked Deny. `NotFoundError`, `NotReadableError`, and `OverconstrainedError`
+help distinguish missing devices, capture failures, and unsupported constraints.
+Unknown provider errors are redacted. Raw error messages, device labels/IDs,
+guest names, and bearer URLs/tokens are not attributes.
+
+`call.connect` and background `call.media.setup` are children of the join flow.
+`call.media.publish_prejoin`, `enable`, and `toggle` expose publishing/capture
+failures after admission; `enumerate` and `background` cover waiting-room
+device lists and effects. A completed join/setup does not imply every device
+worked: inspect its media children. Later toggles and connection-state samples
+are searchable by `call.id`. `call.connection.disconnected` records the SDK's
+numeric reason when available. These spans cover the browser LiveKit path,
+not the native CallKit media implementation.
+
+Verify allowing and blocking each device, joining with both off, granting
+access on retry, and leaving while a prompt is pending. Confirm setup and join
+share the setup ID and that media failures remain visible when join succeeds.
 
 ### Sharing a call
 

@@ -134,13 +134,7 @@ where
                     }
                     let egress = self
                         .egress
-                        .provision(
-                            session_id,
-                            session.owner_user()?,
-                            &AgentMcpServers::Selected {
-                                servers: Vec::new(),
-                            },
-                        )
+                        .provision(session_id, session.owner_user()?, &session.mcp_servers)
                         .await?;
                     self.sessions
                         .set_egress_token_hash(session_id, &egress.session_token_hash)
@@ -307,6 +301,10 @@ where
                 | ReplyOutcome::AwaitingApproval(_)
                 | ReplyOutcome::Resumed
         );
+        if terminal && turn.announce.is_none() {
+            self.complete_external_reply(session_id, turn.action_id, turn.turn, outcome.clone())
+                .await;
+        }
         let in_segments = turn.announce.as_ref().is_some_and(|origin| {
             origin.reply_placement.voice_style() == crate::domain::model::VoiceStyle::Segments
         });

@@ -18,6 +18,7 @@ import { FORMAT_TEXT_COMMAND, type LexicalEditor } from 'lexical';
 import { createSignal, type JSX, Show } from 'solid-js';
 import { EmailDateSelector } from '../components/email-date-selector';
 import { EmailScheduleSummary } from '../components/email-schedule-summary';
+import { MobileComposeActions } from '../components/mobile-compose-actions';
 import { useCompose } from '../context/compose-context';
 
 export function EmailComposeToolbar(props: {
@@ -136,47 +137,38 @@ function MobileToolbar(props: { status?: JSX.Element }) {
         </Show>
       </SplitHeaderLeft>
       <SplitHeaderRight>
-        <HeaderIsland class="h-(--mobile-chrome-button-size) p-[5px]">
-          {props.status}
-          <Show when={!ctx.hideAttachments}>
-            <div class="relative">
-              <Button
-                ref={(el) =>
+        <MobileComposeActions
+          status={props.status}
+          attachRef={
+            ctx.hideAttachments
+              ? undefined
+              : (el) =>
                   fileSelector(el, () => ({
                     multiple: true,
                     onSelect: ctx.onAddAttachments,
                   }))
-                }
-                size="icon-sm"
-                disabled={ctx.disabled()}
-              >
-                <PaperclipIcon />
-              </Button>
-            </div>
-          </Show>
-
-          <Show when={ctx.scheduleEnabled}>
-            <EmailDateSelector
-              mobile={ctx.isMobile()}
-              state={ctx.schedule.state()}
-              selectedTime={ctx.schedule.selectedTime()}
-              onSelectTime={ctx.schedule.onSelect}
-              onCancelSchedule={ctx.schedule.onCancel}
-              operation={ctx.schedule.operation()}
-              disabled={ctx.schedule.pickerDisabled()}
-              compact
-            />
-          </Show>
-          <SendButton
-            tooltip={
-              ctx.sendUnavailableReason?.() ?? ctx.schedule.actionLabel()
-            }
-            aria-label={ctx.schedule.actionLabel()}
-            disabled={ctx.isSavingDraft?.() || ctx.primaryActionDisabled()}
-            pending={ctx.isSending()}
-            onClick={() => ctx.onSend()}
-          />
-        </HeaderIsland>
+          }
+          editingDisabled={ctx.disabled()}
+          scheduleControl={
+            <Show when={ctx.scheduleEnabled}>
+              <EmailDateSelector
+                mobile={ctx.isMobile()}
+                state={ctx.schedule.state()}
+                selectedTime={ctx.schedule.selectedTime()}
+                onSelectTime={ctx.schedule.onSelect}
+                onCancelSchedule={ctx.schedule.onCancel}
+                operation={ctx.schedule.operation()}
+                disabled={ctx.schedule.pickerDisabled()}
+                compact
+              />
+            </Show>
+          }
+          sendLabel={ctx.schedule.actionLabel()}
+          sendTooltip={ctx.sendUnavailableReason?.()}
+          sendDisabled={!!ctx.isSavingDraft?.() || ctx.primaryActionDisabled()}
+          sending={ctx.isSending()}
+          onSend={() => ctx.onSend()}
+        />
       </SplitHeaderRight>
     </>
   );

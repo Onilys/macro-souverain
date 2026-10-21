@@ -9,9 +9,14 @@ usually faster for jump-to-entity; `/` opens workspace search when no editor is 
 On touch devices, the dock's **Search** button opens a persistent **Search…**
 input in `/app/search`. It starts in **All** with Command Menu-style Quick Access
 name search. Categories are **All, Email, Agents, Files, Tasks, Projects, Channels,
-People**; Projects respects its feature flag. Categories filter entities directly,
+People** in a horizontal pill row at the top, below the status-bar safe area;
+the query input stays in the bottom dock. Each filter row reads and updates its
+own Search history entry, including while another entry is in front. Projects respects its feature flag.
+Categories filter entities directly,
 independently of view tabs, mailbox selections, and saved facets. Commands and
 creation shortcuts are excluded. Empty queries show recent entities.
+On phones, name-result icons and avatars are scaled to 150% (16px artwork
+becomes 24px), preserving row height and text alignment.
 
 For a nonempty query, **Search full text for “…”** appears above name results,
 including when there are no matches. It retains the query and category and stays
@@ -85,9 +90,9 @@ retention; select Projects from full-text mode and confirm it shows name results
 Repeat opening with a large recent list: results are virtualized, so transferring
 keyboard focus should not mount every cached row. Scroll through later results
 to the end to verify additional pages load automatically without a fixed Load more bar.
-Search starts below the status-bar safe area without reserving space for the
-hidden view/filter header; check both name and full-text results with the keyboard
-open and dismissed. Same-query full-text refreshes keep the current rows visible
+Search results start below the floating category row, with the same clearance on
+phones and tablets. Check both name and full-text results with the keyboard open
+and dismissed; categories stay at the top while the input stays above the keyboard. Same-query full-text refreshes keep the current rows visible
 so paging does not collapse the list and reset its scroll position. Appending a
 page preserves existing row elements, including when the service rematerializes
 their data; scroll through multiple pages to check that the position stays put.

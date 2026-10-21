@@ -792,6 +792,29 @@ impl crate::domain::turn_state::SessionTurnProjectionRepo for InMemoryAgentSessi
 }
 
 impl AgentSessionLogRepo for InMemoryAgentSessionRepo {
+    async fn list_action_history(
+        &self,
+        agent_session_id: AgentSessionId,
+        action: agent_runtime_protocol::domain::action::AgentActionId,
+    ) -> Result<Vec<StoredAgentSessionLog>> {
+        let _transaction = self.log_transaction.lock().unwrap();
+        let mut rows = self
+            .logs
+            .lock()
+            .unwrap()
+            .get(&agent_session_id)
+            .cloned()
+            .unwrap_or_default();
+        if !rows
+            .iter()
+            .any(|row| crate::domain::action_history::is_prompt(&row.entry, action))
+        {
+            return Ok(Vec::new());
+        }
+        rows.sort_unstable_by_key(|row| (row.created_at, row.id));
+        Ok(rows)
+    }
+
     async fn create(&self, log: AgentSessionLog) -> Result<StoredAgentSessionLog> {
         self.create_projected(log, None, None, None).await
     }

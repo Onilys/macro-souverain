@@ -78,6 +78,11 @@ without changing the active route. Backend registration still verifies account
 ownership. Cancel, logout, and the ten-minute timeout retire pending callbacks.
 
 ### General
+- Keep bot setup focused on the token-and-SDK workflow; Agent and Ownership
+  controls live under collapsed Advanced settings. See the
+  [Bots walkthrough](../../docs/agent-guide/settings.md#bots).
+- Label the notification permission toast **Enable Desktop Notifications** in
+  the desktop app and keep its Enable action on the native notification provider.
 - Keep signed-out Drive document routes on the shared detail viewer without
   mounting private list/sidebar sources; let document access checks decide visibility.
 - Gate account-only queries, comment readers, and account WebSockets on confirmed
@@ -87,18 +92,23 @@ ownership. Cancel, logout, and the ten-minute timeout retire pending callbacks.
   shared HttpOnly dev cookies are not visible to JavaScript or localStorage.
 - Disable GraphQL cache sessions and clear login hints on confirmed auth 401s,
   even with retained user data; preserve session state on transient failures.
+- Mobile dock customization shares the navigation island’s measured capacity; persist ordering per user with `mobile-dock-order.ts`, preserve gated destinations, and keep Search and More fixed. Reorder handles drag without a hold delay; the rest of each row scrolls.
+- Share sidebar and mobile dock unread presence through `components/app/use-navigation-unread.ts`; keep badges reactive to read/done changes and avoid fetching extra pages for counts.
 - Mobile dock search owns transient category/mode state in `features/command/mobile`; reuse the shared entity source and explicit full-text adapter rather than overlaying the dock query on view tabs or saved facets. See `docs/agent-guide/search.md` at the repository root.
 - Keep mobile search sessions, result order, loaded rows, and scroll state with their Search history entry; preserve order before opening a result so viewedAt updates cannot move it on Back. Refresh row data in place and append later pages. Scope saved rows and scroll measurements to their account and reset result adapters/scrollers on account changes. Query/category changes rerank; a fresh dock search supplies a new session ID in Search's route state, including when reusing a native pane.
 - Keep Quick Access cache availability reactive to the GraphQL rollout flag; it can arrive after the provider mounts, and email has no legacy source fallback.
 - Virtualize mobile name results like desktop Command Menu; local Quick Access sources are unbounded, and mounting them all stalls iOS keyboard focus during layout. Load additional search pages near the scroll end instead of reserving a paging bar.
 - Reconcile mobile full-text rows by entity ID so appending a page preserves DOM rows and scroll position; restore after responsive row measurement and disable browser scroll anchoring so layout changes cannot override the saved history offset.
-- Reserve only the safe-area inset above mobile Search and Channels; their hidden split headers must not leave a blank strip or extend the top fade.
+- Reserve the safe area plus the category row above mobile Search, and only the safe area above Channels; their hidden split headers must not add another blank strip.
+- Follow [mobile layout and chrome](../../.agents/rules/web/mobile.md#layout-and-chrome) for full-frame views and record tabs; verify their first controls below the navigation with a nonzero safe area on phones and tablets.
 - Show only the Recent conversation feed in mobile Channels, without view tabs or a persisted mobile tab selection.
 - Mount the mobile search input before focusing it inside the dock tap; keep navigation in that handler so focus does not trigger a second navigation or lose iOS keyboard activation.
 - Preserve focused chrome editors during deferred split insertion/removal autofocus; explicit return-focus commands may still focus the pane.
 - Reconcile global focus when focused DOM subtrees are removed; iOS can omit blur events, otherwise floating creation actions stay hidden after search or editor teardown.
 - Mount the floating mobile AI composer only on the Agents view; other views keep their New action or their own reply/comment composer.
+- Passive PR mentions must not retry initial GitHub status failures on remount; preserve confirmed status through refetch errors and keep pending data reads out of their parent Suspense boundary.
 - Keep native booking exit navigation in the route shell, outside page loading boundaries, and use the router so the native hash route stays intact.
+- Diagnose native full reloads with `native_webview_started` and native launch/termination/update counters; termination coverage is iOS/macOS only, and a pageview alone also includes SPA navigation. See `tauri/src-tauri/README.md`.
 - All API/network calls live in service-clients.
 - Keep early DOCX opens loading while exports return processing (409); retry only
   that response, with a bounded wait. See the Word editor walkthrough in
@@ -106,8 +116,12 @@ ownership. Cancel, logout, and the ten-minute timeout retire pending callbacks.
 - Route explicit call exits using the server's `callEnded` result: ended calls
   open their record; ongoing channel and scheduled calls return to the channel
   and Calendar. Preserve the session ID before disconnecting.
+- Diagnose browser call media with `call.media.*` spans and the `meeting.setup.id`
+  on `meeting.join`; keep provider messages, device labels/IDs, and call-link
+  tokens out of telemetry. See [call diagnostics](../../docs/agent-guide/calls.md#browser-call-diagnostics).
 - Keep desktop Gmail and Outlook inbox consent in the system browser with a
   `macro:///inbox-link-callback` return; webview origins are not desktop callbacks.
+- Touch email replies and forwards use the full-screen composer with the shared new-email header actions; preserve thread state underneath and flush local edits before closing.
 - Draft autosaves preserve active email thread messages; evict inactive legacy
   caches on save and the active cache on thread exit. Revalidate GraphQL thread
   pages only when a save cannot patch the message list (missing snapshot or a
@@ -126,6 +140,15 @@ ownership. Cancel, logout, and the ten-minute timeout retire pending callbacks.
 - Preserve loaded block content on initial access confirmation when its loader
   supplies no permissions; reload only on a later confirmed permission change.
   Apply shared access in place only after a successful permissionless load.
+- Grouped Soup's `graphql/create-grouped-soup-live-query.ts` owns initial and
+  continuation pages plus their local predicate projection. Group readers only
+  delegate paging; pass the parent's live `groupedPaging` accessor from every
+  caller, including Tasks and project-task lists. Do not introduce independent
+  continuation owners. Keep server
+  membership snapshots separate from normalized field/link updates; restored
+  properties do not prove prior membership. Supply complete prior multi-value
+  memberships when adjusting counts: a row loaded in one bin may already be an
+  unloaded member of another.
 - Reactive GraphQL reads use `createLiveQuery` for a document and
   `useSoupAstItemsQuery` (backed by `createSoupLiveQuery`) for Soup lists; see
   [choosing a reactive read](docs/graphql-normalized-cache-plan.md#choosing-a-reactive-read).
@@ -198,6 +221,14 @@ and keep Pro checkout disabled while eligibility is unknown. Refresh the offer
 on focus/reconnect; route existing subscriptions to billing management. Keep
 known management access through refetch failures, but hide unconfirmed trials.
 Reset rejected checkout offers before refetching eligibility.
+
+## Desktop release builds: generated WASM
+
+Keep `nix/tauri-desktop.nix` in sync with generated WASM dependencies: desktop
+releases run Vite directly and do not call `just build-tauri` or `build-wasm`.
+Build and copy the agent-fold JavaScript glue and WASM before Vite runs, and
+check that both appear in the output. Without them, Vite leaves the worker's
+relative imports unchanged and Tauri can serve HTML for the missing module.
 
 ## macOS desktop gotcha: third-party iframes
 WKWebView asks the desktop navigation plugin about iframe loads as well as page loads, and the plugin cannot tell them apart. A third-party iframe is classified as external: its load is cancelled and the page opens in the browser, leaving an empty frame in the app. List a third-party page the app frames in `EMBEDDED_DOCUMENTS` in `tauri/src-tauri/src/lib.rs`.

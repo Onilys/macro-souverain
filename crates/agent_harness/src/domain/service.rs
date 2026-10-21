@@ -18,6 +18,7 @@ mod test;
 
 mod admission;
 mod deliver;
+mod external_replies;
 mod lifecycle;
 mod lifecycle_events;
 mod open;
@@ -141,6 +142,7 @@ struct AgentHarnessInner<
     coding_agents: Box<dyn ErasedCodingAgentSource>,
     conversations: Option<Arc<dyn crate::domain::conversations::ConversationPolicy>>,
     conversation_turns: Option<Arc<dyn crate::domain::conversation_turns::ConversationTurnStore>>,
+    external_replies: Option<Arc<dyn crate::domain::external_replies::ExternalReplyStore>>,
     defaults: HarnessDefaults,
     /// Turn-occupying actions waiting for their session's running turn to
     /// end. In-memory working copy; the session store is the durable source.
@@ -360,6 +362,7 @@ where
                 coding_agents: Box::new(coding_agents),
                 conversations,
                 conversation_turns: None,
+                external_replies: None,
                 defaults: defaults.into(),
                 queues: SessionQueues::new(),
                 hydrated: DashSet::new(),
@@ -600,6 +603,12 @@ where
         }
 
         let persona = self.inner.reply_persona(&session).await?;
+        if !persona.is_coding && self.inner.external_replies.is_some() {
+            return self
+                .inner
+                .announce_external_reply(session_id, prompt.origin, prompt.sender)
+                .await;
+        }
         self.inner
             .announcer
             .announce(SessionAnnouncement {

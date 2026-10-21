@@ -47,6 +47,12 @@ queries used across Rust services.
 - After schema or query changes: `nix develop --command just prepare_db` from
   the repo root, then commit the regenerated root `.sqlx/`.
 
+`agent_external_replies` stores external runtime reply destinations and outcomes;
+its queries and recovery policy belong to `agent_harness`. Its creation time is
+stable across retries, and `announced` records successful pending-message posts.
+The additive migrations are compatible with older service binaries; session
+deletion cascades its rows.
+
 ## Gotchas
 
 - Migrations deploy before service code: never drop a column/table in the

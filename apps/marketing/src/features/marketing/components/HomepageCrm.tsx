@@ -15,6 +15,7 @@ import {
   crmDemoFrame,
 } from '../core/crm-demo';
 import { homepagePeople } from '../core/homepage-demo-people';
+import { observeDemoTakeover } from '../primitives/observeDemoTakeover';
 import {
   CompanyKanbanCardSurface,
   CompanyKanbanColumn,
@@ -71,6 +72,9 @@ export default function HomepageCrm(
     CRM_DEMO_COMPANIES.find((c) => c.id === frame().company)!;
 
   onMount(() => {
+    const releaseTakeover = viewport()
+      ? observeDemoTakeover(viewport()!, () => setPaused(true))
+      : undefined;
     const media = matchMedia('(prefers-reduced-motion: reduce)');
     const sync = () => {
       setReduced(media.matches);
@@ -79,11 +83,17 @@ export default function HomepageCrm(
     sync();
     media.addEventListener('change', sync);
     const observer = new IntersectionObserver(
-      (entries) => setVisible(entries.some((e) => e.isIntersecting)),
+      (entries) =>
+        setVisible(
+          entries.some(
+            (entry) => entry.isIntersecting && entry.intersectionRatio >= 0.3
+          )
+        ),
       { threshold: 0.3 }
     );
     if (viewport()) observer.observe(viewport()!);
     onCleanup(() => {
+      releaseTakeover?.();
       observer.disconnect();
       media.removeEventListener('change', sync);
     });
@@ -116,7 +126,7 @@ export default function HomepageCrm(
           ref={setViewport}
           class="homepage-crm-viewport"
           role="img"
-          aria-label="Claude moves Northwind from Qualified to Proposal, then Lumen from Proposal to Closed won."
+          aria-label="Claude moves Keystone Mechanical from Qualified to Proposal, then Bookend Retail from Proposal to Closed won."
         >
           <div
             class="homepage-crm-canvas"
@@ -191,11 +201,8 @@ export default function HomepageCrm(
             />
           </div>
         </div>
-        <div class="homepage-crm-footer">
-          <span class="homepage-crm-status" role="status">
-            {frame().status}
-          </span>
-          <Show when={!reduced() && props.playbackControls !== false}>
+        <Show when={!reduced() && props.playbackControls !== false}>
+          <div class="homepage-crm-footer">
             <div class="flex gap-3 shrink-0">
               <Show when={!complete()}>
                 <button
@@ -219,8 +226,8 @@ export default function HomepageCrm(
                 Replay
               </button>
             </div>
-          </Show>
-        </div>
+          </div>
+        </Show>
       </DocsGraphicFrame>
     </div>
   );

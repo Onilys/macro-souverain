@@ -5,7 +5,7 @@ import {
   screen,
   waitFor,
 } from '@solidjs/testing-library';
-import { type ParentProps, Show } from 'solid-js';
+import { type ComponentProps, type ParentProps, Show } from 'solid-js';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { EmailDraftStorage } from '../context/compose-capabilities';
 import { useCompose } from '../context/compose-context';
@@ -52,6 +52,7 @@ vi.mock('@components/app/mobile/MobileDrawer', () => {
         Content: passthrough,
         Handle: () => null,
         Section: passthrough,
+        Item: (props: ComponentProps<'button'>) => <button {...props} />,
       }
     ),
   };

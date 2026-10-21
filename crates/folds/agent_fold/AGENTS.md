@@ -51,12 +51,18 @@ to the browser via `inbound/wasm`.
 - Debug a fold against a recorded session: `cargo run -p agent_fold --bin
   fold_jsonl -- <path>.jsonl`.
 
+`FoldedMessage::last_text` supplies the same terminal prose to live lifecycle
+signals and harness recovery from a persisted log. Keep these interpretations
+aligned; recovery must never guess the answer from another turn.
+
 ## Checks
 
 - `cargo test -p agent_fold`.
 - After changing `inbound/wire.rs` or exported `domain/model.rs` types:
   `cargo run -p agent_fold --bin export_types` and commit the regenerated
-  TypeScript.
+  TypeScript: the web client's copy and the SDK's
+  `packages/sdk/generated/agent-fold/`, which types
+  `AgentSession.foldedLog()`.
 
 ## Gotchas
 

@@ -774,6 +774,16 @@ impl SessionOwnership for BlockingPromptLogs {
 }
 
 impl AgentSessionLogRepo for BlockingPromptLogs {
+    async fn list_action_history(
+        &self,
+        agent_session_id: AgentSessionId,
+        action: agent_runtime_protocol::domain::action::AgentActionId,
+    ) -> Result<Vec<StoredAgentSessionLog>> {
+        self.repo
+            .list_action_history(agent_session_id, action)
+            .await
+    }
+
     async fn create_fenced_with_boundary(
         &self,
         log: AgentSessionLog,

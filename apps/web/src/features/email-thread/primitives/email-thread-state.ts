@@ -100,6 +100,9 @@ export type EmailThreadState = {
   /** True when the user marked the open thread unread. Resets to false per
    *  thread — viewing marks it read, so the toggle starts at Mark Unread. */
   isThreadMarkedUnread: Accessor<boolean>;
+  /** True when the user re-marked the open thread read, as opposed to the
+   *  mark-as-read that viewing it queues. Resets to false per thread. */
+  isThreadMarkedRead: Accessor<boolean>;
   /** Marks the open thread unread; the toggle then offers Mark Read. */
   markThreadUnread: () => boolean;
   /** Re-marks the thread read after a mark-unread. */

@@ -7,13 +7,13 @@ import { hotkeyScopeNeutralAttribute } from '@core/dom-selectors';
 import { isPlatform } from '@core/util/platform';
 import { cn } from '@ui';
 import { For, Match, Suspense, Switch } from 'solid-js';
+import { useNavigationUnread } from '../use-navigation-unread';
 import { SidebarRailCreateButton } from './create-button';
 import { FooterActions } from './footer-actions';
 import { ListNav, type ListNavProps } from './list-nav';
 import { MoreMenu } from './more-menu';
 import { visibleNavItems } from './nav-items';
 import { useNextMeetingBadge } from './queries/use-next-meeting-badge';
-import { useSidebarUnread } from './queries/use-sidebar-unread';
 import { SearchRailButton } from './search-bar-button';
 import { useNavItemGates } from './use-nav-item-gates';
 import { SidebarPrefsProvider } from './use-sidebar-prefs';
@@ -48,7 +48,7 @@ const SidebarRailContent = () => {
   const gates = useNavItemGates();
   const analytics = useAnalytics();
   const layout = useSplitLayout();
-  const hasUnread = useSidebarUnread();
+  const hasUnread = useNavigationUnread();
 
   const _openHome = (event: MouseEvent) => {
     if (event.button !== 0) return;

@@ -728,6 +728,74 @@ use `createSoupLiveQuery`: it adds Soup's local membership, ordering, pagination
 and Mail policy through its predicate adapter. That policy remains outside
 generic cache-core.
 
+Grouped Soup uses `graphql/create-grouped-soup-live-query.ts` to own the initial
+request and every loaded per-bin continuation. With maintained cache queries and
+a supported filter plus created/updated sort, their combined server membership
+is the baseline for the same predicate adapter used by flat Soup. Selected
+normalized rows then derive date, project and property memberships (including
+multi-value and scoped property joins); entity-type bins retain their invariant
+server keys. Missing grouping evidence retains the old membership. When local selection is
+incomplete, display fields come from current merged server pages before falling
+back to the original evidence; current page fields do not rebase membership or
+count evidence. Unsupported
+filters/sorts or hosts retain the merged live server pages. Cached Mail keeps its
+separate date-grouping policy.
+
+Server membership evidence is captured separately from normalized field/link
+updates, and local evaluation waits for network persistence. Filter/account/cache
+generation changes discard old local evidence and continuation owners. Initial
+network refreshes restart continuation coverage. Group readers delegate paging
+to this owner, so moving a continuation row cannot leave a second copy behind.
+The initial cursor remains baseline metadata; paging follows the last loaded
+server continuation, never a locally fabricated cursor.
+
+The reconciliation core in `grouped/reconciliation.ts` deliberately ignores
+candidates outside loaded pages: a bounded flat query cannot prove complete bin
+coverage. Counts retain unseen server membership and apply proven deltas, not
+loaded-row totals. Complete prior multi-value membership is necessary to prove
+count increases: a row loaded in A can already belong to an unloaded part of B.
+Restored cached pages cannot prove complete prior property membership: their
+normalized values may be newer than their embedded bins. They use loaded
+membership evidence only, without inferring count increases for existing bins.
+Date rollover uses the original server bin as old membership. The
+`graphql_cache.soup_grouped_local_evaluation` span records grouping field,
+loaded baseline size and resulting bin count.
+
+#### Grouped projection performance
+
+Run `bun scripts/benchmark-grouped-soup.ts /tmp/grouped-soup.json` from
+`apps/web` (set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` for a system Chromium).
+It bundles the production functions into an isolated Chromium page: 20 warmups
+and 100 samples per case, with 100/1,000/5,000 unique loaded rows, property
+(single and three-value), project and date groups. Projection reads real Solid
+store proxies inside a tracked memo and indexes current page items for display
+fallback; deterministic rows move groups or fail the
+filter. Page merging uses ten-row continuations. Flat materialization is a
+comparison, not equivalent grouped behavior.
+
+The measurements isolate main-thread projection and page merging; they exclude
+worker predicate execution, IPC, network, UI mapping and DOM rendering. A 4× CPU
+throttle is a stress case, not a claim about any particular mobile device.
+
+Measured on an Intel Xeon Platinum 8581C with Chromium 155.0.8059.79:
+
+| Loaded rows, three-value properties | Group projection p95 | Flat materialization p95 | Page merge p95, before → after |
+| --- | --- | --- | --- |
+| 100 | 0.8 ms | 0.2 ms | 0.2 → 0.1 ms |
+| 1,000 | 6.0 ms | 0.7 ms | 10.0 → 0.4 ms |
+| 5,000 | 30.8 ms | 3.4 ms | 258.1 → 1.8 ms |
+| 100, 4× throttle | 2.8 ms | 0.8 ms | 0.9 → 0.7 ms |
+| 1,000, 4× throttle | 25.3 ms | 3.0 ms | 41.5 → 1.8 ms |
+| 5,000, 4× throttle | 129.7 ms | 14.0 ms | 1,067.2 → 7.8 ms |
+
+Page merging now accumulates each bin once instead of copying all earlier pages
+for every continuation. The identity-read regression test guards linear work
+without a machine-dependent timing assertion. Small loaded views have modest
+projection cost; the 5,000-row reconciliation ceiling is not a frame-time budget.
+Full property regrouping at that depth still exceeds a 16.7 ms frame, especially
+under throttling, and needs incremental projection before claiming smooth bulk
+updates at the ceiling.
+
 Network responses must provide the schema's identity fields (usually `id`, and
 `__typename` for abstract types) for normalization. They are not automatically
 injected. Queries against other schemas, incremental `@defer`/`@stream` delivery
