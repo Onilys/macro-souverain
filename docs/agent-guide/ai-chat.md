@@ -369,6 +369,8 @@ the shimmer.
   16px top padding when expanded. Light mode uses a faint shadow outline and
   layered outer shadow; dark mode retains the production glass rim and shadow.
   Both modes retain the production composer background.
+- In dark mode, the footer is darker than the input, with successively lighter
+  toggle track and selected segment.
 - The starting page has **Chat / Code** in the composer’s inset bar, below the input on
   desktop and above it on phones. On desktop, the borderless footer is inset 12px
   from the 28px-radius input; Chat / Code share one track with a softly raised

@@ -338,6 +338,9 @@
 		margin-inline: 12px;
 		border-radius: 0 0 26px 26px;
 		background: color-mix(in srgb, var(--panel) 95%, var(--ink));
+		&:where([data-theme-light="false"] *) {
+			background: rgb(20 20 20);
+		}
 		&:where([data-theme-light="true"] *) {
 			background: rgb(250 250 250);
 		}
