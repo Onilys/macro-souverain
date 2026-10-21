@@ -41,6 +41,10 @@ editor initializes; the project title, properties, and discussion stay visible.
 Project task lists automatically fetch all matching pages in every group, without
 per-group `Load More` rows. A failed continuation stops automatic requests and shows
 `Try again` above the list; already fetched group rows remain available.
+With GraphQL Soup enabled, verify a group with more than one page in both the
+regular Tasks list (`Load More`) and a project task list (automatic pagination).
+Both must use the parent Soup query's continuation owner; reaching the last page
+removes the group's paging control without hiding already loaded tasks.
 The sidebar has no Tags section: filter by tag from the `Tags` group of the `Filter` menu,
 and switching tabs clears it like any other filter. On mobile, the tabs
 are pills and the leading sliders button opens one drawer containing Sort, Group, and

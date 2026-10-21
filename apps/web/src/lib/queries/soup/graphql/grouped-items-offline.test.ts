@@ -25,6 +25,7 @@ vi.mock('@queries/client', async () => {
   return { queryClient: new QueryClient() };
 });
 vi.mock('@service-storage/graphql-soup', () => ({
+  getGraphqlSoupCacheHost: () => undefined,
   getGraphqlSoupClient: mocks.client,
   mapGraphqlSoupItem: (item: unknown) => item,
 }));

@@ -195,13 +195,8 @@ function setup() {
     });
 
     grouped = createGraphqlGroupedSoupQueries({
+      groupedPaging: () => parent.groupedPaging,
       initialPage,
-      groupByField: () => ({
-        type: 'property',
-        propertyDefinitionId: 'status-definition',
-      }),
-      soupParams: () => ({ limit: 2, sort_method: 'updated_at' }),
-      soupBody: () => ({}),
       enabled: () => true,
       itemFilter: () => undefined,
     });

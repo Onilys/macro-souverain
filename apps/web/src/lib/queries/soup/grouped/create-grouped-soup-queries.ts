@@ -53,6 +53,10 @@ export type GroupQueryData = {
 };
 
 export type CreateGroupedSoupQueriesArgs = {
+  groupedPaging?: Accessor<
+    | import('../graphql/create-grouped-soup-live-query').GroupedSoupPaging
+    | undefined
+  >;
   initialPage: Accessor<InitialGroupPage | undefined>;
   groupByField: Accessor<GroupByField | undefined>;
   soupParams: Accessor<SoupParams>;
@@ -214,10 +218,8 @@ export function createGroupedSoupQueries(args: CreateGroupedSoupQueriesArgs) {
     GroupQueryData | undefined
   >(configs);
   const graphqlQueries = createGraphqlGroupedSoupQueries({
+    groupedPaging: args.groupedPaging,
     initialPage: args.initialPage,
-    groupByField: args.groupByField,
-    soupParams: args.soupParams,
-    soupBody: args.soupBody,
     enabled: () => usesGraphql() && args.queryOptions().enabled === true,
     itemFilter: () => args.queryOptions().meta?.itemFilter,
   });
