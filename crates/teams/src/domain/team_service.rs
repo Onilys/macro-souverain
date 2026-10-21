@@ -949,6 +949,9 @@ where
     }
 
     /// Backfills legacy teams that were created without a team subscription id.
+    /// A team whose owner has no Stripe customer or no active subscription is
+    /// a free team rather than an error, and its size does not require an
+    /// upgrade.
     #[tracing::instrument(skip(self), err)]
     async fn backfill_legacy_team_subscription(
         &self,
@@ -962,19 +965,23 @@ where
             .team
             .owner_id;
 
-        let customer_id = self
+        let Some(customer_id) = self
             .team_repository
             .get_stripe_customer_id(&team_owner)
             .await
             .map_err(GetTeamSubscriptionError::Team)?
-            .ok_or(CustomerError::NoStripeCustomerId)
-            .map_err(GetTeamSubscriptionError::Customer)?;
+        else {
+            return Ok(());
+        };
 
-        let subscription_id = self
+        let Some(subscription_id) = self
             .customer_repository
             .get_subscription_id_for_customer(&customer_id)
             .await
-            .map_err(GetTeamSubscriptionError::Customer)?;
+            .map_err(GetTeamSubscriptionError::Customer)?
+        else {
+            return Ok(());
+        };
 
         self.customer_repository
             .convert_subscription_to_team(&subscription_id, team_id, &team_owner)
@@ -992,23 +999,6 @@ where
             .map_err(GetTeamSubscriptionError::Team)?;
 
         Ok(())
-    }
-
-    /// Runs [`Self::backfill_legacy_team_subscription`], treating "the owner
-    /// simply has no active subscription" as a benign outcome: the team is a
-    /// free team rather than an error. Team size does not require an upgrade.
-    /// Every other failure still propagates.
-    async fn backfill_legacy_team_subscription_or_free(
-        &self,
-        team_id: &uuid::Uuid,
-    ) -> Result<(), GetTeamSubscriptionError> {
-        match self.backfill_legacy_team_subscription(team_id).await {
-            Ok(()) => Ok(()),
-            Err(GetTeamSubscriptionError::Customer(
-                CustomerError::NoStripeCustomerId | CustomerError::SubscriptionNotActive,
-            )) => Ok(()),
-            Err(e) => Err(e),
-        }
     }
 
     /// Best-effort rollback of a direct team add (from
@@ -1234,17 +1224,10 @@ where
             return Ok(None);
         };
 
-        match self
-            .customer_repository
+        self.customer_repository
             .get_subscription_id_for_customer(&customer_id)
             .await
-        {
-            Ok(subscription_id) => Ok(Some(subscription_id)),
-            Err(CustomerError::NoStripeCustomerId | CustomerError::SubscriptionNotActive) => {
-                Ok(None)
-            }
-            Err(e) => Err(TeamError::StorageLayerError(e.into())),
-        }
+            .map_err(|e| TeamError::StorageLayerError(e.into()))
     }
 
     #[tracing::instrument(skip(self), err)]
@@ -1277,7 +1260,7 @@ where
                 return Err(InviteUsersToTeamError::TeamError(TeamError::TeamNotPaying));
             }
 
-            self.backfill_legacy_team_subscription_or_free(&team_id)
+            self.backfill_legacy_team_subscription(&team_id)
                 .await
                 .map_err(GetTeamSubscriptionError::into_invite_users_to_team_error)?;
         }
@@ -1608,7 +1591,7 @@ where
                 }
 
                 if let Err(e) = self
-                    .backfill_legacy_team_subscription_or_free(&accepted_invite.member.team_id)
+                    .backfill_legacy_team_subscription(&accepted_invite.member.team_id)
                     .await
                 {
                     self.team_repository
@@ -2463,10 +2446,7 @@ where
                     return Err(JoinTeamError::TeamError(TeamError::TeamNotPaying).into());
                 }
 
-                if let Err(e) = self
-                    .backfill_legacy_team_subscription_or_free(&team_id)
-                    .await
-                {
+                if let Err(e) = self.backfill_legacy_team_subscription(&team_id).await {
                     self.rollback_add_user_to_team(
                         &team_id,
                         user_id,

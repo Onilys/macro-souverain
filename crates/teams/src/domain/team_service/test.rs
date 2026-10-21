@@ -1059,17 +1059,11 @@ impl CustomerRepository for MockCustomerRepository {
     fn get_subscription_id_for_customer(
         &self,
         _: &stripe::CustomerId,
-    ) -> impl Future<Output = Result<stripe::SubscriptionId, CustomerError>> + Send {
+    ) -> impl Future<Output = Result<Option<stripe::SubscriptionId>, CustomerError>> + Send {
         *self.subscription_lookup_calls.lock().unwrap() += 1;
         let no_active_subscription = self.no_active_subscription;
         let subscription_id = self.subscription_id.clone();
-        async move {
-            if no_active_subscription {
-                Err(CustomerError::SubscriptionNotActive)
-            } else {
-                Ok(subscription_id)
-            }
-        }
+        async move { Ok((!no_active_subscription).then_some(subscription_id)) }
     }
 
     fn increment_seat_count(

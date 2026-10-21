@@ -716,9 +716,6 @@ pub struct CreateSubscriptionArgs {
 /// Errors for customer repository
 #[derive(Debug, thiserror::Error)]
 pub enum CustomerError {
-    #[error("No stripe customer id")]
-    /// The customer does not have a stripe customer id
-    NoStripeCustomerId,
     /// The subscription is not active
     #[error("Subscription is not active")]
     SubscriptionNotActive,

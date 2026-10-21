@@ -698,7 +698,7 @@ impl CustomerRepository for CustomerRepositoryImpl {
     async fn get_subscription_id_for_customer(
         &self,
         customer_id: &stripe::CustomerId,
-    ) -> Result<stripe::SubscriptionId, CustomerError> {
+    ) -> Result<Option<stripe::SubscriptionId>, CustomerError> {
         let mut params = stripe::ListSubscriptions::new();
         params.customer = Some(customer_id.clone());
         params.status = Some(stripe::SubscriptionStatusFilter::Active);
@@ -708,12 +708,7 @@ impl CustomerRepository for CustomerRepositoryImpl {
             .await
             .map_err(|e| CustomerError::StorageLayerError(e.into()))?;
 
-        subscriptions
-            .data
-            .into_iter()
-            .next()
-            .map(|sub| sub.id)
-            .ok_or(CustomerError::SubscriptionNotActive)
+        Ok(subscriptions.data.into_iter().next().map(|sub| sub.id))
     }
 }
 

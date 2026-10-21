@@ -53,11 +53,12 @@ pub trait CustomerRepository: Clone + Send + Sync + 'static {
         team_owner_id: &MacroUserIdStr<'_>,
     ) -> impl Future<Output = Result<(), CustomerError>> + Send;
 
-    /// Get the customers subscription id
+    /// Get the customer's active subscription id, `None` when the customer has
+    /// no active subscription.
     fn get_subscription_id_for_customer(
         &self,
         customer_id: &stripe::CustomerId,
-    ) -> impl Future<Output = Result<stripe::SubscriptionId, CustomerError>> + Send;
+    ) -> impl Future<Output = Result<Option<stripe::SubscriptionId>, CustomerError>> + Send;
 
     /// Add `amount` seats on `plan` to a subscription.
     fn increment_seat_count(
