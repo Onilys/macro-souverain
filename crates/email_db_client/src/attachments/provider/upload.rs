@@ -572,6 +572,19 @@ pub async fn new_email_media_atts(
     Ok(attachments)
 }
 
+/// Release an attachment's upload claim so a later upload attempt can claim it again.
+#[tracing::instrument(skip(db), err)]
+pub async fn release_upload_claim(db: &Pool<Postgres>, attachment_id: Uuid) -> anyhow::Result<()> {
+    sqlx::query!(
+        "UPDATE email_attachments SET upload_claimed_at = NULL WHERE id = $1",
+        attachment_id
+    )
+    .execute(db)
+    .await?;
+
+    Ok(())
+}
+
 pub async fn fetch_attachment_upload_metadata_by_id(
     db: &Pool<Postgres>,
     attachment_id: Uuid,

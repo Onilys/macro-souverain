@@ -1218,6 +1218,52 @@ async fn new_email_media_atts_claims_attachments(pool: Pool<Postgres>) -> Result
     migrator = "MACRO_DB_MIGRATIONS",
     fixtures(path = "../../../../fixtures", scripts("upload_claim_tests"))
 )]
+async fn released_claim_lets_a_retry_claim_the_attachment_again(
+    pool: Pool<Postgres>,
+) -> Result<()> {
+    const _: &sqlx::migrate::Migrator = &MACRO_DB_MIGRATIONS;
+
+    let link_id = Uuid::parse_str("00000000-0000-0000-0000-000000000c01")?;
+    let deferred_document = Uuid::parse_str("00000000-0000-0000-0000-00000c1a0101")?;
+    let deferred_media = Uuid::parse_str("00000000-0000-0000-0000-00000c2a0201")?;
+    assert_eq!(
+        new_email_document_atts(&pool, link_id, "claim-test-doc-msg")
+            .await?
+            .len(),
+        2
+    );
+    assert_eq!(
+        new_email_media_atts(&pool, link_id, "claim-test-media-msg")
+            .await?
+            .len(),
+        2
+    );
+
+    release_upload_claim(&pool, deferred_document).await?;
+    release_upload_claim(&pool, deferred_media).await?;
+
+    let documents = new_email_document_atts(&pool, link_id, "claim-test-doc-msg").await?;
+    let media = new_email_media_atts(&pool, link_id, "claim-test-media-msg").await?;
+    assert_eq!(
+        documents
+            .iter()
+            .map(|a| a.attachment_db_id)
+            .collect::<Vec<_>>(),
+        vec![deferred_document]
+    );
+    assert_eq!(
+        media.iter().map(|a| a.attachment_db_id).collect::<Vec<_>>(),
+        vec![deferred_media]
+    );
+    assert!(attachment_is_claimed(&pool, deferred_document).await?);
+
+    Ok(())
+}
+
+#[sqlx::test(
+    migrator = "MACRO_DB_MIGRATIONS",
+    fixtures(path = "../../../../fixtures", scripts("upload_claim_tests"))
+)]
 async fn new_email_document_atts_excludes_preclaimed_attachments(
     pool: Pool<Postgres>,
 ) -> Result<()> {
