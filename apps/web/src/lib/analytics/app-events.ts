@@ -171,6 +171,11 @@ export type AppEvents = {
    * split-layout component registry.
    */
   open_view: { viewId: string } & Record<string, unknown>;
+  /**
+   * Agent sessions report create, rename (`update_entity`) and delete under
+   * `entityType: 'chat'` with `surface: 'agent'`, continuing the retired AI
+   * chat's metric.
+   */
   create_entity: EntityEventPayload;
   update_entity: EntityEventPayload & {
     /** Which property changed: 'name' | 'parent_project' | 'status' | ... */
@@ -200,6 +205,11 @@ export type AppEvents = {
    * `surface`.
    */
   ai_message_sent: Record<string, unknown>;
+  /**
+   * One per file attached to an AI prompt. Agent sessions send one per file
+   * an accepted prompt carries, with `surface: 'agent'` and `agentSessionId`
+   * (AgentSession.sendPrompt); the retired AI chat sent one per upload.
+   */
   ai_attachment_add: Record<string, unknown>;
   /** A paid user opened Stripe Checkout for an AI credit pack. */
   ai_credits_checkout_start: { amountCents: number };

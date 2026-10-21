@@ -23,6 +23,7 @@
  */
 
 import { handleAiUsageLimitError } from '@app/features/paywall/ai-usage-limit-handling';
+import { analytics } from '@app/lib/analytics';
 import { AgentSession } from '@core/agent-session/AgentSession';
 import {
   type PromptSubmitSurface,
@@ -213,6 +214,14 @@ export function startPendingSession(
           // writes are readable. Marked first, a refusal to that read is waited
           // out rather than reported as a session that is not ours.
           markSessionCreated(created);
+          // The retired AI chat's entity type, so chat creation stays one metric.
+          analytics.track('create_entity', {
+            entityType: 'chat',
+            entityId: created,
+            surface: 'agent',
+            agentId: options.botId,
+            submitSurface: options.submitSurface,
+          });
           // A warm claim releases its server reservation before creation answers.
           replenishWarmAgentSession(result.value.session.ownerId);
           fireAndForget(

@@ -473,7 +473,12 @@ export class AgentSession {
       } else {
         const queued = result.value.status === 'queued';
         trace.accepted(result.value.actionId, queued);
-        fireAndForget(this.trackPromptSent(trace, queued), 'agent-session');
+        const attachments =
+          request.type === 'prompt' ? (request.attachments?.length ?? 0) : 0;
+        fireAndForget(
+          this.trackPromptSent(trace, queued, attachments),
+          'agent-session'
+        );
       }
       return result;
     } catch (error) {
@@ -487,12 +492,14 @@ export class AgentSession {
   }
 
   /**
-   * Count an accepted prompt as an AI message, under the same event the
-   * retired AI chat sent, so AI engagement keeps one definition across both.
+   * Count an accepted prompt as an AI message, and each file it carries as an
+   * AI attachment, under the events the retired AI chat sent, so AI
+   * engagement keeps one definition across both.
    */
   private async trackPromptSent(
     trace: PromptTrace,
-    queued: boolean
+    queued: boolean,
+    attachments: number
   ): Promise<void> {
     const row = await this.sessionRow;
     analytics.track('ai_message_sent', {
@@ -503,6 +510,11 @@ export class AgentSession {
       submitSurface: trace.submitSurface,
       queued,
     });
+    for (let index = 0; index < attachments; index++)
+      analytics.track('ai_attachment_add', {
+        surface: 'agent',
+        agentSessionId: this.id,
+      });
   }
 
   /**

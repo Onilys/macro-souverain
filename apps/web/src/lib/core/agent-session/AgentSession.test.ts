@@ -339,6 +339,31 @@ describe('AgentSession', () => {
     live.release();
   });
 
+  it('counts each file an accepted prompt carries as an AI attachment', async () => {
+    const live = AgentSession.acquire(SESSION);
+    await live.load();
+
+    await live.issue({
+      type: 'prompt',
+      prompt: 'see these',
+      attachments: [
+        { uri: 'https://files.test/a', name: 'a.pdf' },
+        { uri: 'https://files.test/b', name: 'b.png' },
+      ],
+    });
+    await settle();
+
+    expect(
+      analytics.track.mock.calls.filter(
+        ([event]) => event === 'ai_attachment_add'
+      )
+    ).toEqual([
+      ['ai_attachment_add', { surface: 'agent', agentSessionId: SESSION }],
+      ['ai_attachment_add', { surface: 'agent', agentSessionId: SESSION }],
+    ]);
+    live.release();
+  });
+
   it('reissues the speculation under the id the harness minted instead', async () => {
     harness.control.mockResolvedValue(
       ok({ actionId: 'server-id', status: 'sent' })

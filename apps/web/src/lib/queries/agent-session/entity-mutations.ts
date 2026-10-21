@@ -1,3 +1,4 @@
+import { analytics } from '@app/lib/analytics';
 import { fireAndForget } from '@core/util/fireAndForget';
 import { throwOnErr } from '@core/util/result';
 import { agentHarnessServiceClient } from '@service-agent-harness/client';
@@ -17,8 +18,16 @@ function refreshSessionEntity(id: string) {
   });
 }
 
+// Agent sessions report under the retired AI chat's entity type, so chat
+// lifecycle metrics continue across the switch; `surface` tells them apart.
 export async function renameAgentSession(id: string, name: string) {
   await throwOnErr(() => agentHarnessServiceClient.rename(id, name));
+  analytics.track('update_entity', {
+    entityType: 'chat',
+    entityId: id,
+    property: 'name',
+    surface: 'agent',
+  });
   handleAgentSessionRenamed({ agentSessionId: id, name });
   refreshSessionEntity(id);
 }
@@ -30,5 +39,10 @@ export async function setAgentSessionArchived(id: string, isArchived: boolean) {
 
 export async function deleteAgentSession(id: string) {
   await throwOnErr(() => agentHarnessServiceClient.delete(id));
+  analytics.track('delete_entity', {
+    entityType: 'chat',
+    entityId: id,
+    surface: 'agent',
+  });
   refreshSessionEntity(id);
 }
