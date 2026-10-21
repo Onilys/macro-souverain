@@ -399,19 +399,13 @@ the shimmer.
   keeps the saved model name visible in its picker, including unavailable models.
 - The agent dropdown includes saved agents of the selected mode regardless of
   runtime, plus Cursor in Code mode.
-  Macro's models use the same searchable catalog as running sessions:
-  **Suggested** lists **Opus 5.5**, **Sonnet 5.5**, **GPT-5.6** (Sol in
-  runtime catalogs), **GPT-6 Astra**, and **Gemini**, when available, in that order. The
-  **More models** submenu contains the complete catalog grouped by provider,
-  including the Suggested choices and effort/speed variants. Your agents
-  follow Suggested and More models in the root menu. Choosing a model
-  does not reorder the sections. Search matches names, IDs, and provider names. The compact borderless search
-  field receives focus when the model selector opens directly to the catalog.
-  In Chat mode, the desktop picker uses a wide, height-limited layout with agents on the left
-  and models on the right; each column scrolls independently. It shares the Plus
-  menu’s width and below-composer anchor. Code mode keeps its compact
-  agent dropdown above the selector. Phones retain
-  their single-column sheet.
+  In Chat mode, the desktop picker uses a wide, height-limited layout with
+  agents on the left and the complete model catalog grouped by provider on the
+  right. There is no search box or More step; each column scrolls independently.
+  It shares the Plus menu's width and below-composer anchor. Code mode keeps its
+  compact agent dropdown above the selector. Phones retain their single-column
+  searchable sheet, Suggested choices, and More models action. Model-specific
+  submenus also retain search. Choosing a model does not reorder the sections.
   The separate speedometer controls effort. The catalog's opaque header
   meets the top of the scroll area so rows cannot show through above it.
   **Built-in**, **Your agents**, and **Needs connection** groups follow when
@@ -430,7 +424,7 @@ the shimmer.
   default for Macro's in-memory agent until another model entry is picked.
   The built-in Macro agent is the only agent excluded from these sections; its models remain available.
   Unavailable paired agents stay visible with a reason.
-  If Macro is unavailable, its catalog stays searchable but
+  If Macro is unavailable, its catalog stays visible but
   model choices are disabled in every list. Model discovery uses the
   selected runtime, including Claude Cloud. Every coding agent shows repository
   controls; chat agents hide those controls but keep the mode bar. Repository/branch overrides are currently applied

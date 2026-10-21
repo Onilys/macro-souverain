@@ -154,7 +154,8 @@ function DesktopAgentPicker(props: AgentPickerProps) {
               <Show when={macro()}>
                 {(agent) => (
                   <ModelCatalogMenu
-                    autoFocusSearch
+                    fullCatalog
+                    searchable={false}
                     value={
                       props.selected?.id === agent().id
                         ? (model() ?? null)

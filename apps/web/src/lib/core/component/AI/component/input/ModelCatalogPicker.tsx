@@ -274,6 +274,7 @@ export function ModelCatalogMenu(
      */
     autoFocusSearch?: boolean;
     fullCatalog?: boolean;
+    searchable?: boolean;
     onClose?: () => void;
   }
 ) {
@@ -282,7 +283,8 @@ export function ModelCatalogMenu(
   const [query, setQuery] = createSignal('');
   const [showAll, setShowAll] = createSignal(false);
   onMount(() => {
-    if (props.autoFocusSearch) keepSearchFocused(() => searchEl);
+    if (props.autoFocusSearch && props.searchable !== false)
+      keepSearchFocused(() => searchEl);
   });
   const normalizedQuery = () => query().trim().toLowerCase();
   const filtered = createMemo(() => {
@@ -296,33 +298,35 @@ export function ModelCatalogMenu(
 
   return (
     <>
-      <div class="sticky top-0 z-10 bg-menu py-1">
-        <div class="flex h-8 items-center gap-2 px-3">
-          <MagnifyingGlassIcon
-            aria-hidden="true"
-            class="size-4 shrink-0 text-ink-extra-muted"
-          />
-          <input
-            ref={(element) => {
-              searchEl = element;
-              props.searchRef?.(element);
-            }}
-            aria-label={props.searchPlaceholder ?? 'Search models'}
-            placeholder={props.searchPlaceholder ?? 'Search models'}
-            value={query()}
-            onInput={(event) => setQuery(event.currentTarget.value)}
-            onMouseDown={(event: MouseEvent) => event.stopPropagation()}
-            onClick={(event) => event.stopPropagation()}
-            onKeyDown={(event) => {
-              if (event.key !== 'Escape') event.stopPropagation();
-            }}
-            onKeyUp={(event) => {
-              if (event.key !== 'Escape') event.stopPropagation();
-            }}
-            class="min-w-0 h-full w-full border-0 bg-transparent p-0 text-sm text-ink outline-none placeholder:text-ink-extra-muted"
-          />
+      <Show when={props.searchable !== false}>
+        <div class="sticky top-0 z-10 bg-menu py-1">
+          <div class="flex h-8 items-center gap-2 px-3">
+            <MagnifyingGlassIcon
+              aria-hidden="true"
+              class="size-4 shrink-0 text-ink-extra-muted"
+            />
+            <input
+              ref={(element) => {
+                searchEl = element;
+                props.searchRef?.(element);
+              }}
+              aria-label={props.searchPlaceholder ?? 'Search models'}
+              placeholder={props.searchPlaceholder ?? 'Search models'}
+              value={query()}
+              onInput={(event) => setQuery(event.currentTarget.value)}
+              onMouseDown={(event: MouseEvent) => event.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => {
+                if (event.key !== 'Escape') event.stopPropagation();
+              }}
+              onKeyUp={(event) => {
+                if (event.key !== 'Escape') event.stopPropagation();
+              }}
+              class="min-w-0 h-full w-full border-0 bg-transparent p-0 text-sm text-ink outline-none placeholder:text-ink-extra-muted"
+            />
+          </div>
         </div>
-      </div>
+      </Show>
 
       {props.children}
       <Show when={props.options.length === 0}>

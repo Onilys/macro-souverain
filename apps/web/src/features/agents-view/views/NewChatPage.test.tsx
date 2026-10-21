@@ -432,15 +432,19 @@ describe('agent-led new conversation', () => {
     });
     await waitFor(() => expect(document.activeElement).toBe(search));
   });
-  it('focuses desktop search on opening and reopening the model selector', async () => {
+  it('opens the full desktop catalog without search or a More step', async () => {
     page();
     for (let attempt = 0; attempt < 2; attempt++) {
       openAgents();
-      const search = screen.getByRole('textbox', { name: 'Search models' });
-      await waitFor(() => expect(document.activeElement).toBe(search));
-      fireEvent.input(search, { target: { value: 'Sonnet' } });
+      expect(
+        screen.queryByRole('textbox', { name: 'Search models' })
+      ).toBeNull();
+      expect(
+        screen.queryByRole('menuitem', { name: 'More models' })
+      ).toBeNull();
       expect(screen.getByTitle('Sonnet 5.5')).toBeTruthy();
-      fireEvent.keyDown(search, { key: 'Escape' });
+      expect(screen.getByTitle('GLM 5.3 Flash')).toBeTruthy();
+      fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
       await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
     }
   });
@@ -453,8 +457,8 @@ describe('agent-led new conversation', () => {
       within(agents).getByRole('menuitem', { name: 'Create agent' })
     ).toBeTruthy();
     expect(
-      within(models).getByRole('textbox', { name: 'Search models' })
-    ).toBeTruthy();
+      within(models).queryByRole('textbox', { name: 'Search models' })
+    ).toBeNull();
     expect(
       within(models).getByRole('menuitem', { name: 'Opus 5.5' })
     ).toBeTruthy();
@@ -556,7 +560,7 @@ describe('agent-led new conversation', () => {
     ).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Repository' })).toBeNull();
     openAgents();
-    expect(screen.getByRole('group', { name: 'Suggested' })).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Models' })).toBeTruthy();
     expect(screen.queryByRole('menuitem', { name: /Cursor/ })).toBeNull();
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
@@ -933,33 +937,16 @@ describe('agent-led new conversation', () => {
       },
     ]);
     openAgents();
-    const modelsGroup = screen.getByRole('group', { name: 'Suggested' });
-    const agentsGroup = screen.getByRole('group', { name: 'Your agents' });
-    expect(
-      modelsGroup.compareDocumentPosition(agentsGroup) &
-        Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    const models = within(screen.getByRole('group', { name: 'Models' }));
+    expect(screen.getByRole('group', { name: 'Your agents' })).toBeTruthy();
     expect(screen.queryByRole('group', { name: 'Coding agents' })).toBeNull();
-    const search = screen.getByRole('textbox', { name: 'Search models' });
-    expect(screen.getByRole('menuitem', { name: /More models/ })).toBeTruthy();
-    expect(screen.queryByRole('group', { name: 'Z.ai' })).toBeNull();
-    fireEvent.input(search, { target: { value: 'GLM' } });
-    expect(screen.getByTitle('GLM 5.3')).toBeTruthy();
-    expect(screen.getByTitle('GLM 5.3 Flash')).toBeTruthy();
-    fireEvent.input(search, { target: { value: '' } });
+    expect(screen.queryByRole('textbox', { name: 'Search models' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: /More models/ })).toBeNull();
+    expect(models.getByRole('group', { name: 'Z.ai' })).toBeTruthy();
+    expect(models.getByTitle('GLM 5.3')).toBeTruthy();
+    expect(models.getByTitle('GLM 5.3 Flash')).toBeTruthy();
     expect(screen.queryByRole('menuitem', { name: /Cursor/ })).toBeNull();
     expect(screen.queryByRole('menuitem', { name: /^Macro/ })).toBeNull();
-    const models = within(screen.getByRole('group', { name: 'Suggested' }));
-    expect(
-      models.queryByRole('menuitem', { name: /Cursor default/ })
-    ).toBeNull();
-    expect(models.getAllByRole('menuitem').map((item) => item.title)).toEqual([
-      'Opus 5.5',
-      'Sonnet 5.5',
-      'GPT-5.6',
-      'GPT-6 Astra',
-      'Gemini 3.8 Flash',
-    ]);
     const sonnet = models.getByTitle('Sonnet 5.5');
     expect(
       sonnet.querySelector('[data-ai-provider="anthropic"] svg')
@@ -1026,19 +1013,10 @@ describe('agent-led new conversation', () => {
     fireEvent.click(sonnet);
     fireEvent.keyDown(sonnet, { key: 'Enter' });
 
-    const search = screen.getByRole('textbox', { name: 'Search models' });
-    fireEvent.input(search, { target: { value: 'GLM' } });
     const flash = screen.getByTitle('GLM 5.3 Flash');
     expect(flash.getAttribute('aria-disabled')).toBe('true');
     fireEvent.click(flash);
-    fireEvent.input(search, { target: { value: '' } });
-
-    const more = screen.getByRole('menuitem', { name: 'More models' });
-    more.focus();
-    fireEvent.keyDown(more, { key: 'ArrowRight' });
-    const extra = await screen.findByTitle('GLM 5.3 Flash');
-    expect(extra.getAttribute('aria-disabled')).toBe('true');
-    fireEvent.click(extra);
+    fireEvent.keyDown(flash, { key: 'Enter' });
     expect(onSelect).not.toHaveBeenCalled();
   });
   it('restores a preferred Macro model on a fresh composer', () => {
