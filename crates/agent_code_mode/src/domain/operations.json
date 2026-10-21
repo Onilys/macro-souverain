@@ -25,6 +25,7 @@
   "agent-harness.listExecutionReviews": "List Execution Reviews",
   "agent-harness.controlAgentSession": "Control Agent Session",
   "agent-harness.getAgentSessionLog": "Get Agent Session Log",
+  "agent-harness.getAgentSessionFoldedLog": "Get Agent Session Folded Log",
   "agent-harness.renameAgentSession": "Rename Agent Session",
   "agent-harness.getAgentSessionPermissions": "Get Agent Session Permissions",
   "agent-harness.updateAgentSessionPermissions": "Update Agent Session Permissions",

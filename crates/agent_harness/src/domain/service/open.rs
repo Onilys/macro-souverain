@@ -83,13 +83,19 @@ where
                 })?;
         }
         let defaults = self.inner.defaults.for_bot(request.bot_id);
-        let (model, harness, profile_instructions) = match request.profile {
+        let (model, harness, profile_instructions, mcp_servers) = match request.profile {
             Some(profile) => (
                 profile.model,
                 profile.harness,
                 Some(profile.instructions).filter(|value| !value.trim().is_empty()),
+                profile.mcp_servers,
             ),
-            None => (defaults.model.clone(), defaults.harness.clone(), None),
+            None => (
+                defaults.model.clone(),
+                defaults.harness.clone(),
+                None,
+                AgentMcpServers::OwnerConnections,
+            ),
         };
         let instructions = self
             .inner
@@ -117,9 +123,8 @@ where
                 workspace: request.workspace,
                 sandbox_size: SandboxSize::Default,
                 instructions,
-                // No egress, so no MCP servers of ours to select from.
-                mcp_servers: AgentMcpServers::OwnerConnections,
-                // Mint the internal-tool credential when an authenticated
+                mcp_servers,
+                // Mint the session MCP credential when an authenticated
                 // runtime binds, and rotate it on each subsequent binding.
                 egress_token_hash: None,
                 // The thread linkage is the caller's claim, not an observed

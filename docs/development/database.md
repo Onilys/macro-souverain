@@ -136,6 +136,17 @@ never need `.sqlx` metadata. Prepare with the root `prepare_db` wrapper only. Ne
 pass `--tests` to `sqlx::prepare_db` or `cargo sqlx prepare`, and don't commit
 cache entries for test queries.
 
+### Checking query plans
+
+Local Postgres runs with default planner costs. Hosted MacroDB uses the
+parameter group in `infra/stacks/macrodb/index.ts` (`random_page_cost = 1.1`,
+`work_mem = 16MB`, `jit = off`). Plans can differ between the two, so `SET`
+those values in your session before reading `EXPLAIN (ANALYZE, BUFFERS)`
+output. Seed data at realistic volume: an empty table hides missing indexes.
+Local and dev run Postgres 18, but production runs the `engine_version` in
+`infra/stacks/macrodb/Pulumi.prod.yaml`, which is older and lacks skip scans.
+Check that the plans you rely on also hold on that version.
+
 ## Troubleshooting
 
 - **Connection or schema errors:** confirm local Postgres is running, test envs

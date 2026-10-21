@@ -26,6 +26,7 @@ import type {
 import {
   operationBlocksEditing,
   operationBlocksSending,
+  operationSending,
 } from '../../email-message/core/message-operation';
 import type {
   EmailAttachmentStorage,
@@ -425,7 +426,10 @@ export function createEmailComposer(props: EmailComposerOptions) {
     'sent' | 'missing' | undefined
   >();
   let schedule: ReturnType<typeof createEmailSendSchedule>;
-  const operationSource = props.operations?.(currentDraftId, currentThreadId);
+  const operationSource = props.operations?.(
+    () => (session.serverConfirmed() ? currentDraftId() : undefined),
+    currentThreadId
+  );
   const currentOperation = () => {
     const live = operationSource?.operation();
     return live === undefined ? props.draft?.operation : live;
@@ -1239,7 +1243,8 @@ export function createEmailComposer(props: EmailComposerOptions) {
       scheduling() ||
       attachmentLinks.uploading() ||
       schedule.action() === 'unavailable',
-    isSending: () => submitting() || scheduling(),
+    isSending: () =>
+      submitting() || scheduling() || operationSending(currentOperation()),
     hasDraft: () => currentDraftId() != null,
     deliveryState: () =>
       terminalState() ??
@@ -1252,7 +1257,8 @@ export function createEmailComposer(props: EmailComposerOptions) {
       if (schedule.operation() === 'committing') return 'Scheduling email…';
       if (schedule.operation() === 'updating') return 'Updating schedule…';
       if (schedule.operation() === 'cancelling') return 'Cancelling schedule…';
-      if (submitting()) return 'Sending…';
+      if (submitting() || operationSending(currentOperation()))
+        return 'Sending…';
       if (attachmentLinks.uploading()) return 'Uploading files to share…';
       if (schedule.action() === 'unavailable')
         return `Scheduled for ${schedule.confirmedTime()?.toLocaleString()}. Choose a new time to update it, or cancel the schedule to edit.`;

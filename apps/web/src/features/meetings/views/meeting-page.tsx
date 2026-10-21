@@ -121,15 +121,19 @@ export function MeetingPage(props: {
       return;
     // The call publishes the preview tracks rather than re-opening the
     // devices, so the waiting room is the only place permission is asked.
-    return session.join(props.authenticated() ? undefined : name(), {
-      microphoneEnabled: media.microphoneEnabled(),
-      cameraEnabled: media.cameraEnabled(),
-      microphoneDeviceId: media.selectedDevices().microphone,
-      cameraDeviceId: media.selectedDevices().camera,
-      speakerDeviceId: media.selectedDevices().speaker,
-      backgroundEffect: media.backgroundEffect(),
-      localTracks: media.handoff(),
-    });
+    return session.join(
+      props.authenticated() ? undefined : name(),
+      {
+        microphoneEnabled: media.microphoneEnabled(),
+        cameraEnabled: media.cameraEnabled(),
+        microphoneDeviceId: media.selectedDevices().microphone,
+        cameraDeviceId: media.selectedDevices().camera,
+        speakerDeviceId: media.selectedDevices().speaker,
+        backgroundEffect: media.backgroundEffect(),
+        localTracks: media.handoff(),
+      },
+      media.diagnostics()
+    );
   };
   async function leave() {
     if (leaving()) return;

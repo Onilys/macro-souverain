@@ -72,7 +72,7 @@ fn ended_call(transcript: Vec<CallRecordTranscriptSegment>) -> CallRecord {
     CallRecord {
         call_id: Uuid::parse_str(CALL_ID).unwrap(),
         channel_id: Some(Uuid::parse_str("01928f3e-6a2b-7c3d-8e4f-0000000c4a77").unwrap()),
-        room_name: "room".into(),
+        room_name: Some("room".into()),
         created_by: "macro|ana@example.com".into(),
         started_at: at(0),
         ended_at: Some(at(30)),
@@ -99,6 +99,7 @@ fn ended_call(transcript: Vec<CallRecordTranscriptSegment>) -> CallRecord {
         }],
         guests: Vec::new(),
         transcript,
+        source: None,
     }
 }
 

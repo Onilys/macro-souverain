@@ -14,7 +14,9 @@ consumer talks to.
 - `src/domain/model.rs`: the `AgentSession` entity shape.
 - `src/domain/turn_state.rs` + `src/domain/control.rs`: per-turn state and
   the control-plane commands (used by held tool-call approvals).
-- `src/inbound/axum_router.rs`: the HTTP surface.
+- `src/inbound/axum_router.rs`: the HTTP surface. `GET /{id}/log` serves raw
+  frames for the web client's wasm fold; `GET /{id}/log/folded` serves the
+  same fold run server-side for the SDK and agents.
 - `src/domain/read.rs` and `src/inbound/toolset/read_agent_session.rs`: bounded,
   view-authorized conversation reads using the shared transcript fold.
 - `src/outbound/postgres.rs`: the session repository.

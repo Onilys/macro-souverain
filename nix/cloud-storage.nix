@@ -610,8 +610,15 @@
       callRecordingPreviewFfmpegLayer =
         let
           ffmpegVersion = "7.0.2";
+          # johnvansickle.com is the upstream but has had multi-hour outages.
+          # The GitHub copies are byte-identical (the hash enforces it) and
+          # pinned to commits; fetchurl tries each URL in order.
           ffmpegArchive = pkgs.fetchurl {
-            url = "https://johnvansickle.com/ffmpeg/releases/ffmpeg-${ffmpegVersion}-amd64-static.tar.xz";
+            urls = [
+              "https://raw.githubusercontent.com/1871847400/mikufans/95396855e335ba04b6fb300a5a688a1ac753ffea/docker/backend/ffmpeg-${ffmpegVersion}-amd64-static.tar.xz"
+              "https://raw.githubusercontent.com/DAIRO-HY/DairoMusicSearch/e49a8c67aaa4ed1cd4e0d655052ee2d65c1aef8e/document/docker/ffmpeg-${ffmpegVersion}-amd64-static.tar.xz"
+              "https://johnvansickle.com/ffmpeg/releases/ffmpeg-${ffmpegVersion}-amd64-static.tar.xz"
+            ];
             hash = "sha256-q9qNd86DCRQfg6uO3wWWg0CHxSRn9rrfN2pqKkyHz2c=";
           };
         in

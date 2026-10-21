@@ -53,9 +53,7 @@ define_class!(
         ) {
             // SAFETY: this immutable framework constant is available on every
             // supported macOS version. Dismissal is never a navigation action.
-            if response.actionIdentifier().as_ref()
-                == unsafe { UNNotificationDefaultActionIdentifier }
-            {
+            if &*response.actionIdentifier() == unsafe { UNNotificationDefaultActionIdentifier } {
                 let identifier = response.notification().request().identifier().to_string();
                 activate(self.ivars(), notification_url(&identifier));
             }

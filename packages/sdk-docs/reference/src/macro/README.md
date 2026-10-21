@@ -214,6 +214,12 @@ Re-exports [EntityReference](../entities/reference/type-aliases/EntityReference.
 
 ***
 
+### FoldedAgentSessionLog
+
+Re-exports [FoldedAgentSessionLog](../entities/agent-sessions/agent-session/type-aliases/FoldedAgentSessionLog.md)
+
+***
+
 ### Form
 
 Re-exports [Form](../entities/forms/form/classes/Form.md)

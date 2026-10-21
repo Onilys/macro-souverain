@@ -152,6 +152,7 @@
 - [CallRecordParticipant](type-aliases/CallRecordParticipant.md)
 - [CallRecordPreview](type-aliases/CallRecordPreview.md)
 - [CallRecordPreviewData](type-aliases/CallRecordPreviewData.md)
+- [CallRecordSource](type-aliases/CallRecordSource.md)
 - [CallRecordTranscriptSegment](type-aliases/CallRecordTranscriptSegment.md)
 - [CallStatus](type-aliases/CallStatus.md)
 - [CallTokenResponse](type-aliases/CallTokenResponse.md)

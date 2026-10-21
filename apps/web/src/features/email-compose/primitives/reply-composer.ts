@@ -28,6 +28,7 @@ import type { MessageOperationSourceFactory } from '../../email-message/context/
 import {
   operationBlocksEditing,
   operationBlocksSending,
+  operationSending,
 } from '../../email-message/core/message-operation';
 import type {
   EmailAttachmentStorage,
@@ -1493,7 +1494,7 @@ export function createReplyComposer(
     if (schedule.operation() === 'committing') return 'Scheduling email…';
     if (schedule.operation() === 'updating') return 'Updating schedule…';
     if (schedule.operation() === 'cancelling') return 'Cancelling schedule…';
-    if (submitting()) return 'Sending…';
+    if (submitting() || operationSending(currentOperation())) return 'Sending…';
     if (attachmentLinks.uploading()) return 'Uploading files to share…';
     if (schedule.action() === 'unavailable')
       return `Scheduled for ${schedule.confirmedTime()?.toLocaleString()}. Choose a new time to update it, or cancel the schedule to edit.`;
@@ -1562,7 +1563,8 @@ export function createReplyComposer(
     setQuoteCollapsed,
     savedDraftId,
     handleEditorConnect,
-    isSending: () => submitting() || scheduling(),
+    isSending: () =>
+      submitting() || scheduling() || operationSending(currentOperation()),
     recipients,
     collectDraft,
     scheduleDraftSave,

@@ -1,3 +1,4 @@
+import type { Accessor } from 'solid-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { message } from '../../email-message/tests/messages';
 import {
@@ -518,6 +519,34 @@ describe.each(['reply', 'compose'] as const)(
           'inbox'
         );
         expect(context.delivery.sendMessage).not.toHaveBeenCalled();
+      } finally {
+        root.dispose();
+      }
+    });
+
+    it('reads operation status only under a server-confirmed draft ID', async () => {
+      const context = createComposeContext();
+      let operationId: Accessor<string | undefined> = () => undefined;
+      context.operations = (messageId) => {
+        operationId = messageId;
+        return { operation: () => undefined, resolve: async () => {} };
+      };
+      vi.mocked(context.drafts.saveDraft).mockImplementation(async (input) =>
+        queued(input)
+      );
+      const root = mount(context);
+      try {
+        root.edit('Queued behind the durable queue');
+        await vi.advanceTimersByTimeAsync(600);
+        expect(savedInputs(context)[0].clientHandles?.draftId).toBeTruthy();
+        expect(operationId()).toBeUndefined();
+
+        vi.mocked(context.drafts.saveDraft).mockResolvedValue(
+          committed('server-operation')
+        );
+        root.edit('Confirmed by the server');
+        await vi.advanceTimersByTimeAsync(600);
+        expect(operationId()).toBe('server-operation');
       } finally {
         root.dispose();
       }

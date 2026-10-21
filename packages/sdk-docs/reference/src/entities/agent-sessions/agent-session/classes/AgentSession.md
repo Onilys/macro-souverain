@@ -102,6 +102,23 @@ Delete this session and any live resources it owns.
 
 ***
 
+### foldedLog()
+
+> **foldedLog**(): `Promise`\<[`FoldedAgentSessionLog`](../type-aliases/FoldedAgentSessionLog.md)\>
+
+Read this session's whole history as the conversation the app renders:
+each user prompt and agent reply, oldest first, with tool calls and their
+results, plans, permission requests and how each turn ended. Works on any
+session the caller can view, live or finished, so it is the way to read
+what another agent session did. Prefer it to [log](#log), which returns
+raw protocol frames.
+
+#### Returns
+
+`Promise`\<[`FoldedAgentSessionLog`](../type-aliases/FoldedAgentSessionLog.md)\>
+
+***
+
 ### linkPullRequest()
 
 > **linkPullRequest**(`url`): `Promise`\<`void`\>

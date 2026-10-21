@@ -28,17 +28,15 @@ function ReplyActionButton(props: {
   const viewContext = useEmailThreadViewContext();
   return (
     <Button
-      // Button wraps itself in Layer depth={0} by default; in the floating
-      // accessory region, match the chrome's depth so the island surface
-      // matches the dock buttons. (The region host's Layer can't help —
-      // Button's own Layer would reset it.)
+      // Button owns its Layer; floating actions use the dock's chrome depth.
       depth={viewContext.thread.isTouch() ? 3 : undefined}
       variant="outline"
+      glass={false}
       aria-label={props.ariaLabel}
       disabled={props.disabled}
       class={cn(
         // Island pills when floating in the mobile/tablet accessory region.
-        'touch:island touch:h-8 touch:border-0',
+        'touch:island touch:bg-chrome touch:text-ink touch:h-8 touch:border-0',
         !props.label && 'touch:w-9 touch:p-0'
       )}
       onClick={props.onClick}

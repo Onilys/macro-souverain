@@ -162,9 +162,8 @@ Outlook. Where Microsoft APIs cannot reproduce a behavior, investigate an
 equivalent implementation and bring any material limitation back for a product
 decision. Capability errors must be explicit, including missing consent.
 
-Uncertain sends may show a confirming/unknown outcome while reconciliation runs;
-an unresolved outcome requires deliberate user resend rather than automatic
-duplication. The user can supply test accounts at the live-validation stage.
+Confirmation runs silently, as Gmail sends do; an unresolved outcome shows as
+unknown and requires deliberate user resend rather than automatic duplication. The user can supply test accounts at the live-validation stage.
 Contract and implementation work can start beforehand; account-dependent gates
 remain unverified until the appropriate personal and organizational accounts exist.
 
@@ -884,7 +883,9 @@ the blocking session or resource load before retrying. The limits do not promise
 zero interruption, and validation/index scans still consume CPU and disk I/O.
 
 The seven indexes on shared message, link, draft-attachment, event-source, and
-reminder tables are built with `CONCURRENTLY`, each in a single-statement
+reminder tables, and the follow-up `User` indexes on `macro_user_id` and
+`lower(email)` that Outlook connection looks users up by, are built with
+`CONCURRENTLY`, each in a single-statement
 `-- no-transaction` migration. Column additions commit before those builds. The
 existing attachment lookup and reminder keys remain until their replacement
 indexes are ready. New, empty Outlook runtime tables keep ordinary index builds.

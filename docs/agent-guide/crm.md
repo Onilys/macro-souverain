@@ -54,6 +54,20 @@ the full-frame list with the global **+ Company** action above the dock. People 
 strip. The embedded detail stack stays out of the mobile flow, so selecting a
 row navigates in place.
 
+Verify touch spacing with a nonzero top safe area (for example 47px): the CRM
+tab strip clears the status bar, while standalone company/contact Overview and
+Team, Emails, Files, Tasks, and Calls clear both the status bar and floating
+record navigation. Switch tabs and check the first title/search control is
+visible and tappable. Scroll to the end to check content clears the dock. Repeat
+at tablet width; desktop retains its usual spacing. An embedded record header
+consumes the top inset once, so its content must not add it again.
+
+The account-free browser layout regression is
+`bunx playwright test --config src/features/crm/browser-test/playwright.config.ts mobile-insets.browser.e2e.ts`
+from `apps/web`. It mounts the production layout components with local content
+at phone, tablet, and desktop sizes; authenticated route and native-device
+checks remain separate.
+
 On desktop, clicking a company or a person in the list (or pressing Enter on a
 focused row) opens its details inside the CRM workspace, keeping the left
 navigation visible. Each record has its own URL: `/app/companies/company/<uuid>`

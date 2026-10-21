@@ -116,21 +116,30 @@ export function createLocalDraftStore(
       const tx = await beginTransaction(mode);
       const result = await new Promise<T>((resolve, reject) => {
         let value: T;
+        let executionError: unknown;
         tx.oncomplete = () => {
           resolve(value);
           if (mode === 'readwrite' && publish) changed();
         };
+        // Request errors bubble before tx.error is set and before rollback
+        // finishes. Settle only on abort so callers see the real cause and
+        // cannot start recovery against a transaction that is still running.
         tx.onabort = () =>
-          reject(tx.error ?? new Error('Draft storage transaction aborted'));
-        tx.onerror = () =>
-          reject(tx.error ?? new Error('Unable to save draft on this device'));
+          reject(
+            executionError ??
+              tx.error ??
+              new DOMException(
+                'Draft storage transaction aborted',
+                'AbortError'
+              )
+          );
         try {
           run(tx, (next) => {
             value = next;
           });
         } catch (error) {
+          executionError = error;
           tx.abort();
-          reject(error);
         }
       });
       if (recovering || failed) report({ type: 'recovered' });

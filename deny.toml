@@ -96,6 +96,8 @@ ignore = [
   { id = "RUSTSEC-2026-0367", reason = "zip 3.0.0 is a utoipa-swagger-ui build-dependency that reads its vendored Swagger UI archive entry by entry and never calls extract(); no release uses patched zip >= 9" },
   { id = "RUSTSEC-2026-0368", reason = "zip 3.0.0 is a utoipa-swagger-ui build-dependency that reads its vendored Swagger UI archive entry by entry and never calls extract(); no release uses patched zip >= 9" },
   { id = "RUSTSEC-2026-0369", reason = "zip 3.0.0 is a utoipa-swagger-ui build-dependency that reads its vendored Swagger UI archive entry by entry and never calls extract(); no release uses patched zip >= 9" },
+  # Revisit: drop when sqlx depends on webpki-roots 1.x directly.
+  { id = "RUSTSEC-2026-0381", reason = "webpki-roots 0.26.11 pinned by sqlx-core 0.8.6 is a semver-trick facade over webpki-roots 1.x; this lockfile resolves it to patched 1.0.10, which removed the distrusted emSign root" },
   #{ id = "RUSTSEC-0000-0000", reason = "you can specify a reason the advisory is ignored" },
   #"a-crate-that-is-yanked@0.1.1", # you can also ignore yanked crate versions if you wish
   #{ crate = "a-crate-that-is-yanked@0.1.1", reason = "you can specify why you are ignoring the yanked crate" },

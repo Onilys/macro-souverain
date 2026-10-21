@@ -183,6 +183,23 @@ pub fn run() {
         .expect("Embedded documents must be valid urls");
     let mut builder = tauri::Builder::default();
 
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
+    {
+        builder = builder.on_web_content_process_terminate(|webview| {
+            tracing::warn!(webview = %webview.label(), "WebContent process terminated; reloading");
+            if let Some(state) = webview.try_state::<diagnostics::Diagnostics>() {
+                let _ = state.record_web_content_termination().inspect_err(|error| {
+                    tracing::warn!(%error, "Failed to record WebContent termination");
+                });
+            }
+            // Preserve Tauri's default recovery, but retain the cause in the
+            // native process so the replacement document can report it.
+            let _ = webview.reload().inspect_err(|error| {
+                tracing::error!(%error, "Failed to reload terminated WebContent process");
+            });
+        });
+    }
+
     #[cfg(desktop)]
     {
         // single instance plugin should always be the first registered

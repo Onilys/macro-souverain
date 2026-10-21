@@ -123,5 +123,8 @@ export function hydrateMessageEvent(client: MacroClient, event: MessageEvent) {
       target: target(client, metadata),
       actor: userFromPrincipal(client, metadata.actor),
     }))
-    .exhaustive();
+    .exhaustive((unknown) => {
+      console.warn('macro sdk: unknown message event', unknown);
+      return undefined;
+    });
 }
