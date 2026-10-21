@@ -1063,14 +1063,21 @@ impl DurableObject for DocumentSyncSession {
             trace.remote_parent = %remote_parent,
         );
 
+        // Log the failure inside the span and the scope: the scope flushes
+        // telemetry when it ends, and a log buffered after it is only exported
+        // if a later request on the same isolate happens to flush it.
         let res = worker_rs_otel::scope(
             &self.env,
             &self.state,
-            self.inner_fetch(req).instrument(span),
+            async {
+                self.inner_fetch(req)
+                    .await
+                    .context("DurableObject::fetch error")
+            }
+            .instrument(span),
         )
         .await;
-        res.context("DurableObject::fetch error")?
-            .with_cors(&cors(set_allow_origin.as_deref()))
+        res?.with_cors(&cors(set_allow_origin.as_deref()))
     }
 
     async fn websocket_message(&self, ws: WebSocket, msg: WebSocketIncomingMessage) -> Result<()> {
