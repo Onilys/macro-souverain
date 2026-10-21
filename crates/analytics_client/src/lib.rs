@@ -1,8 +1,10 @@
 #![deny(missing_docs)]
 //! Analytics client for tracking events to GA, Meta, and PostHog.
 
+mod product_event;
 mod providers;
 
+pub use product_event::ProductEventProperties;
 pub use providers::{MetaActionSource, MetaUserData};
 
 use providers::{GoogleAnalyticsProvider, MetaProvider, PostHogProvider};

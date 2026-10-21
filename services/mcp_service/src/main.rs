@@ -4,6 +4,7 @@
 //! tools that are available in the DCS chat/stream API, with OAuth 2.1
 //! authentication backed by FusionAuth.
 
+mod analytics;
 mod config;
 mod context;
 mod markdown_images;
@@ -51,6 +52,7 @@ async fn main() -> anyhow::Result<()> {
                 context.tool_context.clone(),
                 item_base_url.clone(),
                 static_file_base_url.clone(),
+                context.analytics.clone(),
             ))
         },
         Arc::new(LocalSessionManager::default()),

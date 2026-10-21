@@ -1236,11 +1236,13 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "hex",
+ "macro_env",
  "reqwest 0.13.4",
  "serde",
  "serde_json",
  "sha2 0.10.9",
  "tracing",
+ "uuid",
  "workspace-hack",
 ]
 
@@ -6325,6 +6327,7 @@ dependencies = [
  "ai_tools",
  "ai_toolset",
  "ai_usage",
+ "analytics_client",
  "anyhow",
  "async-openai",
  "async-stream",
@@ -12435,6 +12438,7 @@ dependencies = [
  "ai_tools",
  "ai_toolset",
  "ai_usage",
+ "analytics_client",
  "anyhow",
  "async-trait",
  "attachment",
@@ -12489,6 +12493,7 @@ dependencies = [
  "roles_and_permissions",
  "search_service_client",
  "secretsmanager_client",
+ "serde",
  "serde_json",
  "soup",
  "sqlx",
@@ -12499,6 +12504,7 @@ dependencies = [
  "tokio-util",
  "tracing",
  "url",
+ "uuid",
  "workspace-hack",
 ]
 

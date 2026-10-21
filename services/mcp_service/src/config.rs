@@ -26,6 +26,10 @@ maybe_env_vars! {
     /// when unset. Loopback `http` redirect URIs are always allowed and do not
     /// need to be listed.
     pub struct McpAllowedRedirectHosts;
+    /// PostHog project token. When unset, MCP product analytics are not sent.
+    pub struct PosthogApiKey;
+    /// PostHog ingestion origin. Falls back to the US origin when unset.
+    pub struct PosthogHost;
 }
 
 /// Hosts trusted to receive an MCP authorization code when
@@ -150,6 +154,10 @@ pub struct Config {
     pub document_permission_jwt: DocumentPermissionJwt,
     pub kafka_brokers: KafkaBrokers,
     pub mcp_credentials_key_secret_name: McpCredentialsKeySecretName,
+    /// PostHog project token for MCP session and tool-call analytics.
+    pub posthog_api_key: PosthogApiKey,
+    /// PostHog ingestion origin for MCP analytics.
+    pub posthog_host: PosthogHost,
 }
 
 impl Config {

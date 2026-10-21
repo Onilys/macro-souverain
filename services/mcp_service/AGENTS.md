@@ -19,6 +19,9 @@ FusionAuth.
   including `DEFAULT_MCP_ALLOWED_REDIRECT_HOSTS`.
 - `src/markdown_images.rs`: resolves markdown image references in tool output.
 - `src/tool_response.rs`: shapes tool results (incl. media) for MCP responses.
+- `src/analytics.rs`: PostHog `$mcp_initialize` / `$mcp_tool_call` events
+  (PostHog MCP analytics schema), sent in the background with the user's
+  team as the `team` group. Disabled when `POSTHOG_API_KEY` is unset.
 
 ## Scope
 
@@ -47,6 +50,14 @@ FusionAuth.
 - Allow a new MCP client origin: `src/config.rs`
   (`DEFAULT_MCP_ALLOWED_REDIRECT_HOSTS`) — see `mcp_auth_proxy/README.md` for
   the redirect URI policy this feeds.
+
+## Gotchas
+
+- Analytics record the tool name, outcome, duration, and client headers only;
+  never add tool arguments or results to them.
+- The server is stateless, so tool calls carry no `clientInfo`; the client is
+  identified per call by its `User-Agent` / `x-anthropic-client` headers and
+  per session by `$mcp_initialize`.
 
 ## Tool contracts
 

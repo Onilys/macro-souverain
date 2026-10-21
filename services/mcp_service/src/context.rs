@@ -4,6 +4,7 @@ use ai_tools::{
     NoOpCallRtcClient, NoOpConnectionService, NoOpNotificationIngress, NoOpSnsEndpointManager,
     ToolImportToolContext, ToolNotificationQueue, ToolServiceContext,
 };
+use analytics_client::{AnalyticsClient, AnalyticsClientConfig, PostHogConfig};
 use anyhow::Context;
 use bots::outbound::pg_bots_repo::PgBotsRepo;
 use channels::{
@@ -59,6 +60,7 @@ use sqlx::{PgPool, postgres::PgPoolOptions};
 use sync_service_client::SyncServiceClient;
 use tokio_util::task::TaskTracker;
 
+use crate::analytics::McpAnalytics;
 use crate::config::{Config, DEFAULT_MCP_ALLOWED_REDIRECT_HOSTS};
 
 #[derive(Clone)]
@@ -67,6 +69,7 @@ pub struct McpContext {
     pub tool_context: ToolServiceContext,
     pub auth_proxy: McpAuthProxyServiceImpl<RedisInflightAuth>,
     pub mcp_public_host: String,
+    pub analytics: McpAnalytics,
 }
 
 struct ToolContextBuildArgs<'a> {
@@ -140,12 +143,38 @@ pub async fn build_context(
         .context("MCP_PUBLIC_URL has no host")?
         .to_owned();
 
+    let analytics = build_analytics(config, &db);
+
     Ok(McpContext {
         jwt_args,
         tool_context,
         auth_proxy,
         mcp_public_host,
+        analytics,
     })
+}
+
+fn build_analytics(config: &Config, db: &PgPool) -> McpAnalytics {
+    let Some(api_key) = config.posthog_api_key.value() else {
+        tracing::info!("POSTHOG_API_KEY unset; MCP analytics disabled");
+        return McpAnalytics::disabled();
+    };
+    let client = AnalyticsClient::new(AnalyticsClientConfig {
+        posthog: Some(PostHogConfig {
+            api_key: api_key.to_owned(),
+            host: config
+                .posthog_host
+                .value()
+                .unwrap_or("https://us.i.posthog.com")
+                .to_owned(),
+        }),
+        ..AnalyticsClientConfig::default()
+    });
+    McpAnalytics::posthog(
+        client,
+        PgAccessRepository::new(db.clone()),
+        config.environment,
+    )
 }
 
 async fn build_tool_context(args: ToolContextBuildArgs<'_>) -> anyhow::Result<ToolServiceContext> {
