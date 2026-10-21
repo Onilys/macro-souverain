@@ -69,6 +69,12 @@ icon and app-name branding are Android-only.
    itself: that would need a user token, because a merge set up by the
    Actions token doesn't trigger the push-to-`main` workflows such as the
    dev redeploy.) To retry after a failure, remove and re-add the label.
+   The label only works on a PR that is mergeable: GitHub does not run
+   `pull_request` workflows on a PR that conflicts with `main`, so the
+   release never starts there. The **`Release Label Check`** workflow
+   (`.github/workflows/release-label-check.yml`, a `pull_request_target`
+   workflow, which GitHub does run) then comments and removes the label;
+   resolve the conflicts and re-add it.
 4. Wait for Apple to approve. The version releases automatically, and the
    **`iOS Release Watch`** workflow (`.github/workflows/ios-release-watch.yml`,
    every 30 minutes) notices: for each open PR labeled `ios-update` it asks
@@ -97,7 +103,7 @@ a CI-pushed bump commit would wedge the PR.
 
 If the tauri change doesn't break the native/web contract (comments, dev-only
 tooling, desktop-only config), add the **`skip-ios-update`** label instead;
-the **`iOS Native Check Label`** workflow re-runs just the gate job (and the
+the **`Native Check Label`** workflow re-runs just the gate job (and the
 status check that depends on it) when that label is added or removed, so the
 gate passes without a release and without re-running the whole web suite.
 That workflow is not a required check: it waits for the web suite run to

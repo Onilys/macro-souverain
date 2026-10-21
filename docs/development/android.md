@@ -168,7 +168,12 @@ To release:
    `native tree <hash> for PR #<n>`, the twin of the iOS TestFlight stamp.
    The run comments the outcome on the PR; remove and re-add the label to
    retry. Click **Enable auto-merge** on the PR to merge the moment it is
-   live.
+   live. The label only works on a PR that is mergeable: GitHub does not
+   run `pull_request` workflows on a PR that conflicts with `main`, so the
+   release never starts there. The **`Release Label Check`** workflow
+   (`.github/workflows/release-label-check.yml`, a `pull_request_target`
+   workflow, which GitHub does run) then comments and removes the label;
+   resolve the conflicts and re-add it.
 3. Wait for Google. The **`Android Release Watch`** workflow (every 30
    minutes) notices the version code being published on production, re-runs
    the PR's failed `Android Native Check` job, and comments; the PR merges if
