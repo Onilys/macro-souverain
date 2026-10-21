@@ -247,8 +247,9 @@ export type AppEvents = {
   };
 
   // --- Calls ---------------------------------------------------------------
-  // Frontend call interactions. Authoritative lifecycle (ended, recording,
-  // summary) is server-driven and tracked backend-side.
+  // Frontend call interactions only. Recordings, transcripts and summaries
+  // are produced server-side and send no PostHog events yet; the call service
+  // publishes them only to Kafka (`call.recording_ready`, `call.record_summarized`).
   call_action: {
     action:
       | 'join_clicked'
