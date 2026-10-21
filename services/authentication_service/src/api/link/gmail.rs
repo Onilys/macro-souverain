@@ -206,6 +206,7 @@ pub async fn init_gmail_link_handler(
         &redirect_uri,
         &authorization_scopes,
         &state_str,
+        AccountChoice::for_reconnect(reconnect_link_id),
     )?;
 
     Ok(Json(InitGmailLinkResponse {
@@ -232,11 +233,40 @@ fn gmail_authorization_scopes(calendar_scope_enabled: bool, scopes: ConsentScope
     }
 }
 
+/// Whether Google should ask which account to connect.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum AccountChoice {
+    /// A new inbox. Without the account chooser Google consents for the
+    /// browser's active account, which is usually the inbox the user already
+    /// connected, so the "new" inbox silently re-links the existing one.
+    Ask,
+    /// Repairing a known inbox. The client names it with `login_hint`.
+    Known,
+}
+
+impl AccountChoice {
+    fn for_reconnect(reconnect_link_id: Option<uuid::Uuid>) -> Self {
+        if reconnect_link_id.is_some() {
+            Self::Known
+        } else {
+            Self::Ask
+        }
+    }
+
+    fn prompt(self) -> &'static str {
+        match self {
+            Self::Ask => "select_account consent",
+            Self::Known => "consent",
+        }
+    }
+}
+
 fn google_authorization_url(
     client_id: &str,
     redirect_uri: &str,
     scopes: &str,
     state: &str,
+    account_choice: AccountChoice,
 ) -> anyhow::Result<Url> {
     let mut authorization_url =
         Url::parse(GOOGLE_AUTHORIZATION_URL).context("invalid Google authorization URL")?;
@@ -249,7 +279,7 @@ fn google_authorization_url(
         .append_pair("state", state)
         .append_pair("access_type", "offline")
         .append_pair("include_granted_scopes", "true")
-        .append_pair("prompt", "consent");
+        .append_pair("prompt", account_choice.prompt());
     Ok(authorization_url)
 }
 
