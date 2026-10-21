@@ -1,6 +1,6 @@
 # Type Alias: DocumentUpdatedMetadata
 
-> **DocumentUpdatedMetadata** = \{ `actor?`: `string` \| `null`; `actor_user_id?`: `null` \| [`MacroUserIdStr`](MacroUserIdStr.md); `document_id`: `string`; `document_name?`: `string` \| `null`; `file_type?`: `null` \| [`FileTypeUpdate`](FileTypeUpdate.md); `on_behalf_of?`: `null` \| [`MacroUserIdStr`](MacroUserIdStr.md); `owner`: `string`; `previous_project_id?`: `string` \| `null`; `project_id?`: `string` \| `null`; `share_permission_updated`: `boolean`; \}
+> **DocumentUpdatedMetadata** = \{ `actor?`: `string` \| `null`; `actor_user_id?`: `null` \| [`MacroUserIdStr`](MacroUserIdStr.md); `document_id`: `string`; `document_name?`: `string` \| `null`; `file_type?`: `null` \| [`FileTypeUpdate`](FileTypeUpdate.md); `on_behalf_of?`: `null` \| [`MacroUserIdStr`](MacroUserIdStr.md); `owner`: `string`; `previous_project_id?`: `string` \| `null`; `project_id?`: `string` \| `null`; `share_permission_updated`: `boolean`; `sub_type?`: `null` \| [`DocumentSubType`](DocumentSubType.md); \}
 
 Metadata for [`DocumentTopicEvent::Updated`].
 
@@ -18,3 +18,4 @@ Metadata for [`DocumentTopicEvent::Updated`].
 | <a id="property-previous_project_id"></a> `previous_project_id?` | `string` \| `null` | Project id before the update. |
 | <a id="property-project_id"></a> `project_id?` | `string` \| `null` | New project id; `None` when unchanged, `Some("")` when removed from its project (mirrors the edit repo args semantics). |
 | <a id="property-share_permission_updated"></a> `share_permission_updated` | `boolean` | Whether share permissions were updated. |
+| <a id="property-sub_type"></a> `sub_type?` | `null` \| [`DocumentSubType`](DocumentSubType.md) | - |

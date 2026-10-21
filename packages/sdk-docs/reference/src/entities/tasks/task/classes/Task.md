@@ -825,6 +825,26 @@ cannot see the pull request; tasks the caller cannot open still appear.
 
 ***
 
+### fromDocument()
+
+> `static` **fromDocument**(`client`, `document`): `Promise`\<`Task`\>
+
+Turn a markdown document into a task in place. The task keeps the
+document's id, content, and sharing; repeating it on a task is a no-op.
+
+#### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `client` | `MacroClient` |
+| `document` | [`Document`](../../../documents/document/classes/Document.md) |
+
+#### Returns
+
+`Promise`\<`Task`\>
+
+***
+
 ### recent()
 
 > `static` **recent**(`client`, `opts?`): `AsyncGenerator`\<[`Document`](../../../documents/document/classes/Document.md)\>
