@@ -143,6 +143,8 @@ function invalidate(id = SESSION) {
   for (const listener of updates.listeners) listener({ agentSessionId: id });
 }
 
+const analytics = vi.hoisted(() => ({ track: vi.fn() }));
+vi.mock('@app/lib/analytics', () => ({ analytics }));
 vi.mock('@core/agent-fold/client', () => fold);
 vi.mock('@service-agent-harness/client', () => ({
   agentHarnessServiceClient: harness,
@@ -307,6 +309,33 @@ describe('AgentSession', () => {
     // Same id back: nothing to reconcile.
     expect(inputs().filter((input) => input.kind === 'retracted')).toEqual([]);
     expect(events).toEqual([[speculated]]);
+    live.release();
+  });
+
+  it('counts an accepted prompt as an agent AI message, and nothing else', async () => {
+    harness.get.mockResolvedValue(ok({ ...session, botId: 'bot-id' }));
+    const live = AgentSession.acquire(SESSION);
+    await live.load();
+
+    await live.issue({ type: 'stop' });
+    await live.issue({ type: 'prompt', prompt: 'hi' });
+    harness.control.mockResolvedValueOnce(err([{ code: 'FORBIDDEN' }]));
+    await live.issue({ type: 'prompt', prompt: 'refused' });
+    await settle();
+
+    expect(analytics.track.mock.calls).toEqual([
+      [
+        'ai_message_sent',
+        {
+          surface: 'agent',
+          agentSessionId: SESSION,
+          agentId: 'bot-id',
+          newSession: false,
+          submitSurface: 'agent_session',
+          queued: false,
+        },
+      ],
+    ]);
     live.release();
   });
 
