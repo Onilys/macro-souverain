@@ -15,7 +15,6 @@ import { fastModeEnabled } from '@core/component/AI/signal/speed';
 import { ComposerGreeting } from '@core/component/ComposerGreeting';
 import { useSettingsState } from '@core/constant/SettingsState';
 import { useUserId } from '@core/context/user';
-import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import { fireAndForget } from '@core/util/fireAndForget';
 import { uploadFile } from '@core/util/upload';
 import ChatIcon from '@phosphor/chat-circle.svg';
@@ -342,17 +341,6 @@ export function NewChatPage(props: {
         selectedEffort()?.name ?? effortLabel(effort(), effortOverride()?.value)
       }
       effortSelection={effortOverride()}
-      effort={effort()}
-      onEffortChange={(value) => {
-        const config = effort();
-        const choice = config?.options.find((choice) => choice.value === value);
-        if (config && choice)
-          setEffortSelection({
-            configId: config.id,
-            ...choice,
-            target: JSON.stringify(capabilityTarget()),
-          });
-      }}
       onCloseAutoFocus={restoreInputFocus}
       onSelect={selectAgent}
       onSelectEffort={selectAgent}
@@ -390,7 +378,7 @@ export function NewChatPage(props: {
         }))}
         value={mode()}
         onChange={(value) => setMode(value === 'code' ? 'code' : 'chat')}
-        class="h-9 w-56 touch:w-24 rounded-full bg-ink/3 light-mode:bg-[rgb(246_246_246)] [&>[role=presentation]]:border-ink/10 [&>[role=presentation]]:bg-composer light-mode:[&>[role=presentation]]:bg-[rgb(250_250_250)] [&>[role=presentation]]:shadow-[0_1px_6px_0_color-mix(in_srgb,var(--color-ink)_5%,transparent)] light-mode:[&>[role=presentation]]:border light-mode:[&>[role=presentation]]:border-ink/7 light-mode:[&>[role=presentation]]:[background-image:none] light-mode:[&>[role=presentation]]:shadow-[0_1px_6px_0_color-mix(in_srgb,var(--color-ink)_5%,transparent)] dark-mode:bg-[rgb(24_24_24)] dark-mode:[&>[role=presentation]]:bg-[rgb(32_32_32)]"
+        class="h-9 w-56 touch:w-24 rounded-full bg-ink/3 light-mode:bg-[rgb(246_246_246)] dark-mode:bg-[rgb(24_24_24)] shadow-none [&>[role=presentation]]:shadow-none [&>[role=presentation]]:duration-250 [&>[role=presentation]]:ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:[&>[role=presentation]]:duration-0 [&>[role=presentation]]:border-0 [&>[role=presentation]]:bg-panel dark-mode:[&>[role=presentation]]:bg-[rgb(32_32_32)] [&>[role=presentation]]:bg-[linear-gradient(to_bottom,color-mix(in_srgb,var(--color-ink)_2%,transparent),transparent)] light-mode:[&>[role=presentation]]:border light-mode:[&>[role=presentation]]:border-ink/7 light-mode:[&>[role=presentation]]:[background-image:none] light-mode:[&>[role=presentation]]:shadow-[0_1px_6px_0_color-mix(in_srgb,var(--color-ink)_5%,transparent)] light-mode:[&>[role=presentation]]:bg-[rgb(250_250_250)]"
         labelClass="h-9 px-4 text-sm touch:px-2.5"
       />
     </div>
@@ -432,21 +420,19 @@ export function NewChatPage(props: {
       selector={
         <div class="flex min-w-0 items-center gap-1">
           {agentSelector()}
-          <Show when={isTouchDevice()}>
-            <EffortSelector
-              onCloseAutoFocus={restoreInputFocus}
-              onOpenChange={setEffortPickerOpen}
-              config={effort()}
-              value={effortOverride()?.value}
-              disabled={Boolean(blocked())}
-              onChange={(choice) =>
-                setEffortSelection({
-                  ...choice,
-                  target: JSON.stringify(capabilityTarget()),
-                })
-              }
-            />
-          </Show>
+          <EffortSelector
+            onCloseAutoFocus={restoreInputFocus}
+            onOpenChange={setEffortPickerOpen}
+            config={effort()}
+            value={effortOverride()?.value}
+            disabled={Boolean(blocked())}
+            onChange={(choice) =>
+              setEffortSelection({
+                ...choice,
+                target: JSON.stringify(capabilityTarget()),
+              })
+            }
+          />
           <Show
             when={['macro-inmem', 'in-memory'].includes(
               selected()?.harness ?? ''
@@ -487,8 +473,16 @@ export function NewChatPage(props: {
       <section class="page newchat" data-active aria-label="New conversation">
         <div ref={tourTarget(AGENTS_TOUR.composer)} class="col">
           <div class="greeting">
-            <ComposerGreeting>
-              {coding() ? 'What should we build?' : 'What should we work on?'}
+            <ComposerGreeting wireframe={coding()}>
+              <Show when={mode()} keyed>
+                {(currentMode) => (
+                  <span class="greeting-text">
+                    {currentMode === 'code'
+                      ? 'What should we build?'
+                      : 'What should we work on?'}
+                  </span>
+                )}
+              </Show>
             </ComposerGreeting>
           </div>
           <FloatRegionOrInline

@@ -424,6 +424,21 @@ describe('agent-led new conversation', () => {
       await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
     }
   });
+  it('separates the desktop agent and model choices into named groups', () => {
+    page();
+    openAgents();
+    const agents = screen.getByRole('group', { name: 'Agents' });
+    const models = screen.getByRole('group', { name: 'Models' });
+    expect(
+      within(agents).getByRole('menuitem', { name: 'Create agent' })
+    ).toBeTruthy();
+    expect(
+      within(models).getByRole('textbox', { name: 'Search models' })
+    ).toBeTruthy();
+    expect(
+      within(models).getByRole('menuitem', { name: 'Opus 5.5' })
+    ).toBeTruthy();
+  });
   it('starts in Chat and switches to Code from the composer', async () => {
     const send = page();
     expect(
@@ -1079,14 +1094,14 @@ describe('agent-led new conversation', () => {
       );
     }
   );
-  it('sends the effort chosen with the current model slider', async () => {
+  it('sends the effort chosen with the separate speedometer slider', async () => {
     const send = page(true, [], false, [], 'code');
     const models = await hoverAgent('Cursor');
     fireEvent.keyDown(models.getByRole('menuitem', { name: /^GPT-5/ }), {
       key: 'Enter',
     });
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
-    fireEvent.keyDown(screen.getByRole('button', { name: 'Agent' }), {
+    fireEvent.keyDown(screen.getByRole('button', { name: /^Effort:/ }), {
       key: 'Enter',
     });
     const slider = screen.getByRole('slider', { name: 'Reasoning effort' });
@@ -1115,8 +1130,9 @@ describe('agent-led new conversation', () => {
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
     mocks.capabilitiesPending = true;
     expect(screen.getByRole('button', { name: 'Agent' }).title).toContain(
-      'GPT-5 · Ultra'
+      'GPT-5'
     );
+    expect(screen.getByRole('button', { name: 'Effort: Ultra' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     expect(send).toHaveBeenLastCalledWith(
       expect.objectContaining({

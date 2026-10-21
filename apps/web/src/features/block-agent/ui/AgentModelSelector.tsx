@@ -27,10 +27,6 @@ import {
   type ModelRowProps,
 } from '@core/component/AI/component/input/ModelCatalogPicker';
 import {
-  type ModelEffortConfig,
-  ModelEffortMenu,
-} from '@core/component/AI/component/input/ModelEffortMenu';
-import {
   buildModelCatalog,
   type CatalogModelOption,
   isLargeModelCatalog,
@@ -84,9 +80,6 @@ export interface AgentModelSelectorProps {
   options: ModelOption[];
   disabled?: boolean;
   effortLabel?: string;
-  effort?: ModelEffortConfig;
-  effortValue?: string;
-  onEffortChange?: (value: string) => void;
   modelRow?: Component<ModelRowProps>;
   /** Receives the id of the model to switch to. */
   onSelect: (model: string) => void;
@@ -106,7 +99,9 @@ export function AgentModelSelector(props: AgentModelSelectorProps) {
       props.options.find((option) => option.id === shown())?.name
     );
   const label = () =>
-    [baseLabel(), props.effortLabel].filter(Boolean).join(' · ');
+    isTouchDevice()
+      ? [baseLabel(), props.effortLabel].filter(Boolean).join(' · ')
+      : baseLabel();
   const options = createMemo(() => withoutRedundantGroups(props.options));
   const toCatalogOption = (option: ModelOption): CatalogModelOption => ({
     id: option.id,
@@ -329,27 +324,12 @@ export function AgentModelSelector(props: AgentModelSelectorProps) {
   return (
     <Show when={isTouchDevice() || props.options.length > 0}>
       <Show when={!isTouchDevice()} fallback={sheet}>
-        <Show
-          when={useCatalog() || props.modelRow || props.effort}
-          fallback={shortList}
-        >
+        <Show when={useCatalog() || props.modelRow} fallback={shortList}>
           <ModelCatalogPicker
             value={shown()}
             options={catalogOptions()}
             onSelect={pick}
             modelRow={props.modelRow}
-            menu={(catalog) => (
-              <ModelEffortMenu
-                model={shown()}
-                label={baseLabel()}
-                config={props.effort}
-                value={props.effortValue}
-                disabled={props.disabled}
-                onChange={props.onEffortChange}
-              >
-                {catalog}
-              </ModelEffortMenu>
-            )}
             triggerLabel={label()}
             disabled={props.disabled}
             ariaLabel="Agent model"

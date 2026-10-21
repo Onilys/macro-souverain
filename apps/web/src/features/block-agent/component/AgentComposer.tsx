@@ -390,17 +390,6 @@ export function AgentComposer(props: {
               changingTo={changingModel(messages(), metadata()?.model ?? null)}
               options={metadata()?.supportedModels ?? []}
               effortLabel={effortLabel(effort(), changingEffort())}
-              effort={effort()}
-              effortValue={changingEffort()}
-              onEffortChange={(value) => {
-                const config = effort();
-                const model = metadata()?.model;
-                if (config && model)
-                  fireAndForget(
-                    chooseModel(model, { configId: config.id, value }),
-                    'agent-composer'
-                  );
-              }}
               disabled={
                 loadFailed() ||
                 readOnly() ||
@@ -432,27 +421,25 @@ export function AgentComposer(props: {
                 />
               )}
             />
-            <Show when={isTouchDevice()}>
-              <EffortSelector
-                onCloseAutoFocus={restoreInputFocus}
-                config={effort()}
-                value={changingEffort()}
-                disabled={
-                  loadFailed() ||
-                  readOnly() ||
-                  pending() ||
-                  configuring() ||
-                  changingEffort() !== undefined ||
-                  changingModel(messages(), metadata()?.model ?? null) !==
-                    undefined
-                }
-                onChange={(choice) => {
-                  const model = metadata()?.model;
-                  if (model)
-                    fireAndForget(chooseModel(model, choice), 'agent-composer');
-                }}
-              />
-            </Show>
+            <EffortSelector
+              onCloseAutoFocus={restoreInputFocus}
+              config={effort()}
+              value={changingEffort()}
+              disabled={
+                loadFailed() ||
+                readOnly() ||
+                pending() ||
+                configuring() ||
+                changingEffort() !== undefined ||
+                changingModel(messages(), metadata()?.model ?? null) !==
+                  undefined
+              }
+              onChange={(choice) => {
+                const model = metadata()?.model;
+                if (model)
+                  fireAndForget(chooseModel(model, choice), 'agent-composer');
+              }}
+            />
 
             <Show
               when={metadata()?.configOptions.some(

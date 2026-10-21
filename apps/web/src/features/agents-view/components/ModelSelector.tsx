@@ -6,10 +6,6 @@ import {
   ModelCatalogPicker,
   type ModelRowProps,
 } from '@core/component/AI/component/input/ModelCatalogPicker';
-import {
-  type ModelEffortConfig,
-  ModelEffortMenu,
-} from '@core/component/AI/component/input/ModelEffortMenu';
 import { modelLabel } from '@core/component/AI/constant/model-label';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
 import type { Component, JSX } from 'solid-js';
@@ -30,9 +26,6 @@ export function ModelSelector(props: {
   disabled?: boolean;
   modelRow?: Component<ModelRowProps>;
   pending?: boolean;
-  effort?: ModelEffortConfig;
-  effortValue?: string;
-  onEffortChange?: (value: string) => void;
   onSelect: (id: string) => void;
   onCloseAutoFocus?: (event: Event) => void;
   children?: JSX.Element;
@@ -50,25 +43,10 @@ export function ModelSelector(props: {
       }))}
       triggerLabel={props.label}
       placeholder={modelLabel(props.model)}
-      triggerClass="h-9 min-w-0 max-w-full gap-1 rounded-full border-0 bg-transparent hover:bg-ink/5 data-expanded:bg-ink/5 px-2 text-base font-normal text-ink [&_svg]:size-4"
+      triggerClass="h-[33.75px] min-w-0 max-w-full gap-[5.625px] rounded-full border-0 bg-transparent hover:bg-hover px-[7.5px] text-base font-normal text-ink-muted light-mode:text-composer-placeholder [&_svg]:size-[15px]"
       contentClass="w-70 rounded-2xl border-0"
-      menu={(catalog) => (
-        <ModelEffortMenu
-          model={props.model}
-          label={modelLabel(
-            props.model,
-            props.options.find((option) => option.id === props.model)?.name
-          )}
-          config={props.effort}
-          value={props.effortValue}
-          disabled={props.disabled || props.pending}
-          onChange={props.onEffortChange}
-        >
-          {catalog}
-        </ModelEffortMenu>
-      )}
       ariaLabel="Model"
-      placement="bottom-end"
+      placement="top-end"
       disabled={props.disabled}
       pending={props.pending}
       onSelect={props.onSelect}
@@ -90,21 +68,10 @@ export function SessionModelSelector(props: AgentModelSelectorProps) {
       <ModelSelector
         onCloseAutoFocus={props.onCloseAutoFocus}
         model={shown()}
-        effort={props.effort}
-        effortValue={props.effortValue}
-        onEffortChange={props.onEffortChange}
-        label={
-          <>
-            {modelLabel(
-              shown(),
-              props.options.find((option) => option.id === shown())?.name
-            )}
-            <Show when={props.effortLabel}>
-              {' '}
-              <span class="text-ink-muted">{props.effortLabel}</span>
-            </Show>
-          </>
-        }
+        label={modelLabel(
+          shown(),
+          props.options.find((option) => option.id === shown())?.name
+        )}
         modelRow={props.modelRow}
         options={props.options.map((option) => ({
           id: option.id,

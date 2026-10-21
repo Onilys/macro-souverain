@@ -92,19 +92,17 @@ an external harness result.
 
 ## Model menu interaction
 
-Desktop new-chat and running-session model selectors open a compact overview
-with the current model and a discrete **Reasoning effort** slider. Slider stops
-come directly from the runtime's advertised choices and retain their opaque
-values. Arrow keys change one level at a time; pointer drags commit on release.
-The menu stays open while the header and accessible value update. The model
-header opens the full catalog, with a back row to return to the overview. Models
-with fewer than two choices open the catalog directly. Mobile retains the
-adjacent speedometer button and its dedicated effort sheet.
+Desktop new-chat and running-session model selectors open the full model catalog.
+The adjacent speedometer opens a discrete **Reasoning effort** slider. Slider
+stops come directly from the runtime's advertised choices and retain their opaque
+values, including Default when advertised. Arrow keys change one level at a time;
+pointer drags commit on release. The menu stays open while its accessible value
+updates. Mobile retains the dedicated effort sheet.
 
 On desktop, effort remains available in each model’s submenu.
 Discovery runs when the submenu opens, scoped to that model and harness;
 the current session's advertised options take precedence for its selected model.
-The trigger displays the model and selected effort together. Keyboard Right Arrow
+The model trigger displays the model; the adjacent speedometer shows effort. Keyboard Right Arrow
 opens the submenu. On mobile, tapping a model selects it directly; use the adjacent
 effort button to adjust its supported effort levels. Loading, discovery errors, and models with
 no effort options keep ordinary model selection available.

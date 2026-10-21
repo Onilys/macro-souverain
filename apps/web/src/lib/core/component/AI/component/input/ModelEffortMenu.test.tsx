@@ -40,9 +40,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function setup(disabled = false) {
+function setup(disabled = false, effortConfig = config) {
   const change = vi.fn();
-  const [value, setValue] = createSignal('low');
+  const [value, setValue] = createSignal(effortConfig.currentValue);
   render(() => (
     <>
       <style>
@@ -54,7 +54,7 @@ function setup(disabled = false) {
           <ModelEffortMenu
             model="gpt-5"
             label="GPT-5"
-            config={config}
+            config={effortConfig}
             value={value()}
             disabled={disabled}
             onChange={(next) => {
@@ -96,6 +96,59 @@ it('adjusts named effort stops with the keyboard without dismissing the menu', a
   expect(change).toHaveBeenLastCalledWith('low');
 });
 
+it('tracks a captured thumb drag immediately and commits only on release', () => {
+  const change = setup();
+  const slider = screen.getByRole('slider', { name: 'Reasoning effort' });
+  const track = slider.parentElement!;
+  vi.spyOn(track, 'getBoundingClientRect').mockReturnValue(
+    new DOMRect(0, 0, 200, 24)
+  );
+  let captured = false;
+  slider.setPointerCapture = () => {
+    captured = true;
+  };
+  slider.hasPointerCapture = () => captured;
+  slider.releasePointerCapture = () => {
+    captured = false;
+  };
+  fireEvent(
+    slider,
+    Object.assign(
+      new MouseEvent('pointerdown', { bubbles: true, clientX: 0 }),
+      {
+        pointerId: 1,
+        pointerType: 'mouse',
+      }
+    )
+  );
+  fireEvent(
+    slider,
+    Object.assign(
+      new MouseEvent('pointermove', { bubbles: true, clientX: 100 }),
+      {
+        pointerId: 1,
+        pointerType: 'mouse',
+      }
+    )
+  );
+  expect(slider.getAttribute('aria-valuetext')).toBe('High');
+  expect(slider.closest('[data-scrubbing]')).not.toBeNull();
+  expect(change).not.toHaveBeenCalled();
+  fireEvent(
+    slider,
+    Object.assign(
+      new MouseEvent('pointerup', { bubbles: true, clientX: 100 }),
+      {
+        pointerId: 1,
+        pointerType: 'mouse',
+      }
+    )
+  );
+  expect(change).toHaveBeenCalledExactlyOnceWith('high');
+  expect(slider.closest('[data-scrubbing]')).toBeNull();
+  expect(screen.getByRole('menu')).toBeTruthy();
+});
+
 it('opens the catalog, returns to effort, and dismisses with Escape', async () => {
   setup();
   fireEvent.keyDown(screen.getByRole('menuitem', { name: 'Choose model' }), {
@@ -123,6 +176,28 @@ it('does not change a disabled effort control', () => {
     key: 'ArrowRight',
   });
   expect(change).not.toHaveBeenCalled();
+});
+
+it('preserves the inherited default until a specific effort is selected', () => {
+  const change = setup(false, {
+    ...config,
+    id: 'reasoning_effort',
+    currentValue: 'default',
+    options: [
+      { name: 'Default', value: 'default', group: null, description: null },
+      config.options[0],
+      { name: 'Medium', value: 'medium', group: null, description: null },
+      config.options[1],
+    ],
+  });
+  const slider = screen.getByRole('slider', { name: 'Reasoning effort' });
+  expect(slider.getAttribute('aria-valuetext')).toBe('Default');
+  slider.focus();
+  fireEvent.keyDown(slider, { key: 'ArrowRight' });
+  expect(change).toHaveBeenLastCalledWith('low');
+  expect(slider.getAttribute('aria-valuetext')).toBe('Low');
+  fireEvent.keyDown(slider, { key: 'ArrowRight' });
+  expect(change).toHaveBeenLastCalledWith('medium');
 });
 
 it('shows the catalog directly for a model with no effort configuration', () => {
