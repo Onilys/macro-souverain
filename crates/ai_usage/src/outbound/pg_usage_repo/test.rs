@@ -157,7 +157,12 @@ async fn set_pricing_recomputes_existing_rows_at_the_discounted_rate(pool: PgPoo
     .await
     .unwrap();
     repo.insert_usage(
-        &completion(AiFeature::Automation, "discounted-model", 1_000_000, 1_000_000),
+        &completion(
+            AiFeature::Automation,
+            "discounted-model",
+            1_000_000,
+            1_000_000,
+        ),
         true,
     )
     .await
