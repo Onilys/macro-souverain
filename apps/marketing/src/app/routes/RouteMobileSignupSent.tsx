@@ -103,7 +103,7 @@ export const RouteMobileSignupSent: Component = () => {
             });
           }}
         >
-          Download our mobile app (Alpha)
+          Download our mobile app
         </a>
       </div>
     </section>

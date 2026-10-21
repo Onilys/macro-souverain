@@ -5,6 +5,7 @@
 mod chat_reply;
 mod coding_preferences;
 mod external_mcp;
+mod external_replies;
 mod owned_purge;
 mod presentation;
 mod quota;

@@ -768,6 +768,16 @@ pub trait AgentSessionLogRepo: Send + Sync + 'static {
         agent_session_id: AgentSessionId,
     ) -> impl Future<Output = Result<Vec<StoredAgentSessionLog>>> + Send;
 
+    /// A single snapshot of durable history when the action was prompted,
+    /// or an empty snapshot when absent. Includes frames
+    /// before a successful load. Internal action recovery needs their original
+    /// request IDs, which replayed display history does not preserve.
+    fn list_action_history(
+        &self,
+        agent_session_id: AgentSessionId,
+        action: agent_runtime_protocol::domain::action::AgentActionId,
+    ) -> impl Future<Output = Result<Vec<StoredAgentSessionLog>>> + Send;
+
     /// Every user the log has attributed a frame to: whoever prompted,
     /// answered, or otherwise drove the session. Distinct, unordered; the
     /// owner appears only if they acted. Spans the whole log, resumes

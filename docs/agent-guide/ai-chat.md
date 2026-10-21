@@ -553,6 +553,14 @@ the shimmer.
   session starts on the first prompt, before its first reply; a startup screen
   that temporarily hides the footer is retried during the turn. The menu does not list
   installed native skills or session-switching commands such as `/resume`.
+  For a paired runtime configured as a **Chat agent**, mentioning it posts a
+  pending reply in the channel thread. Once the turn completes, that same reply
+  shows the answer (or a stopped/failed result), even if the session view was
+  never opened. Follow-up messages get their own replies. This requires a macrod
+  build that sends source message IDs as control action IDs, together with the
+  backend external-reply journal; older daemons do not supply that correlation.
+  Replies older than 24 hours whose completion callback was lost are recovered
+  hourly, plus any recovery backlog. Normal completion handling remains immediate.
   The agent form retains sharing, name, `@tag`, runtime, default model, connections,
   channels, instructions, and permission policy.
   Runtime and short model lists use styled dropdown buttons: open the field and

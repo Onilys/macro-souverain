@@ -45,6 +45,17 @@ External runtimes receive the session's configured MCP selection when binding,
 including enabled owner connections and custom servers under `OwnerConnections`.
 Use `external_mcp_servers` to preserve the host-reachable egress URL override.
 
+External chat replies use `domain/service/external_replies.rs` and the
+`agent_external_replies` journal. Macrod sends the triggering message ID as the
+control action ID; the harness joins that completion to its authorized reply
+origin, regardless of arrival order. Recovery reads terminal results from the
+original durable action history when an observer callback was lost, including
+turns hidden by a later session load, and retries message updates
+without re-prompting. Keep deduplication inside the serialized command worker.
+Remember successful announcements. After 24 hours, recover replies without a
+persisted completion at most hourly, preserving late answers after lost callbacks.
+Persisted completions bypass this backoff; direct completion handling is immediate.
+
 ## Checks
 
 - `cargo test -p agent_harness` (`SQLX_OFFLINE` unset).

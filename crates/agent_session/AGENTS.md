@@ -52,6 +52,10 @@ consumer talks to.
 
 - `src/inbound/toolset/`: session reads, creation, lifecycle actions, and sharing. Mutations preserve acting-user identity and existing owner/edit receipts; internal controls accept only prompt/stop, never human approvals.
 
+Internal action recovery uses `AgentSessionService::recorded_action`, which reads
+one durable log snapshot including pre-load frames. Keep this separate from the
+effective history served to transcript readers: replayed prompts lose action IDs.
+
 ## Checks
 
 - `cargo test -p agent_session` (`SQLX_OFFLINE` unset).

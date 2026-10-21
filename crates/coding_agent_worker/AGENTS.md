@@ -39,13 +39,19 @@ the local ACP process (Claude Code, Codex, ...), and drives native
 - Add/change a native herdr control (command, model picker): `src/herdr/controls/`
   → `README.md` (native controls section) → `src/herdr/acp_agent/`.
 
+Channel/document trigger prompts retain their source message ID through
+`TriggerWork` and send it as `ControlRequest.action_id`. Preserve this correlation
+for initial mentions, existing-session follow-ups, and conflicted-create retries;
+external chat replies depend on it. Direct session controls still mint IDs.
+
 ## Checks
 
 - `cargo test -p coding_agent_worker` (`SQLX_OFFLINE` unset).
 - `just run` (from this directory) to run the daemon against `macrod.toml` at
   the repo root.
-- `just build-static` to build and smoke-test the release `macrod` the way
+- `OPENSSL_NO_VENDOR=0 just build-static` to build and smoke-test the release `macrod` the way
   the tag workflow does (needs the Nix devshell: cargo-zigbuild, zig, cmake).
+  The override enables bundled OpenSSL for the musl target in the devshell.
 
 ## Gotchas
 

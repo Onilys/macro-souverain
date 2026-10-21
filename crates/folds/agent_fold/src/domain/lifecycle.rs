@@ -24,8 +24,8 @@ use agent_runtime_protocol::domain::action::AgentActionId;
 use crate::domain::fold::FoldMachineImpl;
 use crate::domain::log::AgentSessionLog;
 use crate::domain::model::{
-    Author, ElicitationRequestId, FoldEvent, FoldedMessage, MessagePart, OwnedFoldEvent,
-    ProjectedSegment, SessionMetadata, TurnId, TurnPhase, TurnSignal, phase, project,
+    Author, ElicitationRequestId, FoldEvent, FoldedMessage, OwnedFoldEvent, ProjectedSegment,
+    SessionMetadata, TurnId, TurnPhase, TurnSignal, phase, project,
 };
 use crate::domain::ports::FoldMachine as _;
 
@@ -123,7 +123,7 @@ impl LifecycleFold {
             turn: message.id,
             action_id: self.action_id(message),
             stop: stop.clone(),
-            last_text: last_text(message),
+            last_text: message.last_text(),
         });
     }
 
@@ -169,18 +169,4 @@ impl LifecycleFold {
             .map(|message| message.id)
             .collect();
     }
-}
-
-/// The last prose part of a message, trimmed; `None` when there is none.
-fn last_text(message: &FoldedMessage) -> Option<String> {
-    message
-        .parts
-        .iter()
-        .rev()
-        .find_map(|part| match part {
-            MessagePart::Text { text } => Some(text.trim()),
-            _ => None,
-        })
-        .filter(|text| !text.is_empty())
-        .map(str::to_owned)
 }

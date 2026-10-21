@@ -45,6 +45,11 @@ replay used to be nearly all of the Rust test suite's runtime. Run the recipe
 locally only against a Postgres dedicated to one checkout; every database created
 on that server afterwards gets the schema too.
 
+Set `max_locks_per_transaction = 8192` on that dedicated server, as in
+[CI’s PostgreSQL setup](../../tooling/xtask/crates/xtask_workflows/src/workflows/scripts/configure_postgres.sh),
+and restart PostgreSQL before testing; replacing a pre-migrated schema can exceed
+the default lock capacity.
+
 Tests that build their own schema (`#[sqlx::test(migrations = false)]`, or a
 crate's test-only schema fixture) must first run
 `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`, since their database may

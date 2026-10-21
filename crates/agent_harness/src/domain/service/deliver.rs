@@ -301,6 +301,10 @@ where
                 | ReplyOutcome::AwaitingApproval(_)
                 | ReplyOutcome::Resumed
         );
+        if terminal && turn.announce.is_none() {
+            self.complete_external_reply(session_id, turn.action_id, turn.turn, outcome.clone())
+                .await;
+        }
         let in_segments = turn.announce.as_ref().is_some_and(|origin| {
             origin.reply_placement.voice_style() == crate::domain::model::VoiceStyle::Segments
         });

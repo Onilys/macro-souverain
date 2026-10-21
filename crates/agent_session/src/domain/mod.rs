@@ -1,3 +1,4 @@
+pub mod action_history;
 pub mod agent_conversation;
 /// Current authorization for agent session streams.
 pub mod audience;

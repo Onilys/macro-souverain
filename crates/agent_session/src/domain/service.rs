@@ -350,6 +350,14 @@ pub trait AgentSessionService: Send + Sync + 'static {
     /// implementation. See [`SessionLog`] and [`Self::folded_session_log`].
     fn session_log(&self, id: AgentSessionId) -> impl Future<Output = Result<SessionLog>> + Send;
 
+    /// Recover one action from a consistent durable snapshot, including history
+    /// replaced by session/load. No observer callback or live actor is required.
+    fn recorded_action(
+        &self,
+        id: AgentSessionId,
+        action: AgentActionId,
+    ) -> impl Future<Output = Result<Option<super::action_history::RecordedAction>>> + Send;
+
     /// The same history as [`Self::session_log`], folded server-side into
     /// renderable messages for readers that do not run the fold themselves,
     /// such as SDK programs and agents reading other sessions.
@@ -1173,6 +1181,16 @@ where
             bot: self.repo.session_bot(session.bot_id).await?,
             entries,
         })
+    }
+
+    #[tracing::instrument(err, skip(self))]
+    async fn recorded_action(
+        &self,
+        id: AgentSessionId,
+        action: AgentActionId,
+    ) -> Result<Option<super::action_history::RecordedAction>> {
+        let entries = self.repo.list_action_history(id, action).await?;
+        Ok(super::action_history::recorded_action(entries, action))
     }
 
     #[tracing::instrument(err, skip(self))]
