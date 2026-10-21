@@ -14,8 +14,8 @@ import CheckIcon from '@phosphor/check.svg';
 import EnvelopeIcon from '@phosphor/envelope.svg';
 import LinkIcon from '@phosphor/link.svg';
 import MagnifyingGlassIcon from '@phosphor/magnifying-glass.svg';
+import PlusIcon from '@phosphor/plus.svg';
 import TrashIcon from '@phosphor/trash.svg';
-import UserPlusIcon from '@phosphor/user-plus.svg';
 import XIcon from '@phosphor/x.svg';
 import { useAiBillingSummaryQuery } from '@queries/auth';
 import {
@@ -449,13 +449,16 @@ export function TeamMembers(props: { team: TeamSummary }) {
           <Show
             when={canInviteToTeam(currentUserRole(), allowNonAdminInvites())}
           >
+            {/* Sized to the page title and inverted (black on light, white
+                on dark) so inviting is the page's primary action. */}
             <Button
-              variant="accent"
-              size="sm"
+              variant="cta"
+              glass={false}
+              class="h-auto gap-2 bg-ink px-5 py-2 text-[26px]/tight text-surface"
               onClick={() => setShowInviteModal(true)}
             >
-              <UserPlusIcon class="size-4" />
-              Invite people
+              <PlusIcon class="size-6" />
+              Invite
             </Button>
           </Show>
         }

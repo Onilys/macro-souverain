@@ -208,7 +208,7 @@ Left nav (feature and platform gates still apply):
 
 - **Team · <team name>** (just **Team** without a team): General (name, slug,
   GitHub autolink, default link sharing, Delete Team), Members (member list,
-  roles and seat plans, **Invite people**, pending invites, auto-join and
+  roles and seat plans, **Invite**, pending invites, auto-join and
   members-can-invite), Connections (Slack import, GitHub App). Without a team
   only General shows, with pending invitations or **Create Team**. Search
   finds these by `invite`, `members`, `teammates`, `slack`, and similar terms;
