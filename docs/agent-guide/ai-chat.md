@@ -366,7 +366,9 @@ the shimmer.
   at weight 360 in light mode and 315 in dark mode, including the Chat and Code
   starting headings, legacy Home, and the conversation preview empty state.
 - The desktop input uses 28px corners with an 18px horizontal text inset and
-  16px top padding when expanded; its existing border and shadow are unchanged.
+  16px top padding when expanded. Light mode uses a faint shadow outline and
+  layered outer shadow; dark mode retains the production glass rim and shadow.
+  Both modes retain the production composer background.
 - The starting page has **Chat / Code** in the composer’s inset bar, below the input on
   desktop and above it on phones. On desktop, the borderless footer is inset 12px
   from the 28px-radius input; Chat / Code share one track with a softly raised
