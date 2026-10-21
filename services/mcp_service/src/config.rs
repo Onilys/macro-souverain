@@ -102,7 +102,8 @@ pub struct Config {
     pub enable_ai_usage_billing: ai_billing::AiUsageBilling,
     /// Key settlement requests present to the authentication service (secret
     /// name or value).
-    pub authentication_service_secret_key: OptionalLocalOrRemoteSecret<AuthenticationServiceSecretKey>,
+    pub authentication_service_secret_key:
+        OptionalLocalOrRemoteSecret<AuthenticationServiceSecretKey>,
     /// The free plan's hard monthly AI cap, in cents at provider cost.
     /// Mandatory; set in Doppler.
     pub ai_usage_free_included_allowance_cents: ai_billing::IncludedAllowanceCents,
