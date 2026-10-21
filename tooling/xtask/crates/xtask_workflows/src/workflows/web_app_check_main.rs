@@ -11,6 +11,7 @@ use crate::workflows::{
     vars,
 };
 
+mod android_native_check;
 mod ios_native_check;
 #[cfg(test)]
 mod test;
@@ -48,6 +49,7 @@ pub fn web_app_check_main() -> Workflow {
             .cancel_in_progress(true),
         )
         .add_job("path-check", path_check())
+        .add_job(android_native_check::JOB_ID, android_native_check())
         .add_job("typescript", typescript())
         .add_job("generated-code", generated_code())
         .add_job("biome-check", biome_check())
@@ -56,6 +58,12 @@ pub fn web_app_check_main() -> Workflow {
         .add_job("build", build())
         .add_job(ios_native_check::JOB_ID, ios_native_check::job())
         .add_job("status-check", status_check())
+}
+
+/// Always run so the required collector can distinguish a successful native
+/// check from a cancelled or skipped one, including frontend/backend-only PRs.
+fn android_native_check() -> Job {
+    android_native_check::job()
 }
 
 fn path_check() -> Job {
@@ -87,10 +95,31 @@ fn typescript() -> Job {
         .add_step(steps::setup_reqs_web("Setup Prereqs", false))
         .add_step(check_dynamic_ui_schema())
         .add_step(check_types())
+        .add_step(check_floating_promises())
         .add_step(check_functional_test_types())
         .add_step(check_collaboration_types())
         .add_step(check_lexical_service_types())
         .add_step(test_lexical_service())
+        .add_step(
+            Step::new("Install SDK Documentation Dependencies")
+                .run("bun install --frozen-lockfile")
+                .working_directory(xtask_paths::repo_dir!("packages/sdk")),
+        )
+        .add_step(
+            Step::new("Check SDK Documentation")
+                .run("bun run type-check && bun run test")
+                .working_directory(xtask_paths::repo_dir!("packages/sdk-docs")),
+        )
+        .add_step(
+            Step::new("Check Editing Worker")
+                .run("bun run type-check")
+                .working_directory(xtask_paths::repo_dir!("services/ai-editing-worker")),
+        )
+        .add_step(
+            Step::new("Check Code Mode SDK")
+                .run("bun run type-check && bun run test")
+                .working_directory(xtask_paths::repo_dir!("packages/code-mode-sdk")),
+        )
         .add_step(steps::teardown_nix())
 }
 
@@ -206,6 +235,7 @@ fn status_check() -> Job {
         .cond(Expression::new("always()"))
         .needs(vec![
             "path-check".to_string(),
+            android_native_check::JOB_ID.to_string(),
             "typescript".to_string(),
             "generated-code".to_string(),
             "biome-check".to_string(),
@@ -259,7 +289,7 @@ fn paths_filter() -> Step<Use> {
         .add_with((
             "filters",
             format!(
-                "should_run:\n{artifact_paths}  - 'services/lexical-service/**'\n  - 'crates/ai_tools/src/display_results/schema.generated.json'\n  - '.github/actions/setup-reqs-web/**'\ncodegen_changed:\n  - 'crates/**/*.rs'\n  - 'services/**/*.rs'\n  - 'Cargo.toml'\n  - 'Cargo.lock'\n  - 'apps/web/scripts/generate-api-schema.ts'\n  - 'apps/web/scripts/services.ts'\n  - 'packages/sdk/**'\n  - 'apps/docs/**'\n  - '.github/actions/setup-reqs-web/**'\n"
+                "should_run:\n{artifact_paths}  - 'services/lexical-service/**'\n  - 'packages/sdk/**'\n  - 'packages/sdk-docs/**'\n  - 'services/ai-editing-worker/**'\n  - 'packages/code-mode-sdk/**'\n  - 'crates/code_execution/src/outbound/deno/*.mjs'\n  - 'crates/agent_code_mode/src/domain/documentation.json'\n  - 'crates/agent_code_mode/SKILL.md'\n  - 'crates/ai_tools/src/display_results/schema.generated.json'\n  - '.github/actions/setup-reqs-web/**'\ncodegen_changed:\n  - 'crates/**/*.rs'\n  - 'services/**/*.rs'\n  - 'Cargo.toml'\n  - 'Cargo.lock'\n  - 'apps/web/scripts/generate-api-schema.ts'\n  - 'apps/web/scripts/services.ts'\n  - 'packages/sdk/**'\n  - 'apps/docs/**'\n  - '.github/actions/setup-reqs-web/**'\n"
             ),
         ))
 }
@@ -338,6 +368,12 @@ fn check_types() -> Step<Run> {
     Step::new("Check Types")
         .run("bun run type-check")
         .working_directory(xtask_paths::repo_dir!("apps/web"))
+}
+
+/// Type-aware oxlint over all of `apps/web`; `no-floating-promises` is an
+/// error and needs type information to run at all.
+fn check_floating_promises() -> Step<Run> {
+    Step::new("Check Floating Promises").run("bun run lint:oxlint --quiet")
 }
 
 fn check_functional_test_types() -> Step<Run> {
@@ -438,6 +474,7 @@ fn run_build() -> Step<Run> {
 fn check_job_results() -> Step<Run> {
     Step::new("Check job results").run(indoc::indoc! {r#"
         echo "path-check: ${{ needs.path-check.result }}"
+        echo "android-native-check: ${{ needs.android-native-check.result }}"
         echo "typescript: ${{ needs.typescript.result }}"
         echo "generated-code: ${{ needs.generated-code.result }}"
         echo "biome-check: ${{ needs.biome-check.result }}"
@@ -448,7 +485,8 @@ fn check_job_results() -> Step<Run> {
 
         # Fail if any job failed (skipped and success are both OK). The iOS
         # gate is the merge gate, so a cancelled gate is not OK either.
-        if [[ "${{ needs.path-check.result }}" == "failure" ]] || \
+        if [[ "${{ needs.android-native-check.result }}" != "success" ]] || \
+           [[ "${{ needs.path-check.result }}" == "failure" ]] || \
            [[ "${{ needs.typescript.result }}" == "failure" ]] || \
            [[ "${{ needs.generated-code.result }}" == "failure" ]] || \
            [[ "${{ needs.biome-check.result }}" == "failure" ]] || \

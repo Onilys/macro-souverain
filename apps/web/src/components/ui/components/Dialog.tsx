@@ -152,14 +152,13 @@ function DesktopDialog(props: DialogProps) {
         <div
           class={cn(
             'fixed top-0 bottom-(--virtual-keyboard-height,0) inset-x-0 z-modal flex',
-            props.fullscreen
-              ? 'inset-0'
-              : cn(
-                  'justify-center px-2',
-                  props.position === 'center'
-                    ? 'items-center'
-                    : 'items-start pt-[10vh]'
-                )
+            !props.fullscreen &&
+              cn(
+                'justify-center px-2',
+                props.position === 'center'
+                  ? 'items-center'
+                  : 'items-start pt-[10vh]'
+              )
           )}
         >
           <KobalteDialog.Content

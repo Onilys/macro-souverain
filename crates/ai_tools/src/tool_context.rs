@@ -26,6 +26,7 @@ use channels::outbound::{
 use chat::domain::service::ChatServiceImpl;
 use chat::inbound::toolset::ChatToolContext;
 use chat::outbound::postgres::PgChatRepo;
+pub use cognition::inbound::toolset::CognitionToolContext as ToolCognitionToolContext;
 use connection::domain::ports::ConnectionService;
 use connection_gateway_client::ConnectionGatewayClient;
 use contacts::domain::service::{ContactsDomainService, SqsContactsIngress};
@@ -76,7 +77,15 @@ use teams::{inbound::toolset::TeamToolContext, outbound::team_repo::TeamReposito
 use tokio_util::task::TaskTracker;
 
 mod activity_metadata;
+mod channel_media;
+#[cfg(any(test, feature = "test-support"))]
+pub use channel_media::build_channel_media_upload_tool_context_test;
+pub use channel_media::{
+    ToolChannelMediaUploadToolContext, build_channel_media_upload_tool_context,
+};
+mod agent_sessions;
 mod coding_agents;
+pub use agent_sessions::{ToolReadAgentSessionContext, build_read_agent_session_context};
 pub use coding_agents::{ToolCodingAgentToolContext, build_coding_agent_tool_context};
 mod images;
 #[cfg(any(test, feature = "test-support"))]
@@ -641,6 +650,42 @@ pub fn build_pipeline_tool_context(
             ),
         ),
         actor: databases.actor,
+    }
+}
+
+/// CRM CSV imports and exports over the pipeline workflows, the CRM's
+/// records and Macro documents.
+pub type ToolCrmTransferService = crm::domain::crm_transfer::CrmTransferServiceImpl<
+    ToolPipelineWorkflows,
+    crm::domain::crm_transfer::CrmTransferRecords<ToolCrmService, ToolEntityAccessService>,
+    crate::crm_csv_files::DocumentCsvFiles<ToolDocumentService, ToolEntityAccessService>,
+>;
+
+/// Type alias for the CRM CSV AI tool context.
+pub type ToolCrmTransferToolContext =
+    crm::inbound::toolset::transfer::CrmTransferToolContext<ToolCrmTransferService>;
+
+/// Build the CRM CSV tools over the pipeline tools' workflows, the CRM
+/// tools' records, and the document tools' files.
+pub fn build_crm_transfer_tool_context(
+    pipelines: &ToolPipelineToolContext,
+    crm: &ToolCrmToolContext,
+    documents: &ToolDocumentToolContext,
+) -> ToolCrmTransferToolContext {
+    crm::inbound::toolset::transfer::CrmTransferToolContext {
+        service: Arc::new(crm::domain::crm_transfer::CrmTransferServiceImpl::new(
+            pipelines.service.clone(),
+            crm::domain::crm_transfer::CrmTransferRecords::new(
+                crm.service.clone(),
+                crm.entity_access_service.clone(),
+            ),
+            crate::crm_csv_files::DocumentCsvFiles::new(
+                documents.service.clone(),
+                documents.creator.clone(),
+                documents.entity_access_service.clone(),
+            ),
+        )),
+        actor: pipelines.actor,
     }
 }
 
@@ -1328,19 +1373,17 @@ pub type ToolProjectToolContext = ProjectToolContext<
     ToolProjectService,
     ToolEntityAccessService,
     ToolDocumentService,
-    ToolChatService,
     ToolUserEmailService,
 >;
 
 /// Build the project tool context from shared domain and access services.
-/// The move services must be the same instances the document, chat, and
+/// The move services must be the same instances the document and
 /// email tool contexts run on so moves share their side-effect wiring.
 pub fn build_project_tool_context(
     pool: sqlx::PgPool,
     macro_event_broker: ToolEventBroker,
     entity_access_service: Arc<ToolEntityAccessService>,
     document_service: Arc<ToolDocumentService>,
-    chat_service: Arc<ToolChatService>,
     email_service: Arc<ToolUserEmailService>,
 ) -> ToolProjectToolContext {
     let project_service = projects::domain::service::ProjectServiceImpl::new(
@@ -1362,7 +1405,6 @@ pub fn build_project_tool_context(
         Arc::new(project_service),
         entity_access_service,
         document_service,
-        chat_service,
         email_service,
     )
 }
@@ -1757,6 +1799,8 @@ pub struct ToolServiceContext {
     #[from_ref(skip)]
     pub document_tool_context: ToolDocumentToolContext,
     pub image_generation_tool_context: ToolImageGenerationToolContext,
+    /// Shared cognition-backed generation and decisions, attributed per request.
+    pub cognition_tool_context: ToolCognitionToolContext,
     pub properties_tool_context: ToolPropertiesToolContext,
     pub email_tool_context: ToolEmailToolContext,
     pub call_tool_context: ToolCallToolContext,
@@ -1780,8 +1824,12 @@ pub struct ToolServiceContext {
     #[from_ref(skip)]
     pub chat_tool_context: ToolChatToolContext,
     pub channel_tool_context: ToolChannelToolContext,
+    /// Direct uploads of channel images and videos; exposed to MCP clients only.
+    pub channel_media_upload_tool_context: ToolChannelMediaUploadToolContext,
     pub bot_tool_context: ToolBotToolContext,
     pub coding_agent_tool_context: ToolCodingAgentToolContext,
+    /// Authorized agent-session conversation reads.
+    pub read_agent_session_context: ToolReadAgentSessionContext,
     pub project_tool_context: ToolProjectToolContext,
     /// Favorite toggles; the same favorites back `soup_service`'s favorites filter.
     pub favorites_tool_context: ToolFavoritesToolContext,
@@ -1791,6 +1839,8 @@ pub struct ToolServiceContext {
     pub crm_tool_context: ToolCrmToolContext,
     /// CRM pipelines: deals by record, fields by name.
     pub pipeline_tool_context: ToolPipelineToolContext,
+    /// CRM CSV imports and exports.
+    pub crm_transfer_tool_context: ToolCrmTransferToolContext,
     pub skill_tool_context: ToolSkillToolContext,
     pub schedule_tool_context: RoutineToolContext,
     #[from_ref(skip)]
@@ -1861,6 +1911,7 @@ impl ToolServiceContext {
         self.databases_tool_context = self.databases_tool_context.with_actor(actor);
         self.forms_tool_context.actor = actor;
         self.pipeline_tool_context.actor = actor;
+        self.crm_transfer_tool_context.actor = actor;
         self.databases_sql_tool_context = self.databases_sql_tool_context.with_actor(actor);
         self
     }

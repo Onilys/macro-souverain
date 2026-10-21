@@ -20,6 +20,7 @@ import { markdownToEmbeddingText } from './parsers';
 export type TriggerContext =
   | ({ kind: 'mentioned' } & DiscussionContext)
   | ({ kind: 'follow_up' } & FollowUpContext)
+  | ({ kind: 'conversation' } & DiscussionContext)
   | ({ kind: 'task_assigned' } & TaskAssignedContext)
   | ({ kind: 'requested' } & RequestedContext)
   | ({ kind: 'dispatched' } & DispatchedContext)
@@ -702,6 +703,8 @@ type DiscussionReading = {
   subject: 'prompt' | 'triggering message';
   /** Whether the agent's reply is posted back into the discussion. */
   repliesHere: boolean;
+  /** Where the reply goes, when it is not back into a thread. */
+  origin?: string;
 };
 
 type MessageMarker = { attribute: string; messageId: string };
@@ -940,7 +943,8 @@ function discussionNode(
       ? [
           el('origin', [
             text(
-              `This ${reading.subject} was posted in ${surfaceDescription(discussion.surface)}, not the agent session view. Your reply is posted back into that thread, and it is where the user will answer anything you ask.`
+              reading.origin ??
+                `This ${reading.subject} was posted in ${surfaceDescription(discussion.surface)}, not the agent session view. Your reply is posted back into that thread, and it is where the user will answer anything you ask.`
             ),
           ]),
         ]
@@ -1116,6 +1120,25 @@ function followUpNode({ addressed_by, discussion }: FollowUpContext): FxpNode {
       }),
     ],
     { kind: 'follow_up', addressed_by }
+  );
+}
+
+function conversationNode(discussion: DiscussionContext): FxpNode {
+  return el(
+    'trigger',
+    [
+      note(
+        `${discussion.sender.name} wrote to you in your private conversation with them. Their message is the prompt; the conversation before it is this session's history.`
+      ),
+      discussionNode(discussion, {
+        marker: 'wrote_to_you',
+        subject: 'prompt',
+        repliesHere: true,
+        origin:
+          'This prompt was posted in your private conversation with the user, not the agent session view. They read it as you work: your reply is posted there, and a question you ask with AskUser or a draft you open for review appears there for them to answer.',
+      }),
+    ],
+    { kind: 'conversation' }
   );
 }
 
@@ -1331,6 +1354,7 @@ function triggerNode(trigger: TriggerContext): FxpNode {
   return match(trigger)
     .with({ kind: 'mentioned' }, mentionedNode)
     .with({ kind: 'follow_up' }, followUpNode)
+    .with({ kind: 'conversation' }, conversationNode)
     .with({ kind: 'task_assigned' }, taskAssignedNode)
     .with({ kind: 'requested' }, requestedNode)
     .with({ kind: 'dispatched' }, dispatchedNode)

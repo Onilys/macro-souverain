@@ -11,6 +11,7 @@ import type { HeadingNode, QuoteNode } from '@lexical/rich-text';
 import type { TableCellNode, TableNode, TableRowNode } from '@lexical/table';
 import {
   $isClassedBlockNode,
+  type AgentActivityNode,
   type AgentContextNode,
   type AgentSessionMentionNode,
   type AwaitNode,
@@ -78,11 +79,13 @@ import {
   ENABLE_STATIC_DOCUMENT_CARDS,
   ENABLE_SVG_PREVIEW,
 } from '@core/constant/featureFlags';
+import { fireAndForget } from '@core/util/fireAndForget';
 import type { MarkNode } from '@lexical/mark';
 import type { SearchMatchNode } from '@macro-inc/lexical-core/nodes/SearchMatchNode';
 import { theme as baseTheme, createTheme } from '../../theme';
 import { forceSingleLine, setEditorStateFromMarkdown } from '../../utils';
 import { StaticCodeBoxAccessory } from '../accessory/CodeBoxAccessory';
+import { AgentActivity as AgentActivityDecorator } from '../decorator/AgentActivity';
 import { AgentContext as AgentContextDecorator } from '../decorator/AgentContext';
 import { AgentSessionMention as AgentSessionMentionDecorator } from '../decorator/AgentSessionMention';
 import { Await as AwaitDecorator } from '../decorator/Await';
@@ -594,6 +597,18 @@ const AgentContext: TypedRenderableEntity<AgentContextNode> = {
   ),
 };
 
+const AgentActivity: TypedRenderableEntity<AgentActivityNode> = {
+  guard: (node: LexicalNode): node is AgentActivityNode =>
+    node.__type === 'agent-activity',
+  render: (props) => (
+    <AgentActivityDecorator
+      {...props.node.exportComponentProps()}
+      key={props.node.getKey()}
+      theme={props.theme}
+    />
+  ),
+};
+
 const ReplyTarget: TypedRenderableEntity<ReplyTargetNode> = {
   guard: (node: LexicalNode): node is ReplyTargetNode =>
     node.__type === 'reply-target',
@@ -1016,6 +1031,7 @@ const InlineEntities: RenderableEntity[] = [
   eraseRenderableEntity(GroupMention),
   eraseRenderableEntity(Await),
   eraseRenderableEntity(AgentContext),
+  eraseRenderableEntity(AgentActivity),
   eraseRenderableEntity(ReplyTarget),
   eraseRenderableEntity(CursorSystemNotification),
   eraseRenderableEntity(MagicChip),
@@ -1102,23 +1118,34 @@ function Document(
     theme: EditorThemeClasses;
     rootRef?: (ref: HTMLDivElement) => void;
     singleLine?: boolean;
+    inert?: boolean;
   } & StaticRenderOptions
 ): JSX.Element {
+  // Read while the parsed editor state is active, before rendering decorators.
+  const accessibleText = props.inert
+    ? props.rootNode.getTextContent()
+    : undefined;
   return (
-    <div
-      class={cn(
-        'markdown-content',
-        props.theme.root,
-        'wrap-break-word max-w-full'
-      )}
-      ref={props.rootRef}
-    >
-      <MapRender
-        children={props.rootNode.getChildren()}
-        theme={props.theme}
-        lazy={props.lazy}
-      />
-    </div>
+    <>
+      <Show when={props.inert}>
+        <span class="sr-only">{accessibleText}</span>
+      </Show>
+      <div
+        class={cn(
+          'markdown-content',
+          props.theme.root,
+          'wrap-break-word max-w-full'
+        )}
+        ref={props.rootRef}
+        inert={props.inert}
+      >
+        <MapRender
+          children={props.rootNode.getChildren()}
+          theme={props.theme}
+          lazy={props.lazy}
+        />
+      </div>
+    </>
   );
 }
 
@@ -1163,6 +1190,8 @@ export function StaticMarkdown(props: {
   target?: 'internal' | 'external' | 'both';
   singleLine?: boolean;
   lazy?: boolean;
+  /** Disable preview interactions while exposing a plain-text equivalent to assistive technology. */
+  inert?: boolean;
 }) {
   let {
     editor: contextEditor,
@@ -1246,7 +1275,7 @@ export function StaticMarkdown(props: {
         console.error('Failed to resolve markdown citations', error);
       }
     };
-    void renderCitations();
+    fireAndForget(renderCitations(), 'static-markdown');
   });
 
   const domTree = createMemo(() => {
@@ -1256,6 +1285,7 @@ export function StaticMarkdown(props: {
         theme: mergedTheme(),
         lazy: lazy(),
         rootRef: props.rootRef,
+        inert: props.inert,
       });
     });
   });

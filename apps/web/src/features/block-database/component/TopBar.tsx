@@ -42,9 +42,6 @@ export function TopBar(props: {
   detail: DatabaseDetail | undefined;
   canEdit: boolean;
   activeTable: TableDetail | undefined;
-  /** Opens the title for typing, as for a freshly created database. */
-  autoFocusTitle: boolean;
-  onTitleConfirm: () => void;
   onSelectTable: (tableId: string) => void;
   onDelete: () => ResultAsync<void, DatabaseEntityFailure>;
   openingChat: boolean;
@@ -75,10 +72,11 @@ export function TopBar(props: {
         : undefined,
     };
   });
-  const rename = (next: string) =>
-    void renameDatabase(getEntityGraphqlClient(), databaseId, next).mapErr(
+  const rename = (next: string) => {
+    renameDatabase(getEntityGraphqlClient(), databaseId, next).mapErr(
       (failure) => toast.failure(databaseEntityMessage(failure, 'rename'))
     );
+  };
 
   return (
     <>
@@ -90,8 +88,6 @@ export function TopBar(props: {
               <DatabaseTitle
                 name={name()}
                 canEdit={props.canEdit}
-                autoFocus={props.autoFocusTitle}
-                onConfirm={props.onTitleConfirm}
                 onEditReady={(edit) => (editTitle = edit)}
                 onRename={rename}
               />

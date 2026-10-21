@@ -39,8 +39,9 @@ it.each(['standalone', 'reply'] as const)(
     try {
       root.edit('Send without flashing Draft saved');
       await vi.advanceTimersByTimeAsync(0);
+      let sending: Promise<unknown> | undefined;
       if ('state' in root) root.state.context.onSend();
-      else void root.sendEmail();
+      else sending = root.sendEmail();
       expect(state.acknowledgeSaved()).toBe(false);
       await vi.advanceTimersByTimeAsync(0);
       expect(context.delivery.sendMessage).toHaveBeenCalledOnce();
@@ -52,6 +53,7 @@ it.each(['standalone', 'reply'] as const)(
       root.edit('Keep editing after failure');
       await vi.advanceTimersByTimeAsync(500);
       expect(state.acknowledgeSaved()).toBe(true);
+      await sending;
     } finally {
       delivery.resolve({
         draftId: 'sent',
@@ -275,10 +277,7 @@ it('waits for an existing attachment upload before flushing newer body edits', a
   const root = mountEmailComposer(composeContext);
   root.edit('With attachment');
   root.state.context.onAddAttachments([
-    {
-      type: 'local',
-      file: new File(['notes'], 'notes.txt', { type: 'text/plain' }),
-    },
+    new File(['notes'], 'notes.txt', { type: 'text/plain' }),
   ]);
   await vi.advanceTimersByTimeAsync(600);
   root.edit('Final attachment note');
@@ -351,9 +350,7 @@ it('uses the captured inbox for attachment upload when a sender switch queues be
   );
   const root = mountEmailComposer(composeContext);
   root.edit('With files');
-  root.state.context.onAddAttachments([
-    { type: 'local', file: new File(['notes'], 'notes.txt') },
-  ]);
+  root.state.context.onAddAttachments([new File(['notes'], 'notes.txt')]);
   await vi.advanceTimersByTimeAsync(600);
   root.state.context.onSelectInbox?.('other');
   pending.resolve(response);
@@ -364,7 +361,13 @@ it('uses the captured inbox for attachment upload when a sender switch queues be
   ).toBe('inbox');
   expect(
     vi.mocked(composeContext.drafts.saveDraft).mock.calls[1][0].inboxId
-  ).toBe('other');
+  ).toBe('inbox');
+  expect(composeContext.drafts.transferDraft).toHaveBeenCalledWith(
+    expect.objectContaining({
+      sourceInboxId: 'inbox',
+      destinationInboxId: 'other',
+    })
+  );
   root.dispose();
 });
 
@@ -934,24 +937,22 @@ it('recovers local and forwarded attachments without retaining remote-only attac
   const root = mountEmailComposer(context);
   const file = new File(['notes'], 'notes.txt');
   root.edit('Saved with files');
-  root.state.context.onAddAttachments([
-    { type: 'local', file },
-    {
-      type: 'remote',
-      attachmentId: 'remote',
-      url: 'https://example.com/file',
-      fileName: 'remote.txt',
-      contentType: 'text/plain',
-      fileSize: 10,
-    },
-    {
-      type: 'forwarded',
-      attachmentId: 'original-file',
-      fileName: 'forward.txt',
-      mimeType: 'text/plain',
-      fileSize: 10,
-    },
-  ]);
+  await root.state.context.onAddAttachments([file]);
+  root.state.form.attachments.add({
+    type: 'remote',
+    attachmentId: 'remote',
+    url: 'https://example.com/file',
+    fileName: 'remote.txt',
+    contentType: 'text/plain',
+    fileSize: 10,
+  });
+  root.state.form.attachments.add({
+    type: 'forwarded',
+    attachmentId: 'original-file',
+    fileName: 'forward.txt',
+    mimeType: 'text/plain',
+    fileSize: 10,
+  });
   await vi.advanceTimersByTimeAsync(600);
   vi.mocked(context.drafts.saveDraft).mockResolvedValue({
     ...response,

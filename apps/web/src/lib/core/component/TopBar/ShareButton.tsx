@@ -1,4 +1,17 @@
 import {
+  AccessRequestError,
+  DirectAccessView,
+  PermissionRequestsView,
+  RequestAccessView,
+  useShareRequests,
+} from '@app/features/access-requests/access-requests';
+import type { SharingSource } from '@app/features/access-requests/context/contracts';
+import { shareEntity } from '@app/features/access-requests/core/types';
+import {
+  ShareRequestIcon,
+  useShareRequestTrigger,
+} from '@app/features/access-requests/share-request-trigger';
+import {
   fetchPipelineSharePermissions,
   updatePipelineSharePermissions,
   updatePipelineTeamShare,
@@ -8,6 +21,7 @@ import { useAnalytics } from '@app/lib/analytics/analytics-context';
 import { useChannelParticipants } from '@channel/use-channel-participants';
 import { HeaderActionButton } from '@components/app/HeaderActionButton';
 import { MobileDrawer } from '@components/app/mobile/MobileDrawer';
+import { useSplitPanel } from '@components/app/split-layout/layoutUtils';
 import { useIsAuthenticated } from '@core/auth';
 import {
   type BlockAlias,
@@ -24,7 +38,10 @@ import {
 import { EntityIcon } from '@core/component/EntityIcon';
 import { type TabItem, Tabs } from '@core/component/Tabs';
 import { UserIcon } from '@core/component/UserIcon';
-import { ENABLE_MARKDOWN_COMMENTS } from '@core/constant/featureFlags';
+import {
+  ENABLE_MARKDOWN_COMMENTS,
+  ENABLE_MARKDOWN_LIVE_COLLABORATION,
+} from '@core/constant/featureFlags';
 import { useUserId } from '@core/context/user';
 import clickOutside from '@core/directive/clickOutside';
 import { registerHotkey } from '@core/hotkey/hotkeys';
@@ -33,6 +50,7 @@ import { isMobile } from '@core/mobile/isMobile';
 import { blockHotkeyScopeSignal } from '@core/signal/blockElement';
 import { blockEditPermissionEnabledSignal } from '@core/signal/load';
 import { useIsDocumentOwner } from '@core/signal/permissions';
+import { fireAndForget } from '@core/util/fireAndForget';
 import type { ResultError } from '@core/util/result';
 import { buildSimpleEntityUrl } from '@core/util/url';
 import { useCopyLink } from '@core/util/useCopyLink';
@@ -67,6 +85,10 @@ import {
   getDatabaseSharePermissions,
   updateDatabaseSharePermissions,
 } from '@queries/storage/databases';
+import {
+  updateEntitySharePolicy,
+  usesGraphqlSharePolicy,
+} from '@queries/storage/entity-mutations';
 import {
   getFormSharePermissions,
   updateFormSharePermissions,
@@ -312,6 +334,7 @@ interface ShareModalProps extends ManagedDialogProps {
   linkSharing?: Component;
   /** Whether `people` lists anyone, for the link-sharing status. */
   hasDirectShares?: boolean;
+  directPeopleIds?: readonly string[];
 }
 
 function DmRecipientIcon(props: { channelId: string }) {
@@ -524,6 +547,8 @@ function LinkSharingControls(props: LinkSharingControlsProps) {
 }
 
 interface MobileShareDrawerProps {
+  requests: SharingSource;
+  requestLevels: readonly AccessLevel[];
   editPermissionEnabled?: boolean;
   canForward: boolean;
   /** The roster lists only the owner, so it is titled for them alone. */
@@ -538,6 +563,7 @@ interface MobileShareDrawerProps {
   people?: Component;
   linkSharing?: Component;
   hasDirectShares?: boolean;
+  directPeopleIds?: readonly string[];
   userPermissions: Permissions;
   recipients: SharePermissionV2ChannelSharePermissions | undefined;
   channelNameMap: Map<string, { name: string; type: string }>;
@@ -554,12 +580,12 @@ interface MobileShareDrawerProps {
 }
 
 function MobileShareDrawer(props: MobileShareDrawerProps) {
-  const [activeTab, setActiveTab] = createSignal('share');
+  const [activeTab, setActiveTab] = createSignal<string>();
 
   const wrappedSetOpen = (open: boolean) => {
     props.setIsOpen(open);
     if (!open) {
-      setActiveTab('share');
+      setActiveTab(undefined);
     }
   };
 
@@ -582,7 +608,12 @@ function MobileShareDrawer(props: MobileShareDrawerProps) {
   });
 
   const effectiveActiveTab = createMemo(() => {
-    const tab = activeTab();
+    const tab =
+      activeTab() ??
+      (props.requests.state()?.canReview &&
+      (props.requests.state()?.pendingCount ?? 0) > 0
+        ? 'people'
+        : 'share');
     return mobileTabs().find((t) => t.value === tab) ? tab : 'share';
   });
 
@@ -682,6 +713,8 @@ function MobileShareDrawer(props: MobileShareDrawerProps) {
             </Show>
           </div>
           <Show when={effectiveActiveTab() === 'people'}>
+            <AccessRequestError source={props.requests} />
+            <PermissionRequestsView source={props.requests} />
             <div class="grid gap-3 text-ink text-sm select-none py-3 px-4">
               <Show when={props.owner}>
                 <div class="flex justify-between">
@@ -693,6 +726,14 @@ function MobileShareDrawer(props: MobileShareDrawerProps) {
                   </div>
                 </div>
               </Show>
+              <RequestAccessView
+                source={props.requests}
+                allowedLevels={props.requestLevels}
+              />
+              <DirectAccessView
+                source={props.requests}
+                exclude={props.directPeopleIds}
+              />
               <Dynamic component={props.people} />
               <For each={props.recipients || []}>
                 {(recipient) => (
@@ -754,9 +795,12 @@ function MobileShareDrawer(props: MobileShareDrawerProps) {
                           if (accessLevel === null) {
                             props.removeChannelAccess(recipient.channel_id);
                           } else if (accessLevel !== recipient.access_level) {
-                            props.setChannelPermissions(
-                              recipient.channel_id,
-                              accessLevel
+                            fireAndForget(
+                              props.setChannelPermissions(
+                                recipient.channel_id,
+                                accessLevel
+                              ),
+                              'share-modal'
                             );
                           }
                         }}
@@ -811,6 +855,20 @@ function MobileShareDrawer(props: MobileShareDrawerProps) {
 }
 
 export function ShareModal(props: ShareModalProps) {
+  const requests = useShareRequests(
+    () => shareEntity(props.itemType, props.id),
+    () => props.open
+  );
+  const requestLevels = () =>
+    (requests.state()?.supportedLevels ?? []).filter(
+      (level) =>
+        !(props.blockAlias === 'pdf' && level === 'edit') &&
+        !(
+          ['md', 'task', 'snippet', 'skill'].includes(props.blockAlias) &&
+          ((level === 'comment' && !ENABLE_MARKDOWN_COMMENTS) ||
+            (level === 'edit' && !ENABLE_MARKDOWN_LIVE_COLLABORATION))
+        )
+    );
   const navigate = useNavigate();
   const analytics = useAnalytics();
   const currentTeamQuery = useCurrentTeamQuery();
@@ -872,11 +930,14 @@ export function ShareModal(props: ShareModalProps) {
 
   const copyLink = createCallback(() => {
     if (props.copyLink) return props.copyLink();
-    copyEntityLink(shareUrl(props.blockAlias, props.id), {
-      subtext: RESTRICTED_SHARE_DESCRIPTIONS[props.itemType]
-        ? undefined
-        : SHARE_LINK_SUBTEXT,
-    });
+    fireAndForget(
+      copyEntityLink(shareUrl(props.blockAlias, props.id), {
+        subtext: RESTRICTED_SHARE_DESCRIPTIONS[props.itemType]
+          ? undefined
+          : SHARE_LINK_SUBTEXT,
+      }),
+      'share-modal'
+    );
   });
 
   const [channelNamesResource] = createResource(
@@ -944,12 +1005,28 @@ export function ShareModal(props: ShareModalProps) {
 
   const removeChannelAccess = createCallback(async (channelId: string) => {
     if (recipientPermissions() !== Permissions.OWNER) return;
-    if (props.itemType === 'crm_pipeline') {
+    if (usesGraphqlSharePolicy(props.itemType)) {
+      const result = await updateEntitySharePolicy(props.itemType, props.id, {
+        channelSharePermissions: [{ operation: 'remove', channelId }],
+      });
+      if (result.isOk()) {
+        fireAndForget(refetch(), 'share-modal');
+        toast.success(
+          props.itemType === 'project'
+            ? 'Removed folder access'
+            : 'Removed channel access'
+        );
+      } else {
+        toast.alert('Failed to remove channel access', {
+          subtext: 'Please try again',
+        });
+      }
+    } else if (props.itemType === 'crm_pipeline') {
       const result = await updatePipelineSharePermissions(props.id, {
         channelSharePermissions: [{ operation: 'remove', channelId }],
       });
       if (result.isOk()) {
-        refetch();
+        fireAndForget(refetch(), 'share-modal');
         toast.success('Removed channel access');
       } else {
         toast.alert('Failed to remove channel access', {
@@ -961,7 +1038,7 @@ export function ShareModal(props: ShareModalProps) {
         channelSharePermissions: [{ operation: 'remove', channelId }],
       });
       if (result.isOk()) {
-        refetch();
+        fireAndForget(refetch(), 'share-modal');
         toast.success('Removed channel access');
       } else {
         toast.alert('Failed to remove channel access', {
@@ -973,7 +1050,7 @@ export function ShareModal(props: ShareModalProps) {
         channelSharePermissions: [{ operation: 'remove', channelId }],
       });
       if (result.isOk()) {
-        refetch();
+        fireAndForget(refetch(), 'share-modal');
         toast.success('Removed channel access', {
           subtext: 'Channel no longer has access to this project',
         });
@@ -1024,7 +1101,7 @@ export function ShareModal(props: ShareModalProps) {
         },
       });
       if (!result.isErr()) {
-        refetch();
+        fireAndForget(refetch(), 'share-modal');
         toast.success('Removed channel access', {
           subtext: 'Channel no longer has access to this chat',
         });
@@ -1047,7 +1124,7 @@ export function ShareModal(props: ShareModalProps) {
         },
       });
       if (!result.isErr()) {
-        refetch();
+        fireAndForget(refetch(), 'share-modal');
         toast.success('Removed channel access', {
           subtext: 'Channel no longer has access to this document',
         });
@@ -1070,7 +1147,7 @@ export function ShareModal(props: ShareModalProps) {
         },
       });
       if (!result.isErr()) {
-        refetch();
+        fireAndForget(refetch(), 'share-modal');
         toast.success('Removed folder access');
       } else {
         toast.alert('Failed to remove folder access', {
@@ -1093,7 +1170,13 @@ export function ShareModal(props: ShareModalProps) {
         | Result<any, ResultError<any>[]>
         | Result<void, ResultError<any>[]>
         | null = null;
-      if (props.itemType === 'crm_pipeline') {
+      if (usesGraphqlSharePolicy(props.itemType)) {
+        result = await updateEntitySharePolicy(props.itemType, props.id, {
+          channelSharePermissions: [
+            { operation: 'replace', accessLevel, channelId },
+          ],
+        });
+      } else if (props.itemType === 'crm_pipeline') {
         result = await updatePipelineSharePermissions(props.id, {
           channelSharePermissions: [
             { operation: 'replace', accessLevel, channelId },
@@ -1180,7 +1263,7 @@ export function ShareModal(props: ShareModalProps) {
       }
 
       if (result && result.isOk()) {
-        refetch();
+        fireAndForget(refetch(), 'share-modal');
         if (!hideSuccessToast) {
           toast.success('Changed channel access level', {
             subtext: accessLevelText(accessLevel),
@@ -1245,7 +1328,13 @@ export function ShareModal(props: ShareModalProps) {
         getTeamShareScope(sharePermission.teamShareAccessLevel) !== 'NONE';
 
       let result: Result<unknown, ResultError<any>[]>;
-      if (props.itemType === 'crm_pipeline') {
+      if (props.itemType !== 'call' && usesGraphqlSharePolicy(props.itemType)) {
+        result = await updateEntitySharePolicy(
+          props.itemType,
+          props.id,
+          sharePermission
+        );
+      } else if (props.itemType === 'crm_pipeline') {
         result = await updatePipelineTeamShare(props.id, shared);
       } else if (props.itemType === 'agent_session') {
         result = await updateAgentSessionSharePermissions(
@@ -1283,7 +1372,7 @@ export function ShareModal(props: ShareModalProps) {
         return;
       }
 
-      refetch();
+      fireAndForget(refetch(), 'share-modal');
       const scope = getTeamShareScope(sharePermission.teamShareAccessLevel);
       if (props.itemType === 'call') {
         setCallRecordTeamShareCache(props.id, shared);
@@ -1336,7 +1425,13 @@ export function ShareModal(props: ShareModalProps) {
       const scope = getLinkShareScope(sharePermission.linkShare);
       let result: Result<any, ResultError<any>[]> | undefined;
 
-      if (props.itemType === 'agent_session') {
+      if (usesGraphqlSharePolicy(props.itemType)) {
+        result = await updateEntitySharePolicy(
+          props.itemType,
+          props.id,
+          sharePermission
+        );
+      } else if (props.itemType === 'agent_session') {
         result = await updateAgentSessionSharePermissions(
           props.id,
           sharePermission
@@ -1372,7 +1467,7 @@ export function ShareModal(props: ShareModalProps) {
         return;
       }
 
-      refetch();
+      fireAndForget(refetch(), 'share-modal');
       if (scope === 'NONE') {
         toast.success(`Disabled link sharing for this ${entityLabel}`, {
           subtext: getLinkShareScopeCopy('NONE').description,
@@ -1426,6 +1521,9 @@ export function ShareModal(props: ShareModalProps) {
       when={!isMobile()}
       fallback={
         <MobileShareDrawer
+          requests={requests}
+          requestLevels={requestLevels()}
+          directPeopleIds={props.directPeopleIds}
           editPermissionEnabled={editPermissionEnabled()}
           canForward={canForward()}
           ownerOnlyRoster={ownerOnlyRoster()}
@@ -1435,10 +1533,12 @@ export function ShareModal(props: ShareModalProps) {
           name={props.name}
           id={props.id}
           itemType={props.itemType}
-          owner={props.owner}
+          owner={props.owner ?? requests.state()?.owner ?? undefined}
           people={props.people}
           linkSharing={props.linkSharing}
-          hasDirectShares={props.hasDirectShares}
+          hasDirectShares={
+            props.hasDirectShares || requests.grants().length > 0
+          }
           userPermissions={recipientPermissions()}
           recipients={recipients()}
           channelNameMap={channelNameMap()}
@@ -1518,8 +1618,27 @@ export function ShareModal(props: ShareModalProps) {
                 </Panel.Body>
               </Panel>
 
+              <AccessRequestError source={requests} />
+              <Show
+                when={
+                  requests.state()?.canReview &&
+                  (requests.state()?.pendingCount ?? 0) > 0
+                }
+              >
+                <Panel depth={2} class="rounded-xl bg-dialog">
+                  <Panel.Body>
+                    <PermissionRequestsView source={requests} />
+                  </Panel.Body>
+                </Panel>
+              </Show>
+
               {/* Card 2: Recipients — plain border */}
-              <Show when={(recipients()?.length ?? 0) > 0 || !!props.owner}>
+              <Show
+                when={
+                  (recipients()?.length ?? 0) > 0 ||
+                  !!(props.owner ?? requests.state()?.owner)
+                }
+              >
                 <Panel depth={2} class="rounded-xl bg-dialog">
                   <Panel.Header class="px-4">
                     <span class="text-sm font-medium">
@@ -1542,11 +1661,15 @@ export function ShareModal(props: ShareModalProps) {
                         ref={setRecipientScrollRef}
                       >
                         <div class="grid gap-3 text-ink text-sm select-none p-4">
-                          <Show when={props.owner}>
+                          <Show when={props.owner ?? requests.state()?.owner}>
                             <div class="flex justify-between">
                               <div class="flex items-center gap-2 overflow-hidden font-medium">
                                 <OwnerLabel
-                                  ownerId={props.owner}
+                                  ownerId={
+                                    props.owner ??
+                                    requests.state()?.owner ??
+                                    undefined
+                                  }
                                   viewerLabel="Me"
                                 />
                               </div>
@@ -1557,6 +1680,14 @@ export function ShareModal(props: ShareModalProps) {
                               </div>
                             </div>
                           </Show>
+                          <RequestAccessView
+                            source={requests}
+                            allowedLevels={requestLevels()}
+                          />
+                          <DirectAccessView
+                            source={requests}
+                            exclude={props.directPeopleIds}
+                          />
                           <Dynamic component={props.people} />
                           <For each={recipients() || []}>
                             {(recipient) => (
@@ -1633,15 +1764,21 @@ export function ShareModal(props: ShareModalProps) {
                                     permissions={recipient.access_level}
                                     setPermissions={(accessLevel) => {
                                       if (accessLevel === null) {
-                                        removeChannelAccess(
-                                          recipient.channel_id
+                                        fireAndForget(
+                                          removeChannelAccess(
+                                            recipient.channel_id
+                                          ),
+                                          'share-modal'
                                         );
                                       } else if (
                                         accessLevel !== recipient.access_level
                                       ) {
-                                        setChannelPermissions(
-                                          recipient.channel_id,
-                                          accessLevel
+                                        fireAndForget(
+                                          setChannelPermissions(
+                                            recipient.channel_id,
+                                            accessLevel
+                                          ),
+                                          'share-modal'
                                         );
                                       }
                                     }}
@@ -1676,7 +1813,8 @@ export function ShareModal(props: ShareModalProps) {
                           linkShareAccessLevel={linkShareAccessLevel()}
                           hasExplicitShares={
                             (recipients()?.length ?? 0) > 0 ||
-                            !!props.hasDirectShares
+                            !!props.hasDirectShares ||
+                            requests.grants().length > 0
                           }
                           setLinkShareScope={setLinkShareScope}
                           setLinkShareAccessLevel={setLinkShareAccessLevel}
@@ -1747,6 +1885,19 @@ export function ShareTrigger(props: {
     throw new Error('<ShareTrigger> requires an explicit block id');
   };
 
+  const panel = useSplitPanel();
+  const requests = useShareRequestTrigger({
+    entity: () =>
+      shareEntity(
+        blockType() === 'initiative'
+          ? 'initiative'
+          : blockNameToItemType(blockType()),
+        blockId()
+      ),
+    active: () => !panel?.isInlinePreview && (panel?.isPanelActive() ?? false),
+    open: () => props.onClick(),
+  });
+
   onMount(() => {
     const scopeId =
       props.hotkeyScope ?? (inBlock ? blockHotkeyScopeSignal.get() : undefined);
@@ -1758,7 +1909,7 @@ export function ShareTrigger(props: {
           openLoginModal();
         } else {
           analytics.track('share_menu_open', { blockType: blockType() });
-          props.onClick();
+          requests.open();
         }
         return true;
       },
@@ -1807,7 +1958,7 @@ export function ShareTrigger(props: {
   });
 
   return (
-    <div class="flex items-center gap-1">
+    <div ref={requests.ref} class="flex items-center gap-1">
       <Tooltip
         label={
           shareStatus()?.tooltip ??
@@ -1822,13 +1973,17 @@ export function ShareTrigger(props: {
       >
         <HeaderActionButton
           label="Share"
-          icon={<IconShared />}
+          icon={
+            <ShareRequestIcon count={requests.count()}>
+              <IconShared />
+            </ShareRequestIcon>
+          }
           onClick={() => {
             if (!isAuthenticated()) {
               openLoginModal();
             } else {
               analytics.track('share_menu_open', { blockType: blockType() });
-              props.onClick();
+              requests.open();
             }
           }}
         />

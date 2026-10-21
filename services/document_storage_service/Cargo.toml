@@ -27,6 +27,8 @@ local_auth = ["macro_authorization/local_auth"]
 location_check = []
 
 [dependencies]
+access_requests = { path = "../../crates/access_requests" }
+async-trait = { workspace = true }
 ai_billing = { path = "../../crates/ai_billing" }
 roles_and_permissions = { path = "../../crates/roles_and_permissions", default-features = false, features = ["outbound"] }
 teams = { path = "../../crates/teams", default-features = false, features = ["outbound"] }
@@ -96,6 +98,7 @@ channel_labels = { path = "../../crates/channel_labels", features = [
   "postgres",
 ] }
 crm = { path = "../../crates/crm" }
+databases_sql = { path = "../../crates/databases_sql", features = ["inbound"] }
 databases = { path = "../../crates/databases", features = [
   "entity_mutation",
   "gateway",

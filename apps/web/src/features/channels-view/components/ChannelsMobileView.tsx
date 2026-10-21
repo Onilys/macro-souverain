@@ -1,15 +1,19 @@
 import { createListController } from '@app/components/list';
 import { toEntityActionListState } from '@app/features/next-soup/actions';
+import {
+  persistSoupNavigationTouchHighlight,
+  soupNavigationTouchHighlight,
+} from '@app/features/next-soup/soup-view/soup-navigation-touch-highlight';
 import { openEntityInSplitFromUnifiedList } from '@app/features/next-soup/utils';
 import { SoupEntityContextMenu } from '@app/features/soup';
 import { DEBUG_SETTING_KEYS, useDebugSetting } from '@app/lib/debugSettings';
+import { CHANNEL_ACTION_VIEW_CONTEXT } from '@channel/Channel/channel-actions';
 import { useGlobalNotificationSource } from '@components/app/GlobalAppState';
-import { type PillTabItem, PillTabs } from '@components/app/mobile/PillTabs';
 import { PullToRefresh } from '@components/app/mobile/PullToRefresh';
-import { SplitHeaderLeft } from '@components/app/split-layout/components/SplitHeader';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
 import { toast } from '@core/component/Toast/Toast';
 import { useUserId } from '@core/context/user';
+import { fireAndForget } from '@core/util/fireAndForget';
 import EmptyStateNoSearchMatchGraphic from '@design/empty-state-no-search-match.svg';
 import type { ChannelEntity } from '@entity';
 import { isMutedItem } from '@entity/utils/notification';
@@ -30,25 +34,15 @@ import {
 } from 'solid-js';
 import { Virtualizer, type VirtualizerHandle } from 'virtua/solid';
 import type { ChannelsDataSource } from '../queries';
-import type { ChannelsQueryScope } from '../types';
 import { channelMentionsUser } from '../utils';
 import { ChannelsEmptyState } from './ChannelsEmptyState';
 import {
-  CHANNEL_ACTION_VIEW_CONTEXT,
   CONVERSATION_CARD_HEIGHT,
   ConversationCard,
 } from './rail/ChannelRailItems';
 import { useChannelCalls } from './rail/hooks/useChannelCalls';
 import { useChannelRailActivity } from './rail/hooks/useChannelRailActivity';
 
-const MOBILE_CHANNEL_TABS: PillTabItem<ChannelsQueryScope>[] = [
-  { value: 'recents', label: 'Recent' },
-  { value: 'channels', label: 'Channels' },
-  { value: 'direct_messages', label: 'DMs' },
-];
-const MOBILE_TAB_STRIP_CLASS =
-  '-ml-(--mobile-chrome-gutter) w-[100cqw] max-w-none flex-none';
-const MOBILE_TAB_CONTENT_CLASS = 'px-(--mobile-chrome-gutter)';
 const MOBILE_CHANNEL_BUFFER_SIZE = CONVERSATION_CARD_HEIGHT * 6;
 const LOAD_MORE_THRESHOLD = 300;
 
@@ -56,8 +50,6 @@ export function ChannelsMobileView(props: {
   source: ChannelsDataSource;
   searchQuery: string;
   onClearSearch: () => void;
-  tab: ChannelsQueryScope;
-  onTabChange: (tab: ChannelsQueryScope) => void;
 }) {
   const panel = useSplitPanelOrThrow();
   const notificationSource = useGlobalNotificationSource();
@@ -83,11 +75,6 @@ export function ChannelsMobileView(props: {
     getEntity: (channel) => channel,
   });
 
-  const selectTab = (tab: ChannelsQueryScope) => {
-    props.onTabChange(tab);
-    viewport()?.scrollTo({ top: 0 });
-  };
-
   createEffect(
     on(
       () => props.searchQuery,
@@ -106,7 +93,7 @@ export function ChannelsMobileView(props: {
       return;
     }
 
-    void props.source.loadMore();
+    fireAndForget(props.source.loadMore(), 'channels-view');
   }
 
   function checkNearEnd(offset?: number) {
@@ -124,8 +111,9 @@ export function ChannelsMobileView(props: {
   onCleanup(() => {
     opening += 1;
   });
-  const openChannel = async (channel: ChannelEntity) => {
+  const openChannel = async (channel: ChannelEntity, event: MouseEvent) => {
     const request = ++opening;
+    const finishTouchHighlight = persistSoupNavigationTouchHighlight(event);
     try {
       await openEntityInSplitFromUnifiedList(channel, {
         splitHandle: panel.handle,
@@ -138,128 +126,120 @@ export function ChannelsMobileView(props: {
       if (request !== opening) return;
       console.error('Failed to open conversation', error);
       toast.failure('Unable to open conversation. Please try again.');
+    } finally {
+      finishTouchHighlight?.();
     }
   };
 
   return (
-    <>
-      <SplitHeaderLeft>
-        <div class="flex h-full w-full min-w-0 flex-1 items-center">
-          <PillTabs
-            scrollable
-            class={MOBILE_TAB_STRIP_CLASS}
-            contentClass={MOBILE_TAB_CONTENT_CLASS}
-            items={MOBILE_CHANNEL_TABS}
-            value={props.tab}
-            onChange={selectTab}
-          />
-        </div>
-      </SplitHeaderLeft>
-
+    <div
+      role="tree"
+      aria-label="Recent conversations"
+      aria-busy={props.source.isLoadingMore()}
+      class="relative size-full min-h-0 overflow-hidden"
+    >
+      <PullToRefresh
+        scrollContainer={viewport}
+        onRefresh={props.source.refresh}
+      />
       <div
-        role="tree"
-        aria-label={`${MOBILE_CHANNEL_TABS.find((tab) => tab.value === props.tab)?.label ?? 'Channels'} conversations`}
-        aria-busy={props.source.isLoadingMore()}
-        class="relative size-full min-h-0 overflow-hidden"
+        ref={(element) => {
+          setViewport(element);
+          soupNavigationTouchHighlight(element);
+        }}
+        class="scrollbar-hidden size-full min-h-0 overflow-y-auto overscroll-none"
       >
-        <PullToRefresh
-          scrollContainer={viewport}
-          onRefresh={props.source.refresh}
-        />
         <div
-          ref={setViewport}
-          class="scrollbar-hidden size-full min-h-0 overflow-y-auto overscroll-none"
-        >
-          <div
-            ref={setTopSpacer}
-            aria-hidden="true"
-            class="h-[calc(var(--mobile-content-inset-top,0px)+0.75rem)]"
-          />
-          <Switch>
-            <Match when={!forceEmptyState() && props.source.isLoading()}>
-              <div class="grid min-h-32 place-items-center text-ink-muted">
-                <SpinnerIcon
-                  aria-label="Loading conversations"
-                  class="size-5 animate-spin"
-                />
-              </div>
-            </Match>
-            <Match
-              when={
-                !forceEmptyState() &&
-                props.source.error() &&
-                visibleChannels().length === 0
-              }
+          ref={setTopSpacer}
+          aria-hidden="true"
+          class="h-[calc(var(--mobile-content-inset-top,0px)+0.75rem)]"
+        />
+        <Switch>
+          <Match when={!forceEmptyState() && props.source.isLoading()}>
+            <div class="grid min-h-32 place-items-center text-ink-muted">
+              <SpinnerIcon
+                aria-label="Loading conversations"
+                class="size-5 animate-spin"
+              />
+            </div>
+          </Match>
+          <Match
+            when={
+              !forceEmptyState() &&
+              props.source.error() &&
+              visibleChannels().length === 0
+            }
+          >
+            <div class="flex min-h-32 flex-col items-center justify-center gap-3 px-(--mobile-chrome-gutter) text-sm text-ink-muted">
+              <span>Conversations couldn’t be loaded.</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  fireAndForget(props.source.refresh(), 'channels-view')
+                }
+              >
+                Try again
+              </Button>
+            </div>
+          </Match>
+          <Match when={forceEmptyState() || visibleChannels().length === 0}>
+            <Show
+              when={props.searchQuery.trim()}
+              fallback={<ChannelsEmptyState scope="recents" />}
             >
-              <div class="flex min-h-32 flex-col items-center justify-center gap-3 px-(--mobile-chrome-gutter) text-sm text-ink-muted">
-                <span>Conversations couldn’t be loaded.</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void props.source.refresh()}
+              {(query) => (
+                <EmptyStatePanel
+                  centered
+                  graphic={EmptyStateNoSearchMatchGraphic}
+                  title="No results"
+                  description={
+                    <span>
+                      No conversations match{' '}
+                      <span class="[overflow-wrap:anywhere]">“{query()}”</span>
+                    </span>
+                  }
+                  primaryAction={{
+                    label: 'Clear search',
+                    icon: XIcon,
+                    onClick: props.onClearSearch,
+                  }}
+                  class="h-auto touch:pt-0 touch:pb-(--mobile-content-inset-bottom)"
+                />
+              )}
+            </Show>
+          </Match>
+          <Match when={true}>
+            <Virtualizer
+              ref={(handle) => setVirtualizer(handle)}
+              data={visibleChannels()}
+              scrollRef={viewport()}
+              startMargin={topInset()}
+              itemSize={CONVERSATION_CARD_HEIGHT}
+              bufferSize={MOBILE_CHANNEL_BUFFER_SIZE}
+              onScroll={checkNearEnd}
+            >
+              {(channel) => (
+                <SoupEntityContextMenu
+                  entity={channel}
+                  list={actionList}
+                  selectedEntities={() => []}
+                  viewContext={CHANNEL_ACTION_VIEW_CONTEXT}
+                  class="block w-full"
+                  onOpenChange={(open) => {
+                    if (!open) return;
+                    actionController.focus.set(channel.id, {
+                      reason: 'pointer',
+                      force: true,
+                    });
+                  }}
                 >
-                  Try again
-                </Button>
-              </div>
-            </Match>
-            <Match when={forceEmptyState() || visibleChannels().length === 0}>
-              <Show
-                when={props.searchQuery.trim()}
-                fallback={<ChannelsEmptyState scope={props.tab} />}
-              >
-                {(query) => (
-                  <EmptyStatePanel
-                    centered
-                    graphic={EmptyStateNoSearchMatchGraphic}
-                    title="No results"
-                    description={
-                      <span>
-                        No conversations match{' '}
-                        <span class="[overflow-wrap:anywhere]">
-                          “{query()}”
-                        </span>
-                      </span>
-                    }
-                    primaryAction={{
-                      label: 'Clear search',
-                      icon: XIcon,
-                      onClick: props.onClearSearch,
-                    }}
-                    class="h-auto touch:pt-0 touch:pb-(--mobile-content-inset-bottom)"
-                  />
-                )}
-              </Show>
-            </Match>
-            <Match when={true}>
-              <Virtualizer
-                ref={(handle) => setVirtualizer(handle)}
-                data={visibleChannels()}
-                scrollRef={viewport()}
-                startMargin={topInset()}
-                itemSize={CONVERSATION_CARD_HEIGHT}
-                bufferSize={MOBILE_CHANNEL_BUFFER_SIZE}
-                onScroll={checkNearEnd}
-              >
-                {(channel) => (
-                  <SoupEntityContextMenu
-                    entity={channel}
-                    list={actionList}
-                    selectedEntities={() => []}
-                    viewContext={CHANNEL_ACTION_VIEW_CONTEXT}
-                    class="block w-full"
-                    onOpenChange={(open) => {
-                      if (!open) return;
-                      actionController.focus.set(channel.id, {
-                        reason: 'pointer',
-                        force: true,
-                      });
-                    }}
-                  >
+                  <div data-soup-entity>
                     <ConversationCard
                       id={`${listId}-channel:${channel.id}`}
                       class="border-b border-edge-muted/50 px-(--mobile-chrome-gutter) touch:pl-6"
                       channel={channel}
-                      showLatestMessage={props.tab === 'recents'}
+                      showLatestMessage
                       senderId={channel.latestRootMessage?.senderId}
                       mentionedCurrentUser={channelMentionsUser(
                         channel,
@@ -280,45 +260,52 @@ export function ChannelsMobileView(props: {
                         .get(channel.id)}
                       selected={false}
                       focused={false}
-                      onActivate={() => openChannel(channel)}
+                      onActivate={(event) =>
+                        fireAndForget(
+                          openChannel(channel, event),
+                          'channels-view'
+                        )
+                      }
                     />
-                  </SoupEntityContextMenu>
-                )}
-              </Virtualizer>
-              <Show when={props.source.isLoadingMore()}>
-                <div class="flex h-12 items-center justify-center text-ink-muted">
-                  <SpinnerIcon
-                    aria-label="Loading more conversations"
-                    class="size-4 animate-spin"
-                  />
-                </div>
-              </Show>
-              <Show
-                when={
-                  props.source.error() &&
-                  !props.source.isLoadingMore() &&
-                  visibleChannels().length > 0
-                }
-              >
-                <div class="flex items-center justify-center gap-2 py-3 text-xs text-ink-muted">
-                  <span>Couldn’t load more conversations.</span>
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    onClick={() => void props.source.refresh()}
-                  >
-                    Try again
-                  </Button>
-                </div>
-              </Show>
-            </Match>
-          </Switch>
-          <div
-            aria-hidden="true"
-            class="h-[max(1rem,var(--mobile-content-inset-bottom,0px))]"
-          />
-        </div>
+                  </div>
+                </SoupEntityContextMenu>
+              )}
+            </Virtualizer>
+            <Show when={props.source.isLoadingMore()}>
+              <div class="flex h-12 items-center justify-center text-ink-muted">
+                <SpinnerIcon
+                  aria-label="Loading more conversations"
+                  class="size-4 animate-spin"
+                />
+              </div>
+            </Show>
+            <Show
+              when={
+                props.source.error() &&
+                !props.source.isLoadingMore() &&
+                visibleChannels().length > 0
+              }
+            >
+              <div class="flex items-center justify-center gap-2 py-3 text-xs text-ink-muted">
+                <span>Couldn’t load more conversations.</span>
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={() =>
+                    fireAndForget(props.source.refresh(), 'channels-view')
+                  }
+                >
+                  Try again
+                </Button>
+              </div>
+            </Show>
+          </Match>
+        </Switch>
+        <div
+          aria-hidden="true"
+          class="h-[max(1rem,var(--mobile-content-inset-bottom,0px))]"
+        />
       </div>
-    </>
+    </div>
   );
 }

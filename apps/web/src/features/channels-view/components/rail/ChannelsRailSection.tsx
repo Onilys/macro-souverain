@@ -3,6 +3,7 @@ import {
   CollapsibleSection as WorkspaceSection,
 } from '@app/components/view-shell';
 import { DebugSuspense } from '@channel/DebugSuspense';
+import { fireAndForget } from '@core/util/fireAndForget';
 import CaretDownIcon from '@phosphor/caret-down.svg';
 import CaretUpIcon from '@phosphor/caret-up.svg';
 import PlusIcon from '@phosphor/plus.svg';
@@ -96,9 +97,9 @@ function SectionScrollArea(props: {
 /**
  * How an open section claims height in its flex column.
  *
- * - `half`: natural height, capped at half the column and shrinkable. Two
- *   `half` siblings split the column; a third sibling is starved to zero
- *   once both hit the cap, so keep `half` sections in a column of their own.
+ * - `half`: natural height, capped at half the column after reserving the
+ *   section gap. Keep two `half` sections in a column of their own so neither
+ *   shrinks when the other expands.
  * - `fill`: grows into whatever the column has left.
  * - `content`: natural height, never shrunk below it, capped at a third of
  *   the column so a long list still leaves room for its siblings.
@@ -124,7 +125,7 @@ function CollapsibleSectionRoot(props: {
           props.open && sizing() === 'fill' && 'flex-1',
           props.open &&
             sizing() === 'half' &&
-            'shrink max-h-[calc(50%_-_0.375rem)]',
+            'shrink max-h-[calc((100%-var(--sidebar-section-gap))/2)]',
           props.open && sizing() === 'content' && 'shrink-0 max-h-1/3',
           props.class
         )}
@@ -257,7 +258,11 @@ export function RailListError(props: {
       )}
     >
       <span>Couldn’t load conversations.</span>
-      <Button variant="outline" size="xs" onClick={() => void props.retry()}>
+      <Button
+        variant="outline"
+        size="xs"
+        onClick={() => fireAndForget(props.retry(), 'channels-view')}
+      >
         Try again
       </Button>
     </div>

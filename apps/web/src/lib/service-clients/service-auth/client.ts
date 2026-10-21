@@ -12,7 +12,7 @@ import {
 import { Telemetry } from '@macro-inc/observability';
 
 import { makePersisted } from '@solid-primitives/storage';
-import { err, ok } from 'neverthrow';
+import { ok } from 'neverthrow';
 import { createSignal } from 'solid-js';
 import type {
   AiPlanCatalog,
@@ -34,12 +34,14 @@ import type {
   GmailLinkStatusResponse,
   InitGithubLinkResponse,
   InitGmailLinkResponse,
+  InitOutlookLinkResponse,
   MergeGithubPullRequestRequest,
   MergeGithubPullRequestResponse,
   PatchUserTutorialRequest,
   SendMobileWelcomeEmailResponse,
   SetGithubPullRequestDraftRequest,
   SetGithubPullRequestDraftResponse,
+  TrialEligibility,
   UserQuota,
 } from './generated/schemas';
 import type { AppleLoginRequest } from './generated/schemas/appleLoginRequest';
@@ -311,6 +313,12 @@ const githubErrorResponseHandler: ErrorResponseHandler<GithubReauthenticationErr
   };
 
 export const authServiceClient = {
+  async emailConnectionProviders() {
+    return fetchWithAuth<{ gmail: boolean; outlook: boolean }>(
+      `${authHost}/link/email/providers`,
+      { method: 'GET' }
+    );
+  },
   async logout() {
     setAccessTokenData(null);
     return (
@@ -712,6 +720,13 @@ export const authServiceClient = {
   },
 
   // Stripe HTTP methods (replacing RPC calls)
+  async getTrialEligibility() {
+    return await fetchWithAuth<TrialEligibility>(
+      `${authHost}/user/stripe/trial_eligibility`,
+      { method: 'GET' }
+    );
+  },
+
   async createCheckoutSessionV2(args: {
     successUrl: string;
     cancelUrl: string;
@@ -738,6 +753,22 @@ export const authServiceClient = {
           plan: args.plan,
           onboardingTrial: args.onboardingTrial,
         }),
+        errorResponseHandler: async (response) => {
+          if (response.status === 409) {
+            const body: unknown = await response.json().catch(() => null);
+            return {
+              code: 'CONFLICT',
+              message:
+                body &&
+                typeof body === 'object' &&
+                'message' in body &&
+                typeof body.message === 'string'
+                  ? body.message
+                  : 'Your subscription status changed. Please refresh your plans.',
+            };
+          }
+          return statusError(response.status);
+        },
       }
     );
   },
@@ -990,7 +1021,7 @@ export const authServiceClient = {
    */
   async initGmailLink(
     originalUrl?: string,
-    options?: { scopes?: ConsentScopes }
+    options?: { scopes?: ConsentScopes; reconnectLinkId?: string }
   ) {
     const params = new URLSearchParams();
     if (originalUrl) {
@@ -999,6 +1030,8 @@ export const authServiceClient = {
     if (options?.scopes) {
       params.set('scopes', options.scopes);
     }
+    if (options?.reconnectLinkId)
+      params.set('reconnect_link_id', options.reconnectLinkId);
     const query = params.toString();
     const url = query
       ? `${authHost}/link/gmail?${query}`
@@ -1032,6 +1065,40 @@ export const authServiceClient = {
     ).map((result) => result);
   },
 
+  /** Connect a personal Outlook.com or Microsoft 365 inbox. */
+  async initOutlookLink(
+    originalUrl: string,
+    options?: { calendar?: boolean; reconnectLinkId?: string }
+  ) {
+    const params = new URLSearchParams({
+      original_url: encodeURIComponent(originalUrl),
+      scopes: options?.calendar ? 'mail_and_calendar' : 'mail',
+    });
+    if (options?.reconnectLinkId)
+      params.set('reconnect_link_id', options.reconnectLinkId);
+    return fetchWithAuth<
+      InitOutlookLinkResponse,
+      'PAYMENT_REQUIRED' | 'TOO_MANY_PENDING_LINKS'
+    >(`${authHost}/link/outlook?${params}`, {
+      method: 'POST',
+      errorResponseHandler: async (response) => {
+        if (response.status === 402) {
+          return { code: 'PAYMENT_REQUIRED', message: 'Payment required' };
+        }
+        if (response.status === 429) {
+          return {
+            code: 'TOO_MANY_PENDING_LINKS',
+            message: 'Too many pending inbox connections',
+          };
+        }
+        return {
+          code: 'HTTP_ERROR',
+          message: `HTTP error! status: ${response.status}`,
+        };
+      },
+    });
+  },
+
   /**
    * Deletes a github link for a user
    * NOTE: this does not delete the github application from being installed on a teams repository
@@ -1045,11 +1112,7 @@ export const authServiceClient = {
   },
 
   async reauthenticateGithub(originalUrl?: string) {
-    const deleteResult = await authServiceClient.deleteGithubLink();
-    if (deleteResult.isErr()) {
-      return err(deleteResult.error);
-    }
-
+    // The OAuth callback refreshes the grant after verifying the GitHub account.
     return authServiceClient.initGithubLink(originalUrl);
   },
 

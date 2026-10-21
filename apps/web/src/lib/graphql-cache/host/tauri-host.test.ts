@@ -1036,6 +1036,30 @@ describe('createTauriCacheHost', () => {
     expect(unlisten).toHaveBeenCalled();
   });
 
+  it('absorbs unlisten rejections on dispose', async () => {
+    const unhandled: unknown[] = [];
+    const record = (reason: unknown) => unhandled.push(reason);
+    process.on('unhandledRejection', record);
+    try {
+      const rejectingUnlisten = vi.fn(() =>
+        Promise.reject(new Error('listener already gone'))
+      );
+      listenMock.mockResolvedValue(rejectingUnlisten);
+      const host = createTauriCacheHost({ scope: 'scope-1' });
+      host.dispose();
+
+      await vi.waitFor(() =>
+        expect(rejectingUnlisten).toHaveBeenCalledTimes(
+          listenMock.mock.calls.length
+        )
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', record);
+    }
+  });
+
   describe('calendar ranges', () => {
     const rangeArgs = { startMs: 0, endMs: 10, startDay: 0, endDay: 1 };
     const range = {
@@ -1081,7 +1105,7 @@ describe('createTauriCacheHost', () => {
           { commit }
         );
         invokeMock.mockResolvedValue(null);
-        void host.enqueueOptimisticMutation(
+        const enqueued = host.enqueueOptimisticMutation(
           {
             query: 'mutation M { m }',
             data: {},
@@ -1098,6 +1122,7 @@ describe('createTauriCacheHost', () => {
             })
           )
         );
+        await enqueued;
       } finally {
         host.dispose();
       }

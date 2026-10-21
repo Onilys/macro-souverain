@@ -10,10 +10,10 @@
 //!
 //! Replay is deliberately lenient: a frame it does not recognize contributes
 //! nothing rather than failing the attach, because a partially-rebuilt
-//! context is strictly better than none. Two shapes are intentionally lossy:
-//! thought chunks are skipped (past reasoning is not replayed to the model),
-//! and a tool call is rebuilt under the display title it was streamed with,
-//! which for the Macro product toolset is the tool name itself.
+//! context is strictly better than none. Thought chunks are skipped (past
+//! reasoning is not replayed to the model). Tool calls use their canonical
+//! name from `_meta.macro.toolName`; only older frames without that metadata
+//! fall back to the display title.
 
 use agent::ReasoningEffort;
 use agent::types::AssistantMessagePart;
@@ -29,7 +29,7 @@ use agent_session::domain::model::Message;
 use futures::future::BoxFuture;
 use std::collections::HashSet;
 
-use crate::domain::agent::close_dangling_tool_calls;
+use crate::domain::agent::{META_NAMESPACE, close_dangling_tool_calls};
 use crate::domain::model_options::REASONING_EFFORT_CONFIG_ID;
 use crate::domain::session::{HistoryEntry, UserPrompt, end_of_turn, splice_summary};
 use agent_runtime_protocol::domain::context::ContextSummaryNotification;
@@ -40,15 +40,14 @@ mod test;
 /// Where a session's durable frames come from when its conversation has to
 /// be rebuilt - a cold attach in a process that has never served the session.
 ///
-/// Failures degrade to an empty history (the model's context starts over,
-/// which was every restart's behavior before replay existed) rather than
-/// failing the attach.
+/// A failed read must fail the attach. An unavailable log is not an empty
+/// conversation: silently forgetting it would misrepresent the agent's memory.
 pub trait FrameSource: Send + Sync + 'static {
     /// The session's logged frames, oldest first.
     fn frames(
         &self,
         session: agent_session::domain::model::AgentSessionId,
-    ) -> BoxFuture<'_, Vec<Message>>;
+    ) -> BoxFuture<'_, agent_session::domain::error::Result<Vec<Message>>>;
 }
 
 /// A turn replay has opened and not yet closed.
@@ -245,7 +244,14 @@ fn apply_update(parts: &mut Vec<AssistantMessagePart>, update: SessionUpdate) {
         }
         SessionUpdate::ToolCall(call) => {
             parts.push(AssistantMessagePart::ToolCall {
-                name: call.title.clone(),
+                name: call
+                    .meta
+                    .as_ref()
+                    .and_then(|meta| meta.get(META_NAMESPACE))
+                    .and_then(|meta| meta.get("toolName"))
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or(&call.title)
+                    .to_owned(),
                 json: call.raw_input.clone().unwrap_or(serde_json::Value::Null),
                 id: call.tool_call_id.0.to_string(),
             });

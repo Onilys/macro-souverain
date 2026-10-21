@@ -49,7 +49,10 @@ vi.mock('@core/component/AI/signal/globalAttachments', () => ({
 vi.mock('@core/context/team', () => ({
   TeamContextProvider: (props: { children: unknown }) => props.children,
 }));
-vi.mock('@core/context/user', () => ({ useUserId: () => () => 'test-user' }));
+vi.mock('@core/context/user', () => ({
+  useUserId: () => () => 'test-user',
+  useIsAuthenticated: () => () => true,
+}));
 vi.mock('@core/orchestrator', () => ({
   createBlockOrchestrator: vi.fn(() => ({})),
 }));
@@ -70,7 +73,10 @@ vi.mock('@service-connection/client', () => ({
   useRefreshTrackedEntitiesOnFocus: () => {},
   useReopenTrackedEntitiesOnReconnect: () => {},
 }));
-vi.mock('@service-connection/websocket', () => ({ ws: {} }));
+vi.mock('@service-connection/websocket', () => ({
+  ws: {},
+  createConnectionWebsocketEffect: () => {},
+}));
 
 vi.mock('./ShareButton', () => ({
   ShareModal: (props: {

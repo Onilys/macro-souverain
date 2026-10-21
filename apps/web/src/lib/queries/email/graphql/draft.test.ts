@@ -68,6 +68,9 @@ describe('optimistic draft saves', () => {
       hasAttachments: true,
       attachmentsDraft: [
         {
+          uploadPending: false,
+          contentId: null,
+          isInline: false,
           __typename: 'GraphqlSoupEmailDraftAttachment' as const,
           id: 'attachment',
           draftId: String(args.draftId),
@@ -137,6 +140,7 @@ it('creates a complete standalone thread with the account classification and sta
     cacheProjection: null,
   });
   expect(thread.mailDraftState?.baseline.messageCount).toBe(0);
+  expect(optimisticContextOf(operations[0])?.revalidations).toEqual([]);
   expect(optimisticContextOf(operations[0])?.identityBindings).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
@@ -219,6 +223,7 @@ it('keeps canonical same-inbox reply updates without aliasing the conversation',
     })
   );
   expect(context.linkPatches).toHaveLength(1);
+  expect(context.revalidations).toEqual([]);
   expect(context.optimisticResponse).toMatchObject({
     saveEmailDraft: {
       thread: { id: args.threadDbId, messages: [{ id: args.draftId }] },
@@ -240,6 +245,9 @@ it('does not infer a local thread from an uncached reply hint', async () => {
     })
   );
   expect(context.linkPatches).toEqual([]);
+  expect(context.revalidations).toContainEqual(
+    expect.objectContaining({ operationName: 'EmailThreadPage' })
+  );
 });
 
 it.each([args.senderLinkId, 'other-inbox'])(
@@ -311,7 +319,8 @@ it('editing an older draft keeps the later received preview and discarding resto
     mailAllPreview: received,
     mailSentPreview: sent,
     latestInboundMessageTs: null,
-    sortTs: '2026-02-01T00:00:00Z',
+    latestNonSpamMessageTs: '2026-02-01T00:00:00Z',
+    latestOutboundMessageTs: '2026-01-31T00:00:00Z',
     messages: [],
   });
   expect(removed.mailDraftState?.baseline.hasCalendarAttachment).toBe(true);

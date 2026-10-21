@@ -23,10 +23,11 @@ key issuance, and account merge/link flows.
 
 - Owns: FusionAuth-backed login/session issuance, JWT minting, signup
   allowlisting, OAuth/OAuth2 account linking, GTM invite links, shared-mailbox
-  relocation signup, Cursor/Codex API key endpoints.
+  relocation signup, Cursor/Codex API key endpoints, introductory trial
+  eligibility and subscription checkout.
 - Not here: authorization/permission decisions on other entities →
-  `crates/macro_authorization`; subscription/billing logic itself →
-  `crates/ai_billing`, `crates/initiative`.
+  `crates/macro_authorization`; metered AI credits → `crates/ai_billing`;
+  team lifecycle and seats → `crates/teams`.
 
 ## Recipes
 
@@ -45,8 +46,43 @@ key issuance, and account merge/link flows.
   `env -u DATABASE_URL cargo test -p authentication_service --bin authentication_service config::test`
   and `cargo run -p authentication_service --bin authentication_service_doppler_config`.
 
+## Subscription checkout
+
+- `src/service/subscription_checkout.rs` owns introductory eligibility and
+  checkout terms; its Stripe adapter reads every subscription status and page.
+- `GET /user/stripe/trial_eligibility` reads the authenticated customer's
+  eligibility without creating checkout. Any prior subscription disqualifies
+  the first-subscription trial, including canceled or incomplete subscriptions.
+- Nonterminal subscriptions (including past due, unpaid, paused, and incomplete)
+  require management; only canceled and incomplete-expired subscriptions allow
+  replacement. Eligibility includes `existingSubscription` for recovery UI.
+- Share checkout idempotency generations across Pro, Max, and trial terms. Reuse
+  exact open offers; expire other open subscription sessions before replacement.
+  Never advance a generation after an ambiguous provider failure. Complete the
+  backend rollout before releasing clients that depend on these protections.
+- Stripe can cache a create failure under its idempotency key. If no session
+  becomes visible, retries deliberately retain that key: rotating it could double
+  bill after an ambiguous create. Reconcile using the opaque customer, session,
+  and idempotency fields in `billing.checkout` traces and Stripe request logs;
+  recover an existing subscription, reuse a confirmed matching checkout, or
+  expire a confirmed obsolete open session before retrying. If there is no session to reconcile, escalate to Stripe/support and
+  wait for Stripe's key retention to expire (at least 24 hours). Never invent a
+  fresh key solely to bypass a failed response.
+- Keep eligibility reads and checkout validation on the same policy; the legacy
+  `hasTrialed` flag tracks trials only and cannot identify paid-only customers.
+- Deploy the eligibility endpoint before web clients that require it; otherwise
+  the clients keep Pro checkout disabled until the lookup can succeed.
+
+API-token exchange preserves verified incoming agent attribution; query/body
+inputs cannot select an agent, and ordinary user credentials remain unattributed.
+
 ## Gotchas
 
+- GitHub reconnect preserves the current link until OAuth completes. A different
+  account returns 409; disconnect first to switch accounts. Missing grants report
+  reauthentication, while infrastructure failures remain server errors.
+  Deploy grant-refresh support before releasing clients that omit the pre-OAuth
+  disconnect; older callbacks leave an existing grant unchanged.
 - The signup allowlist has a temporary Develop-only bypass
   (`DEVELOPMENT_BYPASS_SIGNUP_ALLOWLIST`) that overrides the allowlist even
   when present; see `README.md` before changing signup behavior.

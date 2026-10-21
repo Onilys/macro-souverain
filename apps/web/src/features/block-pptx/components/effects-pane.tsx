@@ -10,6 +10,7 @@ import type {
   PictureRecolor,
   ShapeOutline,
 } from '@core/pptx-engine/types';
+import { fireAndForget } from '@core/util/fireAndForget';
 import { Popover } from '@kobalte/core/popover';
 import { Button } from '@ui/components/Button';
 import { createSignal, For, type JSX, Show } from 'solid-js';
@@ -75,12 +76,15 @@ function liveApplier(apply: (value: number, group?: string) => unknown) {
   let drags = 0;
   const run = async () => {
     running = true;
-    while (pending !== undefined) {
-      const value = pending;
-      pending = undefined;
-      await apply(value, group);
+    try {
+      while (pending !== undefined) {
+        const value = pending;
+        pending = undefined;
+        await apply(value, group);
+      }
+    } finally {
+      running = false;
     }
-    running = false;
   };
   return {
     start: () => {
@@ -91,7 +95,7 @@ function liveApplier(apply: (value: number, group?: string) => unknown) {
     },
     set: (value: number) => {
       pending = value;
-      if (!running) void run();
+      if (!running) fireAndForget(run(), 'pptx-editor');
     },
   };
 }
@@ -149,7 +153,9 @@ function SliderField(props: {
           width="2.25rem"
           disabled={props.disabled}
           testId={props.testId}
-          onCommit={(v) => void props.onApply(v)}
+          onCommit={(v) => {
+            props.onApply(v);
+          }}
         />
       </div>
     </Row>
@@ -281,7 +287,9 @@ function ShadowGroup(props: EffectGroupProps) {
           colors={props.colors}
           disabled={props.readonly}
           testId="pptx-pane-shadow-color"
-          onPick={(color) => void props.set({ shadow: { color } })}
+          onPick={(color) => {
+            props.set({ shadow: { color } });
+          }}
         />
       </Row>
       <SliderField
@@ -439,7 +447,9 @@ function GlowGroup(props: EffectGroupProps) {
           colors={props.colors}
           disabled={props.readonly}
           testId="pptx-pane-glow-color"
-          onPick={(color) => void props.set({ glow: { color } })}
+          onPick={(color) => {
+            props.set({ glow: { color } });
+          }}
         />
       </Row>
       <SliderField
@@ -594,7 +604,10 @@ export function PicturePaneSections(props: { env: RibbonEnv }) {
               disabled={ro()}
               data-testid="pptx-pane-corrections-reset"
               onClick={() =>
-                void c.formatPicture({ brightness: 0, contrast: 0 })
+                fireAndForget(
+                  c.formatPicture({ brightness: 0, contrast: 0 }),
+                  'pptx-editor'
+                )
               }
             >
               Reset
@@ -610,9 +623,12 @@ export function PicturePaneSections(props: { env: RibbonEnv }) {
               disabled={ro()}
               value={info()?.recolor ?? 'none'}
               onChange={(e) =>
-                void c.formatPicture({
-                  recolor: e.currentTarget.value as PictureRecolor,
-                })
+                fireAndForget(
+                  c.formatPicture({
+                    recolor: e.currentTarget.value as PictureRecolor,
+                  }),
+                  'pptx-editor'
+                )
               }
             >
               <Show when={!recolors.some((r) => r.value === info()?.recolor)}>
@@ -668,7 +684,10 @@ export function PicturePaneSections(props: { env: RibbonEnv }) {
                   disabled={ro()}
                   testId={`pptx-pane-crop-${edge}`}
                   onCommit={(v) =>
-                    void c.cropPictures(() => ({ [edge]: v / 100 }))
+                    fireAndForget(
+                      c.cropPictures(() => ({ [edge]: v / 100 })),
+                      'pptx-editor'
+                    )
                   }
                 />
               </Row>
@@ -679,7 +698,9 @@ export function PicturePaneSections(props: { env: RibbonEnv }) {
               size="sm"
               variant="outline"
               disabled={ro()}
-              onClick={() => void c.fitPictures('fill')}
+              onClick={() =>
+                fireAndForget(c.fitPictures('fill'), 'pptx-editor')
+              }
             >
               Fill
             </Button>
@@ -687,7 +708,7 @@ export function PicturePaneSections(props: { env: RibbonEnv }) {
               size="sm"
               variant="outline"
               disabled={ro()}
-              onClick={() => void c.fitPictures('fit')}
+              onClick={() => fireAndForget(c.fitPictures('fit'), 'pptx-editor')}
             >
               Fit
             </Button>
@@ -699,7 +720,7 @@ export function PicturePaneSections(props: { env: RibbonEnv }) {
             variant="outline"
             disabled={ro()}
             data-testid="pptx-pane-picture-reset"
-            onClick={() => void c.resetPictures(true)}
+            onClick={() => fireAndForget(c.resetPictures(true), 'pptx-editor')}
           >
             Reset Picture & Size
           </Button>

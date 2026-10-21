@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import { getPlatform, isTauri } from '@core/util/platform';
 import { type Attributes, Telemetry } from '@macro-inc/observability';
 import { invoke } from '@tauri-apps/api/core';
@@ -28,6 +29,15 @@ export type DesktopSnapshot = {
   };
   samples: MemorySample[];
   droppedSamples: number;
+  /** Absent on binaries shipped before WebContent termination reporting. */
+  webContent?: {
+    terminations: number;
+    lastTerminationMs: number | null;
+  };
+  bundleReloads?: {
+    dispatches: number;
+    lastSource: string | null;
+  } | null;
 };
 
 type SampleSink = {
@@ -152,7 +162,11 @@ export function createMemoryRecording(
       });
     } finally {
       pending = false;
-      if (!disposed) timer = setTimeout(() => void poll(), 1000);
+      if (!disposed)
+        timer = setTimeout(
+          () => fireAndForget(poll(), 'desktop-memory-recording'),
+          1000
+        );
     }
   }
 

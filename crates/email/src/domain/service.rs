@@ -4,6 +4,7 @@ mod followup;
 mod previews;
 mod send;
 mod senders;
+mod sending_inbox;
 pub(crate) mod signature;
 mod thread;
 mod thread_labels;
@@ -20,12 +21,12 @@ use crate::domain::{
     models::{
         CreateDraftInput, CreatedDraft, EmailErr, EmailFilter, EmailThreadMailProjection,
         EmailThreadMetadata, EnrichedEmailThreadPreview, GetEmailsRequest, Link, LinkLabel,
-        ParsedMessage, ParsedThread, SenderPolicy, Thread, UpdateThreadLabelsResult,
-        UpsertEmailFilterInput,
+        ParsedMessage, ParsedThread, ResolvedSendingInbox, SenderPolicy, SendingInboxRequest,
+        Thread, UpdateThreadLabelsResult, UpsertEmailFilterInput,
     },
     ports::{
         EmailContentService, EmailMessageEnqueuer, EmailRepo, EmailService,
-        EmailThreadMailProjectionService, EmailThreadMetadataService,
+        EmailThreadMailProjectionService, EmailThreadMetadataService, EmailThreadPreviewService,
     },
 };
 use crm::domain::service::CrmService;
@@ -35,6 +36,7 @@ use entity_access::domain::models::{
 use entity_access_management::domain::ports::EntityAccessManagementService;
 use frecency::domain::ports::FrecencyQueryService;
 use macro_event_broker::{MacroEventBroker, NoopMacroEventBroker};
+use macro_user_id::user_id::MacroUserIdStr;
 use model_entity::EntityType;
 use models_pagination::{PaginatedCursor, SimpleSortMethod};
 use std::collections::{HashMap, HashSet};
@@ -226,6 +228,23 @@ where
         self.get_email_thread_previews_impl(req).await
     }
 
+    async fn message_operation_status(
+        &self,
+        actor: MacroUserIdStr<'static>,
+        message_id: Uuid,
+    ) -> Result<Option<crate::domain::models::mailbox_operation::MessageOperationStatus>, EmailErr>
+    {
+        self.message_operation_status_impl(actor, message_id).await
+    }
+
+    async fn resolve_message_operation(
+        &self,
+        actor: MacroUserIdStr<'static>,
+        request: crate::domain::models::mailbox_operation::MessageResolutionRequest,
+    ) -> Result<Uuid, EmailErr> {
+        self.resolve_message_operation_impl(actor, request).await
+    }
+
     async fn get_link_by_auth_id_and_macro_id(
         &self,
         auth_id: &str,
@@ -233,16 +252,6 @@ where
     ) -> Result<Option<crate::domain::models::Link>, EmailErr> {
         self.get_link_by_auth_id_and_macro_id_impl(auth_id, macro_id)
             .await
-    }
-
-    async fn get_link_by_macro_id(
-        &self,
-        macro_id: macro_user_id::user_id::MacroUserIdStr<'_>,
-    ) -> Result<Option<crate::domain::models::Link>, EmailErr> {
-        self.email_repo
-            .link_by_macro_id(macro_id)
-            .await
-            .map_err(|e| EmailErr::RepoErr(e.into()))
     }
 
     async fn get_inboxes_for_macro_id(
@@ -253,6 +262,14 @@ where
             .inboxes_for_macro_id(macro_id)
             .await
             .map_err(|e| EmailErr::RepoErr(e.into()))
+    }
+
+    async fn resolve_sending_inbox(
+        &self,
+        macro_id: macro_user_id::user_id::MacroUserIdStr<'_>,
+        request: SendingInboxRequest<'_>,
+    ) -> Result<ResolvedSendingInbox, EmailErr> {
+        self.resolve_sending_inbox_impl(macro_id, request).await
     }
 
     async fn get_owned_link_for_thread(
@@ -348,6 +365,33 @@ where
         add: bool,
     ) -> Result<UpdateThreadLabelsResult, EmailErr> {
         self.update_thread_labels_impl(link, thread_id, label_id, add)
+            .await
+    }
+
+    async fn thread_mailbox_operations(
+        &self,
+        actor: MacroUserIdStr<'static>,
+        thread: Uuid,
+    ) -> Result<Vec<crate::domain::models::mailbox_action::MailboxOperation>, EmailErr> {
+        let link = self
+            .email_repo
+            .owned_link_for_thread(thread, actor)
+            .await
+            .map_err(|e| EmailErr::RepoErr(anyhow::Error::from(e)))?
+            .ok_or(EmailErr::ThreadNotFound)?;
+        self.email_repo
+            .thread_mailbox_operations(link.id, thread)
+            .await
+            .map_err(|e| EmailErr::RepoErr(anyhow::Error::from(e)))
+    }
+
+    async fn change_thread_mailbox_state(
+        &self,
+        macro_id: MacroUserIdStr<'static>,
+        thread_id: Uuid,
+        action: crate::domain::models::mailbox_action::MailboxAction,
+    ) -> Result<(), EmailErr> {
+        self.change_thread_mailbox_state_impl(macro_id, thread_id, action)
             .await
     }
 
@@ -523,39 +567,25 @@ where
             .map_err(|e| EmailErr::RepoErr(e.into()))
     }
 
-    #[tracing::instrument(skip(self, link), fields(link_id = %link.id), err)]
+    #[tracing::instrument(skip(self, link, actor, sender_email), fields(link_id = %link.id), err)]
     async fn set_sender_policy(
         &self,
+        actor: &MacroUserIdStr<'_>,
         link: &Link,
         sender_email: &str,
         policy: SenderPolicy,
     ) -> Result<(), EmailErr> {
-        match policy {
-            SenderPolicy::Signal | SenderPolicy::Noise => {
-                let addr = Self::validate_sender_address(sender_email)?;
-                self.enqueuer
-                    .enqueue_gmail_ops_unblock_sender(link.id, addr.clone())
-                    .await
-                    .map_err(|e| EmailErr::EnqueueErr(anyhow::Error::from(e)))?;
-                self.upsert_email_filter(
-                    link,
-                    UpsertEmailFilterInput {
-                        email_address: Some(addr),
-                        email_domain: None,
-                        is_important: matches!(policy, SenderPolicy::Signal),
-                    },
-                )
-                .await?;
-                Ok(())
-            }
-            SenderPolicy::Block => {
-                let addr = Self::validate_sender_address(sender_email)?;
-                self.enqueuer
-                    .enqueue_gmail_ops_block_sender(link.id, addr)
-                    .await
-                    .map_err(|e| EmailErr::EnqueueErr(anyhow::Error::from(e)))
-            }
-        }
+        let sender = Self::validate_sender_address(sender_email)?;
+        let blocked = matches!(policy, SenderPolicy::Block);
+        let important = match policy {
+            SenderPolicy::Signal => Some(true),
+            SenderPolicy::Noise => Some(false),
+            SenderPolicy::Block => None,
+        };
+        self.email_repo
+            .commit_sender_policy(actor, link.id, &sender, blocked, important)
+            .await
+            .map_err(|e| EmailErr::RepoErr(e.into()))
     }
 
     async fn delete_email_filter(&self, link: &Link, filter_id: Uuid) -> Result<bool, EmailErr> {
@@ -607,6 +637,26 @@ where
         receipts: Vec<EntityAccessReceipt<ViewAccessLevel>>,
     ) -> Result<HashMap<Uuid, EmailThreadMailProjection>, EmailErr> {
         self.get_email_thread_mail_projections_impl(viewer, receipts)
+            .await
+    }
+}
+
+impl<T, U, E, CS, Eam, B> EmailThreadPreviewService for EmailServiceImpl<T, U, E, CS, Eam, B>
+where
+    T: EmailRepo,
+    U: FrecencyQueryService,
+    E: EmailMessageEnqueuer,
+    CS: CrmService,
+    Eam: EntityAccessManagementService,
+    B: MacroEventBroker,
+    anyhow::Error: From<T::Err>,
+{
+    async fn get_email_thread_previews_by_receipts(
+        &self,
+        viewer: macro_user_id::user_id::MacroUserIdStr<'static>,
+        receipts: Vec<EntityAccessReceipt<ViewAccessLevel>>,
+    ) -> Result<Vec<EnrichedEmailThreadPreview>, EmailErr> {
+        self.get_email_thread_previews_by_receipts_impl(viewer, receipts)
             .await
     }
 }

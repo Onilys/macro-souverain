@@ -49,12 +49,22 @@ tools — hexagonal, heavily feature-gated.
 
 ## Gotchas
 
+- Forwarded attachments register through `domain/draft_attachments.rs` and resolve
+  bytes through `domain/attachment_access.rs`; scheduled delivery also rechecks
+  source inbox access in `domain/forwarded_attachments.rs`, including legacy jobs.
 - The feature matrix (`ports`/`inbound`/`outbound`/`http_client`/`s3`/
   `gmail_token`/`ai_tools`/`attachment`/`calendar_invitations`/`axum`) gates
   most modules; check `Cargo.toml`'s `[features]` block for which one a new
   dependency belongs under before wiring it in.
 - `domain/ports.rs` defines the traits adapters implement — call through the
   domain service, never an outbound adapter directly from another crate.
+- Sender discovery authorizes the inbox first. Gmail aliases use the sender
+  provider; Outlook exposes its verified primary address without a Gmail lookup.
+- Outlook organization commands only run in their link's current
+  `sync_generation`. Anything that bumps it must rebind unfinished commands as
+  `pending`, since claims skip `confirming` ones while those still block later
+  commands, as reconnect (`email_service` `mailbox_init.rs`) and `rebind_work` in
+  `outbound/mailbox_pg/lifecycle.rs` do; thread operations omit older generations.
 
 ## Related
 

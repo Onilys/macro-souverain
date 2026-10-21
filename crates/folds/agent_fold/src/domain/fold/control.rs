@@ -25,6 +25,7 @@ impl FoldState {
             }),
             stop: None,
             pending: self.speculative,
+            posted_at: None,
         });
         Some(Changed::new(message))
     }
@@ -56,6 +57,7 @@ impl FoldState {
             parts: NonEmpty::one(MessagePart::Control { control, outcome }),
             stop: None,
             pending: self.speculative,
+            posted_at: None,
         });
         Some(Changed::new(message))
     }

@@ -347,9 +347,9 @@ Four vocabularies must agree:
 - **Agent prompt:** add the kind to `crates/prompt/src/mentions.rs` and, if it has
   URLs, `crates/prompt/src/mcp_item_links.rs`. Without it agents linked forms as
   plain URLs.
-- **Deploy skew:** lexical-service deploys on every push to `main` that touches
-  `packages/lexical-core` or `services/lexical-service`, but the web app ships on
-  releases. New node data must parse in the old composer and vice versa; run
+- **Deploy skew:** lexical-service and the web app deploy separately, so either
+  can run against the other's previous release. New node data must parse in the
+  old composer and vice versa; run
   `bun run check` in `services/lexical-service`, and bump
   `MARKDOWN_VERSION_COUNTER` per `.agents/rules/web/lexical-nodes.md`.
 - Record mentions on create as well as on edit, or References misses them.
@@ -411,8 +411,11 @@ adapter translates legacy block state into feature context (FE-34).
 `rules/ast-grep/{ts,tsx}-feature-*.yml` files.
 
 **Exhaustiveness.** New branches on a kind use `match().exhaustive()` or a
-`Record<Kind, ...>`, never `.otherwise`, `P._`, `default`, or `switch`. Never cast
-a string to `ItemType`; parse it with `stringToItemType` (FE-31, enforced by
+`Record<Kind, ...>`, never `.otherwise`, `P._`, `default`, or `switch`. Where the
+kind arrives from the wire (queries, service clients, workers, SDK hydrators),
+pass a fallback, `.exhaustive((unknown) => fallback)`, so older clients survive
+the new kind (FE-35). Never cast a string to `ItemType` or an `EntityType`; parse
+it with `stringToItemType` or `parseEntityType` (FE-31, enforced by
 `rules/ast-grep/ts-no-item-type-cast.yml`). Existing catch-alls hide the new kind,
 so grep for the sibling kind.
 

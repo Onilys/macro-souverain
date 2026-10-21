@@ -1,4 +1,3 @@
-import { MAX_ATTACHMENTS_BYTES_SIZE } from '@app/features/email-compose/core/constants';
 import { FormatButtons } from '@channel/Input/FormatButtons';
 import { HeaderIsland } from '@components/app/split-layout/components/HeaderIsland';
 import {
@@ -11,8 +10,6 @@ import {
   type NodeTransformType,
 } from '@core/component/LexicalMarkdown/plugins/node-transform/nodeTransformPlugin';
 import { fileSelector } from '@core/directive/fileSelector';
-import { getUploadFileSize } from '@core/mobile/nativeStagedUpload';
-import { plural } from '@core/util/string';
 import PaperclipIcon from '@phosphor/paperclip.svg?component-solid';
 import TextAa from '@phosphor/text-aa.svg';
 import Trash from '@phosphor/trash.svg';
@@ -21,62 +18,22 @@ import { FORMAT_TEXT_COMMAND, type LexicalEditor } from 'lexical';
 import { createSignal, type JSX, Show } from 'solid-js';
 import { EmailDateSelector } from '../components/email-date-selector';
 import { EmailScheduleSummary } from '../components/email-schedule-summary';
+import { MobileComposeActions } from '../components/mobile-compose-actions';
 import { useCompose } from '../context/compose-context';
 
 export function EmailComposeToolbar(props: {
   editor?: () => LexicalEditor | undefined;
   status?: JSX.Element;
+  /** Embedded drafts keep their controls in the card on phones too. */
+  inline?: boolean;
 }) {
   const ctx = useCompose();
   const [showFormatRibbon, setShowFormatRibbon] = createSignal(false);
-  const handleAddAttachments = (files: File[]) => {
-    const currentAttachments = ctx.attachments();
-
-    const attachmentsToAddByteSize = files.reduce(
-      (sum, f) => sum + getUploadFileSize(f),
-      0
-    );
-
-    if (attachmentsToAddByteSize >= MAX_ATTACHMENTS_BYTES_SIZE) {
-      ctx.attachmentFailure(
-        `${plural('Attachment', files.length)} exceed 18MB`
-      );
-      return;
-    }
-
-    const currentAttachmentsByteSize = currentAttachments.reduce(
-      (sum, a) =>
-        sum + (a.type === 'local' ? getUploadFileSize(a.file) : a.fileSize),
-      0
-    );
-
-    if (
-      currentAttachmentsByteSize + attachmentsToAddByteSize >=
-      MAX_ATTACHMENTS_BYTES_SIZE
-    ) {
-      ctx.attachmentFailure("Can't add more attachments", {
-        subtext: 'Total attachments exceed 18MB limit',
-      });
-      return;
-    }
-
-    ctx.onAddAttachments(
-      files.map((file) => ({
-        type: 'local',
-        file,
-      }))
-    );
-  };
 
   return (
     <Show
-      when={!ctx.isMobile()}
-      fallback={
-        <MobileToolbar
-          handleAddAttachments={handleAddAttachments}
-          status={props.status}
-        />
-      }
+      when={props.inline || !ctx.isMobile()}
+      fallback={<MobileToolbar status={props.status} />}
     >
       <Show when={showFormatRibbon()}>
         <div class="flex flex-row w-full gap-2 items-center p-2 -ml-3">
@@ -109,7 +66,7 @@ export function EmailComposeToolbar(props: {
               ref={(el) =>
                 fileSelector(el, () => ({
                   multiple: true,
-                  onSelect: handleAddAttachments,
+                  onSelect: ctx.onAddAttachments,
                 }))
               }
               tooltip="Attach"
@@ -158,10 +115,7 @@ export function EmailComposeToolbar(props: {
   );
 }
 
-function MobileToolbar(props: {
-  handleAddAttachments: (files: File[]) => void;
-  status?: JSX.Element;
-}) {
+function MobileToolbar(props: { status?: JSX.Element }) {
   const ctx = useCompose();
   const hasScheduleSummary = () => {
     const state = ctx.schedule.state();
@@ -183,47 +137,38 @@ function MobileToolbar(props: {
         </Show>
       </SplitHeaderLeft>
       <SplitHeaderRight>
-        <HeaderIsland class="h-(--mobile-chrome-button-size) p-[5px]">
-          {props.status}
-          <Show when={!ctx.hideAttachments}>
-            <div class="relative">
-              <Button
-                ref={(el) =>
+        <MobileComposeActions
+          status={props.status}
+          attachRef={
+            ctx.hideAttachments
+              ? undefined
+              : (el) =>
                   fileSelector(el, () => ({
                     multiple: true,
-                    onSelect: props.handleAddAttachments,
+                    onSelect: ctx.onAddAttachments,
                   }))
-                }
-                size="icon-sm"
-                disabled={ctx.disabled()}
-              >
-                <PaperclipIcon />
-              </Button>
-            </div>
-          </Show>
-
-          <Show when={ctx.scheduleEnabled}>
-            <EmailDateSelector
-              mobile={ctx.isMobile()}
-              state={ctx.schedule.state()}
-              selectedTime={ctx.schedule.selectedTime()}
-              onSelectTime={ctx.schedule.onSelect}
-              onCancelSchedule={ctx.schedule.onCancel}
-              operation={ctx.schedule.operation()}
-              disabled={ctx.schedule.pickerDisabled()}
-              compact
-            />
-          </Show>
-          <SendButton
-            tooltip={
-              ctx.sendUnavailableReason?.() ?? ctx.schedule.actionLabel()
-            }
-            aria-label={ctx.schedule.actionLabel()}
-            disabled={ctx.isSavingDraft?.() || ctx.primaryActionDisabled()}
-            pending={ctx.isSending()}
-            onClick={() => ctx.onSend()}
-          />
-        </HeaderIsland>
+          }
+          editingDisabled={ctx.disabled()}
+          scheduleControl={
+            <Show when={ctx.scheduleEnabled}>
+              <EmailDateSelector
+                mobile={ctx.isMobile()}
+                state={ctx.schedule.state()}
+                selectedTime={ctx.schedule.selectedTime()}
+                onSelectTime={ctx.schedule.onSelect}
+                onCancelSchedule={ctx.schedule.onCancel}
+                operation={ctx.schedule.operation()}
+                disabled={ctx.schedule.pickerDisabled()}
+                compact
+              />
+            </Show>
+          }
+          sendLabel={ctx.schedule.actionLabel()}
+          sendTooltip={ctx.sendUnavailableReason?.()}
+          sendDisabled={!!ctx.isSavingDraft?.() || ctx.primaryActionDisabled()}
+          sending={ctx.isSending()}
+          onSend={() => ctx.onSend()}
+        />
       </SplitHeaderRight>
     </>
   );

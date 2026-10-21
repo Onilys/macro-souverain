@@ -4,7 +4,11 @@
 
 import { isMobile } from '@core/mobile/isMobile';
 import type { IUser } from '@core/user/types';
-import { render as renderBare, screen } from '@solidjs/testing-library';
+import {
+  fireEvent,
+  render as renderBare,
+  screen,
+} from '@solidjs/testing-library';
 import { QueryClient, QueryClientProvider } from '@tanstack/solid-query';
 import userEvent from '@testing-library/user-event';
 import { createSignal, type JSX, onMount } from 'solid-js';
@@ -359,6 +363,7 @@ vi.mock('@queries/channel/channel-participants', () => ({
 vi.mock('@core/context/user', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@core/context/user')>()),
   useUserId: () => () => 'macro|me@macro.test',
+  useIsAuthenticated: () => () => true,
 }));
 vi.mock('@queries/messages/mutations', () => ({
   useSendMessageMutation: () => ({ mutate: vi.fn() }),
@@ -635,6 +640,40 @@ describe('Input slots', () => {
     await user.click(screen.getByTestId('markdown-portal-input'));
 
     expect(editorMocks.focus).not.toHaveBeenCalled();
+  });
+
+  it('waits for touch release before sending a channel message', async () => {
+    vi.mocked(isMobile).mockReturnValue(true);
+    const user = userEvent.setup();
+    const onSend = vi.fn();
+    render(() => (
+      <ChannelInput
+        input={{ ...baseInput, value: 'Send on release' }}
+        onSend={onSend}
+      />
+    ));
+    const button = screen.getByRole('button', { name: 'Send message' });
+    await user.pointer({ target: button, keys: '[TouchA>]' });
+    expect(onSend).not.toHaveBeenCalled();
+    await user.pointer({ keys: '[/TouchA]' });
+    expect(onSend).toHaveBeenCalledOnce();
+    expect(onSend.mock.calls[0]?.[0]?.value).toBe('Send on release');
+  });
+
+  it('does not send a cancelled press and still accepts an assistive click', () => {
+    const onSend = vi.fn();
+    render(() => (
+      <ChannelInput
+        input={{ ...baseInput, value: 'Keep this draft' }}
+        onSend={onSend}
+      />
+    ));
+    const button = screen.getByRole('button', { name: 'Send message' });
+    fireEvent.pointerDown(button, { pointerType: 'touch' });
+    fireEvent.pointerCancel(button, { pointerType: 'touch' });
+    expect(onSend).not.toHaveBeenCalled();
+    fireEvent.click(button, { detail: 0 });
+    expect(onSend).toHaveBeenCalledOnce();
   });
 
   it('renders the default action composition and wires handlers through context', async () => {

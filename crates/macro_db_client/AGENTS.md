@@ -10,7 +10,7 @@ queries used across Rust services.
 
 - `src/lib.rs`: the module list — one module per table/feature area
   (`user.rs`, `document.rs`, `organization.rs`, `team/`, `item_access/`, ...).
-- `migrations/`: MacroDB's SQLx migrations, paired `.up.sql`/`.down.sql`, 500+
+- `migrations/`: MacroDB's SQLx-generated migrations, 500+
   files; the only place MacroDB schema changes are made.
 - `tests/`: cross-table integration tests (e.g. `add_forms.rs`).
 
@@ -32,7 +32,7 @@ queries used across Rust services.
 ## Recipes
 
 - Add a column or table: `sqlx migrate add --source crates/macro_db_client/migrations <name>`
-  → edit the generated `.up.sql`/`.down.sql` → the module in `src/<area>.rs`
+  → edit the generated SQL file(s) → the module in `src/<area>.rs`
   (or `src/<area>/`) → `nix develop --command just prepare_db`.
 - Add a query to an existing table: the module in `src/<area>.rs` → its tests
   → `nix develop --command just prepare_db` if cache metadata is missing.
@@ -52,6 +52,10 @@ queries used across Rust services.
 - Migrations deploy before service code: never drop a column/table in the
   same PR that removes its last usage (see `docs/development/database.md`).
 - Never hand-edit `.sqlx/query-*.json` or invent a migration timestamp.
+- Keep concurrent index migrations to one statement with `-- no-transaction`;
+  build replacement indexes before dropping old constraints, and validate large
+  table checks in a later transaction. See the Outlook rollout notes in
+  `docs/design/outlook-email-support.md` for failure recovery and deployment order.
 - Quote and alias camelCase columns to Rust field names
   (`SELECT "userId" AS user_id`); don't guess spelling — check `migrations/`.
 

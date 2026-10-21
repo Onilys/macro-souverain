@@ -1,3 +1,4 @@
+import { fireAndForget } from '@core/util/fireAndForget';
 import type { GraphicsEditor } from '@macro-inc/graphics';
 import { debounce } from '@solid-primitives/scheduled';
 import {
@@ -80,6 +81,7 @@ export default function CanvasNextDocument(
       <Show when={!savedLocation.loading}>
         <CanvasAncestry.Provider value={[...ancestors, documentId]}>
           <CanvasNextEditor
+            documentId={documentId}
             initial={initial}
             canEdit={props.canEdit}
             isEmbedded={props.isNested}
@@ -89,7 +91,7 @@ export default function CanvasNextDocument(
               const saving = createDocumentPersistence(
                 current,
                 initial,
-                canvasDocumentSource(documentId, canEdit)
+                canvasDocumentSource(documentId, canEdit, initial)
               );
               setPersistence(saving);
               props.registerMethods?.({
@@ -131,12 +133,15 @@ export default function CanvasNextDocument(
                 if (props.isNested) return;
                 clearTimeout(viewTimer);
                 viewTimer = setTimeout(() => {
-                  void saveCanvasViewLocation(documentId, camera);
+                  fireAndForget(
+                    saveCanvasViewLocation(documentId, camera),
+                    'canvas-persistence'
+                  );
                 }, 500);
               });
               const flush = () => {
                 if (canEdit()) finishText();
-                void saving.flush();
+                fireAndForget(saving.flush(), 'canvas-persistence');
               };
               const beforeUnload = (event: BeforeUnloadEvent) => {
                 flush();

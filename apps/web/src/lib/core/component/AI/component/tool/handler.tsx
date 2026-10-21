@@ -14,6 +14,12 @@ import {
 } from '@service-cognition/generated/tools/tool';
 import { createMemo, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
+import {
+  createAgentSessionHandler,
+  manageAgentSessionHandler,
+  readAgentSessionSharingHandler,
+  updateAgentSessionSharingHandler,
+} from './AgentSessionActions';
 import { configureAgentHandler, listAgentsHandler } from './Agents';
 import { bashCodeExecutionHandler } from './BashCodeExecution';
 import {
@@ -62,10 +68,12 @@ import {
   renameChannelHandler,
   shareWithChannelHandler,
 } from './ChannelMutations';
+import { describeCodeToolsHandler, executeCodeHandler } from './CodeMode';
 import {
   dispatchCodingAgentHandler,
   listCodingAgentsHandler,
 } from './CodingAgents';
+import { decideHandler, generateObjectHandler } from './Cognition';
 import { createDocumentHandler } from './CreateDocument';
 import { createProjectHandler } from './CreateProject';
 import { createSkillHandler } from './CreateSkill';
@@ -131,6 +139,7 @@ import {
   setEntityPropertyHandler,
 } from './Properties';
 import { readActivityHandler } from './ReadActivity';
+import { readAgentSessionHandler } from './ReadAgentSession';
 import { readCallRecordHandler } from './ReadCallRecord';
 import {
   readChannelMessageContextHandler,
@@ -187,6 +196,8 @@ import {
 
 const toolHandlers: ToolHandlerMap<RenderContext> = {
   ...initiativeToolHandlers,
+  ExecuteCode: executeCodeHandler,
+  DescribeCodeTools: describeCodeToolsHandler,
   DispatchCodingAgent: dispatchCodingAgentHandler,
   ListCodingAgents: listCodingAgentsHandler,
   ReadSpreadsheet: readSpreadsheetHandler,
@@ -272,6 +283,8 @@ const toolHandlers: ToolHandlerMap<RenderContext> = {
   CreateSkill: createSkillHandler,
   UploadFile: uploadFileHandler,
   GenerateImage: generateImageHandler,
+  GenerateObject: generateObjectHandler,
+  Decide: decideHandler,
   CreateProject: createProjectHandler,
   CreateTag: createTagHandler,
   DeleteTag: deleteTagHandler,
@@ -287,6 +300,11 @@ const toolHandlers: ToolHandlerMap<RenderContext> = {
   ReadChannelMessages: readChannelMessagesHandler,
   ReadChannelThread: readChannelThreadHandler,
   ReadChat: readChatHandler,
+  ReadAgentSession: readAgentSessionHandler,
+  CreateAgentSession: createAgentSessionHandler,
+  ManageAgentSession: manageAgentSessionHandler,
+  ReadAgentSessionSharing: readAgentSessionSharingHandler,
+  UpdateAgentSessionSharing: updateAgentSessionSharingHandler,
   ReadThread: readThreadHandler,
   ReadContent: readContentHandler,
   ReadMetadata: readMetadataHandler,

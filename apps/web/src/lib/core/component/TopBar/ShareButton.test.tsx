@@ -11,12 +11,42 @@ import {
   shareLevelsFor,
 } from './ShareButton';
 
+// Share's request workflow has its own source and lifecycle suites. Keep these
+// existing sharing tests independent of a live QueryClient and backend.
+vi.mock('@app/features/access-requests/access-requests', async (original) => ({
+  ...(await original<
+    typeof import('@app/features/access-requests/access-requests')
+  >()),
+  useShareRequests: () => ({
+    state: () => undefined,
+    grants: () => [],
+    loading: () => false,
+    busy: () => false,
+    error: () => undefined,
+  }),
+}));
+vi.mock(
+  '@app/features/access-requests/share-request-trigger',
+  async (original) => ({
+    ...(await original<
+      typeof import('@app/features/access-requests/share-request-trigger')
+    >()),
+    useShareRequestTrigger: (props: { open(): void }) => ({
+      ref: () => {},
+      count: () => 0,
+      open: props.open,
+    }),
+  })
+);
+
 const ME = 'macro|me@example.com';
 const SOMEONE_ELSE = 'macro|someone-else@example.com';
 
 const mocks = vi.hoisted(() => ({
   sendToChannel: vi.fn(),
   sendToUsers: vi.fn(),
+  graphql: false,
+  graphqlShare: vi.fn(),
   mobile: false,
   hasTeam: false,
   getAgentPermissions: vi.fn(),
@@ -49,6 +79,12 @@ vi.mock('@app/features/crm/sharing-adapter', () => ({
   fetchPipelineSharePermissions: mocks.getPipelinePermissions,
   updatePipelineSharePermissions: mocks.updatePipelinePermissions,
   updatePipelineTeamShare: mocks.updatePipelineTeamShare,
+}));
+vi.mock('@queries/storage/entity-mutations', () => ({
+  usesGraphqlSharePolicy: (type: string) =>
+    mocks.graphql &&
+    ['document', 'chat', 'project', 'email', 'call'].includes(type),
+  updateEntitySharePolicy: mocks.graphqlShare,
 }));
 vi.mock('@queries/storage/databases', () => ({
   getDatabaseSharePermissions: mocks.getDatabasePermissions,
@@ -353,6 +389,8 @@ beforeEach(() => {
   mocks.blockEditPermissionEnabled = true;
   mocks.mobile = false;
   mocks.hasTeam = false;
+  mocks.graphql = false;
+  mocks.graphqlShare.mockResolvedValue(ok(undefined));
   mocks.callRecordShared = true;
   mocks.callRecordChannelId = 'channel-1';
   mocks.callRecordQuerySuccess = true;
@@ -937,6 +975,33 @@ describe('call team sharing', () => {
 });
 
 describe('chat team sharing', () => {
+  it.each([false, true])(
+    'uses GraphQL for team and link changes on mobile=%s',
+    async (mobile) => {
+      mocks.graphql = true;
+      mocks.mobile = mobile;
+      mocks.hasTeam = true;
+      mountChatShare();
+      if (mobile) fireEvent.click(screen.getByRole('tab', { name: 'Link' }));
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Set Team access level edit' })
+      );
+      await vi.waitFor(() =>
+        expect(mocks.graphqlShare).toHaveBeenCalledWith('chat', 'chat-1', {
+          teamShareAccessLevel: 'edit',
+        })
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Set link PUBLIC' }));
+      await vi.waitFor(() =>
+        expect(mocks.graphqlShare).toHaveBeenCalledWith('chat', 'chat-1', {
+          linkShare: 'PUBLIC',
+          linkShareAccessLevel: 'view',
+        })
+      );
+      expect(mocks.updateChatPermissions).not.toHaveBeenCalled();
+    }
+  );
+
   it('lets the owner share the chat with their team through the chat permissions endpoint', async () => {
     mocks.hasTeam = true;
     mountChatShare();

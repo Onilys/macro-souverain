@@ -975,9 +975,9 @@ export const listOccurrencesResponse = zod
                 .union([
                   zod.null(),
                   zod
-                    .enum(['google_meet', 'other'])
+                    .enum(['microsoft_teams', 'google_meet', 'other'])
                     .describe(
-                      "The conferencing system backing an event's join URL.\n\nMacro generates only Google Meet conferences, so this distinguishes one it\ncreated from a third party's — Zoom and friends arriving as `addOn`\nconference data, or a legacy classic Hangout. Clients use it to label the\nconference and to tell whether the Meet toggle reflects a Macro-managed\nconference.\n\nIt does not gate mutation. An explicit request replaces or detaches any\nconference, third-party included, exactly as deleting the event would;\nwhat protects a conference is that omitting the field leaves it untouched,\nso an unrelated edit never disturbs it."
+                      "The conferencing system backing an event's join URL.\n\nCalendars can create Google Meet or Microsoft Teams according to their\ncapabilities. Imported third-party conferences are labeled separately.\nOmitting a conference change preserves the current conference; explicit\nchanges still require provider and calendar capability validation."
                     ),
                 ])
                 .optional(),
@@ -1750,6 +1750,71 @@ export const getActiveCallsResponse = zod
   );
 
 /**
+ * @summary Read the live call discussion as a verified guest.
+ */
+export const guestCallChatReadParams = zod.object({
+  call_id: zod.uuid(),
+});
+
+export const guestCallChatReadResponse = zod
+  .object({
+    messages: zod
+      .array(
+        zod
+          .object({
+            content: zod.string().describe('Message body.'),
+            created_at: zod.iso.datetime({}).describe('Creation time.'),
+            guest: zod.boolean().describe('Whether the author is a guest.'),
+            id: zod.uuid().describe('Persisted message identity.'),
+            is_you: zod
+              .boolean()
+              .describe('Whether this session authored the message.'),
+            name: zod.string().describe('Display-only author name.'),
+          })
+          .describe(
+            'Guest-safe message projection: no account identities, attachments, or entity grants.'
+          )
+      )
+      .describe('Visible, nondeleted messages.'),
+  })
+  .describe("Messages in the call's one discussion, oldest first.");
+
+/**
+ * @summary Append text to the same saved discussion used by account participants.
+ */
+export const guestCallChatPostParams = zod.object({
+  call_id: zod.uuid(),
+});
+
+export const guestCallChatPostBody = zod
+  .object({
+    content: zod.string().describe('Text to append to the call discussion.'),
+    id: zod
+      .uuid()
+      .describe(
+        'UUIDv7 used to deduplicate retries, including the first message.'
+      ),
+  })
+  .describe(
+    'Guests may send text only; attribution and parent are server-owned.'
+  );
+
+export const guestCallChatPostResponse = zod
+  .object({
+    content: zod.string().describe('Message body.'),
+    created_at: zod.iso.datetime({}).describe('Creation time.'),
+    guest: zod.boolean().describe('Whether the author is a guest.'),
+    id: zod.uuid().describe('Persisted message identity.'),
+    is_you: zod
+      .boolean()
+      .describe('Whether this session authored the message.'),
+    name: zod.string().describe('Display-only author name.'),
+  })
+  .describe(
+    'Guest-safe message projection: no account identities, attachments, or entity grants.'
+  );
+
+/**
  * @summary Handle `GET /call/join/{token}` through the call domain service.
  */
 export const meetingLookupParams = zod.object({
@@ -1780,7 +1845,7 @@ export const meetingLookupResponse = zod
     shareToken: zod
       .string()
       .describe(
-        "A bearer capability that grants access only to a meeting's RTC room."
+        "An invitation capability for joining a meeting's RTC room. Chat additionally\nrequires the resulting participant credential and current guest membership."
       ),
     title: zod.string().describe('Human-readable meeting title.'),
   })
@@ -1900,7 +1965,7 @@ export const meetingListResponse = zod
             shareToken: zod
               .string()
               .describe(
-                "A bearer capability that grants access only to a meeting's RTC room."
+                "An invitation capability for joining a meeting's RTC room. Chat additionally\nrequires the resulting participant credential and current guest membership."
               ),
             title: zod.string().describe('Human-readable meeting title.'),
           })
@@ -1961,7 +2026,7 @@ export const meetingCreateResponse = zod
     shareToken: zod
       .string()
       .describe(
-        "A bearer capability that grants access only to a meeting's RTC room."
+        "An invitation capability for joining a meeting's RTC room. Chat additionally\nrequires the resulting participant credential and current guest membership."
       ),
     title: zod.string().describe('Human-readable meeting title.'),
   })
@@ -2000,7 +2065,7 @@ export const meetingListActiveResponse = zod
             shareToken: zod
               .string()
               .describe(
-                "A bearer capability that grants access only to a meeting's RTC room."
+                "An invitation capability for joining a meeting's RTC room. Chat additionally\nrequires the resulting participant credential and current guest membership."
               ),
             title: zod.string().describe('Human-readable meeting title.'),
           })
@@ -2216,7 +2281,7 @@ export const meetingUpdateResponse = zod
     shareToken: zod
       .string()
       .describe(
-        "A bearer capability that grants access only to a meeting's RTC room."
+        "An invitation capability for joining a meeting's RTC room. Chat additionally\nrequires the resulting participant credential and current guest membership."
       ),
     title: zod.string().describe('Human-readable meeting title.'),
   })
@@ -2410,12 +2475,33 @@ export const getCallRecordResponse = zod
       .string()
       .nullish()
       .describe('Presigned URL for the call recording, if available.'),
-    roomName: zod.string().describe('The RTC room name.'),
+    roomName: zod
+      .string()
+      .nullish()
+      .describe(
+        'The RTC room name. `None` for imported calls, which never had a room.'
+      ),
     shareWithTeam: zod
       .boolean()
       .describe(
         "Whether the call is shared with the creator's team. While the call is\nlive this is the pending toggle applied at archive; afterwards it\nmirrors `team_share_access_level`."
       ),
+    source: zod
+      .union([
+        zod.null(),
+        zod
+          .object({
+            externalUrl: zod
+              .string()
+              .nullish()
+              .describe(
+                "Link to the call in the provider's app, if it has one."
+              ),
+            provider: zod.string().describe('Provider slug, e.g. `granola`.'),
+          })
+          .describe('Where an imported call came from.'),
+      ])
+      .optional(),
     startedAt: zod.iso
       .datetime({})
       .describe(
@@ -2629,7 +2715,7 @@ export const meetingShareResponse = zod
     shareToken: zod
       .string()
       .describe(
-        "A bearer capability that grants access only to a meeting's RTC room."
+        "An invitation capability for joining a meeting's RTC room. Chat additionally\nrequires the resulting participant credential and current guest membership."
       ),
     title: zod.string().describe('Human-readable meeting title.'),
   })
@@ -3330,7 +3416,11 @@ export const getAttachmentReferencesResponse = zod
  */
 export const getOrCreateDmBody = zod
   .object({
-    recipient_id: zod.string().describe('Recipient user id.'),
+    recipient_id: zod
+      .string()
+      .describe(
+        'Recipient user id (`macro|...`) or agent persona id (`bot|...`).'
+      ),
   })
   .describe('Request to get or create a direct message channel.');
 
@@ -3699,7 +3789,7 @@ export const removeParticipantsBody = zod
   .describe('Request to remove participants.');
 
 /**
- * @summary Set a channel or group chat profile picture. Requires channel admin or owner access.
+ * @summary Set a channel or group chat profile picture. Requires channel participation.
  */
 export const setChannelPictureParams = zod.object({
   channel_id: zod.uuid().describe('Channel ID'),
@@ -3938,6 +4028,25 @@ export const getChannelsResponse = zod
       .array(
         zod
           .object({
+            agent_dm: zod
+              .union([
+                zod.null(),
+                zod
+                  .object({
+                    avatar_url: zod
+                      .string()
+                      .nullish()
+                      .describe('Persona avatar, when supplied.'),
+                    bot_id: zod
+                      .string()
+                      .describe('Persona id without the bot principal prefix.'),
+                    name: zod.string().describe('Persona display name.'),
+                  })
+                  .describe(
+                    'Historical persona identity displayed beside a private conversation.'
+                  ),
+              ])
+              .optional(),
             auto_join_team: zod
               .boolean()
               .describe('Whether team members automatically join the channel.'),
@@ -9583,6 +9692,347 @@ export const getDatabaseQueryResponse = zod
     id: zod.uuid().describe('Identifier.'),
   })
   .describe('A stored, immutable query. Editing a question saves a new one.');
+
+/**
+ * @summary Run one statement as the authenticated user. The viewer's catalog authorizes reads;
+the SQL domain service obtains an edit receipt for every written database.
+ */
+export const queryDatabasesBody = zod
+  .object({
+    baseVersions: zod
+      .record(
+        zod.string(),
+        zod
+          .number()
+          .describe(
+            "Monotonic per-table version, bumped once by every committed change to a\ntable's schema or rows. Schema edits name the version they were made\nagainst, and change events carry the new one."
+          )
+      )
+      .optional()
+      .describe(
+        'Expected version for each table a subsequent statement writes.'
+      ),
+    databaseId: zod
+      .union([
+        zod.null(),
+        zod
+          .uuid()
+          .describe(
+            'Identifier of reusable database storage. Its optional Macro entity uses\nthe same identity, so existing routes and grants keep their IDs.'
+          ),
+      ])
+      .optional(),
+    sql: zod
+      .string()
+      .describe(
+        'One supported SQL statement. Writes execute once, without automatic retries.'
+      ),
+  })
+  .describe(
+    'One SQL statement with an optional default database and optimistic write guards.'
+  );
+
+export const queryDatabasesResponseChangesAppliedMin = 0;
+
+export const queryDatabasesResponse = zod
+  .object({
+    changesApplied: zod
+      .number()
+      .min(queryDatabasesResponseChangesAppliedMin)
+      .describe('How many rows a write changed.'),
+    insertedRowIds: zod
+      .array(zod.uuid().describe('Identifier of a row.'))
+      .describe('The rows an `INSERT` created, in statement order.'),
+    newVersions: zod
+      .record(
+        zod.string(),
+        zod
+          .number()
+          .describe(
+            "Monotonic per-table version, bumped once by every committed change to a\ntable's schema or rows. Schema edits name the version they were made\nagainst, and change events carry the new one."
+          )
+      )
+      .describe('The new version of every table written.'),
+    readVersions: zod
+      .record(
+        zod.string(),
+        zod
+          .number()
+          .describe(
+            "Monotonic per-table version, bumped once by every committed change to a\ntable's schema or rows. Schema edits name the version they were made\nagainst, and change events carry the new one."
+          )
+      )
+      .describe(
+        'The version of every table read, for a follow-up write to guard on.'
+      ),
+    result: zod
+      .union([
+        zod.null(),
+        zod
+          .object({
+            columns: zod
+              .array(
+                zod
+                  .object({
+                    kind: zod
+                      .enum([
+                        'text',
+                        'number',
+                        'boolean',
+                        'date',
+                        'select',
+                        'entity',
+                        'row',
+                      ])
+                      .describe('The value kind of a result column.'),
+                    name: zod
+                      .string()
+                      .describe('The name or alias the statement gave it.'),
+                    options: zod
+                      .array(
+                        zod
+                          .object({
+                            id: zod
+                              .uuid()
+                              .describe(
+                                'Identifier of an option of a select or tag column.'
+                              ),
+                            label: zod
+                              .string()
+                              .describe('The label users type in SQL.'),
+                          })
+                          .describe('One option of a select column.')
+                      )
+                      .optional()
+                      .describe(
+                        'For a select column, its options: its cells hold their ids.'
+                      ),
+                    relatedTable: zod
+                      .union([
+                        zod.null(),
+                        zod
+                          .uuid()
+                          .describe(
+                            'Identifier of one table (tab) within a database.'
+                          ),
+                      ])
+                      .optional(),
+                    target: zod
+                      .union([
+                        zod.null(),
+                        zod
+                          .enum([
+                            'USER',
+                            'DOCUMENT',
+                            'TASK',
+                            'COMPANY',
+                            'CONTACT',
+                            'CALL_RECORD',
+                            'CHANNEL',
+                            'CHAT',
+                            'PROJECT',
+                            'THREAD',
+                            'CALENDAR_EVENT',
+                            'INITIATIVE',
+                            'DATABASE_ROW',
+                          ])
+                          .describe(
+                            "What an entity column's references point at: a kind of Macro entity, or\nthe rows of another table for a relation.\n\nSpelled as the properties system spells entity types (`USER`,\n`DATABASE_ROW`), on the wire and in SQL, where it parses\ncase-insensitively."
+                          ),
+                      ])
+                      .optional(),
+                  })
+                  .describe('One result column, with what its cells mean.')
+              )
+              .describe('The columns, in select-list order.'),
+            rowIds: zod
+              .array(zod.uuid().describe('Identifier of a row.'))
+              .describe(
+                'For a row-shaped result, the id of the row behind each result row;\nempty for an aggregate.'
+              ),
+            rows: zod
+              .array(
+                zod.array(
+                  zod.union([
+                    zod.null(),
+                    zod
+                      .union([
+                        zod
+                          .object({
+                            type: zod.enum(['text']),
+                            value: zod.string().describe('Text or link.'),
+                          })
+                          .describe('Text or link.'),
+                        zod
+                          .object({
+                            type: zod.enum(['number']),
+                            value: zod.number().describe('A number.'),
+                          })
+                          .describe('A number.'),
+                        zod
+                          .object({
+                            type: zod.enum(['bool']),
+                            value: zod.boolean().describe('A checkbox.'),
+                          })
+                          .describe('A checkbox.'),
+                        zod
+                          .object({
+                            type: zod.enum(['date']),
+                            value: zod.iso
+                              .datetime({})
+                              .describe('A date-time.'),
+                          })
+                          .describe('A date-time.'),
+                        zod
+                          .object({
+                            type: zod.enum(['options']),
+                            value: zod
+                              .array(
+                                zod
+                                  .uuid()
+                                  .describe(
+                                    'Identifier of an option of a select or tag column.'
+                                  )
+                              )
+                              .describe(
+                                'The selected option ids; one for single-select columns.'
+                              ),
+                          })
+                          .describe(
+                            'The selected option ids; one for single-select columns.'
+                          ),
+                        zod
+                          .object({
+                            type: zod.enum(['entities']),
+                            value: zod
+                              .array(zod.string())
+                              .describe(
+                                'The referenced entity ids; one for single-valued columns.'
+                              ),
+                          })
+                          .describe(
+                            'The referenced entity ids; one for single-valued columns.'
+                          ),
+                        zod
+                          .object({
+                            type: zod.enum(['row']),
+                            value: zod.uuid().describe('Identifier of a row.'),
+                          })
+                          .describe(
+                            "A table row's own id, the `row_id` column."
+                          ),
+                      ])
+                      .describe(
+                        'A cell as fetched. An absent cell is `NULL`; an absent multi-valued cell\nis the empty set.'
+                      ),
+                  ])
+                )
+              )
+              .describe(
+                'One cell per column per row; `null` is an empty cell.'
+              ),
+            sourceTable: zod
+              .union([
+                zod.null(),
+                zod
+                  .uuid()
+                  .describe('Identifier of one table (tab) within a database.'),
+              ])
+              .optional(),
+          })
+          .describe("A `SELECT`'s rows, as the engine's typed cells."),
+      ])
+      .optional(),
+    statement: zod
+      .union([
+        zod
+          .object({
+            databaseId: zod
+              .uuid()
+              .describe(
+                'Identifier of reusable database storage. Its optional Macro entity uses\nthe same identity, so existing routes and grants keep their IDs.'
+              ),
+            kind: zod.enum(['schema']),
+            summary: zod
+              .string()
+              .describe('What changed and how to read the resulting schema.'),
+          })
+          .describe(
+            'A committed schema command. IDs remain available even without a follow-up read.'
+          ),
+        zod
+          .object({
+            kind: zod.enum(['select']),
+          })
+          .describe('A `SELECT`.'),
+        zod
+          .object({
+            kind: zod.enum(['insert']),
+            tableId: zod
+              .uuid()
+              .describe('Identifier of one table (tab) within a database.'),
+            tableName: zod.string().describe('Its name.'),
+          })
+          .describe('An `INSERT`.'),
+        zod
+          .object({
+            kind: zod.enum(['update']),
+            tableId: zod
+              .uuid()
+              .describe('Identifier of one table (tab) within a database.'),
+            tableName: zod.string().describe('Its name.'),
+          })
+          .describe('An `UPDATE`.'),
+        zod
+          .object({
+            kind: zod.enum(['delete']),
+            tableId: zod
+              .uuid()
+              .describe('Identifier of one table (tab) within a database.'),
+            tableName: zod.string().describe('Its name.'),
+          })
+          .describe('A `DELETE`.'),
+        zod
+          .object({
+            columnId: zod
+              .uuid()
+              .describe('Identifier of a column placement within a table.'),
+            columnName: zod.string().describe("The column's name."),
+            kind: zod.enum(['alterColumnType']),
+            tableId: zod
+              .uuid()
+              .describe('Identifier of one table (tab) within a database.'),
+            tableName: zod.string().describe('Its name.'),
+            to: zod
+              .string()
+              .describe(
+                'The type it became, as SQL spells it, e.g. `select[]`.'
+              ),
+          })
+          .describe('An `ALTER COLUMN … TYPE`.'),
+      ])
+      .describe(
+        'The statement that ran: a read, or the table (and for a type change, the\ncolumn) it wrote.'
+      ),
+    tableDatabases: zod
+      .record(
+        zod.string(),
+        zod
+          .uuid()
+          .describe(
+            'Identifier of reusable database storage. Its optional Macro entity uses\nthe same identity, so existing routes and grants keep their IDs.'
+          )
+      )
+      .describe(
+        'Owning database of each visible table referenced by this outcome.'
+      ),
+    truncatedTables: zod
+      .array(zod.string())
+      .describe(
+        "Every table the statement read, when any read hit the engine's row\ncap: the engine reports the cap per statement, so aggregates over any\nof them may be partial."
+      ),
+  })
+  .describe('The answer to one statement.');
 
 /**
  * @summary Create a small example once for the authenticated user, if they have no databases.
@@ -18015,6 +18465,26 @@ export const setDocumentTeamShareResponse = zod
   );
 
 /**
+ * @summary Read current Markdown or extracted file text with the document's view receipt.
+ */
+export const getDocumentTextContentParams = zod.object({
+  document_id: zod.string().describe('Document identity'),
+});
+
+export const getDocumentTextContentResponse = zod
+  .object({
+    text: zod
+      .string()
+      .nullable()
+      .describe(
+        'Current Markdown, or extracted PDF\/Word text. Null means use file export.'
+      ),
+  })
+  .describe(
+    'Text representation when the document supports one. Other file formats\nretain their existing download\/export behavior.'
+  );
+
+/**
  * @summary Gets the list of users who have viewed a given document
  */
 export const getDocumentViewsHandlerParams = zod.object({
@@ -18136,6 +18606,409 @@ export const getDocumentVersionResponse = zod.object({
   }),
   error: zod.boolean().describe('Indicates if an error occurred'),
 });
+
+/**
+ * @summary State access request state through the domain service.
+ */
+export const accessRequestsStateParams = zod.object({
+  entity_type: zod.enum([
+    'document',
+    'chat',
+    'project',
+    'initiative',
+    'database',
+    'call',
+    'email_thread',
+    'agent_session',
+  ]),
+  entity_id: zod.uuid(),
+});
+
+export const accessRequestsStateQueryOffsetMin = 0;
+
+export const accessRequestsStateQueryParams = zod.object({
+  offset: zod
+    .number()
+    .min(accessRequestsStateQueryOffsetMin)
+    .optional()
+    .describe(
+      'Offset into pending requests; page size is bounded by the service.'
+    ),
+});
+
+export const accessRequestsStateResponseNextOffsetMin = 0;
+
+export const accessRequestsStateResponse = zod
+  .object({
+    accessLevel: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['view', 'comment', 'edit', 'owner'])
+          .describe('Ordered from least to most access top -> bottom'),
+      ])
+      .optional(),
+    canReview: zod
+      .boolean()
+      .describe(
+        'Whether this viewer can resolve requests and manage direct grants.'
+      ),
+    mine: zod
+      .union([
+        zod.null(),
+        zod
+          .object({
+            createdAt: zod.iso
+              .datetime({})
+              .describe('Start of this request attempt.'),
+            grantedLevel: zod
+              .union([
+                zod.null(),
+                zod
+                  .enum(['view', 'comment', 'edit', 'owner'])
+                  .describe('Ordered from least to most access top -> bottom'),
+              ])
+              .optional(),
+            id: zod
+              .uuid()
+              .describe('Stable request identity across revisions.'),
+            requestedLevel: zod
+              .enum(['view', 'comment', 'edit', 'owner'])
+              .describe('Ordered from least to most access top -> bottom'),
+            requesterId: zod.string().describe('Person requesting access.'),
+            resolvedAt: zod.iso
+              .datetime({})
+              .nullish()
+              .describe('When the request stopped being pending.'),
+            retryAfter: zod.iso
+              .datetime({})
+              .nullish()
+              .describe(
+                'Earliest next submission or level change; cancellation preserves this deadline.\nSubmissions wait one minute, denials wait 24 hours, and approval clears it.'
+              ),
+            revision: zod.number().describe('Optimistic concurrency token.'),
+            status: zod
+              .enum(['pending', 'granted', 'denied', 'cancelled'])
+              .describe(
+                'Durable outcome; reading a notification never changes it.'
+              ),
+            updatedAt: zod.iso.datetime({}).describe('Most recent change.'),
+          })
+          .describe('Latest request for one person and one entity.'),
+      ])
+      .optional(),
+    nextOffset: zod
+      .number()
+      .min(accessRequestsStateResponseNextOffsetMin)
+      .nullish()
+      .describe('Next page offset, absent at the end.'),
+    owner: zod
+      .string()
+      .nullish()
+      .describe(
+        'Recorded owner principal, visible to reviewers and callers with access.'
+      ),
+    pendingCount: zod
+      .number()
+      .describe('Total outstanding requests, for the Share badge.'),
+    requests: zod
+      .array(
+        zod
+          .object({
+            createdAt: zod.iso
+              .datetime({})
+              .describe('Start of this request attempt.'),
+            grantedLevel: zod
+              .union([
+                zod.null(),
+                zod
+                  .enum(['view', 'comment', 'edit', 'owner'])
+                  .describe('Ordered from least to most access top -> bottom'),
+              ])
+              .optional(),
+            id: zod
+              .uuid()
+              .describe('Stable request identity across revisions.'),
+            requestedLevel: zod
+              .enum(['view', 'comment', 'edit', 'owner'])
+              .describe('Ordered from least to most access top -> bottom'),
+            requesterId: zod.string().describe('Person requesting access.'),
+            resolvedAt: zod.iso
+              .datetime({})
+              .nullish()
+              .describe('When the request stopped being pending.'),
+            retryAfter: zod.iso
+              .datetime({})
+              .nullish()
+              .describe(
+                'Earliest next submission or level change; cancellation preserves this deadline.\nSubmissions wait one minute, denials wait 24 hours, and approval clears it.'
+              ),
+            revision: zod.number().describe('Optimistic concurrency token.'),
+            status: zod
+              .enum(['pending', 'granted', 'denied', 'cancelled'])
+              .describe(
+                'Durable outcome; reading a notification never changes it.'
+              ),
+            updatedAt: zod.iso.datetime({}).describe('Most recent change.'),
+          })
+          .describe('Latest request for one person and one entity.')
+      )
+      .describe('Reviewer-only pending page, oldest first.'),
+    supportedLevels: zod
+      .array(
+        zod
+          .enum(['view', 'comment', 'edit', 'owner'])
+          .describe('Ordered from least to most access top -> bottom')
+      )
+      .describe('Permitted access choices for this surface.'),
+  })
+  .describe('Share state visible to one authenticated viewer.');
+
+/**
+ * @summary Submit access request state through the domain service.
+ */
+export const accessRequestsSubmitParams = zod.object({
+  entity_type: zod.enum([
+    'document',
+    'chat',
+    'project',
+    'initiative',
+    'database',
+    'call',
+    'email_thread',
+    'agent_session',
+  ]),
+  entity_id: zod.uuid(),
+});
+
+export const accessRequestsSubmitBody = zod
+  .object({
+    requestedLevel: zod
+      .enum(['view', 'comment', 'edit', 'owner'])
+      .describe('Ordered from least to most access top -> bottom'),
+    revision: zod
+      .number()
+      .nullish()
+      .describe('Last observed revision; omitted only for the first request.'),
+  })
+  .describe(
+    'Requester submission; an existing pending request requires its revision.'
+  );
+
+export const accessRequestsSubmitResponse = zod
+  .object({
+    createdAt: zod.iso.datetime({}).describe('Start of this request attempt.'),
+    grantedLevel: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['view', 'comment', 'edit', 'owner'])
+          .describe('Ordered from least to most access top -> bottom'),
+      ])
+      .optional(),
+    id: zod.uuid().describe('Stable request identity across revisions.'),
+    requestedLevel: zod
+      .enum(['view', 'comment', 'edit', 'owner'])
+      .describe('Ordered from least to most access top -> bottom'),
+    requesterId: zod.string().describe('Person requesting access.'),
+    resolvedAt: zod.iso
+      .datetime({})
+      .nullish()
+      .describe('When the request stopped being pending.'),
+    retryAfter: zod.iso
+      .datetime({})
+      .nullish()
+      .describe(
+        'Earliest next submission or level change; cancellation preserves this deadline.\nSubmissions wait one minute, denials wait 24 hours, and approval clears it.'
+      ),
+    revision: zod.number().describe('Optimistic concurrency token.'),
+    status: zod
+      .enum(['pending', 'granted', 'denied', 'cancelled'])
+      .describe('Durable outcome; reading a notification never changes it.'),
+    updatedAt: zod.iso.datetime({}).describe('Most recent change.'),
+  })
+  .describe('Latest request for one person and one entity.');
+
+/**
+ * @summary Cancel access request state through the domain service.
+ */
+export const accessRequestsCancelParams = zod.object({
+  entity_type: zod.enum([
+    'document',
+    'chat',
+    'project',
+    'initiative',
+    'database',
+    'call',
+    'email_thread',
+    'agent_session',
+  ]),
+  entity_id: zod.uuid(),
+});
+
+export const accessRequestsCancelQueryParams = zod.object({
+  revision: zod.number().describe('Last observed request revision.'),
+});
+
+export const accessRequestsCancelResponseDefault = null;
+
+export const accessRequestsCancelResponse = zod.unknown();
+
+/**
+ * @summary Resolve access request state through the domain service.
+ */
+export const accessRequestsResolveParams = zod.object({
+  entity_type: zod.enum([
+    'document',
+    'chat',
+    'project',
+    'initiative',
+    'database',
+    'call',
+    'email_thread',
+    'agent_session',
+  ]),
+  entity_id: zod.uuid(),
+  request_id: zod.uuid(),
+});
+
+export const accessRequestsResolveBody = zod
+  .object({
+    grantedLevel: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['view', 'comment', 'edit', 'owner'])
+          .describe('Ordered from least to most access top -> bottom'),
+      ])
+      .optional(),
+    revision: zod.number().describe('Request revision being reviewed.'),
+  })
+  .describe("Owner's decision; omission of a granted level means deny.");
+
+export const accessRequestsResolveResponse = zod
+  .object({
+    createdAt: zod.iso.datetime({}).describe('Start of this request attempt.'),
+    grantedLevel: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['view', 'comment', 'edit', 'owner'])
+          .describe('Ordered from least to most access top -> bottom'),
+      ])
+      .optional(),
+    id: zod.uuid().describe('Stable request identity across revisions.'),
+    requestedLevel: zod
+      .enum(['view', 'comment', 'edit', 'owner'])
+      .describe('Ordered from least to most access top -> bottom'),
+    requesterId: zod.string().describe('Person requesting access.'),
+    resolvedAt: zod.iso
+      .datetime({})
+      .nullish()
+      .describe('When the request stopped being pending.'),
+    retryAfter: zod.iso
+      .datetime({})
+      .nullish()
+      .describe(
+        'Earliest next submission or level change; cancellation preserves this deadline.\nSubmissions wait one minute, denials wait 24 hours, and approval clears it.'
+      ),
+    revision: zod.number().describe('Optimistic concurrency token.'),
+    status: zod
+      .enum(['pending', 'granted', 'denied', 'cancelled'])
+      .describe('Durable outcome; reading a notification never changes it.'),
+    updatedAt: zod.iso.datetime({}).describe('Most recent change.'),
+  })
+  .describe('Latest request for one person and one entity.');
+
+/**
+ * @summary Direct access request state through the domain service.
+ */
+export const accessRequestsDirectParams = zod.object({
+  entity_type: zod.enum([
+    'document',
+    'chat',
+    'project',
+    'initiative',
+    'database',
+    'call',
+    'email_thread',
+    'agent_session',
+  ]),
+  entity_id: zod.uuid(),
+});
+
+export const accessRequestsDirectResponseItem = zod
+  .object({
+    accessLevel: zod
+      .enum(['view', 'comment', 'edit', 'owner'])
+      .describe('Ordered from least to most access top -> bottom'),
+    userId: zod.string().describe('Recipient.'),
+  })
+  .describe(
+    'A direct user grant; inherited grants are deliberately not editable here.'
+  );
+export const accessRequestsDirectResponse = zod.array(
+  accessRequestsDirectResponseItem
+);
+
+/**
+ * @summary Set direct access request state through the domain service.
+ */
+export const accessRequestsSetDirectParams = zod.object({
+  entity_type: zod.enum([
+    'document',
+    'chat',
+    'project',
+    'initiative',
+    'database',
+    'call',
+    'email_thread',
+    'agent_session',
+  ]),
+  entity_id: zod.uuid(),
+  user_id: zod.string(),
+});
+
+export const accessRequestsSetDirectBody = zod
+  .object({
+    accessLevel: zod
+      .union([
+        zod.null(),
+        zod
+          .enum(['view', 'comment', 'edit', 'owner'])
+          .describe('Ordered from least to most access top -> bottom'),
+      ])
+      .optional(),
+  })
+  .describe(
+    'Direct-grant change. A null level removes only that direct grant.'
+  );
+
+export const accessRequestsSetDirectResponseDefault = null;
+
+export const accessRequestsSetDirectResponse = zod.unknown();
+
+/**
+ * @summary Remove direct access request state through the domain service.
+ */
+export const accessRequestsRemoveDirectParams = zod.object({
+  entity_type: zod.enum([
+    'document',
+    'chat',
+    'project',
+    'initiative',
+    'database',
+    'call',
+    'email_thread',
+    'agent_session',
+  ]),
+  entity_id: zod.uuid(),
+  user_id: zod.string(),
+});
+
+export const accessRequestsRemoveDirectResponseDefault = null;
+
+export const accessRequestsRemoveDirectResponse = zod.unknown();
 
 /**
  * @summary Get the current user's permission for a given entity.
@@ -18624,6 +19497,11 @@ export const listFormsResponseItem = zod
     databaseId: zod.uuid().describe('The database holding its responses.'),
     description: zod.string().describe('What respondents read under the name.'),
     id: zod.uuid().describe('The form.'),
+    isHiddenInDrive: zod
+      .boolean()
+      .describe(
+        'Whether Drive leaves it, and the database behind it, out of its\nlistings, as for a channel poll.'
+      ),
     name: zod
       .string()
       .describe(
@@ -18671,6 +19549,12 @@ export const createFormBody = zod
       .union([
         zod
           .object({
+            isHiddenInDrive: zod
+              .boolean()
+              .optional()
+              .describe(
+                'Keep the form, and the database made for it, out of Drive, as\nfor a channel poll.'
+              ),
             kind: zod.enum(['new']),
           })
           .describe(
@@ -18722,6 +19606,11 @@ export const listAccessibleFormsResponseItem = zod
           .string()
           .describe('What respondents read under the name.'),
         id: zod.uuid().describe('The form.'),
+        isHiddenInDrive: zod
+          .boolean()
+          .describe(
+            'Whether Drive leaves it, and the database behind it, out of its\nlistings, as for a channel poll.'
+          ),
         name: zod
           .string()
           .describe(
@@ -18799,6 +19688,11 @@ export const getFormResponse = zod
           .string()
           .describe('What respondents read under the name.'),
         id: zod.uuid().describe('The form.'),
+        isHiddenInDrive: zod
+          .boolean()
+          .describe(
+            'Whether Drive leaves it, and the database behind it, out of its\nlistings, as for a channel poll.'
+          ),
         name: zod
           .string()
           .describe(
@@ -19274,6 +20168,11 @@ export const updateFormResponse = zod
     databaseId: zod.uuid().describe('The database holding its responses.'),
     description: zod.string().describe('What respondents read under the name.'),
     id: zod.uuid().describe('The form.'),
+    isHiddenInDrive: zod
+      .boolean()
+      .describe(
+        'Whether Drive leaves it, and the database behind it, out of its\nlistings, as for a channel poll.'
+      ),
     name: zod
       .string()
       .describe(
@@ -19348,6 +20247,11 @@ export const collaborateFormResponse = zod
               .string()
               .describe('What respondents read under the name.'),
             id: zod.uuid().describe('The form.'),
+            isHiddenInDrive: zod
+              .boolean()
+              .describe(
+                'Whether Drive leaves it, and the database behind it, out of its\nlistings, as for a channel poll.'
+              ),
             name: zod
               .string()
               .describe(
@@ -20209,6 +21113,11 @@ export const putFormLayoutResponse = zod
               .string()
               .describe('What respondents read under the name.'),
             id: zod.uuid().describe('The form.'),
+            isHiddenInDrive: zod
+              .boolean()
+              .describe(
+                'Whether Drive leaves it, and the database behind it, out of its\nlistings, as for a channel poll.'
+              ),
             name: zod
               .string()
               .describe(
@@ -44690,6 +45599,12 @@ export const messageTimelineResponse = zod
               .datetime({})
               .nullish()
               .describe('Last content edit, if any.'),
+            guest_name: zod
+              .string()
+              .nullish()
+              .describe(
+                'Display name of a verified call guest, retained after the call ends.'
+              ),
             id: zod.uuid().describe('Message UUID.'),
             imported_author: zod
               .union([
@@ -45013,6 +45928,12 @@ export const messageTimelineResponse = zod
                             .datetime({})
                             .nullish()
                             .describe('Last content edit, if any.'),
+                          guest_name: zod
+                            .string()
+                            .nullish()
+                            .describe(
+                              'Display name of a verified call guest, retained after the call ends.'
+                            ),
                           id: zod.uuid().describe('Message UUID.'),
                           imported_author: zod
                             .union([
@@ -45396,6 +46317,12 @@ export const entityMessageCreateResponse = zod
       .datetime({})
       .nullish()
       .describe('Last content edit, if any.'),
+    guest_name: zod
+      .string()
+      .nullish()
+      .describe(
+        'Display name of a verified call guest, retained after the call ends.'
+      ),
     id: zod.uuid().describe('Message UUID.'),
     imported_author: zod
       .union([
@@ -45552,6 +46479,12 @@ export const entityMessageGetMessageResponse = zod
       .datetime({})
       .nullish()
       .describe('Last content edit, if any.'),
+    guest_name: zod
+      .string()
+      .nullish()
+      .describe(
+        'Display name of a verified call guest, retained after the call ends.'
+      ),
     id: zod.uuid().describe('Message UUID.'),
     imported_author: zod
       .union([
@@ -45712,6 +46645,12 @@ export const entityMessageDeleteMessageResponse = zod
       .datetime({})
       .nullish()
       .describe('Last content edit, if any.'),
+    guest_name: zod
+      .string()
+      .nullish()
+      .describe(
+        'Display name of a verified call guest, retained after the call ends.'
+      ),
     id: zod.uuid().describe('Message UUID.'),
     imported_author: zod
       .union([
@@ -45968,6 +46907,12 @@ export const entityMessageEditResponse = zod
       .datetime({})
       .nullish()
       .describe('Last content edit, if any.'),
+    guest_name: zod
+      .string()
+      .nullish()
+      .describe(
+        'Display name of a verified call guest, retained after the call ends.'
+      ),
     id: zod.uuid().describe('Message UUID.'),
     imported_author: zod
       .union([
@@ -46132,6 +47077,12 @@ export const entityMessageReactResponse = zod
       .datetime({})
       .nullish()
       .describe('Last content edit, if any.'),
+    guest_name: zod
+      .string()
+      .nullish()
+      .describe(
+        'Display name of a verified call guest, retained after the call ends.'
+      ),
     id: zod.uuid().describe('Message UUID.'),
     imported_author: zod
       .union([
@@ -46295,6 +47246,12 @@ export const entityMessageLegacyResponse = zod
       .datetime({})
       .nullish()
       .describe('Last content edit, if any.'),
+    guest_name: zod
+      .string()
+      .nullish()
+      .describe(
+        'Display name of a verified call guest, retained after the call ends.'
+      ),
     id: zod.uuid().describe('Message UUID.'),
     imported_author: zod
       .union([
@@ -46468,6 +47425,12 @@ export const entityMessageGetThreadResponse = zod
               .datetime({})
               .nullish()
               .describe('Last content edit, if any.'),
+            guest_name: zod
+              .string()
+              .nullish()
+              .describe(
+                'Display name of a verified call guest, retained after the call ends.'
+              ),
             id: zod.uuid().describe('Message UUID.'),
             imported_author: zod
               .union([
@@ -46631,6 +47594,12 @@ export const entityMessageGetThreadResponse = zod
           .datetime({})
           .nullish()
           .describe('Last content edit, if any.'),
+        guest_name: zod
+          .string()
+          .nullish()
+          .describe(
+            'Display name of a verified call guest, retained after the call ends.'
+          ),
         id: zod.uuid().describe('Message UUID.'),
         imported_author: zod
           .union([
@@ -47207,6 +48176,12 @@ export const messageTimelineEntriesResponse = zod
                       .datetime({})
                       .nullish()
                       .describe('Last content edit, if any.'),
+                    guest_name: zod
+                      .string()
+                      .nullish()
+                      .describe(
+                        'Display name of a verified call guest, retained after the call ends.'
+                      ),
                     id: zod.uuid().describe('Message UUID.'),
                     imported_author: zod
                       .union([
@@ -47560,6 +48535,12 @@ export const messageTimelineEntriesResponse = zod
                                     .datetime({})
                                     .nullish()
                                     .describe('Last content edit, if any.'),
+                                  guest_name: zod
+                                    .string()
+                                    .nullish()
+                                    .describe(
+                                      'Display name of a verified call guest, retained after the call ends.'
+                                    ),
                                   id: zod.uuid().describe('Message UUID.'),
                                   imported_author: zod
                                     .union([

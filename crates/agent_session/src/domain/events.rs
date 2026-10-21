@@ -524,6 +524,7 @@ impl LogAppendedMetadata {
                     agent_session_id,
                     user_id: entry.user_id,
                     content: entry.content,
+                    logged_at: Some(entry.created_at),
                 },
             })
             .collect()

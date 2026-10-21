@@ -69,6 +69,28 @@ trace context — timestamps + service are the only join for those.
   applying and message fan-out remain untraced. Call joining now has a user-action
   trace; see below.
 
+## Account WebSocket sessions
+
+Search for `{ name="auth.session_websockets.activate" }` after signing in.
+`user.id_hash` is SHA-256 of the Macro user ID; this trace suppresses automatic
+raw user-ID enrichment because Macro IDs can contain email addresses. No socket
+URLs, tokens, close reasons, or raw credential errors are recorded.
+
+Gateway and storage child spans share that activation trace. `ws.service`
+identifies the socket. `auth.session_socket.resolve_url` measures authorization
+and URL resolution; `auth.session_socket.handshake` measures the upgrade. Their
+`auth.session_socket.connect` parent ends on connection, failure, or cancellation.
+`auth.session_socket.retry` records retry count and backoff milliseconds;
+`auth.session_socket.close` distinguishes disconnects from session teardown.
+Activation ends promptly rather than staying open for the whole login; later
+retries and closure remain children of its trace.
+
+Auth-refresh HTTP requests started during URL resolution inherit its trace
+context. Browser WebSocket upgrades cannot send custom trace headers, and these
+account backends do not currently consume trace-context query parameters, so
+upgrade server spans are not yet joined to this browser trace. Verify browser
+phases separately rather than assuming end-to-end upgrade correlation.
+
 ## Call joining
 
 Click **Start call** on `/app/meet/new` or **Join call** on a shared meeting's
@@ -85,7 +107,12 @@ covers an accepted button press through connection or failure:
 The root records `meeting.join.kind` (`create` or `join`), guest status,
 microphone/camera preferences, `call.id` once credentials arrive, and
 `meeting.join.outcome` (`connected`, `failed`, `cancelled`, or `already_in_call`).
-It does not measure setup-page loading or completion of background media setup.
+Its duration excludes setup-page loading and completion of background media
+setup. The `call.media.setup` child continues after the join root ends; inspect
+its per-device children for capture and publishing failures. Earlier waiting-room
+captures correlate through `meeting.setup.id`, and the join records final device
+access states. See [browser call diagnostics](calls.md#browser-call-diagnostics)
+for fields, failure interpretation, and verification.
 Never add share tokens or RTC credentials to trace attributes or errors.
 
 The HTTP requests can have separate trace IDs across asynchronous mutation

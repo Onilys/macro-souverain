@@ -25,6 +25,7 @@ import type {
   CreditCheckoutResponse,
   CursorApiKeyStatus,
   CursorModelsResponse,
+  EmailConnectionProviders,
   EmptyResponse,
   EnrichGithubPullRequestsProxyRequest,
   EnrichGithubPullRequestsResponse,
@@ -93,6 +94,7 @@ import type {
   TeamWithMembers,
   ToggleAutoJoinDomainResponse,
   ToggleNonAdminInvitesResponse,
+  TrialEligibility,
   UpdateAutoReloadRequest,
   UpdateOverageRequest,
   UsageSnapshot,
@@ -2215,6 +2217,43 @@ export const createInProgressLink = async (
   } as createInProgressLinkResponse;
 };
 
+export type emailConnectionProvidersResponse200 = {
+  data: EmailConnectionProviders;
+  status: 200;
+};
+
+export type emailConnectionProvidersResponseSuccess =
+  emailConnectionProvidersResponse200 & {
+    headers: Headers;
+  };
+
+export type emailConnectionProvidersResponse =
+  emailConnectionProvidersResponseSuccess;
+
+export const getEmailConnectionProvidersUrl = () => {
+  return `/link/email/providers`;
+};
+
+export const emailConnectionProviders = async (
+  options?: RequestInit
+): Promise<emailConnectionProvidersResponse> => {
+  const res = await fetch(getEmailConnectionProvidersUrl(), {
+    ...options,
+    method: 'GET',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: emailConnectionProvidersResponse['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as emailConnectionProvidersResponse;
+};
+
 /**
  * @summary Initiates a link for a user
  */
@@ -2595,6 +2634,11 @@ export type initOutlookLinkResponse401 = {
   status: 401;
 };
 
+export type initOutlookLinkResponse402 = {
+  data: ErrorResponse;
+  status: 402;
+};
+
 export type initOutlookLinkResponse404 = {
   data: ErrorResponse;
   status: 404;
@@ -2616,6 +2660,7 @@ export type initOutlookLinkResponseSuccess = initOutlookLinkResponse200 & {
 export type initOutlookLinkResponseError = (
   | initOutlookLinkResponse400
   | initOutlookLinkResponse401
+  | initOutlookLinkResponse402
   | initOutlookLinkResponse404
   | initOutlookLinkResponse429
   | initOutlookLinkResponse500
@@ -5929,6 +5974,69 @@ export const createPortalSession = async (
     status: res.status,
     headers: res.headers,
   } as createPortalSessionResponse;
+};
+
+/**
+ * @summary Read the caller's eligibility; checkout revalidates before granting a trial.
+ */
+export type getTrialEligibilityResponse200 = {
+  data: TrialEligibility;
+  status: 200;
+};
+
+export type getTrialEligibilityResponse400 = {
+  data: ErrorResponse;
+  status: 400;
+};
+
+export type getTrialEligibilityResponse401 = {
+  data: ErrorResponse;
+  status: 401;
+};
+
+export type getTrialEligibilityResponse500 = {
+  data: ErrorResponse;
+  status: 500;
+};
+
+export type getTrialEligibilityResponseSuccess =
+  getTrialEligibilityResponse200 & {
+    headers: Headers;
+  };
+export type getTrialEligibilityResponseError = (
+  | getTrialEligibilityResponse400
+  | getTrialEligibilityResponse401
+  | getTrialEligibilityResponse500
+) & {
+  headers: Headers;
+};
+
+export type getTrialEligibilityResponse =
+  | getTrialEligibilityResponseSuccess
+  | getTrialEligibilityResponseError;
+
+export const getGetTrialEligibilityUrl = () => {
+  return `/user/stripe/trial_eligibility`;
+};
+
+export const getTrialEligibility = async (
+  options?: RequestInit
+): Promise<getTrialEligibilityResponse> => {
+  const res = await fetch(getGetTrialEligibilityUrl(), {
+    ...options,
+    method: 'GET',
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getTrialEligibilityResponse['data'] = body
+    ? JSON.parse(body)
+    : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getTrialEligibilityResponse;
 };
 
 /**

@@ -37,3 +37,8 @@ it('keeps the plain heading for the new conversation page', () => {
   expect(screen.queryByRole('button', { name: 'Share' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Side panel' })).toBeNull();
 });
+
+it('omits the heading on an untitled composer page', () => {
+  render(() => <Topbar />);
+  expect(screen.queryByRole('heading')).toBeNull();
+});

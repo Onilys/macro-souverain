@@ -35,7 +35,7 @@ export function CrmRecordTasks(props: { scope: CrmRecordScope }) {
             scopeKey={`crm:${scope.type}:${scope.id}:tasks`}
             onOpenTask={(task, options) => {
               layout.openWithSplit(
-                { type: 'md', id: task.id },
+                { type: 'task', id: task.id },
                 { preferNewSplit: options?.event?.shiftKey }
               );
               return true;

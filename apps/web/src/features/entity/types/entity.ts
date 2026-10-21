@@ -302,6 +302,8 @@ export type EmailEntity = EntityBase & {
   linkId?: string;
   labels?: SoupLabel[] | ApiLabel[];
   hasIcsAttachment?: boolean;
+  /** A sent file, not an inline image or calendar invite, is on the thread. */
+  hasFileAttachment?: boolean;
   attachments?: EmailAttachment[];
   properties?: SoupProperty[];
   /** ISO 8601 time of the thread draft's confirmed scheduled send. */
@@ -572,6 +574,21 @@ export const isChannelEntity = (
  */
 export const isNonMemberChannelEntity = (entity: EntityData): boolean => {
   return isChannelEntity(entity) && entity.isParticipant === false;
+};
+
+/**
+ * Whether the viewer may edit a channel's identity — its name and its picture.
+ *
+ * Any active participant of a named channel qualifies, which is what the server
+ * enforces for both the rename and the picture endpoints. A direct message
+ * takes its name and picture from the other participant, so neither applies.
+ */
+export const canEditChannelIdentity = (entity: EntityData): boolean => {
+  return (
+    isChannelEntity(entity) &&
+    entity.channelType !== 'direct_message' &&
+    entity.isParticipant !== false
+  );
 };
 
 export const isChannelMessageEntity = (

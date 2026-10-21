@@ -81,6 +81,80 @@ refetch/reconnect; this change does not add durable tombstones or an outbox.
 Watch notification-service/Kafka/connection-gateway load during backfill. Do not
 turn off delete events to speed up the purge.
 
+## Tracing and consumer health
+
+The retention Lambda includes the pinned x86_64 Datadog Extension v101, with an
+OTLP gRPC receiver on `127.0.0.1:4317`. The extension retrieves the **existing**
+Datadog key by secret ARN; its role can read only that key, not unrelated secrets.
+No API key value is copied into the Lambda environment. If that secret uses a
+customer-managed KMS key, verify narrowly scoped decrypt permission before deploy.
+CloudWatch → Firehose remains the log path; extension log shipping is disabled to
+avoid duplicates. Runtime identity is `service:notification-retention`, with
+`DD_ENV` set to the stack.
+
+The handler span is `notification.retention.invoke`, searchable by
+`faas.invocation_id`. After that span closes, the worker flushes completed spans
+with a five-second caller deadline before Lambda can freeze the process. It does
+not shut down the provider between warm invocations. Flush failure logs an error
+but preserves the cleanup result: committed deletion must not be retried just
+because telemetry failed. The existing ten-second invocation headroom covers
+this flush. The extension must be checked live after an approved deployment;
+unit tests or a green Lambda result do not prove Datadog received its traces.
+
+DSS notification consumers intentionally assign all partitions from latest,
+without committing offsets or joining durable consumer groups. Consequently MSK
+`MaxOffsetLag` is absent for `macro.notifications`; don't change delivery semantics
+just to manufacture that metric.
+
+Each consumer now reports `telemetry_event:notification_consumer_health` every
+ten seconds through normal service logs, with an opaque `consumer_instance`:
+
+- `max_offset_backlog` / `total_offset_backlog`: broker high watermark minus the
+  next application-delivery position. Before first delivery, use next fetch
+  position plus prefetched records. Offset gaps mean this is an approximation,
+  not an exact count of outstanding business events.
+- `prefetched_messages`: records buffered locally, not just records still on the
+  broker. This prevents a full fetch queue from looking caught up.
+- `known_partitions`, `unknown_partitions`, `disconnected_partitions`, and
+  `consumer_health`: distinguish
+  valid measurements from missing offsets, disconnected brokers, and startup.
+- A separate reporter detects callbacks older than 30 seconds (including old
+  snapshots delivered late), even when the consuming task is stalled. Stale or
+  partial backlog measurements are omitted, **never** reported as zero. Dropping
+  the consumer stops its reporter.
+
+The manual `infra/stacks/monitoring` stack adds nine log monitors and a rollout
+dashboard. Alerts isolate consumer instances; a healthy process cannot mask a
+lagging one. Retired-instance alerts resolve on missing data, and a separate
+per-environment heartbeat alarm catches loss of all consumer telemetry. Starting
+thresholds are warning 100 / critical 1000 for the five-minute average of maximum
+partition backlog; tune against real traffic before enabling production cleanup.
+
+The `notification.delete.publish` span covers forwarding a database deletion,
+with notification ID, recipient count, and publication outcome, but no recipient
+IDs or payload. A log monitor catches failed forwarding. Consumer backlog begins
+at Kafka: it does **not** measure time queued before PostgreSQL NOTIFY is forwarded,
+or acknowledge client delivery. Existing best-effort loss/reconnect semantics
+remain unchanged; no durable outbox is added by this observability change.
+
+Before the next deletion canary, after approved deployments:
+
+1. Deploy the notification-service stack (extension + worker) and DSS (consumer
+   telemetry). Keep both cleanup schedules disabled and dry-run enabled.
+2. Invoke explicit dry runs and verify the complete invocation and batch/read
+   spans in Datadog, with the correct service/env and no exporter/flush errors.
+3. Confirm health logs from each running DSS instance, including healthy zero
+   backlog when idle; investigate missing/unknown/stale samples rather than
+   accepting an empty chart as healthy.
+4. Validate and deploy the monitoring stack separately. Verify the incoming
+   attributes are parsed as numeric measures (`max_offset_backlog`, `deleted`)
+   and grouping attributes (`consumer_instance`, `consumer_health`) in Datadog;
+   configure missing measures/facets before relying on aggregation charts. The
+   authenticated preview must show nine new monitors and one dashboard, without
+   modifying adopted resources.
+5. Only then approve a bounded dev deletion canary and inspect DB/API health,
+   publisher failures, and consumer backlog draining before considering prod.
+
 ## Rollout
 
 Production deletion needs explicit approval and a verified backup/PITR recovery
@@ -151,14 +225,23 @@ within 30 days; pagination of currently unbounded consumers remains separate wor
 Run from the repository root with local PostgreSQL and `SQLX_OFFLINE` unset:
 
 ```bash
-cargo test -p notification -p notification_retention_handler -- --test-threads=8
+cargo test -p kafka_util -p macro_entrypoint -p notification -p notification_retention_handler -- --test-threads=8
+# Only if notification SQL or schema changed:
 nix develop --command just prepare_db
 just check
+just clippy
 \cd infra
-bunx tsc --noEmit --project stacks/notification-service/tsconfig.json
+bun test stacks/notification-service/retention.test.ts
+bun test stacks/monitoring/monitors/notification-retention.test.ts
+bun run check
 ```
 
 Tests cover cutoff boundaries, parent-vs-recipient age, all states, cascades,
 read-only previews, deterministic bounded ordering, retry behavior, skipped locks,
 transaction advisory locking, timeout rollback, non-UTC sessions, byte-bounded
 multi-recipient delete events, invocation caps, and fail-closed event parsing.
+Observability tests also cover warm-invocation trace flushing and exporter
+failures, a real librdkafka mock broker without offset commits, stale/partial
+consumer statistics, broker disconnects, reporter cancellation, and the Pulumi
+collector/secret/monitor configuration. Hosted Datadog query validation and
+trace delivery still require an authenticated preview and approved deployment.

@@ -1,11 +1,11 @@
 import { ViewShell } from '@app/components/view-shell';
 import { SearchState } from '@app/features/command/mobile/mobileSearchState';
-import { useMobileSearchText } from '@app/features/command/mobile/use-mobile-search-text';
 import { markChannelNotificationsSeenOnOpen } from '@app/features/next-soup/utils';
 import { MaybeSoupEntityActionDrawerManager } from '@app/features/soup';
 import { withEntityNotifications } from '@app/features/soup/entity-notifications';
 import { ViewTour } from '@app/features/tours/ViewTour';
 import { SplitRouter } from '@app/lib/split-router';
+import { useChannelByIdQuery } from '@channel/Channel/channel-entity';
 import { DebugSuspense } from '@channel/DebugSuspense';
 import { useGlobalNotificationSource } from '@components/app/GlobalAppState';
 import { useSplitPanelOrThrow } from '@components/app/split-layout/layoutUtils';
@@ -31,10 +31,10 @@ import {
   type ChannelsSources,
   deduplicateChannels,
   resolveSelectedChannel,
-  useChannelByIdQuery,
   useChannelsSources,
 } from './queries';
 import { createChannelDetailSource } from './queries/channel-detail-source';
+import { useChannelListSearchPool } from './queries/channel-list-search-pool';
 import { createChannelSearchSource } from './queries/channel-search-source';
 import { channelsTour } from './tour';
 
@@ -50,21 +50,19 @@ export type ChannelsViewProps = {
 
 // Mounted inside the mobile list's Suspense boundary.
 function MobileChannelsList(props: { sources: ChannelsSources }) {
-  const panel = useSplitPanelOrThrow();
-  const { state, setMobileTab } = useChannelsView();
-  const mobileSearchText = useMobileSearchText(() => '', panel.handle.isActive);
+  const listChannels = useChannelListSearchPool();
+  const mobileSearchText = () => '';
   const mobileSearchSource = createChannelSearchSource({
+    additionalLocalChannels: listChannels,
     text: mobileSearchText,
-    scope: () => state.mobileTab,
-    source: () => props.sources[state.mobileTab],
+    scope: () => 'recents',
+    source: () => props.sources.recents,
   });
   return (
     <ChannelsMobileView
       source={mobileSearchSource}
       searchQuery={mobileSearchText()}
       onClearSearch={() => SearchState.setQuery('')}
-      tab={state.mobileTab}
-      onTabChange={setMobileTab}
     />
   );
 }
@@ -74,8 +72,10 @@ function DesktopChannelsRail(props: {
   searchOpen: boolean;
   onSearchOpenChange: (open: boolean) => void;
 }) {
+  const listChannels = useChannelListSearchPool();
   const [searchQuery, setSearchQuery] = createSignal('');
   const searchSource = createChannelSearchSource({
+    additionalLocalChannels: listChannels,
     text: searchQuery,
     enabled: () => props.searchOpen,
     scope: () => 'search',
@@ -127,8 +127,7 @@ function ChannelsViewRoot() {
 
   const sources = useChannelsSources(
     (scope) => {
-      if (mobileLayout())
-        return scope !== 'search' && state.mobileTab === scope;
+      if (mobileLayout()) return scope === 'recents';
       if (railSearchOpen()) return scope === 'search';
       if (scope === 'search') return false;
       if (scope === 'recents') return tab() === 'recents';

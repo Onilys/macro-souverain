@@ -2257,7 +2257,8 @@ async fn a_user_tool_review_is_a_tool_scoped_form_elicitation_naming_the_tool() 
     );
 }
 
-/// The timeout still guards a turn that is silent with nothing asked.
+/// The timeout still guards a turn that is silent with nothing asked, and
+/// the turn it stops failed: nobody pressed Stop.
 #[tokio::test(start_paused = true)]
 async fn a_silent_turn_with_no_question_out_is_stopped_by_the_idle_timeout() {
     let (notifications, _config_options, response) =
@@ -2266,11 +2267,15 @@ async fn a_silent_turn_with_no_question_out_is_stopped_by_the_idle_timeout() {
                 .send_request(text_prompt(&session, "hang"))
                 .block_task()
                 .await
-                .expect("the turn should complete")
         })
         .await;
 
-    assert_eq!(response.stop_reason, StopReason::Cancelled);
+    let error = response.expect_err("a timed-out turn fails");
+    assert!(
+        error.to_string().contains("produced nothing")
+            || format!("{error:?}").contains("produced nothing"),
+        "got {error:?}"
+    );
     assert!(
         spoken(&notifications).contains("produced nothing"),
         "got {:?}",
@@ -2671,4 +2676,23 @@ async fn changing_speed_applies_to_next_turn_and_rejects_unsupported_models() {
     let requests = engine.0.requests();
     assert_eq!(requests[0].speed, agent::ModelSpeed::Ultrafast);
     assert_eq!(requests[1].speed, agent::ModelSpeed::Standard);
+}
+
+#[test]
+fn a_turn_that_ends_on_a_tool_call_has_not_replied() {
+    let mut output = TurnOutput::default();
+    output.observe(&StreamPart::Content("Let me look.".to_owned()));
+    output.observe(&StreamPart::ToolCall(agent::ToolCall {
+        id: "call-1".to_owned(),
+        name: "ExecuteCode".to_owned(),
+        json: serde_json::json!({}),
+        mcp: None,
+    }));
+    output.observe(&StreamPart::Content("\n\n".to_owned()));
+    assert_eq!(output.text_chars, 14);
+    assert_eq!(output.tool_calls, 1);
+    assert!(!output.replied);
+
+    output.observe(&StreamPart::Content("Found it.".to_owned()));
+    assert!(output.replied);
 }

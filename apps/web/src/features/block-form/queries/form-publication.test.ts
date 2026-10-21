@@ -19,6 +19,7 @@ const detail: FormCollaboration['detail'] = {
     confirmationMessage: 'Thank you',
     createdAt: '2026-10-05T09:00:00Z',
     updatedAt: '2026-10-05T09:00:00Z',
+    isHiddenInDrive: false,
   },
   access: 'edit',
   tableGone: false,
@@ -76,5 +77,22 @@ describe('publicationMessage', () => {
       'This draft couldn’t be read. Your published form is still available.'
     );
     expect(publicationMessage({ detail })).toBeUndefined();
+  });
+
+  it('gives generic copy for problems from a newer server instead of throwing', () => {
+    expect(
+      publicationMessage({
+        detail,
+        publicationError: JSON.parse('{"kind":"quotaExceeded"}'),
+      })
+    ).toBe('Your draft is saved, but it couldn’t be published yet.');
+    expect(
+      publicationMessage({
+        detail,
+        publicationError: JSON.parse(
+          '{"kind":"layout","problem":{"kind":"tooManySections"}}'
+        ),
+      })
+    ).toBe('Your draft is saved, but it couldn’t be published yet.');
   });
 });

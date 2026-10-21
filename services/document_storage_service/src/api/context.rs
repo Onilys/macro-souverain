@@ -377,6 +377,14 @@ pub(crate) type DssDocumentPurger = DocumentPurger<
 /// Type alias for the authorization service.
 pub(crate) type AuthorizationService = MacroAuthorizationServiceImpl<MacroAuthJwtValidator>;
 
+pub(crate) type AccessRequestsState =
+    access_requests::inbound::axum_router::AccessRequestsRouterState<
+        access_requests::outbound::postgres::PgRequestRepository,
+        EntityAccessService,
+        access_requests::domain::ports::SystemClock,
+        AuthorizationService,
+    >;
+
 /// Type alias for the documents router state.
 pub(crate) type DocumentsState =
     DocumentRouterState<DocumentService, EntityAccessService, AuthorizationService>;
@@ -568,6 +576,18 @@ pub(crate) type DssUserApiKeyState =
 /// Type alias for the databases service.
 pub(crate) type DatabasesServiceType =
     PgDatabasesService<GatewayTableEventPublisher, DssEventBroker, EntityAccessService>;
+
+/// HTTP SQL queries over the same database, access and Soup services.
+pub(crate) type DssSqlState = databases_sql::inbound::axum_router::SqlRouterState<
+    DatabasesServiceType,
+    EntityAccessService,
+    DssSoupService,
+    contacts::domain::service::ContactsDomainService<
+        contacts::outbound::repository::DbContactsRepository,
+        Option<contacts::outbound::gateway::ConnectionGatewayNotifier>,
+    >,
+    AuthorizationService,
+>;
 
 /// Type alias for the databases router state.
 pub(crate) type DssDatabasesState =
@@ -837,6 +857,7 @@ pub(crate) struct ApiContext {
     pub channel_labels_state: DssChannelLabelsState,
     pub user_api_key_state: DssUserApiKeyState,
     pub reminders_state: DssRemindersState,
+    pub access_requests_state: AccessRequestsState,
     pub slack_state: DssSlackState,
     pub initiative_state: DssInitiativeState,
     pub graphql_crm_context: graphql_crm::CrmGraphqlContext,
@@ -847,8 +868,10 @@ pub(crate) struct ApiContext {
     pub graphql_work_feed_context: complete_graph::WorkFeedGraphqlContext,
     pub graphql_initiative_entity_loader: graphql_initiative::InitiativeEntityLoader,
     pub graphql_agent_session_entity_loader: graphql_soup::AgentSessionEntityLoader,
-    pub graphql_soup_update_hydration_loader: graphql_soup::SoupUpdateHydrationLoader,
+    pub graphql_primary_soup_item_loader: graphql_soup::PrimarySoupItemLoader,
+    pub graphql_soup_item_loader: graphql_soup::SoupItemDataLoader,
     pub databases_state: DssDatabasesState,
+    pub sql_state: DssSqlState,
     pub database_webhooks_state: DssDatabaseWebhooksState,
     pub forms_state: DssFormsState,
     pub database_starter_state: DssDatabaseStarterState,
@@ -878,6 +901,7 @@ pub(crate) struct ApiContext {
     pub projects_state: ProjectsState,
     pub channels_state: DssChannelsState,
     pub messages_state: DssMessagesState,
+    pub guest_chat_service: Arc<dyn messages::domain::service::guest_chat::GuestChatApi>,
     pub annotation_service: Arc<DssAnnotationService>,
     /// Shared channel service, for calling channel domain operations outside
     /// the channels router (starter-doc seeding records mention backlinks).

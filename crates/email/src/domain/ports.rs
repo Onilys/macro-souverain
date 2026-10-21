@@ -4,10 +4,10 @@ use crate::domain::models::{
     EmailThreadMailProjection, EmailThreadMetadata, EmailThreadPreview, EnrichedEmailThreadPreview,
     GetEmailsRequest, Label, Link, LinkLabel, Message, MessageAttachment, MessageLabel, MessageRow,
     MessageTimestamps, ParsedAddresses, ParsedMessage, ParsedThread, PreviewCursorQuery,
-    RecipientType, ResolvedDraftInput, SavedUserDraft, SenderPolicy, SettledDraftIds,
-    SimpleMessage, SimpleMessageInfo, SourcedAttachment, Thread, ThreadRow,
-    UpdateThreadLabelsResult, UpsertEmailFilterInput, UpsertedContacts, UserEmailLink,
-    UserProvider,
+    RecipientType, ResolvedDraftInput, ResolvedSendingInbox, SavedUserDraft, SenderPolicy,
+    SendingInboxRequest, SettledDraftIds, SimpleMessage, SimpleMessageInfo, SourcedAttachment,
+    Thread, ThreadRow, UpdateThreadLabelsResult, UpsertEmailFilterInput, UpsertedContacts,
+    UserEmailLink, UserProvider,
 };
 use chrono::{DateTime, Utc};
 use entity_access::domain::models::{EditAccessLevel, EntityAccessReceipt, ViewAccessLevel};
@@ -98,7 +98,63 @@ pub trait EmailUserRepo: Send + Sync + 'static {
 }
 
 pub trait EmailRepo: Send + Sync + 'static {
+    /// Latest durable command per organization attribute in an authorized thread.
+    fn thread_mailbox_operations(
+        &self,
+        _link: Uuid,
+        _thread: Uuid,
+    ) -> impl Future<
+        Output = Result<Vec<super::models::mailbox_action::MailboxOperation>, Self::Err>,
+    > + Send {
+        async { Ok(Vec::new()) }
+    }
+
+    /// Revalidate inbox access and persist sender intent and classification atomically.
+    fn commit_sender_policy(
+        &self,
+        actor: &MacroUserIdStr<'_>,
+        link: Uuid,
+        sender: &str,
+        blocked: bool,
+        important: Option<bool>,
+    ) -> impl Future<Output = Result<(), Self::Err>> + Send;
+
+    /// Revalidate actor and expected facts while committing a user-directed resolution.
+    fn commit_message_resolution(
+        &self,
+        actor: &MacroUserIdStr<'_>,
+        plan: super::models::mailbox_operation::MessageResolutionPlan,
+    ) -> impl Future<Output = Result<Uuid, EmailErr>> + Send;
+    /// Durable write facts for a batch of already-authorized messages.
+    fn message_operation_facts(
+        &self,
+        ids: &[Uuid],
+    ) -> impl Future<
+        Output = Result<
+            HashMap<Uuid, super::models::mailbox_operation::MessageOperationFacts>,
+            Self::Err,
+        >,
+    > + Send;
     type Err: Send;
+    /// Read message organization facts within an already-authorized inbox.
+    fn mailbox_action_messages(
+        &self,
+        link_id: Uuid,
+        thread_id: Uuid,
+    ) -> impl Future<
+        Output = Result<
+            Vec<crate::domain::models::mailbox_action::MailboxActionMessage>,
+            Self::Err,
+        >,
+    > + Send;
+    /// Persist frozen targets, pending state and a durable command atomically.
+    fn enqueue_mailbox_action(
+        &self,
+        link_id: Uuid,
+        actor: MacroUserIdStr<'_>,
+        action: &crate::domain::models::mailbox_action::MailboxAction,
+        targets: &[crate::domain::models::mailbox_action::MailboxActionTarget],
+    ) -> impl Future<Output = Result<Uuid, Self::Err>> + Send;
     fn previews_for_view_cursor(
         &self,
         query: PreviewCursorQuery,
@@ -125,11 +181,6 @@ pub trait EmailRepo: Send + Sync + 'static {
         fusionauth_user_id: &str,
         macro_id: MacroUserIdStr<'_>,
         provider: UserProvider,
-    ) -> impl Future<Output = Result<Option<Link>, Self::Err>> + Send;
-
-    fn link_by_macro_id(
-        &self,
-        macro_id: MacroUserIdStr<'_>,
     ) -> impl Future<Output = Result<Option<Link>, Self::Err>> + Send;
 
     /// Resolve the inbox owning a thread, only when that inbox belongs to the
@@ -298,6 +349,7 @@ pub trait EmailRepo: Send + Sync + 'static {
         message_id: Uuid,
         thread_db_id: Uuid,
         link_ids: &[Uuid],
+        actor: Option<&str>,
     ) -> impl Future<Output = Result<Option<DraftDeletion>, Self::Err>> + Send;
 
     /// Upsert contacts from the parsed addresses. Must be called outside a transaction
@@ -508,6 +560,17 @@ pub trait EmailThreadMailProjectionService: Send + Sync + 'static {
     ) -> impl Future<Output = Result<HashMap<Uuid, EmailThreadMailProjection>, EmailErr>> + Send;
 }
 
+/// Read-only domain service used to hydrate Soup previews of authorized threads.
+pub trait EmailThreadPreviewService: Send + Sync + 'static {
+    /// Fetch the Soup preview of each authorized thread in one batch, as the
+    /// thread's own inbox renders it. A thread without a row is absent.
+    fn get_email_thread_previews_by_receipts(
+        &self,
+        viewer: MacroUserIdStr<'static>,
+        receipts: Vec<EntityAccessReceipt<ViewAccessLevel>>,
+    ) -> impl Future<Output = Result<Vec<EnrichedEmailThreadPreview>, EmailErr>> + Send;
+}
+
 /// Read-only domain service used to hydrate lightweight email content edges.
 pub trait EmailContentService: Send + Sync + 'static {
     /// Fetch the newest non-draft parsed content message for each authorized thread.
@@ -543,6 +606,7 @@ pub trait EmailContentService: Send + Sync + 'static {
 /// This narrows capabilities, not consistency: the wrapped service may use a
 /// primary or replica pool. A bare `EmailServiceImpl` will not silently satisfy
 /// `EmailPreviewServiceReadOnly`.
+#[derive(Clone)]
 pub struct ReadonlyEmailPreviewAdapter<T>(pub T);
 
 impl<T: EmailService> EmailPreviewServiceReadOnly for ReadonlyEmailPreviewAdapter<T> {
@@ -556,6 +620,17 @@ impl<T: EmailService> EmailPreviewServiceReadOnly for ReadonlyEmailPreviewAdapte
         >,
     > + Send {
         EmailService::get_email_thread_previews(&self.0, req)
+    }
+}
+
+impl<T: EmailThreadPreviewService> EmailThreadPreviewService for ReadonlyEmailPreviewAdapter<T> {
+    fn get_email_thread_previews_by_receipts(
+        &self,
+        viewer: MacroUserIdStr<'static>,
+        receipts: Vec<EntityAccessReceipt<ViewAccessLevel>>,
+    ) -> impl Future<Output = Result<Vec<EnrichedEmailThreadPreview>, EmailErr>> + Send {
+        self.0
+            .get_email_thread_previews_by_receipts(viewer, receipts)
     }
 }
 
@@ -583,6 +658,42 @@ pub trait EmailUserService: Send + Sync + 'static {
 }
 
 pub trait EmailService: Send + Sync + 'static {
+    /// Organization status is visible only to current inbox members.
+    fn thread_mailbox_operations(
+        &self,
+        _actor: MacroUserIdStr<'static>,
+        _thread: Uuid,
+    ) -> impl Future<Output = Result<Vec<super::models::mailbox_action::MailboxOperation>, EmailErr>>
+    + Send {
+        async { Err(no_op_email_err()) }
+    }
+
+    /// Load operation state only for a currently accessible inbox message.
+    fn message_operation_status(
+        &self,
+        _actor: MacroUserIdStr<'static>,
+        _message_id: Uuid,
+    ) -> impl Future<
+        Output = Result<Option<super::models::mailbox_operation::MessageOperationStatus>, EmailErr>,
+    > + Send {
+        async { Err(no_op_email_err()) }
+    }
+
+    /// Resolve a draft conflict or uncertain delivery with fresh inbox authorization.
+    fn resolve_message_operation(
+        &self,
+        actor: MacroUserIdStr<'static>,
+        request: super::models::mailbox_operation::MessageResolutionRequest,
+    ) -> impl Future<Output = Result<Uuid, EmailErr>> + Send;
+    /// Set semantic mailbox state without requiring a provider system-label ID.
+    fn change_thread_mailbox_state(
+        &self,
+        _macro_id: MacroUserIdStr<'static>,
+        _thread_id: Uuid,
+        _action: crate::domain::models::mailbox_action::MailboxAction,
+    ) -> impl Future<Output = Result<(), EmailErr>> + Send {
+        async { Err(no_op_email_err()) }
+    }
     /// Authorize the caller's sending inbox, resolve client handles, and enqueue
     /// delivery with attribution to the authenticated actor.
     fn send_message_for_user(
@@ -608,18 +719,25 @@ pub trait EmailService: Send + Sync + 'static {
         macro_id: MacroUserIdStr<'_>,
     ) -> impl Future<Output = Result<Option<Link>, EmailErr>> + Send;
 
-    /// Fetch the email link for a user by their macro ID only.
-    fn get_link_by_macro_id(
-        &self,
-        macro_id: MacroUserIdStr<'_>,
-    ) -> impl Future<Output = Result<Option<Link>, EmailErr>> + Send;
-
     /// Fetch every inbox the caller can read — their own email_links rows plus
     /// any rows reachable via a `macro_user_links` edge (narrow-graph multi-inbox).
     fn get_inboxes_for_macro_id(
         &self,
         macro_id: MacroUserIdStr<'_>,
     ) -> impl Future<Output = Result<Vec<Link>, EmailErr>> + Send;
+
+    /// Resolve which inbox a composed email is sent from, for a transport
+    /// that carries the inbox by value instead of out of band: the address
+    /// the caller named, else the inbox that received the message being
+    /// replied to, else the caller's default inbox. Returns the whole
+    /// accessible set alongside it, which [`send_message`] needs anyway.
+    ///
+    /// [`send_message`]: EmailService::send_message
+    fn resolve_sending_inbox(
+        &self,
+        macro_id: MacroUserIdStr<'_>,
+        request: SendingInboxRequest<'_>,
+    ) -> impl Future<Output = Result<ResolvedSendingInbox, EmailErr>> + Send;
 
     /// Resolve the inbox owning a thread, scoped to the caller's own and
     /// delegated inboxes. Lets thread-targeted mutations derive the inbox from
@@ -770,6 +888,7 @@ pub trait EmailService: Send + Sync + 'static {
     /// not keep trashing new mail.
     fn set_sender_policy(
         &self,
+        actor: &MacroUserIdStr<'_>,
         link: &Link,
         sender_email: &str,
         policy: SenderPolicy,
@@ -1072,6 +1191,13 @@ impl EmailUserService for NoOpEmailService {
 }
 
 impl EmailService for NoOpEmailService {
+    async fn resolve_message_operation(
+        &self,
+        _actor: MacroUserIdStr<'static>,
+        _request: super::models::mailbox_operation::MessageResolutionRequest,
+    ) -> Result<Uuid, EmailErr> {
+        Err(no_op_email_err())
+    }
     async fn send_message_for_user(
         &self,
         _macro_id: MacroUserIdStr<'static>,
@@ -1106,17 +1232,18 @@ impl EmailService for NoOpEmailService {
         Err(no_op_email_err())
     }
 
-    async fn get_link_by_macro_id(
-        &self,
-        _macro_id: MacroUserIdStr<'_>,
-    ) -> Result<Option<Link>, EmailErr> {
-        Err(no_op_email_err())
-    }
-
     async fn get_inboxes_for_macro_id(
         &self,
         _macro_id: MacroUserIdStr<'_>,
     ) -> Result<Vec<Link>, EmailErr> {
+        Err(no_op_email_err())
+    }
+
+    async fn resolve_sending_inbox(
+        &self,
+        _macro_id: MacroUserIdStr<'_>,
+        _request: SendingInboxRequest<'_>,
+    ) -> Result<ResolvedSendingInbox, EmailErr> {
         Err(no_op_email_err())
     }
 
@@ -1221,6 +1348,7 @@ impl EmailService for NoOpEmailService {
 
     async fn set_sender_policy(
         &self,
+        _actor: &MacroUserIdStr<'_>,
         _link: &Link,
         _sender_email: &str,
         _policy: SenderPolicy,
@@ -1252,6 +1380,16 @@ impl EmailThreadMailProjectionService for NoOpEmailService {
         _viewer: MacroUserIdStr<'static>,
         _receipts: Vec<EntityAccessReceipt<ViewAccessLevel>>,
     ) -> Result<HashMap<Uuid, EmailThreadMailProjection>, EmailErr> {
+        Err(no_op_email_err())
+    }
+}
+
+impl EmailThreadPreviewService for NoOpEmailService {
+    async fn get_email_thread_previews_by_receipts(
+        &self,
+        _viewer: MacroUserIdStr<'static>,
+        _receipts: Vec<EntityAccessReceipt<ViewAccessLevel>>,
+    ) -> Result<Vec<EnrichedEmailThreadPreview>, EmailErr> {
         Err(no_op_email_err())
     }
 }

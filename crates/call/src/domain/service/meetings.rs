@@ -1,4 +1,5 @@
-//! Invitation use cases. Guests receive room access; signed-in attendees also receive call-only Comment access for chat.
+//! Invitation use cases. Guests receive room credentials used for active-session chat;
+//! signed-in attendees also receive call-only Comment access for saved discussions.
 
 use super::*;
 use crate::domain::meetings::{
@@ -41,7 +42,7 @@ impl<
             .map_err(|e| CallError::Internal(e.into()))?;
         if let Some(record) = record
             && record.channel_id.is_none()
-            && record.room_name == room_name
+            && record.room_name.as_deref() == Some(room_name)
         {
             self.repo
                 .attach_meeting_recording(&call_id, egress_id)

@@ -16,6 +16,20 @@ viewer identity is available, document inserts into Shared are rejected.
 Files opens **Drive** using the same shell as Tasks, on desktop and touch
 devices alike.
 
+With `enable-graphql-soup` enabled, supported file/folder/chat moves, trash,
+restore, permanent deletion, duplication, and share-policy changes use GraphQL
+mutations. Verify moving into a folder and back to root, opening the returned
+copy, and updating team/link/channel access on desktop and touch. Call-record
+permanent deletion and team sharing also use these mutations. A denied or failed
+GraphQL write must not retry through REST or report success; mixed bulk actions
+retain successful siblings. A plan-refused chat duplicate still opens the paywall
+with either transport; it must not create a copy or retry through REST. Restore immediately after trash and confirm the row
+returns without waiting for retained deletion markers to expire, even if the
+trash's background refresh failed. A delete started after the restore request
+must still hide its row. With the flag off, the existing REST paths remain.
+Deleting a non-owned item still only removes it from history. Forking a markdown
+history version still uses REST because GraphQL duplication copies current content.
+
 With `enable-databases` enabled, **My Files** includes owned databases and
 **Shared with me** includes databases shared by other owners. **All files**
 also includes accessible databases owned by others. **Search Drive** matches
@@ -89,8 +103,12 @@ and **Created by** submenus alongside **Files** for Default, All files, and Emai
 attachments. Options within a group match any selected option; different groups
 combine to narrow the results. Created by is hidden while My Files
 is restricted to your own files. Recent offers only file-scope filtering.
-Hold Shift while selecting or deselecting Type options to keep the submenu open
-and combine several file types without reopening it. Desktop filter submenus allow a
+The desktop Filter trigger shows the number of active filters, matching the
+mobile drawer; clearing all filters removes the badge. Hold Shift while selecting
+or deselecting Type options to keep the submenu open and combine several file
+types without reopening it. A normal selection closes the menu. Verify the badge
+tracks consecutive selections (1 → 2 → 1), including when filter groups refresh
+while the menu is open. Desktop filter submenus allow a
 250 ms grace period when the mouse crosses the parent menu's padding; entering
 the submenu cancels the pending close. While the mouse heads toward an open
 submenu, including one that opens to the left, the categories it crosses on the

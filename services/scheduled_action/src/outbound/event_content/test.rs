@@ -117,6 +117,7 @@ fn message(content: &str) -> Message {
         parent: MessageParent::Channel(Uuid::nil()),
         thread_id: None,
         sender_id: "macro|sender@example.com".to_owned().try_into().unwrap(),
+        guest_name: None,
         imported_author: None,
         bot_profile: None,
         mentions: Vec::new(),
@@ -230,7 +231,7 @@ fn calls_show_who_joined_and_what_they_said() {
     let record = CallRecord {
         call_id: Uuid::nil(),
         channel_id: None,
-        room_name: "room".into(),
+        room_name: Some("room".into()),
         created_by: "macro|owner@example.com".into(),
         started_at: at,
         ended_at: Some(at + chrono::Duration::minutes(30)),
@@ -266,6 +267,7 @@ fn calls_show_who_joined_and_what_they_said() {
             ended_at: None,
             sequence_num: 0,
         }],
+        source: None,
     };
 
     let event = event("call.ended", None);

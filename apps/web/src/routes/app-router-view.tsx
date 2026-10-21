@@ -30,6 +30,7 @@ import {
 } from '@components/app/split-layout/split-router/legacy-route';
 import { isNativeMobilePlatform } from '@core/mobile/isNativeMobilePlatform';
 import { isTouchDevice } from '@core/mobile/isTouchDevice';
+import { lazyNamed } from '@core/util/lazyNamed';
 import { isTauri } from '@core/util/platform';
 import { transformShortIdInUrlPathname } from '@core/util/url';
 import { lazy } from 'solid-js';
@@ -87,6 +88,7 @@ import {
   appRoute,
   authRoute,
   baseRoute,
+  bookingLinksRoute,
   bookingReceiptRoute,
   calendarSplitRoute,
   callDetailRoute,
@@ -97,6 +99,9 @@ import {
   channelsSplitRoute,
   codersRoute,
   companiesRoute,
+  crmPipelineRecordRoute,
+  crmPipelineRoute,
+  crmRecordRoute,
   debugRoutes,
   driveCallRoute,
   driveFolderDocumentRoute,
@@ -158,6 +163,10 @@ const { Router, Route } = SplitRouter;
 
 // Views under appRoute load lazily (lazy-route-views.ts); auth and booking
 // pages render outside it and load with the app.
+const BookingLinksRouteView = lazyNamed(
+  () => import('@app/features/scheduling/route-views'),
+  'BookingLinksRouteView'
+);
 
 /** Debug views stay behind the registry's lazy import. */
 function debugView(componentId: string) {
@@ -371,6 +380,10 @@ export function AppRouterView() {
           />
         </Route>
         <Route
+          definition={bookingLinksRoute}
+          component={BookingLinksRouteView}
+        />
+        <Route
           definition={calendarSplitRoute}
           component={CalendarRouteView}
           loading={CalendarViewSkeleton}
@@ -389,7 +402,12 @@ export function AppRouterView() {
           <Route definition={callsCallRoute} component={CallsCallDetail} />
         </Route>
         <Route definition={callDetailRoute} component={CallDetailRouteView} />
-        <Route definition={companiesRoute} component={CompaniesRouteView} />
+        <Route definition={companiesRoute} component={CompaniesRouteView}>
+          <Route definition={crmPipelineRoute}>
+            <Route definition={crmPipelineRecordRoute} />
+          </Route>
+          <Route definition={crmRecordRoute} />
+        </Route>
         <Route definition={foldersRoute} component={FoldersRouteView} />
         <Route definition={searchRoute} component={SearchRouteView} />
         <Route definition={prDetailRoute} component={PrDetailRouteView} />

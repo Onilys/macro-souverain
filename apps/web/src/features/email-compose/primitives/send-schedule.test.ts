@@ -284,17 +284,29 @@ describe('send and schedule ordering', () => {
           { id: 'third', email_address: 'third@example.com', settings: {} },
         ],
       };
+      vi.mocked(context.drafts.saveDraft).mockImplementation(
+        async ({ draft, inboxId }) => ({
+          draftId: draft.db_id ?? 'draft',
+          threadId: draft.thread_db_id ?? 'thread',
+          inboxId: inboxId ?? 'inbox',
+        })
+      );
       const state = composer(kind, context);
       state.edit('Move this draft');
       await vi.advanceTimersByTimeAsync(600);
       const identity = vi.mocked(context.draftLifecycle.observe).mock
         .calls[0][0];
-      const pending = Promise.withResolvers<PersistedEmailIdentity>();
-      vi.mocked(context.drafts.saveDraft).mockReturnValueOnce(pending.promise);
+      const pending =
+        Promise.withResolvers<
+          Awaited<ReturnType<typeof context.drafts.transferDraft>>
+        >();
+      vi.mocked(context.drafts.transferDraft).mockReturnValueOnce(
+        pending.promise
+      );
       state.switchInbox('other');
       await vi.advanceTimersByTimeAsync(0);
       state.switchInbox('third');
-      expect(state.selectedInbox()).toBe('other');
+      expect(state.selectedInbox()).toBe('inbox');
       expect(identity.inboxId()).toBe('inbox');
       expect(identity.draftId()).toBe('draft');
       context.setDraftLifecycle({
@@ -318,7 +330,7 @@ describe('send and schedule ordering', () => {
       pending.resolve({
         draftId: 'moved',
         threadId: 'moved-thread',
-        inboxId: 'other',
+        attachments: [],
       });
       await vi.advanceTimersByTimeAsync(0);
       expect([
@@ -326,7 +338,14 @@ describe('send and schedule ordering', () => {
         identity.threadId(),
         identity.inboxId(),
       ]).toEqual(['moved', 'moved-thread', 'other']);
-      expect(context.drafts.saveDraft).toHaveBeenCalledTimes(2);
+      expect(context.drafts.saveDraft).toHaveBeenCalledTimes(3);
+      expect(context.drafts.transferDraft).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          sourceInboxId: 'inbox',
+          destinationInboxId: 'other',
+          draftId: 'draft',
+        })
+      );
       expect(state.selectedInbox()).toBe('other');
       expect(context.notices.feedback.alert).not.toHaveBeenCalled();
       expect(state.disabled()).toBe(false);
@@ -564,8 +583,9 @@ describe('send and schedule ordering', () => {
         .mocked(composeContext.notices.feedback.success)
         .mock.calls.find(([text]) => text === 'Email sent');
       expect(onMarkDone).toHaveBeenCalledOnce();
+      // Send and mark done moves on to the next thread, like Mark done.
       expect(onMarkDone).toHaveBeenCalledWith(
-        expect.objectContaining({ silent: true, navigate: false })
+        expect.objectContaining({ silent: true, navigate: true })
       );
       sentNotice?.[1]?.actions?.[0].onClick();
       await vi.advanceTimersByTimeAsync(0);
@@ -834,6 +854,26 @@ describe('send and schedule ordering', () => {
       newer.dispose();
     }
   });
+  it('stays on the thread after a plain reply in the inbox', async () => {
+    const composeContext = createComposeContext();
+    const onMarkDone = vi.fn();
+    const state = mountReplyComposer(
+      composeContext,
+      undefined,
+      { onMarkDone },
+      { inboxVisible: true }
+    );
+    try {
+      await state.sendEmail();
+      // Replying files the thread away, but the reader keeps it open.
+      expect(onMarkDone).toHaveBeenCalledWith(
+        expect.objectContaining({ silent: true, navigate: false })
+      );
+    } finally {
+      state.dispose();
+    }
+  });
+
   it('completes reply mark-done when the post-send refresh fails', async () => {
     const composeContext = createComposeContext();
     const failure = new Error('Refresh failed');
@@ -932,8 +972,11 @@ describe('send and schedule ordering', () => {
     const state = mountReplyComposer(composeContext);
     try {
       state.form.setSelectedInbox('secondary');
-      state.handleAddAttachments([new File(['attachment'], 'review.txt')]);
+      const adding = state.handleAddAttachments([
+        new File(['attachment'], 'review.txt'),
+      ]);
       await vi.advanceTimersByTimeAsync(500);
+      await adding;
       expect(state.handleSendTimeChange(hoursFromNow(24))).toBe(true);
       const scheduling = state.sendEmail();
       await vi.advanceTimersByTimeAsync(0);
@@ -957,8 +1000,11 @@ describe('send and schedule ordering', () => {
     ).mockReturnValueOnce(uploading);
     const state = mountReplyComposer(composeContext);
     try {
-      state.handleAddAttachments([new File(['attachment'], 'review.txt')]);
+      const adding = state.handleAddAttachments([
+        new File(['attachment'], 'review.txt'),
+      ]);
       await vi.advanceTimersByTimeAsync(500);
+      await adding;
       expect(state.savedDraftId()).toBe('draft');
       const discarded = state.deleteDraftAndReset();
       expect(composeContext.drafts.deleteDraft).not.toHaveBeenCalled();
@@ -1040,7 +1086,7 @@ describe('send and schedule ordering', () => {
       state.form.attachments.add(attachment);
       state.edit('Forwarding');
       await vi.advanceTimersByTimeAsync(500);
-      state.handleRemoveAttachment(attachment);
+      const removing = state.handleRemoveAttachment(attachment);
       expect(
         composeContext.attachmentStorage.removeForwardedAttachment
       ).not.toHaveBeenCalled();
@@ -1049,6 +1095,7 @@ describe('send and schedule ordering', () => {
       expect(
         composeContext.attachmentStorage.addForwardedAttachments
       ).not.toHaveBeenCalled();
+      await removing;
     } finally {
       state.dispose();
     }
@@ -1189,26 +1236,32 @@ describe('send and schedule ordering', () => {
     }
   );
 
-  it('reconciles each previous persisted thread when a reply moves between inboxes', async () => {
+  it('transfers each persisted identity when a reply moves between inboxes', async () => {
     const composeContext = createComposeContext();
-    const { promise: saving, resolve: finish } =
-      Promise.withResolvers<PersistedEmailIdentity>();
+    composeContext.accounts.inboxes = () =>
+      ['inbox', 'b', 'c'].map((id) => ({
+        id,
+        email_address: `${id}@example.com`,
+        settings: {},
+      }));
+    const first = Promise.withResolvers<PersistedEmailIdentity>();
     vi.mocked(composeContext.drafts.saveDraft)
-      .mockResolvedValue({
-        draftId: 'draft-c',
-        threadId: 'thread-c',
-        inboxId: 'c',
-      })
-      .mockReturnValueOnce(saving)
+      .mockImplementation(async (input) => ({
+        draftId: input.draft.db_id ?? 'draft-a',
+        threadId: input.previousThreadId ?? 'thread-a',
+        inboxId: input.inboxId ?? 'inbox',
+      }))
+      .mockReturnValueOnce(first.promise);
+    vi.mocked(composeContext.drafts.transferDraft)
       .mockResolvedValueOnce({
         draftId: 'draft-b',
         threadId: 'thread-b',
-        inboxId: 'b',
+        attachments: [],
       })
       .mockResolvedValueOnce({
         draftId: 'draft-c',
         threadId: 'thread-c',
-        inboxId: 'c',
+        attachments: [],
       });
     const state = mountReplyComposer(
       composeContext,
@@ -1220,22 +1273,25 @@ describe('send and schedule ordering', () => {
       state.edit('Moving between inboxes');
       await vi.advanceTimersByTimeAsync(500);
       state.persistDraftOnSenderSwitch('b');
-      finish({ draftId: 'draft-a', threadId: 'thread-a', inboxId: 'inbox' });
+      first.resolve({
+        draftId: 'draft-a',
+        threadId: 'thread-a',
+        inboxId: 'inbox',
+      });
       await vi.advanceTimersByTimeAsync(0);
       state.persistDraftOnSenderSwitch('c');
       await vi.advanceTimersByTimeAsync(0);
-      const inputs = vi
-        .mocked(composeContext.drafts.saveDraft)
-        .mock.calls.map(([input]) => input);
-      expect(inputs.map((input) => input.previousThreadId)).toEqual([
-        undefined,
-        'thread-a',
-        'thread-b',
-      ]);
-      expect(inputs.map((input) => input.draft.db_id)).toEqual([
-        undefined,
-        'draft-a',
-        'draft-b',
+      expect(
+        vi
+          .mocked(composeContext.drafts.transferDraft)
+          .mock.calls.map(([input]) => [
+            input.draftId,
+            input.sourceInboxId,
+            input.destinationInboxId,
+          ])
+      ).toEqual([
+        ['draft-a', 'inbox', 'b'],
+        ['draft-b', 'b', 'c'],
       ]);
       state.handleSendTimeChange(hoursFromNow(24));
       await state.sendEmail();

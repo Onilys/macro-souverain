@@ -38,7 +38,9 @@ function NotificationToastTrigger(props: {
   onMount(() => {
     const toastId = toast.custom(
       {
-        title: 'Enable Browser Notifications',
+        title: isPlatform('desktop')
+          ? 'Enable Desktop Notifications'
+          : 'Enable Browser Notifications',
         icon: Bell,
         color: 'var(--color-accent)',
         content: () => (

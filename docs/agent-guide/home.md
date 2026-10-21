@@ -77,7 +77,11 @@ overrides saved filters. Returning through split history resets navigation to Si
 
 Channel thread replies remain separate Home entries from their parent channel,
 using single-line rows and a reply arrow icon on desktop, labeled
-with the sender and channel (for example, **Peter in #battlefield**). Channel names
+with the sender and channel (for example, **Peter in #battlefield**). Replies and
+mentions name the latest notification's sender, including bots, even after the
+notification is read. To verify, mention yourself from a second account in a
+thread started by someone else: the row must name the mentioner and open their
+message. Channel names
 prefer the current channel cache, then a matching thread notification's name,
 then **Unknown channel** if neither source has a name. Selecting a
 thread opens that thread in the channel preview; Shift-click opens it in a split.
@@ -94,6 +98,13 @@ working. A coding session adds a second line with repository, captured working
 branch (when available), and PR number/status. Non-coding sessions stay on one
 line. Their timestamps and unread dots stay visible. Missing repository metadata
 is omitted.
+Once `HIDE_AGENT_DM_SESSIONS` is enabled after the warm-marker rollout, agent
+DM contexts stay out of broad Agents/Home lists, including work-feed and
+notification-driven candidates. Prior notifications or activity must not bring
+them back. The DM remains in Channels/DMs; authorized direct session links and
+explicitly saved favorites still open their context. Verify this alongside an
+ordinary standalone session, which remains listed.
+
 The Agents workspace uses a single left dot for activity and unread state in
 place of the sparkle. Opening a loaded session from Home or Agents marks its
 notifications read after the viewing delay, including notifications arriving
@@ -125,7 +136,9 @@ for tasks, skills, snippets, and other documents. Suggestion loading/errors
 are isolated from the input. If generation stalls for 45 seconds, the shimmer
 is replaced with a retry action; a late result still appears automatically.
 Generation status updates do not extend that deadline. Retry starts a fresh
-45-second wait. Shift+Enter adds a line. Selecting a Home row replaces
+45-second wait. Free users get suggestions from the free-tier model; if the
+plan refuses the request (403), the row says suggestions are unavailable and
+offers no retry. Shift+Enter adds a line. Selecting a Home row replaces
 the composer with its preview. Home uses the shared 256px sidebar and collapses
 navigation below 720px. The hamburger or `Cmd+.` opens the full feed as a
 slide-over. Activating a row or **New chat** closes that overlay to show content;
@@ -178,7 +191,7 @@ an older reminder stays in its older section after the event's metadata syncs;
 opening its details should show the expected occurrence. A newer reminder or your
 own later activity can move the row forward, but a calendar sync alone should not.
 
-On mobile, the dock and search scope use the bell icon and **Notifications**
+On mobile, the dock uses the bell icon and **Notifications**
 label; Home is desktop-only. Notifications has no merged own-activity feed or
 chat starting pane. Opening a row navigates to its entity. On iOS, rows fade
 underneath the filters and status bar using the shared top edge gradient.
@@ -206,7 +219,8 @@ longer notifies the thread. Settings → notifications lists them under `AI`.
 ## Home — `/app/component/home`
 
 Greeting, example prompt buttons (`Draft a document`, `Draft an email`,
-`Search & research`), and the ubiquitous `Ask AI` composer. Finishing onboarding
+`Search & research`), and the desktop `Ask AI` composer. Mobile Home keeps its
+New action without a floating AI input. Finishing onboarding
 without a deep link lands here. The retired Getting Started page's old
 `/app/getting-started` and `/app/component/getting-started` links also open Home.
 

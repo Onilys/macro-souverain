@@ -1,4 +1,5 @@
 import type { EmailScheduleState } from '@app/features/email-compose/primitives/email-send-schedule';
+import { fireAndForget } from '@core/util/fireAndForget';
 import ClockIcon from '@phosphor/clock.svg';
 import { buttonClasses, cn, Tooltip } from '@ui';
 import { addYears } from 'date-fns/addYears';
@@ -87,7 +88,9 @@ export const EmailDateSelector: VoidComponent<EmailDateSelectorProps> = (
                   class="rounded-lg px-2 py-1.5 text-left text-sm text-failure hover:bg-hover disabled:text-ink-extra-muted"
                   disabled={props.operation !== 'idle'}
                   onPointerDown={(event) => event.preventDefault()}
-                  onClick={() => void props.onCancelSchedule?.()}
+                  onClick={() =>
+                    fireAndForget(props.onCancelSchedule?.(), 'email-compose')
+                  }
                 >
                   {props.operation === 'cancelling'
                     ? 'Cancelling schedule…'
@@ -97,7 +100,7 @@ export const EmailDateSelector: VoidComponent<EmailDateSelectorProps> = (
             </Show>
           }
           triggerClass={cn(
-            buttonClasses({ size: 'icon-composer' }),
+            buttonClasses({ size: props.mobile ? 'icon-sm' : 'icon-composer' }),
             props.selectedTime &&
               !isCompact() &&
               'min-w-0 max-w-full shrink gap-1 aspect-auto! bg-accent/20 text-accent hover:bg-accent/15! hover:text-accent! not-touch:min-w-[33.75px] not-touch:w-auto! not-touch:px-2'
@@ -118,7 +121,12 @@ export const EmailDateSelector: VoidComponent<EmailDateSelectorProps> = (
 
             return (
               <div class="flex min-w-0 items-center gap-1">
-                <ClockIcon class={props.selectedTime ? 'text-accent' : ''} />
+                <ClockIcon
+                  class={cn(
+                    'touch:size-6',
+                    props.selectedTime && 'text-accent'
+                  )}
+                />
                 <Show when={showExpanded()}>
                   <span class="min-w-0 truncate text-sm">
                     {selectedLabel()}
