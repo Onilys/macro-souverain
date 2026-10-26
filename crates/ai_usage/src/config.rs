@@ -34,6 +34,12 @@ pub fn load_ai_usage_enforcement() -> Result<AiUsageEnforcement, rootcause::Repo
     }
 }
 
+/// Load `AI_DISABLED`: when `true`, the deployment runs without any AI and no
+/// model request is made. Missing means AI is enabled.
+pub fn load_ai_disabled() -> Result<bool, rootcause::Report> {
+    load_startup_flag("AI_DISABLED")
+}
+
 /// Load a default-off `true`/`false` policy flag once at service startup.
 ///
 /// Missing means `false`. Only raw `true` and `false` are accepted when present;

@@ -452,10 +452,17 @@ impl ModelRouter {
     /// the same fully-populated instance, so a model id resolves identically
     /// everywhere. Register additional OpenAI-compatible providers here as they
     /// are added.
+    ///
+    /// Fails when `AI_DISABLED` is `true`, so no model request is ever made.
     pub(crate) fn shared() -> Result<&'static ModelRouter<MeteredHttpClient>, AgentError> {
         static ROUTER: OnceLock<ModelRouter<MeteredHttpClient>> = OnceLock::new();
         if let Some(router) = ROUTER.get() {
             return Ok(router);
+        }
+        let ai_disabled = ai_usage::config::load_ai_disabled()
+            .map_err(|report| anyhow::anyhow!("invalid AI_DISABLED: {report}"))?;
+        if ai_disabled {
+            return Err(anyhow::anyhow!("AI is disabled (AI_DISABLED=true)").into());
         }
         let router = Self::try_from_env()?;
         Ok(ROUTER.get_or_init(|| router))

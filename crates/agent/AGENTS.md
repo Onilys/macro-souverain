@@ -51,6 +51,8 @@ and usage metering.
 
 - `rig-core`/`rig-agent` are pinned exact versions (not workspace deps);
   bump both together and check `test-utils` feature compatibility.
+- `AI_DISABLED=true` makes `ModelRouter::shared` fail, so every turn and
+  completion errors before any provider request (sovereign deployments).
 
 ## Related
 
