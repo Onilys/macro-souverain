@@ -51,12 +51,6 @@ and usage metering.
 
 - `rig-core`/`rig-agent` are pinned exact versions (not workspace deps);
   bump both together and check `test-utils` feature compatibility.
-- Setting `LOCAL_LLM_BASE_URL` (with `LOCAL_LLM_MODEL`, optional
-  `LOCAL_LLM_FAST_MODEL` and `LOCAL_LLM_API_KEY`) sends every model id to that
-  self-hosted OpenAI-compatible server: fast-tier ids (haiku, mini, nano,
-  flash, lite, cerebras) to the fast model, the rest to the default one. The
-  vendor API keys must still be set (any value) because the router builds
-  those clients; they make no request.
 
 ## Related
 
